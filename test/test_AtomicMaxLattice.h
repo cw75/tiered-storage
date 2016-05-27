@@ -19,11 +19,11 @@ typedef ::testing::Types<int, float, double> AtomicMaxTypes;
 TYPED_TEST_CASE(AtomicMaxLatticeTest, AtomicMaxTypes);
 
 template <typename T>
-void AtomicMaxMerge(AtomicMaxLattice<T>* p, atomic<bool> &signal, int index) {
+void AtomicMaxMerge(AtomicMaxLattice<T>* p, atomic<bool> &signal, int index, int num_thread) {
 	while(!signal){
 		std::this_thread::yield();
 	}
-	for (int i = (100000 * index); i < (100000 * index + 100000); i++) {
+	for (int i = index; i < 1000000; i += num_thread) {
 		p->merge(i);
 	}
 }
@@ -33,7 +33,7 @@ TYPED_TEST(AtomicMaxLatticeTest, ThreadSafe) {
 	vector<thread> threads;
 	atomic<bool> go(false);
 	for (int i = 0; i < 10; i += 1) {
-		threads.push_back(thread(AtomicMaxMerge<TypeParam>, this->aml, ref(go), i));
+		threads.push_back(thread(AtomicMaxMerge<TypeParam>, this->aml, ref(go), i, 10));
 	}
 	go.store(true);
 	for (auto& th : threads) th.join();

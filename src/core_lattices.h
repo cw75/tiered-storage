@@ -9,6 +9,8 @@
 #include <stdio.h>
 #include <limits>
 #include "base_lattices.h"
+#include "tbb/concurrent_unordered_set.h"
+#include "tbb/concurrent_unordered_map.h"
 
 using namespace std;
 
@@ -295,5 +297,60 @@ public:
 	AtomicMaxLattice() : AtomicLattice<T>() {}
 	AtomicMaxLattice(const T &e) : AtomicLattice<T>(e) {}
 };
+
+template <typename T>
+class AtomicSetLattice : public Lattice<tbb::concurrent_unordered_set<T>> {
+protected:
+	void do_merge(const tbb::concurrent_unordered_set<T> &e) {
+		// we need 'this' because this is a templated class
+		// 'this' makes the name dependent so that we can access the base definition
+		for ( auto it = e.begin(); it != e.end(); ++it ) {
+			this->element.insert(*it);
+		}
+	}
+public:
+	AtomicSetLattice() : Lattice<tbb::concurrent_unordered_set<T>>() {}
+	AtomicSetLattice(const tbb::concurrent_unordered_set<T> &e) : Lattice<tbb::concurrent_unordered_set<T>>(e) {}
+	const typename tbb::concurrent_unordered_set<T>::size_type size() {
+		return this->element.size();
+	}
+	void insert(const T &e) {
+		this->element.insert(e);
+	}
+};
+
+template <typename K, typename V>
+class AtomicMapLattice : public Lattice<tbb::concurrent_unordered_map<K, V>> {
+protected:
+ 	void insert_pair(const K &k, const V &v) {
+        auto search = this->element.find(k);
+        if (search != this->element.end()) {
+            // avoid copying the value out of the pair during casting!  Instead
+            // cast the pointer. A bit ugly but seems like it should be safe.
+            static_cast<V *>(&(search->second))->merge(v);
+        } else {
+            // need to copy v since we will be "growing" it within the lattice
+            V new_v = v;
+            this->element.emplace(k, new_v);
+        }
+    }
+    void do_merge(const tbb::concurrent_unordered_map<K, V> &m) {
+        for (auto ms = m.begin(); ms != m.end(); ++ms) {
+            this->insert_pair(ms->first, ms->second);
+        }
+    }
+public:
+	AtomicMapLattice() : Lattice<tbb::concurrent_unordered_map<K, V>>() {}
+	AtomicMapLattice(const tbb::concurrent_unordered_map<K, V> &m) : Lattice<tbb::concurrent_unordered_map<K, V>>(m) {}
+	const typename tbb::concurrent_unordered_map<K, V>::size_type size() {
+		return this->element.size();
+	}
+};
+
+
+
+
+
+
 
 #endif
