@@ -12,7 +12,9 @@ protected:
 	AtomicMaxLatticeTest() {
 		aml = new AtomicMaxLattice<T>;
 	}
-	virtual ~AtomicMaxLatticeTest() = default;
+	virtual ~AtomicMaxLatticeTest() {
+		delete aml;
+	}
 };
 
 typedef ::testing::Types<int, float, double> AtomicMaxTypes;

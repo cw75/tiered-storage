@@ -15,7 +15,9 @@ protected:
 	MapLatticeTest() {
 		mapl = new MapLattice<char, MaxLattice<int>>;
 	}
-	virtual ~MapLatticeTest() = default;
+	virtual ~MapLatticeTest() {
+		delete mapl;
+	}
 	void check_equality(charMaxIntMap m) {
 		EXPECT_EQ(m.size(), mapl->size());
 		charMaxIntMap result = mapl->reveal();
@@ -46,6 +48,26 @@ TEST_F(MapLatticeTest, MergeByLattice) {
 	check_equality(map1);
 	mapl->merge(MapLattice<char, MaxLattice<int>>(map2));
 	check_equality(map3);
+}
+
+TEST_F(MapLatticeTest, KeySet) {
+	mapl->merge(map1);
+	SetLattice<char> res = mapl->key_set();
+	EXPECT_EQ(unordered_set<char>({'a', 'b'}), res.reveal());
+}
+
+TEST_F(MapLatticeTest, At) {
+	mapl->merge(map1);
+	MaxLattice<int> res = mapl->at('a');
+	EXPECT_EQ(10, res.reveal());
+}
+
+TEST_F(MapLatticeTest, Contain) {
+	mapl->merge(map1);
+	BoolLattice res = mapl->contain('a');
+	EXPECT_EQ(true, res.reveal());
+	res = mapl->contain('d');
+	EXPECT_EQ(false, res.reveal());
 }
 
 

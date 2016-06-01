@@ -15,7 +15,9 @@ protected:
 	TombstoneLatticeTest() {
 		tl = new TombstoneLattice<char>;
 	}
-	virtual ~TombstoneLatticeTest() = default;
+	virtual ~TombstoneLatticeTest() {
+		delete tl;
+	}
 	void check_equality(charBoolMap m) {
 		EXPECT_EQ(m.size(), tl->size());
 		charBoolMap result = tl->reveal();

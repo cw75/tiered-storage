@@ -11,7 +11,9 @@ protected:
 	MaxLatticeTest() {
 		ml = new MaxLattice<T>;
 	}
-	virtual ~MaxLatticeTest() = default;
+	virtual ~MaxLatticeTest() {
+		delete ml;
+	}
 };
 
 typedef ::testing::Types<int, float, double> MaxTypes;
@@ -41,7 +43,28 @@ TYPED_TEST(MaxLatticeTest, MergeByLattice) {
 	EXPECT_EQ(10, this->ml->reveal());
 }
 
+TYPED_TEST(MaxLatticeTest, Gt) {
+	BoolLattice bl = this->ml->gt(0);
+	EXPECT_EQ(false, bl.reveal());
+	this->ml->merge(1);
+	bl = this->ml->gt(0);
+	EXPECT_EQ(true, bl.reveal());
+}
 
+TYPED_TEST(MaxLatticeTest, GtEq) {
+	BoolLattice bl = this->ml->gt_eq(0);
+	EXPECT_EQ(true, bl.reveal());
+}
+
+TYPED_TEST(MaxLatticeTest, Add) {
+	MaxLattice<TypeParam> res = this->ml->add(5);
+	EXPECT_EQ(5, res.reveal());
+}
+
+TYPED_TEST(MaxLatticeTest, Subtract) {
+	MaxLattice<TypeParam> res = this->ml->subtract(5);
+	EXPECT_EQ(-5, res.reveal());
+}
 
 
 

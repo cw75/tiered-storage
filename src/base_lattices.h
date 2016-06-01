@@ -26,7 +26,7 @@ public:
       assign(rhs.reveal());
       return *this;
     }
-    bool operator==(const AtomicLattice<T>& rhs) {
+    bool operator==(const AtomicLattice<T>& rhs) const {
 		return this->reveal() == rhs.reveal();
 	}
 	const T reveal() const {
@@ -43,6 +43,9 @@ public:
 	}
 	void assign(const T e) {
 		element.store(e);
+	}
+	void assign(const AtomicLattice<T> &e) {
+		element.store(e.reveal());
 	}
 };
 
@@ -67,7 +70,7 @@ public:
       assign(rhs.reveal());
       return *this;
     }
-    bool operator==(const Lattice<T>& rhs) {
+    bool operator==(const Lattice<T>& rhs) const {
 		return this->reveal() == rhs.reveal();
 	}
 	const T &reveal() const {
@@ -85,6 +88,16 @@ public:
 	void assign(const T e) {
 		element = e;
 	}
+	void assign(const Lattice<T> &e) {
+		element = e.reveal();
+	}
 };
+
+template <typename T>
+bool dominated(T l1, T l2) {
+	l1.merge(l2);
+	if (l1 == l2) return true;
+	else return false;
+}
 
 #endif

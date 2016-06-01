@@ -10,8 +10,14 @@ protected:
 	BoolLatticeTest() {
 		bl = new BoolLattice;
 	}
-	virtual ~BoolLatticeTest() = default;
+	virtual ~BoolLatticeTest() {
+		delete bl;
+	}
 };
+
+int foo() {
+	return 5;
+}
 
 TEST_F(BoolLatticeTest, Assign) {
 	EXPECT_EQ(false, bl->reveal());
@@ -35,6 +41,14 @@ TEST_F(BoolLatticeTest, MergeByLattice) {
 	EXPECT_EQ(true, bl->reveal());
 	bl->merge(BoolLattice(false));
 	EXPECT_EQ(true, bl->reveal());
+}
+
+TEST_F(BoolLatticeTest, WhenTrue) {
+	int res = bl->when_true(foo);
+	EXPECT_EQ(res, 0);
+	bl->merge(true);
+	res = bl->when_true(foo);
+	EXPECT_EQ(res, 5);
 }
 
 

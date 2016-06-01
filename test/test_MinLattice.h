@@ -11,7 +11,9 @@ protected:
 	MinLatticeTest() {
 		ml = new MinLattice<T>;
 	}
-	virtual ~MinLatticeTest() = default;
+	virtual ~MinLatticeTest() {
+		delete ml;
+	}
 };
 
 typedef ::testing::Types<int, float, double> MinTypes;
@@ -39,4 +41,33 @@ TYPED_TEST(MinLatticeTest, MergeByLattice) {
 	EXPECT_EQ(10, this->ml->reveal());
 	this->ml->merge(MinLattice<TypeParam>(20));
 	EXPECT_EQ(10, this->ml->reveal());
+}
+
+TYPED_TEST(MinLatticeTest, Lt) {
+	BoolLattice bl = this->ml->lt(0);
+	EXPECT_EQ(false, bl.reveal());
+	this->ml->merge(0);
+	bl = this->ml->lt(0);
+	EXPECT_EQ(false, bl.reveal());
+	this->ml->merge(-1);
+	bl = this->ml->lt(0);
+	EXPECT_EQ(true, bl.reveal());
+}
+
+TYPED_TEST(MinLatticeTest, LtEq) {
+	this->ml->merge(0);
+	BoolLattice bl = this->ml->lt_eq(0);
+	EXPECT_EQ(true, bl.reveal());
+}
+
+TYPED_TEST(MinLatticeTest, Add) {
+	this->ml->merge(0);
+	MinLattice<TypeParam> res = this->ml->add(5);
+	EXPECT_EQ(5, res.reveal());
+}
+
+TYPED_TEST(MinLatticeTest, Subtract) {
+	this->ml->merge(0);
+	MinLattice<TypeParam> res = this->ml->subtract(5);
+	EXPECT_EQ(-5, res.reveal());
 }
