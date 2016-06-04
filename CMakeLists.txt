@@ -12,7 +12,7 @@ include_directories (
 	include
 )
 
-add_subdirectory(test)
-add_subdirectory(benchmark)
+add_subdirectory(tests)
+add_subdirectory(benchmarks)
 add_subdirectory(kv_store)
 

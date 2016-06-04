@@ -9,5 +9,5 @@ Build Instructions:
 Run `sh ./scripts/build_debug.sh` to build the library in debug mode<br />
 Run `sh ./scripts/build_release.sh` to build the library in release mode.
 
-To run the tests, run `./build/test/run_test`.<br />
-To run the benchmarks, run `./build/benchmark/run_benchmark`.
+To run the tests, run `./build/tests/run_test`.<br />
+To run the benchmarks, run `./build/benchmarks/run_benchmark`.
