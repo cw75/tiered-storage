@@ -9,25 +9,11 @@ SET (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -lpthread -ltbb -std=c+
 include_directories (
 	/usr/local/include
 	${PROJECT_SOURCE_DIR}
-	test
-	benchmark
 )
 
-add_executable(run_kvs kv_store/kv_store.cpp)
-add_executable(run_test test/run_test.cpp)
-add_executable(run_benchmark benchmark/run_benchmark.cpp)
-
-IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-   # Mac OS X specific code
-   target_link_libraries (run_test /usr/local/lib/libgtest.dylib)
-   target_link_libraries (run_benchmark /usr/local/lib/libbenchmark.dylib)
-ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-
-IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    # Linux specific code
-   target_link_libraries (run_test /usr/local/lib/libgtest.so)
-   target_link_libraries (run_benchmark /usr/local/lib/libbenchmark.so)
-ENDIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+add_subdirectory(test)
+add_subdirectory(benchmark)
+add_subdirectory(kv_store)
 
 
 
