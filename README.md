@@ -1,1 +1,2 @@
-# high-performance-lattices
+# High Performance Lattices
+Build Instructions:
