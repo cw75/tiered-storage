@@ -1,7 +1,7 @@
 # High Performance Lattices
 Build Instructions:
 
-1. Download and install llvm and Clang. Clang is assumed to reside in /usr/bin/.
+1. Download and install llvm and Clang. Clang is assumed to reside in `/usr/bin/`.
 2. Run `sh build_googletest.sh` and `sh build_googlebenchmark.sh` to build Google Test and Google Benchmark.
 3. Download and install Intel TBB. For Mac OS X, run `brew install tbb`. For Ubuntu/Linux, run `apt-get install libtbb2`.
 
