@@ -5,5 +5,5 @@ Build Instructions:
 2. Download and install Google Test and Google Benchmark.
 3. Download and install Intel TBB.
 
-Run `sh build_debug.sh` to build the library in debug mode.\\
+Run `sh build_debug.sh` to build the library in debug mode<br />
 Run `sh build_release.sh` to build the library in release mode.
