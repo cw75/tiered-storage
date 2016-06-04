@@ -15,7 +15,7 @@ protected:
 	}
 };
 
-int foo() {
+const int foo() {
 	return 5;
 }
 

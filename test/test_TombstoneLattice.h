@@ -19,7 +19,7 @@ protected:
 		delete tl;
 	}
 	void check_equality(charBoolMap m) {
-		EXPECT_EQ(m.size(), tl->size());
+		EXPECT_EQ(m.size(), tl->size().reveal());
 		charBoolMap result = tl->reveal();
 		for ( auto it = result.begin(); it != result.end(); ++it ) {
 			ASSERT_FALSE(m.find(it->first) == m.end());
@@ -29,22 +29,22 @@ protected:
 };
 
 TEST_F(TombstoneLatticeTest, Assign) {
-	EXPECT_EQ(0, tl->size());
+	EXPECT_EQ(0, tl->size().reveal());
 	tl->assign(map1);
 	check_equality(map1);
 }
 
 TEST_F(TombstoneLatticeTest, MergeByValue) {
-	EXPECT_EQ(0, tl->size());
+	EXPECT_EQ(0, tl->size().reveal());
 	tl->merge(map1);
-	EXPECT_EQ(map1.size(), tl->size());
+	EXPECT_EQ(map1.size(), tl->size().reveal());
 	check_equality(map1);
 	tl->merge(map2);
 	check_equality(map3);
 }
 
 TEST_F(TombstoneLatticeTest, MergeByLattice) {
-	EXPECT_EQ(0, tl->size());
+	EXPECT_EQ(0, tl->size().reveal());
 	tl->merge(TombstoneLattice<char>(map1));
 	check_equality(map1);
 	tl->merge(TombstoneLattice<char>(map2));

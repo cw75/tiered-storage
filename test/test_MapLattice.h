@@ -19,7 +19,7 @@ protected:
 		delete mapl;
 	}
 	void check_equality(charMaxIntMap m) {
-		EXPECT_EQ(m.size(), mapl->size());
+		EXPECT_EQ(m.size(), mapl->size().reveal());
 		charMaxIntMap result = mapl->reveal();
 		for ( auto it = result.begin(); it != result.end(); ++it ) {
 			ASSERT_FALSE(m.find(it->first) == m.end());
@@ -29,13 +29,13 @@ protected:
 };
 
 TEST_F(MapLatticeTest, Assign) {
-	EXPECT_EQ(0, mapl->size());
+	EXPECT_EQ(0, mapl->size().reveal());
 	mapl->assign(map1);
 	check_equality(map1);
 }
 
 TEST_F(MapLatticeTest, MergeByValue) {
-	EXPECT_EQ(0, mapl->size());
+	EXPECT_EQ(0, mapl->size().reveal());
 	mapl->merge(map1);
 	check_equality(map1);
 	mapl->merge(map2);
@@ -43,7 +43,7 @@ TEST_F(MapLatticeTest, MergeByValue) {
 }
 
 TEST_F(MapLatticeTest, MergeByLattice) {
-	EXPECT_EQ(0, mapl->size());
+	EXPECT_EQ(0, mapl->size().reveal());
 	mapl->merge(MapLattice<char, MaxLattice<int>>(map1));
 	check_equality(map1);
 	mapl->merge(MapLattice<char, MaxLattice<int>>(map2));

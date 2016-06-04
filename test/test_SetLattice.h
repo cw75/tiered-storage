@@ -18,7 +18,7 @@ protected:
 	}
 };
 
-int flow_test_set() {
+const int flow_test_set() {
 	return 5;
 }
 

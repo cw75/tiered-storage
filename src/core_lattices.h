@@ -25,13 +25,15 @@ public:
 	BoolLattice() : Lattice() {}
 	BoolLattice(const bool &e) : Lattice(e) {}
 	// this should probably be defined by the application
-	int when_true(int (*f)()) {
+	const int when_true(const int (*f)()) const{
 		if (element) {
 			return (*f)();
 		}
 		else return 0;
 	}
 };
+
+
 
 template <typename T>
 class MaxLattice : public Lattice<T> {
@@ -47,21 +49,23 @@ protected:
 public:
 	MaxLattice() : Lattice<T>() {}
 	MaxLattice(const T &e) : Lattice<T>(e) {}
-	BoolLattice gt(T n) {
+	BoolLattice gt(T n) const{
 		if (this->element > n) return BoolLattice(true);
 		else return BoolLattice(false);
 	}
-	BoolLattice gt_eq(T n) {
+	BoolLattice gt_eq(T n) const{
 		if (this->element >= n) return BoolLattice(true);
 		else return BoolLattice(false);
 	}
-	MaxLattice<T> add(T n) {
+	MaxLattice<T> add(T n) const{
 		return MaxLattice<T>(this->element + n);
 	}
-	MaxLattice<T> subtract(T n) {
+	MaxLattice<T> subtract(T n) const{
 		return MaxLattice<T>(this->element - n);
 	}
 };
+
+
 
 template <typename T>
 class MinLattice : public Lattice<T> {
@@ -84,21 +88,23 @@ public:
 		//return numeric_limits<T>::max();
 		return static_cast<T> (1000000);
 	}
-	BoolLattice lt(T n) {
+	BoolLattice lt(T n) const{
 		if (this->element < n) return BoolLattice(true);
 		else return BoolLattice(false);
 	}
-	BoolLattice lt_eq(T n) {
+	BoolLattice lt_eq(T n) const{
 		if (this->element <= n) return BoolLattice(true);
 		else return BoolLattice(false);
 	}
-	MinLattice<T> add(T n) {
+	MinLattice<T> add(T n) const{
 		return MinLattice<T>(this->element + n);
 	}
-	MinLattice<T> subtract(T n) {
+	MinLattice<T> subtract(T n) const{
 		return MinLattice<T>(this->element - n);
 	}
 };
+
+
 
 template <typename T>
 class SetLattice : public Lattice<unordered_set<T>> {
@@ -113,13 +119,13 @@ protected:
 public:
 	SetLattice() : Lattice<unordered_set<T>>() {}
 	SetLattice(const unordered_set<T> &e) : Lattice<unordered_set<T>>(e) {}
-	MaxLattice<int> size() {
+	MaxLattice<int> size() const{
 		return MaxLattice<int>(this->element.size());
 	}
 	void insert(const T &e) {
 		this->element.insert(e);
 	}
-	SetLattice<T> intersect(unordered_set<T> s) {
+	SetLattice<T> intersect(unordered_set<T> s) const{
 		unordered_set<T> res;
 		for ( auto iter_i = s.begin(); iter_i != s.end(); ++iter_i ) {
 			for ( auto iter_j = this->element.begin(); iter_j != this->element.end(); ++iter_j ) {
@@ -128,12 +134,21 @@ public:
 		}
 		return SetLattice<T>(res);
 	}
-	BoolLattice contain(T v) {
+	SetLattice<T> project(bool (*f)(T)) const{
+		unordered_set<T> res;
+		for (auto it = this->element.begin(); it != this->element.end(); ++it) {
+            if(f(*it)) res.insert(*it);
+        }
+        return SetLattice<T>(res);
+	}
+	BoolLattice contain(T v) const{
 		auto it = this->element.find(v);
 		if (it == this->element.end()) return BoolLattice(false);
 		else return BoolLattice(true);
 	}
 };
+
+
 
 template <typename K, typename V>
 class MapLattice : public Lattice<unordered_map<K, V>> {
@@ -158,10 +173,28 @@ protected:
 public:
 	MapLattice() : Lattice<unordered_map<K, V>>() {}
 	MapLattice(const unordered_map<K, V> &m) : Lattice<unordered_map<K, V>>(m) {}
-	const typename unordered_map<K, V>::size_type size() {
+	MaxLattice<int> size() const{
 		return this->element.size();
 	}
-	SetLattice<K> key_set() {
+	MapLattice<K, V> intersect(MapLattice<K, V> other) const{
+		MapLattice<K, V> res;
+		unordered_map<K, V> m = other.reveal();
+        for (auto it = m.begin(); it != this->m.end(); ++it) {
+            if(this->contain(it->first).reveal()) {
+            	res.insert_pair(it->first, this->at(it->first));
+            	res.insert_pair(it->first, it->second);
+            }
+        }
+        return res;
+	}
+	MapLattice<K, V> project(bool (*f)(V)) const{
+		unordered_map<K, V> res;
+		for (auto it = this->element.begin(); it != this->element.end(); ++it) {
+            if(f(it->second)) res.emplace(it->first, it->second);
+        }
+        return MapLattice<K, V>(res);
+	}
+	SetLattice<K> key_set() const{
 		unordered_set<K> res;
 		for ( auto it = this->element.begin(); it != this->element.end(); ++it) {
 			res.insert(it->first);
@@ -171,12 +204,14 @@ public:
 	V &at(K k) {
 		return this->element[k];
 	}
-	BoolLattice contain(K k) {
+	BoolLattice contain(K k) const{
 		auto it = this->element.find(k);
 		if (it == this->element.end()) return BoolLattice(false);
 		else return BoolLattice(true);
 	}
 };
+
+
 
 template <typename V>
 class VectorLattice : public Lattice<vector<V>> {
@@ -199,6 +234,8 @@ public:
     VectorLattice(const vector<V> &v) : Lattice<vector<V>>(v) {}
 };
 
+
+
 // assume that once a value has been deleted, it cannot be re-inserted
 template <typename T>
 class TombstoneLattice : public MapLattice<T, BoolLattice> {
@@ -211,7 +248,16 @@ public:
 	void remove(const T &e) {
 		this->insert_pair(e, BoolLattice(true));
 	}
+	SetLattice<T> living_elements() const{
+		unordered_set<T> res;
+		for ( auto it = this->element.begin(); it != this->element.end(); ++it) {
+			if (!it->second.reveal()) res.insert(it->first);
+		}
+		return SetLattice<T>(res);
+	}
 };
+
+
 
 template <typename T, size_t S>
 struct slotArray {
@@ -248,6 +294,26 @@ public:
 	}
 };
 
+
+
+class AtomicBoolLattice: public AtomicLattice<bool> {
+protected:
+	void do_merge(const bool &e) {
+		if (e == true && element.load() == false) element.store(e);
+	}
+public:
+	AtomicBoolLattice() : AtomicLattice<bool>() {}
+	AtomicBoolLattice(const bool &e) : AtomicLattice<bool>(e) {}
+	const int when_true(const int (*f)()) const{
+		if (element) {
+			return (*f)();
+		}
+		else return 0;
+	}
+};
+
+
+
 template <typename T>
 class AtomicMaxLattice : public AtomicLattice<T> {
 protected:
@@ -264,7 +330,59 @@ protected:
 public:
 	AtomicMaxLattice() : AtomicLattice<T>() {}
 	AtomicMaxLattice(const T &e) : AtomicLattice<T>(e) {}
+	BoolLattice gt(T n) const{
+		if (this->element > n) return BoolLattice(true);
+		else return BoolLattice(false);
+	}
+	BoolLattice gt_eq(T n) const{
+		if (this->element >= n) return BoolLattice(true);
+		else return BoolLattice(false);
+	}
+	MaxLattice<T> add(T n) const{
+		return MaxLattice<T>(this->element + n);
+	}
+	MaxLattice<T> subtract(T n) const{
+		return MaxLattice<T>(this->element - n);
+	}
 };
+
+
+
+template <typename T>
+class AtomicMinLattice : public AtomicLattice<T> {
+protected:
+	void do_merge(const T &e) {
+		// we need 'this' because this is a templated class
+		// 'this' makes the name dependent so that we can access the base definition
+		T current = this->element.load();
+		if (current > e) {
+			while(!this->element.compare_exchange_strong(current, e)){
+				if(current <= e) break;
+			}
+		}
+	}
+public:
+	AtomicMinLattice() {
+		this->assign(static_cast<T> (1000000));
+	}
+	AtomicMinLattice(const T &e) : AtomicLattice<T>(e) {}
+	BoolLattice lt(T n) const{
+		if (this->element < n) return BoolLattice(true);
+		else return BoolLattice(false);
+	}
+	BoolLattice lt_eq(T n) const{
+		if (this->element <= n) return BoolLattice(true);
+		else return BoolLattice(false);
+	}
+	MinLattice<T> add(T n) const{
+		return MinLattice<T>(this->element + n);
+	}
+	MinLattice<T> subtract(T n) const{
+		return MinLattice<T>(this->element - n);
+	}
+};
+
+
 
 template <typename T>
 class AtomicSetLattice : public Lattice<tbb::concurrent_unordered_set<T>> {
@@ -279,13 +397,36 @@ protected:
 public:
 	AtomicSetLattice() : Lattice<tbb::concurrent_unordered_set<T>>() {}
 	AtomicSetLattice(const tbb::concurrent_unordered_set<T> &e) : Lattice<tbb::concurrent_unordered_set<T>>(e) {}
-	const typename tbb::concurrent_unordered_set<T>::size_type size() {
-		return this->element.size();
+	MaxLattice<int> size() const{
+		return MaxLattice<int>(this->element.size());
 	}
 	void insert(const T &e) {
 		this->element.insert(e);
 	}
+	SetLattice<T> intersect(unordered_set<T> s) const{
+		unordered_set<T> res;
+		for ( auto iter_i = s.begin(); iter_i != s.end(); ++iter_i ) {
+			for ( auto iter_j = this->element.begin(); iter_j != this->element.end(); ++iter_j ) {
+				if (*iter_i == *iter_j) res.insert(*iter_i);
+			}
+		}
+		return SetLattice<T>(res);
+	}
+	SetLattice<T> project(bool (*f)(T)) const{
+		unordered_set<T> res;
+		for (auto it = this->element.begin(); it != this->element.end(); ++it) {
+            if(f(*it)) res.insert(*it);
+        }
+        return SetLattice<T>(res);
+	}
+	BoolLattice contain(T v) const{
+		auto it = this->element.find(v);
+		if (it == this->element.end()) return BoolLattice(false);
+		else return BoolLattice(true);
+	}
 };
+
+
 
 template <typename K, typename V>
 class AtomicMapLattice : public Lattice<tbb::concurrent_unordered_map<K, V>> {
@@ -310,8 +451,64 @@ protected:
 public:
 	AtomicMapLattice() : Lattice<tbb::concurrent_unordered_map<K, V>>() {}
 	AtomicMapLattice(const tbb::concurrent_unordered_map<K, V> &m) : Lattice<tbb::concurrent_unordered_map<K, V>>(m) {}
-	const typename tbb::concurrent_unordered_map<K, V>::size_type size() {
+	MaxLattice<int> size() const{
 		return this->element.size();
+	}
+	MapLattice<K, V> intersect(MapLattice<K, V> other) const{
+		MapLattice<K, V> res;
+		unordered_map<K, V> m = other.reveal();
+        for (auto it = m.begin(); it != this->m.end(); ++it) {
+            if(this->contain(it->first).reveal()) {
+            	res.insert_pair(it->first, this->at(it->first));
+            	res.insert_pair(it->first, it->second);
+            }
+        }
+        return res;
+	}
+	MapLattice<K, V> project(bool (*f)(V)) const{
+		unordered_map<K, V> res;
+		for (auto it = this->element.begin(); it != this->element.end(); ++it) {
+            if(f(it->second)) res.emplace(it->first, it->second);
+        }
+        return MapLattice<K, V>(res);
+	}
+	SetLattice<K> key_set() const{
+		unordered_set<K> res;
+		for ( auto it = this->element.begin(); it != this->element.end(); ++it) {
+			res.insert(it->first);
+		}
+		return SetLattice<K>(res);
+	}
+	V &at(K k) {
+		return this->element[k];
+	}
+	BoolLattice contain(K k) const{
+		auto it = this->element.find(k);
+		if (it == this->element.end()) return BoolLattice(false);
+		else return BoolLattice(true);
+	}
+};
+
+
+
+// assume that once a value has been deleted, it cannot be re-inserted
+template <typename T>
+class AtomicTombstoneLattice : public AtomicMapLattice<T, BoolLattice> {
+public:
+    AtomicTombstoneLattice() : AtomicMapLattice<T, BoolLattice>() {}
+    AtomicTombstoneLattice(const tbb::concurrent_unordered_map<T, BoolLattice> &m)  : AtomicMapLattice<T, BoolLattice>(m) {}
+    void insert(const T &e) {
+		this->insert_pair(e, BoolLattice(false));
+	}
+	void remove(const T &e) {
+		this->insert_pair(e, BoolLattice(true));
+	}
+	SetLattice<T> living_elements() const{
+		unordered_set<T> res;
+		for ( auto it = this->element.begin(); it != this->element.end(); ++it) {
+			if (!it->second.reveal()) res.insert(it->first);
+		}
+		return SetLattice<T>(res);
 	}
 };
 
