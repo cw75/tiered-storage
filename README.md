@@ -6,4 +6,5 @@ Build Instructions:
 3. Download and install Intel TBB.
 
 Run `sh build_debug.sh` to build the library in debug mode.
+
 Run `sh build_release.sh` to build the library in release mode.
