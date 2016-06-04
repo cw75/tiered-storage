@@ -7,3 +7,6 @@ Build Instructions:
 
 Run `sh build_debug.sh` to build the library in debug mode<br />
 Run `sh build_release.sh` to build the library in release mode.
+
+To run the tests, run `\build\test\run_test`.<br />
+To run the benchmarks, run `\build\benchmark\run_benchmark`.
