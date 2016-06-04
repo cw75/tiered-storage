@@ -1,0 +1,28 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+../include/benchmark/benchmark_api.h
+assert.h
+-
+stddef.h
+-
+stdint.h
+-
+macros.h
+../include/benchmark/macros.h
+
+../include/benchmark/macros.h
+
+/home/chenggang/Documents/Research/high-performance-lattices/vendor/gbenchmark/test/options_test.cc
+benchmark/benchmark_api.h
+/home/chenggang/Documents/Research/high-performance-lattices/vendor/gbenchmark/test/benchmark/benchmark_api.h
+chrono
+-
+thread
+-
+
