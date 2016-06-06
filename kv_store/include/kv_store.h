@@ -51,10 +51,10 @@ public:
 	KV_Store(MapLattice<char, KVS_PairLattice> other) {
 		db = other;
 	}
-	version_value_pair get(char k) {
+	const version_value_pair &get(char k) {
 		return db.at(k).reveal();
 	}
-	void put(char k, version_value_pair p) {
+	void put(char k, const version_value_pair &p) {
 		db.at(k).merge(p);
 	}
 };
