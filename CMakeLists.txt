@@ -10,6 +10,7 @@ include_directories (
 	vendor/gtest/include
 	vendor/tbb/include
 	include
+	kv_store/include
 )
 
 add_subdirectory(tests)
