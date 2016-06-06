@@ -1,4 +1,7 @@
 # High Performance Lattices
+
+A C++ library that contains high performance lattices that can be composed to build scalable systems. Currently, the library is only tested under Ubuntu/Linux and Mac OS X.
+
 Build Instructions:
 
 1. Download and install llvm and Clang. Clang is assumed to reside in `/usr/bin/`.
