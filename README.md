@@ -12,6 +12,6 @@ Build Instructions:
 To build the library in debug mode, run `sh ./scripts/build_debug.sh`.<br />
 To build the library in release mode, run `sh ./scripts/build_release.sh`.
 
-To run the core lattices' tests, run `./build/tests/run_lattice_test`.<br />
-To run the core lattices' benchmarks, run `./build/benchmarks/run_lattice_benchmark`.<br />
+To run the core lattice tests, run `./build/tests/run_lattice_test`.<br />
+To run the core lattice benchmarks, run `./build/benchmarks/run_lattice_benchmark`.<br />
 To run the versioned KVS tests, run `./build/kv_store/tests/run_kvs_test`.
