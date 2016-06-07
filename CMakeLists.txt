@@ -6,6 +6,8 @@ SET (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address -O0 --co
 SET (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -lpthread -ltbb -std=c++0x -stdlib=libc++")
 
 include_directories (
+	/usr/local/lib
+	/usr/local/include
 	vendor/gbenchmark/include
 	vendor/gtest/include
 	vendor/tbb/include

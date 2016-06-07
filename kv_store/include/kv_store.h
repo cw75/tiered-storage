@@ -61,30 +61,30 @@ public:
 	}
 };
 
-// class Concurrent_KV_Store{
-// protected:
-// 	AtomicMapLattice<char, KVS_PairLattice> db;
-// 	tbb::concurrent_unordered_map<char, unique_ptr<mutex>> lock_table;
-// public:
-// 	Concurrent_KV_Store() {}
-// 	Concurrent_KV_Store(AtomicMapLattice<char, KVS_PairLattice> other) {
-// 		db = other;
-// 	}
-// 	version_value_pair get(char k) {
-// 		auto it = lock_table.find(k);
-// 		if (it == lock_table.end()) {
-// 			it = lock_table.insert({k, unique_ptr<mutex>(new mutex)}).first;
-// 		}
-// 		lock_guard<mutex> lg(*(it->second));
-// 		version_value_pair p = db.at(k).reveal();
-// 		//lock_table.at(k).unlock();
-// 		return p;
-// 	}
-// 	void put(const char &k, const version_value_pair &p) {
-// 		//lock_table.emplace(k, mutex);
-// 		db.at(k).merge(p);
-// 		//lock_table[k];
-// 	}
-// };
+class Concurrent_KV_Store{
+protected:
+	AtomicMapLattice<char, KVS_PairLattice> db;
+	tbb::concurrent_unordered_map<char, unique_ptr<mutex>> lock_table;
+public:
+	Concurrent_KV_Store() {}
+	Concurrent_KV_Store(AtomicMapLattice<char, KVS_PairLattice> other) {
+		db = other;
+	}
+	version_value_pair get(char k) {
+		auto it = lock_table.find(k);
+		if (it == lock_table.end()) {
+			it = lock_table.insert({k, unique_ptr<mutex>(new mutex)}).first;
+		}
+		lock_guard<mutex> lg(*(it->second));
+		version_value_pair p = db.at(k).reveal();
+		//lock_table.at(k).unlock();
+		return p;
+	}
+	void put(const char &k, const version_value_pair &p) {
+		//lock_table.emplace(k, mutex);
+		db.at(k).merge(p);
+		//lock_table[k];
+	}
+};
 
 
