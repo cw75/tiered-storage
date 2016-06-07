@@ -440,7 +440,9 @@ protected:
         } else {
             // need to copy v since we will be "growing" it within the lattice
             V new_v = v;
-            this->element.emplace(k, new_v);
+            // FIXME: it seems that there is a bug in tbb that fails to enable c++11 features with Clang on Linux. So we have to use insert instead of emplace for now...
+            // refer to https://software.intel.com/en-us/forums/intel-threading-building-blocks/topic/591305
+            this->element.insert({k, new_v});
         }
     }
     void do_merge(const tbb::concurrent_unordered_map<K, V> &m) {
