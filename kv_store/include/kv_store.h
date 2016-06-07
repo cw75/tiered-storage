@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <mutex>
 #include "core_lattices.h"
 
 using namespace std;
@@ -58,3 +59,27 @@ public:
 		db.at(k).merge(p);
 	}
 };
+
+class Concurrent_KV_Store{
+protected:
+	AtomicMapLattice<char, KVS_PairLattice> db;
+	tbb::concurrent_unordered_map<char, mutex> lock_table;
+public:
+	Concurrent_KV_Store() {}
+	Concurrent_KV_Store(AtomicMapLattice<char, KVS_PairLattice> other) {
+		db = other;
+	}
+	version_value_pair get(char k) {
+		lock_table.at(k).lock();
+		version_value_pair p = db.at(k).reveal();
+		lock_table.at(k).unlock();
+		return p;
+	}
+	void put(const char &k, const version_value_pair &p) {
+		lock_table.emplace(k, mutex);
+		db.at(k).merge(p);
+		//lock_table[k];
+	}
+};
+
+
