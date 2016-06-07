@@ -47,30 +47,30 @@ public:
 
 class KV_Store{
 protected:
-	MapLattice<char, KVS_PairLattice> db;
+	MapLattice<int, KVS_PairLattice> db;
 public:
 	KV_Store() {}
-	KV_Store(MapLattice<char, KVS_PairLattice> other) {
+	KV_Store(MapLattice<int, KVS_PairLattice> other) {
 		db = other;
 	}
-	const version_value_pair &get(char k) {
+	const version_value_pair &get(int k) {
 		return db.at(k).reveal();
 	}
-	void put(char k, const version_value_pair &p) {
+	void put(int k, const version_value_pair &p) {
 		db.at(k).merge(p);
 	}
 };
 
 class Concurrent_KV_Store{
 protected:
-	AtomicMapLattice<char, KVS_PairLattice> db;
-	tbb::concurrent_unordered_map<char, unique_ptr<mutex>> lock_table;
+	AtomicMapLattice<int, KVS_PairLattice> db;
+	tbb::concurrent_unordered_map<int, unique_ptr<mutex>> lock_table;
 public:
 	Concurrent_KV_Store() {}
-	Concurrent_KV_Store(AtomicMapLattice<char, KVS_PairLattice> other) {
+	Concurrent_KV_Store(AtomicMapLattice<int, KVS_PairLattice> other) {
 		db = other;
 	}
-	version_value_pair get(char k) {
+	version_value_pair get(int k) {
 		auto it = lock_table.find(k);
 		if (it == lock_table.end()) {
 			it = lock_table.insert({k, unique_ptr<mutex>(new mutex)}).first;
@@ -78,7 +78,7 @@ public:
 		lock_guard<mutex> lg(*(it->second));
 		return db.at(k).reveal();
 	}
-	void put(const char &k, const version_value_pair &p) {
+	void put(const int &k, const version_value_pair &p) {
 		auto it = lock_table.find(k);
 		if (it == lock_table.end()) {
 			it = lock_table.insert({k, unique_ptr<mutex>(new mutex)}).first;
