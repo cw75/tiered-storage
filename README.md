@@ -15,4 +15,4 @@ To build the library in release mode, run `sh ./scripts/build_release.sh`.
 To run the core lattice tests, run `./build/tests/run_lattice_test`.<br />
 To run the core lattice benchmarks, run `./build/benchmarks/run_lattice_benchmark`.<br />
 To run the versioned KVS tests, run `./build/kv_store/tests/run_kvs_test`.<br />
-To run the core lattice benchmarks, run `./build/kv_store/benchmarks/run_kvs_benchmark`.
+To run the versioned KVS benchmarks, run `./build/kv_store/benchmarks/run_kvs_benchmark`.
