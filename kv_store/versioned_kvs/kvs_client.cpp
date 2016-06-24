@@ -6,12 +6,15 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <memory>
-#include "kv_store.h"
+#include "versioned_kv_store.h"
 #include "request.pb.h"
 #include "response.pb.h"
 
 using namespace std;
 
+// For simplicity, the kvs uses integer as the key type and maxintlattice as the value lattice.
+
+// Helper function to parse user input from command line
 void split(const string &s, char delim, vector<string> &elems) {
     stringstream ss(s);
     string item;
@@ -26,28 +29,6 @@ int main ()
 
     zmq::socket_t requester(context, ZMQ_REQ);
     requester.connect("tcp://localhost:5559");
-
-   //  communication::Request req;
-   //  req.set_type("GET");
-  	// req.set_key(1);
-  	// string data;
-  	// req.SerializeToString(&data);
-
-  	// zmq_msg_t msg;
-   //  zmq_msg_init_size(&msg, data.size());
-   //  memcpy(zmq_msg_data(&msg), &(data[0]), data.size());
-   //  zmq_msg_send(&msg, static_cast<void *>(requester), 0);
-
-   //  zmq_msg_t rec;
-   //  zmq_msg_init(&rec);
-   //  zmq_msg_recv(&rec, static_cast<void *>(requester), 0);
-   //  data = (char *)zmq_msg_data(&rec);
-   //  zmq_msg_close(&rec);
-   //  communication::Response response;
-   //  response.ParseFromString(data);
-
-   //  cout << "error ?: " << response.err() << "\n";
-   //  cout << "value is " << response.value() << "\n";
 
     string input;
     unordered_map<int, unordered_map<int, int>> version_map;
@@ -124,15 +105,3 @@ int main ()
  	}
 
 }
-
-// string prepare_request(vector<string> &v) {
-// 	if (v[0] == "GET") {
-// 		request.set_type("GET");
-// 		request.set_key(stoi(v[1]));
-// 	}
-// 	else {
-// 		request.set_type("PUT");
-// 		request.set_key(stoi(v[1]));
-// 		request.set_value(stoi(v[2]));
-// 	}
-// }
