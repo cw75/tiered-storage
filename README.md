@@ -23,9 +23,14 @@ To run the core lattice benchmarks, run `./build/benchmarks/run_lattice_benchmar
 
 ## Versioned Key-value Store:
 
-This repo currently provide an implementation of versioned key-value stored built with lattice composition. The source code is located in `./kv_store`. Note that although the current tests, benchmarks, and demo are based on the versioned key-value store, any type of eventually consistent key-value store could easily be implemented using the key-value store template located in `./kv_store/include/base_kv_store.h`.
+This repo currently provide an implementation of single node versioned key-value stored built with lattice composition. To efficiently utilize multicore, the key-value store is build with multiple threads, each of which responsible for a key-value store replica. Replica synchronization is done by asynchronously gossiping the updates between threads. The source code is located in `./kv_store`. Note that although the current tests, benchmarks, and demo are based on the versioned key-value store, any type of eventually consistent key-value store could easily be implemented using the key-value store template located in `./kv_store/include/base_kv_store.h`.
 
 To run the versioned KVS tests, run `./build/kv_store/tests/run_kvs_test`.<br />
 To run the versioned KVS benchmarks, run `./build/kv_store/benchmarks/run_kvs_benchmark`.
 
+We also implemented a demo for the versioned key-value store. To run the demo,
+1. Start the server by running `./build/kv_store/versioned_kvs/kvs_server_distributed`.
+2. Start the client by running `./build/kv_store/versioned_kvs/kvs_client`.
+3. Start the message broker between client and server by running `./build/kv_store/versioned_kvs/msgqueue`.
 
+The order of 1,2 and 3 should not matter. Meanwhile, the only accepted input formats for the client side are `GET $key` and `PUT $key $value`. For this demo, both the key type and the value type have to be integer.
