@@ -38,6 +38,18 @@ protected:
     		this->element.value.merge(p.value);
     	}
     }
+    // void do_merge(const version_value_pair<T> &p) {
+    // 	MapLattice<int, MaxLattice<int>> prev = this->element.v_map;
+    // 	this->element.v_map.merge(p.v_map);
+
+    // 	if (this->element.v_map == prev);
+    // 	else if (this->element.v_map == p.v_map) {
+    // 		this->element.value.assign(p.value);
+    // 	}
+    // 	else {
+    // 		this->element.value.merge(p.value);
+    // 	}
+    // }
 public:
     KVS_PairLattice() : Lattice<version_value_pair<T>>() {}
     KVS_PairLattice(const version_value_pair<T> &p)  : Lattice<version_value_pair<T>>(p) {}
