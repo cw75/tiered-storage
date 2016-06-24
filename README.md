@@ -4,7 +4,6 @@ A C++ library that contains high performance lattices that can be composed to bu
 
 ## Build Instructions:
 
-
 1. Download and install llvm and Clang (http://llvm.org/docs/GettingStarted.html). Clang/Clang++ is assumed to reside in `/usr/bin/`.
 2. Download and install zeromq, which is used for message passing. The instruction for installing zmq can be found here (http://zeromq.org/intro:get-the-software). Note that for Mac OS X, after building zmq, you may have to manually rename `libzmq-static.a` in `/path-to-libzmq/path-to-build-directory/lib/` to `libzmq.a` and put it in `/usr/local/lib/`. Otherwise, clang may generate 'library not found' error while compiling.
 3. Download and install Google protobuf (https://github.com/google/protobuf).
@@ -12,12 +11,21 @@ A C++ library that contains high performance lattices that can be composed to bu
 5. Run `sh ./scripts/build_googlebenchmark.sh` to build Google Benchmark.
 6. Download and install Intel TBB. For Mac OS X, run `brew install tbb`. For Ubuntu/Linux, run `apt-get install libtbb-dev`. Note that you may have to run the above commands with `sudo`.
 
-## Core Lattices:
-
 To build the library in debug mode, run `sh ./scripts/build_debug.sh`.<br />
 To build the library in release mode, run `sh ./scripts/build_release.sh`.
 
+## Core Lattices:
+
+Core lattices can be composed to build high performance system components. Built-in core lattices can be found in `./include/core_lattices.h`.
+
 To run the core lattice tests, run `./build/tests/run_lattice_test`.<br />
 To run the core lattice benchmarks, run `./build/benchmarks/run_lattice_benchmark`.<br />
+
+## Versioned Key-value Store:
+
+This repo currently provide an implementation of versioned key-value stored built with lattice composition. The source code is located in `./kv_store`. Note that although the current tests, benchmarks, and demo are based on the versioned key-value store, any type of eventually consistent key-value store could easily be implemented using the key-value store template located in `./kv_store/include/base_kv_store.h`.
+
 To run the versioned KVS tests, run `./build/kv_store/tests/run_kvs_test`.<br />
 To run the versioned KVS benchmarks, run `./build/kv_store/benchmarks/run_kvs_benchmark`.
+
+
