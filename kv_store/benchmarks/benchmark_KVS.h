@@ -9,14 +9,15 @@ Concurrent_KV_Store<int, KVS_PairLattice<MaxLattice<int>>> ckvs;
 
 static void BM_KVSGET(benchmark::State& state) {
 	version_value_pair<MaxLattice<int>> p;
-	p.v_map = MapLattice<int, MaxLattice<int>>(unordered_map<int, MaxLattice<int>>({{1, MaxLattice<int>(1)}}));
+	p.v_map = MapLattice<int, MaxLattice<int>>(unordered_map<int, MaxLattice<int>>({{1, MaxLattice<int>(1)}, {2, MaxLattice<int>(1)}, {3, MaxLattice<int>(1)}, {4, MaxLattice<int>(1)}, {5, MaxLattice<int>(1)}}));
 	p.value = 10;
 	for (int i = 0; i < state.range_x(); i++) {
 			kvs.put(i, p);
 	}
+	KVS_PairLattice<MaxLattice<int>> pl;
 	while (state.KeepRunning()) {
 		for (int i = 0; i < state.range_x(); i++) {
-			KVS_PairLattice<MaxLattice<int>> pl = kvs.get(i);
+			pl = kvs.get(i);
 		}
 	}
 	kvs = KV_Store<int, KVS_PairLattice<MaxLattice<int>>>();
@@ -24,14 +25,15 @@ static void BM_KVSGET(benchmark::State& state) {
 
 static void BM_CKVSGET(benchmark::State& state) {
 	version_value_pair<MaxLattice<int>> p;
-	p.v_map = MapLattice<int, MaxLattice<int>>(unordered_map<int, MaxLattice<int>>({{1, MaxLattice<int>(1)}}));
+	p.v_map = MapLattice<int, MaxLattice<int>>(unordered_map<int, MaxLattice<int>>({{1, MaxLattice<int>(1)}, {2, MaxLattice<int>(1)}, {3, MaxLattice<int>(1)}, {4, MaxLattice<int>(1)}, {5, MaxLattice<int>(1)}}));
 	p.value = 10;
 	for (int i = 0; i < state.range_x(); i+=state.threads) {
 			ckvs.put(i, p);
 	}
+	KVS_PairLattice<MaxLattice<int>> pl;
 	while (state.KeepRunning()) {
 		for (int i = 0; i < state.range_x(); i+=state.threads) {
-			KVS_PairLattice<MaxLattice<int>> pl = ckvs.get(i);
+			pl = ckvs.get(i);
 		}
 	}
 	if (state.thread_index == 0) ckvs = Concurrent_KV_Store<int, KVS_PairLattice<MaxLattice<int>>>();
@@ -39,7 +41,7 @@ static void BM_CKVSGET(benchmark::State& state) {
 
 static void BM_KVSGETComparison(benchmark::State& state) {
 	version_value_pair<MaxLattice<int>> p;
-	p.v_map = MapLattice<int, MaxLattice<int>>(unordered_map<int, MaxLattice<int>>({{1, MaxLattice<int>(1)}}));
+	p.v_map = MapLattice<int, MaxLattice<int>>(unordered_map<int, MaxLattice<int>>({{1, MaxLattice<int>(1)}, {2, MaxLattice<int>(1)}, {3, MaxLattice<int>(1)}, {4, MaxLattice<int>(1)}, {5, MaxLattice<int>(1)}}));
 	p.value = 10;
 	KVS_PairLattice<MaxLattice<int>> q = KVS_PairLattice<MaxLattice<int>>(p);
 	while (state.KeepRunning()) {
@@ -51,13 +53,16 @@ static void BM_KVSGETComparison(benchmark::State& state) {
 
 static void BM_KVSPUT(benchmark::State& state) {
 	version_value_pair<MaxLattice<int>> p;
-	p.v_map = MapLattice<int, MaxLattice<int>>(unordered_map<int, MaxLattice<int>>({{1, MaxLattice<int>(1)}}));
+	p.v_map = MapLattice<int, MaxLattice<int>>(unordered_map<int, MaxLattice<int>>({{1, MaxLattice<int>(1)}, {2, MaxLattice<int>(1)}, {3, MaxLattice<int>(1)}, {4, MaxLattice<int>(1)}, {5, MaxLattice<int>(1)}}));
 	p.value = 10;
-	KVS_PairLattice<MaxLattice<int>> pl = KVS_PairLattice<MaxLattice<int>>(p);
+	for (int i = 0; i < state.range_x(); i++) {
+			kvs.put(i, p);
+	}
+	p.v_map = MapLattice<int, MaxLattice<int>>(unordered_map<int, MaxLattice<int>>({{1, MaxLattice<int>(2)}, {2, MaxLattice<int>(2)}, {3, MaxLattice<int>(2)}, {4, MaxLattice<int>(2)}, {5, MaxLattice<int>(2)}}));
 
 	while (state.KeepRunning()) {
 		for (int i = 0; i < state.range_x(); i++) {
-			kvs.put(i, pl);
+			kvs.put(i, p);
 		}
 	}
 	kvs = KV_Store<int, KVS_PairLattice<MaxLattice<int>>>();
@@ -65,13 +70,18 @@ static void BM_KVSPUT(benchmark::State& state) {
 
 static void BM_CKVSPUT_LOWCONTENTION(benchmark::State& state) {
 	version_value_pair<MaxLattice<int>> p;
-	p.v_map = MapLattice<int, MaxLattice<int>>(unordered_map<int, MaxLattice<int>>({{1, MaxLattice<int>(1)}}));
+	p.v_map = MapLattice<int, MaxLattice<int>>(unordered_map<int, MaxLattice<int>>({{1, MaxLattice<int>(1)}, {2, MaxLattice<int>(1)}, {3, MaxLattice<int>(1)}, {4, MaxLattice<int>(1)}, {5, MaxLattice<int>(1)}}));
 	p.value = 10;
-	KVS_PairLattice<MaxLattice<int>> pl = KVS_PairLattice<MaxLattice<int>>(p);
+	if (state.thread_index == 0) {
+		for (int i = 0; i < state.range_x(); i++) {
+			ckvs.put(i, p);
+		}
+	}
+	p.v_map = MapLattice<int, MaxLattice<int>>(unordered_map<int, MaxLattice<int>>({{1, MaxLattice<int>(2)}, {2, MaxLattice<int>(2)}, {3, MaxLattice<int>(2)}, {4, MaxLattice<int>(2)}, {5, MaxLattice<int>(2)}}));
 
 	while (state.KeepRunning()) {
 		for (int i = 0; i < state.range_x(); i+=state.threads) {
-			ckvs.put(i, pl);
+			ckvs.put(i, p);
 		}
 	}
 	if (state.thread_index == 0) ckvs = Concurrent_KV_Store<int, KVS_PairLattice<MaxLattice<int>>>();
@@ -79,13 +89,14 @@ static void BM_CKVSPUT_LOWCONTENTION(benchmark::State& state) {
 
 static void BM_CKVSPUT_HIGHCONTENTION(benchmark::State& state) {
 	version_value_pair<MaxLattice<int>> p;
-	p.v_map = MapLattice<int, MaxLattice<int>>(unordered_map<int, MaxLattice<int>>({{1, MaxLattice<int>(1)}}));
+	p.v_map = MapLattice<int, MaxLattice<int>>(unordered_map<int, MaxLattice<int>>({{1, MaxLattice<int>(1)}, {2, MaxLattice<int>(1)}, {3, MaxLattice<int>(1)}, {4, MaxLattice<int>(1)}, {5, MaxLattice<int>(1)}}));
 	p.value = 10;
-	KVS_PairLattice<MaxLattice<int>> pl = KVS_PairLattice<MaxLattice<int>>(p);
+	if (state.thread_index == 0) ckvs.put(0, p);
+	p.v_map = MapLattice<int, MaxLattice<int>>(unordered_map<int, MaxLattice<int>>({{1, MaxLattice<int>(2)}, {2, MaxLattice<int>(2)}, {3, MaxLattice<int>(2)}, {4, MaxLattice<int>(2)}, {5, MaxLattice<int>(2)}}));
 
 	while (state.KeepRunning()) {
 		for (int i = 0; i < state.range_x(); i+=state.threads) {
-			ckvs.put(0, pl);
+			ckvs.put(0, p);
 		}
 	}
 	if (state.thread_index == 0) ckvs = Concurrent_KV_Store<int, KVS_PairLattice<MaxLattice<int>>>();
@@ -93,13 +104,12 @@ static void BM_CKVSPUT_HIGHCONTENTION(benchmark::State& state) {
 
 static void BM_KVSPUTComparison(benchmark::State& state) {
 	version_value_pair<MaxLattice<int>> p;
-	p.v_map = MapLattice<int, MaxLattice<int>>(unordered_map<int, MaxLattice<int>>({{1, MaxLattice<int>(1)}}));
+	p.v_map = MapLattice<int, MaxLattice<int>>(unordered_map<int, MaxLattice<int>>({{1, MaxLattice<int>(1)}, {2, MaxLattice<int>(1)}, {3, MaxLattice<int>(1)}, {4, MaxLattice<int>(1)}, {5, MaxLattice<int>(1)}}));
 	p.value = 10;
-	KVS_PairLattice<MaxLattice<int>> pl = KVS_PairLattice<MaxLattice<int>>(p);
 	KVS_PairLattice<MaxLattice<int>> res;
 	while (state.KeepRunning()) {
 		for (int i = 0; i < state.range_x(); i++) {
-			res = pl;
+			res = p;
 		}
 	}
 }
