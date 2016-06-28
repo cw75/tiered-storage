@@ -1,6 +1,8 @@
 cmake_minimum_required (VERSION 2.6)
 
 add_executable(run_kvs_benchmark run_benchmark.cpp)
+add_executable(benchmark_gossip benchmark_gossip.cpp)
+add_executable(benchmark_shared benchmark_shared.cpp)
 
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
    # Mac OS X specific code

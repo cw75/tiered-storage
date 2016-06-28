@@ -69,7 +69,7 @@ void *worker_routine (zmq::context_t *context, int thread_id)
     // initialize the thread's kvs replica
     unique_ptr<Database> kvs(new Database);
 
-    // initializa a set lattice that keep track of the keys that get updated
+    // initializa a set lattice that keeps track of the keys that get updated
     unique_ptr<SetLattice<int>> change_set(new SetLattice<int>);
 
     zmq::socket_t responder (*context, ZMQ_REP);
@@ -77,7 +77,7 @@ void *worker_routine (zmq::context_t *context, int thread_id)
 
     zmq::socket_t publisher (*context, ZMQ_PUB);
     publisher.bind("inproc://" + to_string(thread_id));
-    bind_successful.fetch_add(1);
+    bind_successful++;
 
     zmq::socket_t subscriber (*context, ZMQ_SUB);
 
