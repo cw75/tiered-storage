@@ -1,0 +1,17 @@
+package messaging;
+
+option java_outer_classname = "Message";
+
+message Request {
+	required string type = 1;
+	required string key = 2;
+	optional int64 value = 3;
+	map<int64, int64> version_vector = 4;
+}
+
+message Response {
+	optional bool err = 1 [default = false];
+	optional bool succeed = 2;
+	optional int64 value = 3;
+	map<int64, int64> version_vector = 4;
+}
