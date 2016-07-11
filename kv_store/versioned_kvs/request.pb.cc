@@ -94,7 +94,7 @@ void protobuf_AddDesc_request_2eproto() {
 
   ::google::protobuf::DescriptorPool::InternalAddGeneratedFile(
     "\n\rrequest.proto\022\rcommunication\"\254\001\n\007Reque"
-    "st\022\014\n\004type\030\001 \002(\t\022\013\n\003key\030\002 \002(\003\022\r\n\005value\030\003"
+    "st\022\014\n\004type\030\001 \002(\t\022\013\n\003key\030\002 \002(\t\022\r\n\005value\030\003"
     " \001(\003\022A\n\016version_vector\030\004 \003(\0132).communica"
     "tion.Request.VersionVectorEntry\0324\n\022Versi"
     "onVectorEntry\022\013\n\003key\030\001 \001(\003\022\r\n\005value\030\002 \001("
@@ -153,7 +153,7 @@ void Request::SharedCtor() {
   ::google::protobuf::internal::GetEmptyString();
   _cached_size_ = 0;
   type_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-  key_ = GOOGLE_LONGLONG(0);
+  key_.UnsafeSetDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   value_ = GOOGLE_LONGLONG(0);
   version_vector_.SetAssignDescriptorCallback(
       protobuf_AssignDescriptorsOnce);
@@ -169,6 +169,7 @@ Request::~Request() {
 
 void Request::SharedDtor() {
   type_.DestroyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+  key_.DestroyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   if (this != default_instance_) {
   }
 }
@@ -200,32 +201,15 @@ Request* Request::New(::google::protobuf::Arena* arena) const {
 
 void Request::Clear() {
 // @@protoc_insertion_point(message_clear_start:communication.Request)
-#if defined(__clang__)
-#define ZR_HELPER_(f) \
-  _Pragma("clang diagnostic push") \
-  _Pragma("clang diagnostic ignored \"-Winvalid-offsetof\"") \
-  __builtin_offsetof(Request, f) \
-  _Pragma("clang diagnostic pop")
-#else
-#define ZR_HELPER_(f) reinterpret_cast<char*>(\
-  &reinterpret_cast<Request*>(16)->f)
-#endif
-
-#define ZR_(first, last) do {\
-  ::memset(&first, 0,\
-           ZR_HELPER_(last) - ZR_HELPER_(first) + sizeof(last));\
-} while (0)
-
   if (_has_bits_[0 / 32] & 7u) {
-    ZR_(key_, value_);
     if (has_type()) {
       type_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
     }
+    if (has_key()) {
+      key_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+    }
+    value_ = GOOGLE_LONGLONG(0);
   }
-
-#undef ZR_HELPER_
-#undef ZR_
-
   version_vector_.Clear();
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
   if (_internal_metadata_.have_unknown_fields()) {
@@ -255,18 +239,20 @@ bool Request::MergePartialFromCodedStream(
         } else {
           goto handle_unusual;
         }
-        if (input->ExpectTag(16)) goto parse_key;
+        if (input->ExpectTag(18)) goto parse_key;
         break;
       }
 
-      // required int64 key = 2;
+      // required string key = 2;
       case 2: {
-        if (tag == 16) {
+        if (tag == 18) {
          parse_key:
-          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
-                   ::google::protobuf::int64, ::google::protobuf::internal::WireFormatLite::TYPE_INT64>(
-                 input, &key_)));
-          set_has_key();
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->mutable_key()));
+          ::google::protobuf::internal::WireFormat::VerifyUTF8StringNamedField(
+            this->key().data(), this->key().length(),
+            ::google::protobuf::internal::WireFormat::PARSE,
+            "communication.Request.key");
         } else {
           goto handle_unusual;
         }
@@ -343,9 +329,14 @@ void Request::SerializeWithCachedSizes(
       1, this->type(), output);
   }
 
-  // required int64 key = 2;
+  // required string key = 2;
   if (has_key()) {
-    ::google::protobuf::internal::WireFormatLite::WriteInt64(2, this->key(), output);
+    ::google::protobuf::internal::WireFormat::VerifyUTF8StringNamedField(
+      this->key().data(), this->key().length(),
+      ::google::protobuf::internal::WireFormat::SERIALIZE,
+      "communication.Request.key");
+    ::google::protobuf::internal::WireFormatLite::WriteStringMaybeAliased(
+      2, this->key(), output);
   }
 
   // optional int64 value = 3;
@@ -386,9 +377,15 @@ void Request::SerializeWithCachedSizes(
         1, this->type(), target);
   }
 
-  // required int64 key = 2;
+  // required string key = 2;
   if (has_key()) {
-    target = ::google::protobuf::internal::WireFormatLite::WriteInt64ToArray(2, this->key(), target);
+    ::google::protobuf::internal::WireFormat::VerifyUTF8StringNamedField(
+      this->key().data(), this->key().length(),
+      ::google::protobuf::internal::WireFormat::SERIALIZE,
+      "communication.Request.key");
+    target =
+      ::google::protobuf::internal::WireFormatLite::WriteStringToArray(
+        2, this->key(), target);
   }
 
   // optional int64 value = 3;
@@ -429,9 +426,9 @@ int Request::RequiredFieldsByteSizeFallback() const {
   }
 
   if (has_key()) {
-    // required int64 key = 2;
+    // required string key = 2;
     total_size += 1 +
-      ::google::protobuf::internal::WireFormatLite::Int64Size(
+      ::google::protobuf::internal::WireFormatLite::StringSize(
         this->key());
   }
 
@@ -447,9 +444,9 @@ int Request::ByteSize() const {
       ::google::protobuf::internal::WireFormatLite::StringSize(
         this->type());
 
-    // required int64 key = 2;
+    // required string key = 2;
     total_size += 1 +
-      ::google::protobuf::internal::WireFormatLite::Int64Size(
+      ::google::protobuf::internal::WireFormatLite::StringSize(
         this->key());
 
   } else {
@@ -511,7 +508,8 @@ void Request::MergeFrom(const Request& from) {
       type_.AssignWithDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), from.type_);
     }
     if (from.has_key()) {
-      set_key(from.key());
+      set_has_key();
+      key_.AssignWithDefault(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), from.key_);
     }
     if (from.has_value()) {
       set_value(from.value());
@@ -548,7 +546,7 @@ void Request::Swap(Request* other) {
 }
 void Request::InternalSwap(Request* other) {
   type_.Swap(&other->type_);
-  std::swap(key_, other->key_);
+  key_.Swap(&other->key_);
   std::swap(value_, other->value_);
   version_vector_.Swap(&other->version_vector_);
   std::swap(_has_bits_[0], other->_has_bits_[0]);
@@ -621,7 +619,7 @@ void Request::clear_type() {
   // @@protoc_insertion_point(field_set_allocated:communication.Request.type)
 }
 
-// required int64 key = 2;
+// required string key = 2;
 bool Request::has_key() const {
   return (_has_bits_[0] & 0x00000002u) != 0;
 }
@@ -632,17 +630,47 @@ void Request::clear_has_key() {
   _has_bits_[0] &= ~0x00000002u;
 }
 void Request::clear_key() {
-  key_ = GOOGLE_LONGLONG(0);
+  key_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
   clear_has_key();
 }
- ::google::protobuf::int64 Request::key() const {
+ const ::std::string& Request::key() const {
   // @@protoc_insertion_point(field_get:communication.Request.key)
-  return key_;
+  return key_.GetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
 }
- void Request::set_key(::google::protobuf::int64 value) {
+ void Request::set_key(const ::std::string& value) {
   set_has_key();
-  key_ = value;
+  key_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
   // @@protoc_insertion_point(field_set:communication.Request.key)
+}
+ void Request::set_key(const char* value) {
+  set_has_key();
+  key_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+  // @@protoc_insertion_point(field_set_char:communication.Request.key)
+}
+ void Request::set_key(const char* value, size_t size) {
+  set_has_key();
+  key_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+      ::std::string(reinterpret_cast<const char*>(value), size));
+  // @@protoc_insertion_point(field_set_pointer:communication.Request.key)
+}
+ ::std::string* Request::mutable_key() {
+  set_has_key();
+  // @@protoc_insertion_point(field_mutable:communication.Request.key)
+  return key_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+ ::std::string* Request::release_key() {
+  // @@protoc_insertion_point(field_release:communication.Request.key)
+  clear_has_key();
+  return key_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+ void Request::set_allocated_key(::std::string* key) {
+  if (key != NULL) {
+    set_has_key();
+  } else {
+    clear_has_key();
+  }
+  key_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), key);
+  // @@protoc_insertion_point(field_set_allocated:communication.Request.key)
 }
 
 // optional int64 value = 3;

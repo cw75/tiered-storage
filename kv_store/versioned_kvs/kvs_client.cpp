@@ -31,7 +31,7 @@ int main ()
     requester.connect("tcp://localhost:5559");
 
     string input;
-    unordered_map<int, unordered_map<int, int>> version_map;
+    unordered_map<string, unordered_map<int, int>> version_map;
 	while (true) {
 		//cout << static_cast<int>(getpid()) << "\n";
 		communication::Request request;
@@ -40,7 +40,8 @@ int main ()
 		vector<string> v;
 		split(input, ' ', v);
 		if (v[0] == "GET") {
-			int key = stoi(v[1]);
+			//int key = stoi(v[1]);
+			string key = v[1];
 			request.set_type("GET");
 			request.set_key(key);
 
@@ -69,7 +70,8 @@ int main ()
 
 		}
 		else if (v[0] == "PUT") {
-			int key = stoi(v[1]);
+			//int key = stoi(v[1]);
+			string key = v[1];
 			request.set_type("PUT");
 			request.set_key(key);
 			request.set_value(stoi(v[2]));
