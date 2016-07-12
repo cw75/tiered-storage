@@ -13,10 +13,10 @@
 using namespace std;
 
 // Define the number of threads
-#define THREAD_NUM 1
+#define THREAD_NUM 8
 
 // If the total number of updates to the kvs before the last gossip reaches THRESHOLD, then the thread gossips to others.
-#define THRESHOLD -1
+#define THRESHOLD 20
 
 // For simplicity, the kvs uses integer as the key type and maxintlattice as the value lattice.
 typedef KV_Store<string, KVS_PairLattice<MaxLattice<int>>> Database;
@@ -103,6 +103,7 @@ void *worker_routine (zmq::context_t *context, int thread_id)
 
     // Enter the event loop
     while (true) {
+        // this_thread::sleep_for(std::chrono::microseconds(500));
         // zmq_msg_t rec;
         // zmq_msg_init(&rec);
         zmq::poll (&items [0], 2, -1);
