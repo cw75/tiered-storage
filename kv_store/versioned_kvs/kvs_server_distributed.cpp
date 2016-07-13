@@ -16,7 +16,7 @@ using namespace std;
 #define THREAD_NUM 8
 
 // If the total number of updates to the kvs before the last gossip reaches THRESHOLD, then the thread gossips to others.
-#define THRESHOLD 20
+#define THRESHOLD 1
 
 // For simplicity, the kvs uses integer as the key type and maxintlattice as the value lattice.
 typedef KV_Store<string, KVS_PairLattice<MaxLattice<int>>> Database;
@@ -62,6 +62,37 @@ string process_request(unique_ptr<Database> &kvs, communication::Request &req, i
     string data;
     response.SerializeToString(&data);
     return data;
+}
+
+void send_gossip(SetLattice<string> &change_set, unique_ptr<Database> &kvs, zmq::socket_t &publisher){
+    coordination_data *c_data = new coordination_data;
+    for (auto it = change_set.reveal().begin(); it != change_set.reveal().end(); it++) {
+        c_data->data.emplace(*it, kvs->get(*it));
+    }
+
+    zmq_msg_t msg;
+    zmq_msg_init_size(&msg, sizeof(coordination_data**));
+    memcpy(zmq_msg_data(&msg), &c_data, sizeof(coordination_data**));
+    zmq_msg_send(&msg, static_cast<void *>(publisher), 0);
+}
+
+void receive_gossip(unique_ptr<Database> &kvs, zmq::socket_t &subscriber){
+    zmq_msg_t rec;
+    zmq_msg_init(&rec);
+    //cout << "entering gossip reception routine\n";
+    zmq_msg_recv(&rec, static_cast<void *>(subscriber), 0);
+    coordination_data *c_data = *(coordination_data **)zmq_msg_data(&rec);
+    zmq_msg_close(&rec);
+    //cout << "The gossip is received by thread " << thread_id << "\n";
+    // merge delta from other threads
+    for (auto it = c_data->data.begin(); it != c_data->data.end(); it++) {
+        kvs->put(it->first, it->second);
+    }
+
+    if (c_data->processed.fetch_add(1) == THREAD_NUM - 1 - 1) {
+        delete c_data;
+        //cout << "The gossip is successfully garbage collected by thread " << thread_id << "\n";
+    }
 }
 
 // Act as an event loop for the server
@@ -128,15 +159,7 @@ void *worker_routine (zmq::context_t *context, int thread_id)
             memcpy(zmq_msg_data(&msg), &(result[0]), result.size());
             zmq_msg_send(&msg, static_cast<void *>(responder), 0);
             if (update_counter == THRESHOLD && THREAD_NUM != 1) {
-                coordination_data *c_data = new coordination_data;
-                for (auto it = change_set->reveal().begin(); it != change_set->reveal().end(); it++) {
-                    c_data->data.emplace(*it, kvs->get(*it));
-                }
-
-                zmq_msg_t msg;
-                zmq_msg_init_size(&msg, sizeof(coordination_data**));
-                memcpy(zmq_msg_data(&msg), &c_data, sizeof(coordination_data**));
-                zmq_msg_send(&msg, static_cast<void *>(publisher), 0);
+                send_gossip(*change_set, kvs, publisher);
 
                 // Reset the change_set and update_counter
                 change_set.reset(new SetLattice<string>);
@@ -147,22 +170,7 @@ void *worker_routine (zmq::context_t *context, int thread_id)
 
         // If there is a message from other threads
         if (items [1].revents & ZMQ_POLLIN) {
-            zmq_msg_t rec;
-            zmq_msg_init(&rec);
-            //cout << "entering gossip reception routine\n";
-            zmq_msg_recv(&rec, static_cast<void *>(subscriber), 0);
-            coordination_data *c_data = *(coordination_data **)zmq_msg_data(&rec);
-            zmq_msg_close(&rec);
-            //cout << "The gossip is received by thread " << thread_id << "\n";
-            // merge delta from other threads
-            for (auto it = c_data->data.begin(); it != c_data->data.end(); it++) {
-                kvs->put(it->first, it->second);
-            }
-
-            if (c_data->processed.fetch_add(1) == THREAD_NUM - 1 - 1) {
-                delete c_data;
-                //cout << "The gossip is successfully garbage collected by thread " << thread_id << "\n";
-            }
+            receive_gossip(kvs, subscriber);
         }
     }
     return (NULL);
