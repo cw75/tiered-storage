@@ -61,6 +61,8 @@ class LatticeMixin : public enable_down_cast<T> {
 };
 
 #ifdef CRTP_COLLECTIONS_WORKING
+// From: http://stackoverflow.com/questions/1032973/how-to-partially-specialize-a-class-template-for-all-derived-types
+
 // template<typename T> struct X; 
 namespace std { namespace __1 {
     template<class T>
