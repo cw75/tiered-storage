@@ -1,0 +1,8 @@
+package communication;
+
+message Response {
+	optional bool err = 1 [default = false];
+	optional bool succeed = 2;
+	optional string value = 3;
+	optional int64 timestamp = 4;
+}
