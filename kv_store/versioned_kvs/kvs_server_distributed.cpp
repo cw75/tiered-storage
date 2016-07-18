@@ -12,7 +12,7 @@
 using namespace std;
 
 // Define the number of threads
-#define THREAD_NUM 4
+#define THREAD_NUM 1
 
 // If the total number of updates to the kvs before the last gossip reaches THRESHOLD, then the thread gossips to others.
 #define THRESHOLD 1
@@ -105,13 +105,14 @@ void send_gossip_d(SetLattice<string> &change_set_d, unique_ptr<Database> &kvs, 
     communication::Gossip gossip;
 
     for (auto it = change_set_d.reveal().begin(); it != change_set_d.reveal().end(); it++) {
-        communication::Gossip::Tuple* tp = gossip.add_tuple();
+        communication::Gossip_Tuple* tp = gossip.add_tuple();
         version_value_pair<MaxLattice<int>> p = kvs->get(*it).reveal();
+        cout << "key is " << *it << "\n";
         tp->set_key(*it);
         tp->set_value(p.value.reveal());
         auto version_vector = p.v_map.reveal();
-        for (auto it = version_vector.begin(); it != version_vector.end(); ++it) {
-            (tp->mutable_version_vector())[it->first] = it->second.reveal();
+        for (auto it_v = version_vector.begin(); it_v != version_vector.end(); ++it_v) {
+            (*(tp->mutable_version_vector()))[it_v->first] = it_v->second.reveal();
         }
     }
 
@@ -240,7 +241,7 @@ void *worker_routine_main (zmq::context_t *context, int thread_id)
 
     zmq::socket_t subscriber_d (*context, ZMQ_SUB);
 
-    subscriber_d.connect("tcp://toadd");
+    subscriber_d.connect("tcp://10.0.0.104:5555");
     subscriber_d.setsockopt(ZMQ_SUBSCRIBE, filter, strlen (filter));
 
     //  Initialize poll set
@@ -292,6 +293,7 @@ void *worker_routine_main (zmq::context_t *context, int thread_id)
         // If there is a message from other nodes
         if (items [2].revents & ZMQ_POLLIN) {
             receive_gossip_d(kvs, subscriber_d, update_counter, *change_set);
+            cout << "The distributed gossip is received by thread " << thread_id << "\n";
         }
 
         if (update_counter == THRESHOLD && THREAD_NUM != 1) {
@@ -300,7 +302,7 @@ void *worker_routine_main (zmq::context_t *context, int thread_id)
             // Reset the change_set and update_counter
             change_set.reset(new SetLattice<string>);
             update_counter = 0;
-            //cout << "The gossip is sent by thread " << thread_id << "\n";
+            cout << "The gossip is sent by thread " << thread_id << "\n";
         }
 
         if (update_counter_d == THRESHOLD_D) {
@@ -309,7 +311,7 @@ void *worker_routine_main (zmq::context_t *context, int thread_id)
             // Reset the change_set and update_counter
             change_set_d.reset(new SetLattice<string>);
             update_counter_d = 0;
-            //cout << "The gossip is sent by thread " << thread_id << "\n";
+            cout << "The distributed gossip is sent by thread " << thread_id << "\n";
         }
     }
     return (NULL);
@@ -386,12 +388,12 @@ void *worker_routine (zmq::context_t *context, int thread_id)
         }
 
         if (update_counter == THRESHOLD && THREAD_NUM != 1) {
-                send_gossip(*change_set, kvs, publisher);
+            send_gossip(*change_set, kvs, publisher);
 
-                // Reset the change_set and update_counter
-                change_set.reset(new SetLattice<string>);
-                update_counter = 0;
-                //cout << "The gossip is sent by thread " << thread_id << "\n";
+            // Reset the change_set and update_counter
+            change_set.reset(new SetLattice<string>);
+            update_counter = 0;
+            cout << "The gossip is sent by thread " << thread_id << "\n";
         }
     }
     return (NULL);
@@ -407,7 +409,7 @@ int main ()
 
     vector<thread> threads;
     for (int thread_id = 0; thread_id != THREAD_NUM; thread_id++) {
-        if (thread_id == 0) threads.push_back(thread(worker_routine, &context, thread_id));
+        if (thread_id == 0) threads.push_back(thread(worker_routine_main, &context, thread_id));
         else threads.push_back(thread(worker_routine, &context, thread_id));
     }
     for (auto& th: threads) th.join();
