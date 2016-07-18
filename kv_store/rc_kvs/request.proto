@@ -1,8 +1,0 @@
-package communication;
-
-message Request {
-	required string type = 1;
-	optional string key = 2;
-	optional string value = 3;
-	optional int64 timestamp = 4;
-}

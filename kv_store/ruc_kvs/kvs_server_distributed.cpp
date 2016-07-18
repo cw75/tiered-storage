@@ -28,30 +28,25 @@ struct coordination_data{
 };
 
 // This function performs the actual request processing
-string process_request(unique_ptr<Database> &kvs, communication::Request &req, int &update_counter, SetLattice<string> &change_set, int &local_timestamp, int thread_id)
-{
+string process_request(unique_ptr<Database> &kvs, communication::Request &req, int &update_counter, SetLattice<string> &change_set, int &local_timestamp, int thread_id) {
     communication::Response response;
 
-    if (req.has_begin()) {
+    if (req.type() == "BEGIN TRANSACTION") {
         response.set_timestamp(stoi(to_string(local_timestamp++) + to_string(thread_id)));
     }
     // else if (req.type() == "END TRANSACTION") {
     // }
-    else if (req.has_get()) {
-        response.set_value(kvs->get(req.get().key()).reveal().value);
-        response.set_timestamp(kvs -> get(req.get().key()).reveal().timestamp);
+    else if (req.type() == "GET") {
+        response.set_value(kvs->get(req.key()).reveal().value);
         response.set_succeed(true);
     }
-    else if (req.has_put()) {
+    else if (req.type() == "PUT") {
         //cout << "value to be put is " << req.value() << "\n";
-
-        for (int i = 0; i < req.put().tuple_size(); i++) {
-            timestamp_value_pair<string> p = timestamp_value_pair<string>(req.put().tuple(i).timestamp(), req.put().tuple(i).value());
-            kvs->put(req.put().tuple(i).key(), p);
-            update_counter++;
-            change_set.insert(req.put().tuple(i).key());
-        }
+        change_set.insert(req.key());
+        timestamp_value_pair<string> p = timestamp_value_pair<string>(req.timestamp(), req.value());
+        kvs->put(req.key(), p);
         response.set_succeed(true);
+        update_counter++;
     }
     else {
         response.set_err(true);

@@ -32,23 +32,15 @@ int main ()
     string input;
 
     int current_timestamp = -1;
-    unordered_map<string, string> buffer;
-    communication::Request request;
-
-
 	while (true) {
-
 		//cout << static_cast<int>(getpid()) << "\n";
+		communication::Request request;
 		cout << "Please enter a request: ";
 		getline(cin, input);
-		vector<string> v; 
+		vector<string> v;
 		split(input, ' ', v);
 	    if (v[0] == "BEGIN") {
-			communication::Request_Begin request_begin;
-
-	    	request_begin.set_type("BEGIN TRANSACTION");
-
-	    	request.set_allocated_begin(&request_begin);
+	    	request.set_type("BEGIN TRANSACTION");
 
 	    	string data;
 			request.SerializeToString(&data);
@@ -69,19 +61,16 @@ int main ()
 			current_timestamp = response.timestamp();
 
 			cout << "timestamp is " << current_timestamp << "\n";
+
 	    }
 	    // else if (v[0] == "END TRANSACTION") {
 	    // 	request.set_type("END TRANSACTION");
 	    // }
 		else if (v[0] == "GET") {
-			communication::Request_Get request_get;
-
 			//int key = stoi(v[1]);
 			string key = v[1];
-			request_get.set_type("GET");
-			request_get.set_key(key);
-
-			request.set_allocated_get(&request_get);
+			request.set_type("GET");
+			request.set_key(key);
 
 			string data;
 			request.SerializeToString(&data);
@@ -98,37 +87,19 @@ int main ()
 			zmq_msg_close(&rec);
 			communication::Response response;
 			response.ParseFromString(data);
-
-			if (buffer.find(key) != buffer.end() && response.timestamp() > current_timestamp) {
-				cout << "value is " << response.value() << "\n";
-			}
-			else {
-				cout << "value is " << buffer[key] << "\n";
-			}
 			
+			cout << "value is " << response.value() << "\n";
 
 		}
 		else if (v[0] == "PUT") {
 			//int key = stoi(v[1]);
 			string key = v[1];
-			string value = v[2];
-			buffer[key] = value;
-		}
-		else if (v[0] == "END") {
-			communication::Request_Put request_put;
-
-			request_put.set_type("END TRANSACTION");
-
-			for (auto it = buffer.begin(); it != buffer.end(); it++) {
-				communication::Request_Put_Tuple* tp = request_put.add_tuple();
-				tp -> set_key(it -> first);
-				tp -> set_value(it -> second);
-				tp -> set_timestamp(current_timestamp);
-			}
-
-			request.set_allocated_put(&request_put);
-
-			string data;
+			request.set_type("PUT");
+			request.set_key(key);
+			request.set_value(v[2]);
+			request.set_timestamp(current_timestamp);
+			
+        	string data;
 			request.SerializeToString(&data);
 
 			zmq_msg_t msg;
@@ -144,12 +115,10 @@ int main ()
 			communication::Response response;
 			response.ParseFromString(data);
 			cout << "Successful? " << response.succeed() << "\n";
-
 		}
 		else {
 			cout << "Invalid Request\n";
 		}
-		request.Clear();
  	}
 
 }

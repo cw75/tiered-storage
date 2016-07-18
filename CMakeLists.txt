@@ -15,7 +15,7 @@ include_directories (
 	kv_store/include
 )
 
-add_subdirectory(tests)
-add_subdirectory(benchmarks)
+#add_subdirectory(tests)
+#add_subdirectory(benchmarks)
 add_subdirectory(kv_store)
 
