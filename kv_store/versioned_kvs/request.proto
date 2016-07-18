@@ -1,8 +1,0 @@
-package communication;
-
-message Request {
-	required string type = 1;
-	required string key = 2;
-	optional int64 value = 3;
-	map<int64, int64> version_vector = 4;
-}

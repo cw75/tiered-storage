@@ -7,8 +7,7 @@
 #include <unistd.h>
 #include <memory>
 #include "versioned_kv_store.h"
-#include "request.pb.h"
-#include "response.pb.h"
+#include "message.pb.h"
 
 using namespace std;
 
