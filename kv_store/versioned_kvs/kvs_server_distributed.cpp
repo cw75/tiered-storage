@@ -296,7 +296,7 @@ void *worker_routine_main (zmq::context_t *context, int thread_id)
             cout << "The distributed gossip is received by thread " << thread_id << "\n";
         }
 
-        if (update_counter == THRESHOLD && THREAD_NUM != 1) {
+        if (update_counter >= THRESHOLD && THREAD_NUM != 1) {
             send_gossip(*change_set, kvs, publisher);
 
             // Reset the change_set and update_counter
@@ -305,7 +305,7 @@ void *worker_routine_main (zmq::context_t *context, int thread_id)
             cout << "The gossip is sent by thread " << thread_id << "\n";
         }
 
-        if (update_counter_d == THRESHOLD_D) {
+        if (update_counter_d >= THRESHOLD_D) {
             send_gossip_d(*change_set_d, kvs, publisher_d);
 
             // Reset the change_set and update_counter
@@ -387,7 +387,7 @@ void *worker_routine (zmq::context_t *context, int thread_id)
             receive_gossip(kvs, subscriber);
         }
 
-        if (update_counter == THRESHOLD && THREAD_NUM != 1) {
+        if (update_counter >= THRESHOLD && THREAD_NUM != 1) {
             send_gossip(*change_set, kvs, publisher);
 
             // Reset the change_set and update_counter

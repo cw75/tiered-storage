@@ -44,11 +44,7 @@ int main ()
 		vector<string> v; 
 		split(input, ' ', v);
 	    if (v[0] == "BEGIN") {
-			communication::Request_Begin request_begin;
-
-	    	request_begin.set_type("BEGIN TRANSACTION");
-
-	    	request.set_allocated_begin(&request_begin);
+	    	request.mutable_begin()->set_type("BEGIN TRANSACTION");
 
 	    	string data;
 			request.SerializeToString(&data);
@@ -69,19 +65,12 @@ int main ()
 			current_timestamp = response.timestamp();
 
 			cout << "timestamp is " << current_timestamp << "\n";
+			request.Clear();
 	    }
-	    // else if (v[0] == "END TRANSACTION") {
-	    // 	request.set_type("END TRANSACTION");
-	    // }
 		else if (v[0] == "GET") {
-			communication::Request_Get request_get;
-
-			//int key = stoi(v[1]);
 			string key = v[1];
-			request_get.set_type("GET");
-			request_get.set_key(key);
-
-			request.set_allocated_get(&request_get);
+			request.mutable_get()->set_type("GET");
+			request.mutable_get()->set_key(key);
 
 			string data;
 			request.SerializeToString(&data);
@@ -99,14 +88,13 @@ int main ()
 			communication::Response response;
 			response.ParseFromString(data);
 
-			if (buffer.find(key) != buffer.end() && response.timestamp() > current_timestamp) {
-				cout << "value is " << response.value() << "\n";
-			}
-			else {
+			if (buffer.find(key) != buffer.end() && response.timestamp() < current_timestamp) {
 				cout << "value is " << buffer[key] << "\n";
 			}
-			
-
+			else {
+				cout << "value is " << response.value() << "\n";
+			}
+			request.Clear();
 		}
 		else if (v[0] == "PUT") {
 			//int key = stoi(v[1]);
@@ -115,18 +103,14 @@ int main ()
 			buffer[key] = value;
 		}
 		else if (v[0] == "END") {
-			communication::Request_Put request_put;
-
-			request_put.set_type("END TRANSACTION");
+			request.mutable_put()->set_type("END TRANSACTION");
 
 			for (auto it = buffer.begin(); it != buffer.end(); it++) {
-				communication::Request_Put_Tuple* tp = request_put.add_tuple();
+				communication::Request_Put_Tuple* tp = request.mutable_put()->add_tuple();
 				tp -> set_key(it -> first);
 				tp -> set_value(it -> second);
 				tp -> set_timestamp(current_timestamp);
 			}
-
-			request.set_allocated_put(&request_put);
 
 			string data;
 			request.SerializeToString(&data);
@@ -144,12 +128,14 @@ int main ()
 			communication::Response response;
 			response.ParseFromString(data);
 			cout << "Successful? " << response.succeed() << "\n";
+			request.Clear();
 
+			// clear buffer
+			buffer.clear();
 		}
 		else {
 			cout << "Invalid Request\n";
 		}
-		request.Clear();
  	}
 
 }

@@ -152,19 +152,20 @@ void *worker_routine (zmq::context_t *context, int thread_id)
             zmq_msg_init_size(&msg, result.size());
             memcpy(zmq_msg_data(&msg), &(result[0]), result.size());
             zmq_msg_send(&msg, static_cast<void *>(responder), 0);
-            if (update_counter == THRESHOLD && THREAD_NUM != 1) {
-                send_gossip(*change_set, kvs, publisher);
-
-                // Reset the change_set and update_counter
-                change_set.reset(new SetLattice<string>);
-                update_counter = 0;
-                //cout << "The gossip is sent by thread " << thread_id << "\n";
-            }
         }
 
         // If there is a message from other threads
         if (items [1].revents & ZMQ_POLLIN) {
             receive_gossip(kvs, subscriber, thread_id);
+        }
+
+        if (update_counter >= THRESHOLD && THREAD_NUM != 1) {
+            send_gossip(*change_set, kvs, publisher);
+
+            // Reset the change_set and update_counter
+            change_set.reset(new SetLattice<string>);
+            update_counter = 0;
+            //cout << "The gossip is sent by thread " << thread_id << "\n";
         }
     }
     return (NULL);

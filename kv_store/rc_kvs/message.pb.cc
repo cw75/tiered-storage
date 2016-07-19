@@ -390,8 +390,8 @@ void Request_Begin::SerializeWithCachedSizes(
   // @@protoc_insertion_point(serialize_end:communication.Request.Begin)
 }
 
-::google::protobuf::uint8* Request_Begin::InternalSerializeWithCachedSizesToArray(
-    bool deterministic, ::google::protobuf::uint8* target) const {
+::google::protobuf::uint8* Request_Begin::SerializeWithCachedSizesToArray(
+    ::google::protobuf::uint8* target) const {
   // @@protoc_insertion_point(serialize_to_array_start:communication.Request.Begin)
   // required string type = 1;
   if (has_type()) {
@@ -705,8 +705,8 @@ void Request_Get::SerializeWithCachedSizes(
   // @@protoc_insertion_point(serialize_end:communication.Request.Get)
 }
 
-::google::protobuf::uint8* Request_Get::InternalSerializeWithCachedSizesToArray(
-    bool deterministic, ::google::protobuf::uint8* target) const {
+::google::protobuf::uint8* Request_Get::SerializeWithCachedSizesToArray(
+    ::google::protobuf::uint8* target) const {
   // @@protoc_insertion_point(serialize_to_array_start:communication.Request.Get)
   // required string type = 1;
   if (has_type()) {
@@ -1080,8 +1080,8 @@ void Request_Put_Tuple::SerializeWithCachedSizes(
   // @@protoc_insertion_point(serialize_end:communication.Request.Put.Tuple)
 }
 
-::google::protobuf::uint8* Request_Put_Tuple::InternalSerializeWithCachedSizesToArray(
-    bool deterministic, ::google::protobuf::uint8* target) const {
+::google::protobuf::uint8* Request_Put_Tuple::SerializeWithCachedSizesToArray(
+    ::google::protobuf::uint8* target) const {
   // @@protoc_insertion_point(serialize_to_array_start:communication.Request.Put.Tuple)
   // required string key = 1;
   if (has_key()) {
@@ -1427,8 +1427,8 @@ void Request_Put::SerializeWithCachedSizes(
   // @@protoc_insertion_point(serialize_end:communication.Request.Put)
 }
 
-::google::protobuf::uint8* Request_Put::InternalSerializeWithCachedSizesToArray(
-    bool deterministic, ::google::protobuf::uint8* target) const {
+::google::protobuf::uint8* Request_Put::SerializeWithCachedSizesToArray(
+    ::google::protobuf::uint8* target) const {
   // @@protoc_insertion_point(serialize_to_array_start:communication.Request.Put)
   // required string type = 1;
   if (has_type()) {
@@ -1444,8 +1444,8 @@ void Request_Put::SerializeWithCachedSizes(
   // repeated .communication.Request.Put.Tuple tuple = 2;
   for (unsigned int i = 0, n = this->tuple_size(); i < n; i++) {
     target = ::google::protobuf::internal::WireFormatLite::
-      InternalWriteMessageNoVirtualToArray(
-        2, this->tuple(i), false, target);
+      WriteMessageNoVirtualToArray(
+        2, this->tuple(i), target);
   }
 
   if (_internal_metadata_.have_unknown_fields()) {
@@ -1748,28 +1748,28 @@ void Request::SerializeWithCachedSizes(
   // @@protoc_insertion_point(serialize_end:communication.Request)
 }
 
-::google::protobuf::uint8* Request::InternalSerializeWithCachedSizesToArray(
-    bool deterministic, ::google::protobuf::uint8* target) const {
+::google::protobuf::uint8* Request::SerializeWithCachedSizesToArray(
+    ::google::protobuf::uint8* target) const {
   // @@protoc_insertion_point(serialize_to_array_start:communication.Request)
   // optional .communication.Request.Begin begin = 1;
   if (has_begin()) {
     target = ::google::protobuf::internal::WireFormatLite::
-      InternalWriteMessageNoVirtualToArray(
-        1, *this->begin_, false, target);
+      WriteMessageNoVirtualToArray(
+        1, *this->begin_, target);
   }
 
   // optional .communication.Request.Get get = 2;
   if (has_get()) {
     target = ::google::protobuf::internal::WireFormatLite::
-      InternalWriteMessageNoVirtualToArray(
-        2, *this->get_, false, target);
+      WriteMessageNoVirtualToArray(
+        2, *this->get_, target);
   }
 
   // optional .communication.Request.Put put = 3;
   if (has_put()) {
     target = ::google::protobuf::internal::WireFormatLite::
-      InternalWriteMessageNoVirtualToArray(
-        3, *this->put_, false, target);
+      WriteMessageNoVirtualToArray(
+        3, *this->put_, target);
   }
 
   if (_internal_metadata_.have_unknown_fields()) {
@@ -2690,8 +2690,8 @@ void Response::SerializeWithCachedSizes(
   // @@protoc_insertion_point(serialize_end:communication.Response)
 }
 
-::google::protobuf::uint8* Response::InternalSerializeWithCachedSizesToArray(
-    bool deterministic, ::google::protobuf::uint8* target) const {
+::google::protobuf::uint8* Response::SerializeWithCachedSizesToArray(
+    ::google::protobuf::uint8* target) const {
   // @@protoc_insertion_point(serialize_to_array_start:communication.Response)
   // optional bool err = 1 [default = false];
   if (has_err()) {

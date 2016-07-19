@@ -45,7 +45,7 @@ class Response;
 
 // ===================================================================
 
-class Request_Begin : public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:communication.Request.Begin) */ {
+class Request_Begin : public ::google::protobuf::Message {
  public:
   Request_Begin();
   virtual ~Request_Begin();
@@ -87,11 +87,7 @@ class Request_Begin : public ::google::protobuf::Message /* @@protoc_insertion_p
       ::google::protobuf::io::CodedInputStream* input);
   void SerializeWithCachedSizes(
       ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* InternalSerializeWithCachedSizesToArray(
-      bool deterministic, ::google::protobuf::uint8* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const {
-    return InternalSerializeWithCachedSizesToArray(false, output);
-  }
+  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -143,7 +139,7 @@ class Request_Begin : public ::google::protobuf::Message /* @@protoc_insertion_p
 };
 // -------------------------------------------------------------------
 
-class Request_Get : public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:communication.Request.Get) */ {
+class Request_Get : public ::google::protobuf::Message {
  public:
   Request_Get();
   virtual ~Request_Get();
@@ -185,11 +181,7 @@ class Request_Get : public ::google::protobuf::Message /* @@protoc_insertion_poi
       ::google::protobuf::io::CodedInputStream* input);
   void SerializeWithCachedSizes(
       ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* InternalSerializeWithCachedSizesToArray(
-      bool deterministic, ::google::protobuf::uint8* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const {
-    return InternalSerializeWithCachedSizesToArray(false, output);
-  }
+  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -269,7 +261,7 @@ class Request_Get : public ::google::protobuf::Message /* @@protoc_insertion_poi
 };
 // -------------------------------------------------------------------
 
-class Request_Put_Tuple : public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:communication.Request.Put.Tuple) */ {
+class Request_Put_Tuple : public ::google::protobuf::Message {
  public:
   Request_Put_Tuple();
   virtual ~Request_Put_Tuple();
@@ -311,11 +303,7 @@ class Request_Put_Tuple : public ::google::protobuf::Message /* @@protoc_inserti
       ::google::protobuf::io::CodedInputStream* input);
   void SerializeWithCachedSizes(
       ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* InternalSerializeWithCachedSizesToArray(
-      bool deterministic, ::google::protobuf::uint8* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const {
-    return InternalSerializeWithCachedSizesToArray(false, output);
-  }
+  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -395,7 +383,7 @@ class Request_Put_Tuple : public ::google::protobuf::Message /* @@protoc_inserti
 };
 // -------------------------------------------------------------------
 
-class Request_Put : public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:communication.Request.Put) */ {
+class Request_Put : public ::google::protobuf::Message {
  public:
   Request_Put();
   virtual ~Request_Put();
@@ -437,11 +425,7 @@ class Request_Put : public ::google::protobuf::Message /* @@protoc_insertion_poi
       ::google::protobuf::io::CodedInputStream* input);
   void SerializeWithCachedSizes(
       ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* InternalSerializeWithCachedSizesToArray(
-      bool deterministic, ::google::protobuf::uint8* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const {
-    return InternalSerializeWithCachedSizesToArray(false, output);
-  }
+  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -508,7 +492,7 @@ class Request_Put : public ::google::protobuf::Message /* @@protoc_insertion_poi
 };
 // -------------------------------------------------------------------
 
-class Request : public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:communication.Request) */ {
+class Request : public ::google::protobuf::Message {
  public:
   Request();
   virtual ~Request();
@@ -550,11 +534,7 @@ class Request : public ::google::protobuf::Message /* @@protoc_insertion_point(c
       ::google::protobuf::io::CodedInputStream* input);
   void SerializeWithCachedSizes(
       ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* InternalSerializeWithCachedSizesToArray(
-      bool deterministic, ::google::protobuf::uint8* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const {
-    return InternalSerializeWithCachedSizesToArray(false, output);
-  }
+  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();
@@ -631,7 +611,7 @@ class Request : public ::google::protobuf::Message /* @@protoc_insertion_point(c
 };
 // -------------------------------------------------------------------
 
-class Response : public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:communication.Response) */ {
+class Response : public ::google::protobuf::Message {
  public:
   Response();
   virtual ~Response();
@@ -673,11 +653,7 @@ class Response : public ::google::protobuf::Message /* @@protoc_insertion_point(
       ::google::protobuf::io::CodedInputStream* input);
   void SerializeWithCachedSizes(
       ::google::protobuf::io::CodedOutputStream* output) const;
-  ::google::protobuf::uint8* InternalSerializeWithCachedSizesToArray(
-      bool deterministic, ::google::protobuf::uint8* output) const;
-  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const {
-    return InternalSerializeWithCachedSizesToArray(false, output);
-  }
+  ::google::protobuf::uint8* SerializeWithCachedSizesToArray(::google::protobuf::uint8* output) const;
   int GetCachedSize() const { return _cached_size_; }
   private:
   void SharedCtor();

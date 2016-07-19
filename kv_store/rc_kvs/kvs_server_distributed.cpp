@@ -33,19 +33,25 @@ string process_request(unique_ptr<Database> &kvs, communication::Request &req, i
     communication::Response response;
 
     if (req.has_begin()) {
+        cout << "received begin message\n";
         response.set_timestamp(stoi(to_string(local_timestamp++) + to_string(thread_id)));
     }
     // else if (req.type() == "END TRANSACTION") {
     // }
     else if (req.has_get()) {
+        cout << "received get message\n";
         response.set_value(kvs->get(req.get().key()).reveal().value);
         response.set_timestamp(kvs -> get(req.get().key()).reveal().timestamp);
         response.set_succeed(true);
     }
     else if (req.has_put()) {
+        cout << "received buffered put message\n";
         //cout << "value to be put is " << req.value() << "\n";
 
         for (int i = 0; i < req.put().tuple_size(); i++) {
+            cout << "key is " << req.put().tuple(i).key() << "\n";
+            cout << "value is " << req.put().tuple(i).value() << "\n";
+            cout << "timestamp is " << req.put().tuple(i).timestamp() << "\n";
             timestamp_value_pair<string> p = timestamp_value_pair<string>(req.put().tuple(i).timestamp(), req.put().tuple(i).value());
             kvs->put(req.put().tuple(i).key(), p);
             update_counter++;
@@ -157,19 +163,20 @@ void *worker_routine (zmq::context_t *context, int thread_id)
             zmq_msg_init_size(&msg, result.size());
             memcpy(zmq_msg_data(&msg), &(result[0]), result.size());
             zmq_msg_send(&msg, static_cast<void *>(responder), 0);
-            if (update_counter == THRESHOLD && THREAD_NUM != 1) {
-                send_gossip(*change_set, kvs, publisher);
-
-                // Reset the change_set and update_counter
-                change_set.reset(new SetLattice<string>);
-                update_counter = 0;
-                //cout << "The gossip is sent by thread " << thread_id << "\n";
-            }
         }
 
         // If there is a message from other threads
         if (items [1].revents & ZMQ_POLLIN) {
             receive_gossip(kvs, subscriber, thread_id);
+        }
+
+        if (update_counter >= THRESHOLD && THREAD_NUM != 1) {
+            send_gossip(*change_set, kvs, publisher);
+
+            // Reset the change_set and update_counter
+            change_set.reset(new SetLattice<string>);
+            update_counter = 0;
+            //cout << "The gossip is sent by thread " << thread_id << "\n";
         }
     }
     return (NULL);

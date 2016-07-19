@@ -50,11 +50,19 @@ int main ()
 			zmq_msg_t msg;
 			zmq_msg_init_size(&msg, data.size());
 			memcpy(zmq_msg_data(&msg), &(data[0]), data.size());
+
+			auto start = chrono::high_resolution_clock::now();
+
 			zmq_msg_send(&msg, static_cast<void *>(requester), 0);
 
 			zmq_msg_t rec;
 			zmq_msg_init(&rec);
 			zmq_msg_recv(&rec, static_cast<void *>(requester), 0);
+
+			auto elapsed = chrono::high_resolution_clock::now() - start;
+			long long microseconds = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
+			cout << "round trip time is " << microseconds << "\n";
+
 			data = (char *)zmq_msg_data(&rec);
 			zmq_msg_close(&rec);
 			communication::Response response;
@@ -89,11 +97,19 @@ int main ()
 			zmq_msg_t msg;
 			zmq_msg_init_size(&msg, data.size());
 			memcpy(zmq_msg_data(&msg), &(data[0]), data.size());
+
+			auto start = chrono::high_resolution_clock::now();
+
 			zmq_msg_send(&msg, static_cast<void *>(requester), 0);
 
 			zmq_msg_t rec;
 			zmq_msg_init(&rec);
 			zmq_msg_recv(&rec, static_cast<void *>(requester), 0);
+
+			auto elapsed = chrono::high_resolution_clock::now() - start;
+			long long microseconds = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
+			cout << "round trip time is " << microseconds << "\n";
+
 			data = (char *)zmq_msg_data(&rec);
 			zmq_msg_close(&rec);
 			communication::Response response;
