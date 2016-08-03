@@ -1,0 +1,38 @@
+package communication;
+
+message Request {
+
+	message Begin {
+		required string type = 1;
+	}
+
+	message Get {
+		required string type = 1;
+		required string key = 2;
+		optional int64 timestamp = 3;
+
+	}
+
+	message Put {
+		required string type = 1;
+		message Tuple {
+			required string key = 1;
+			required string value = 2;
+			required int64 timestamp = 3;
+		}
+		repeated Tuple tuple = 2;
+	}
+
+	optional Begin begin = 1;
+	optional Get get = 2;
+	optional Put put = 3;
+}
+
+
+
+message Response {
+	optional bool err = 1 [default = false];
+	optional bool succeed = 2;
+	optional string value = 3;
+	optional int64 timestamp = 4;
+}
