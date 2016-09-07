@@ -1,21 +1,20 @@
-cmake_minimum_required (VERSION 2.6)
-project (High-Performance-Lattice)
+CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
+PROJECT(High-Performance-Lattice)
 
-SET (CMAKE_CXX_COMPILER /usr/bin/clang++)
-SET (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address -O0 --coverage -lpthread -ltbb -lzmq -lprotobuf -std=c++0x -stdlib=libc++")
-SET (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -lpthread -ltbb -lzmq -lprotobuf -std=c++0x -stdlib=libc++")
+SET(CMAKE_CXX_COMPILER /usr/bin/clang++)
+SET(CMAKE_CXX_FLAGS_DEBUG
+    "${CMAKE_CXX_FLAGS_DEBUG} \
+    -fsanitize=address \
+    -O0 \
+    --coverage \
+    -std=c++0x \
+    -stdlib=libc++")
+SET(CMAKE_CXX_FLAGS_RELEASE
+    "${CMAKE_CXX_FLAGS_RELEASE} \
+    -std=c++0x \
+    -stdlib=libc++")
+INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR} .)
 
-include_directories (
-	/usr/local/lib
-	/usr/local/include
-	vendor/gbenchmark/include
-	vendor/gtest/include
-	vendor/tbb/include
-	include
-	kv_store/include
-)
-
-#add_subdirectory(tests)
-#add_subdirectory(benchmarks)
-add_subdirectory(kv_store)
-
+# ADD_SUBDIRECTORY(benchmarks)
+# ADD_SUBDIRECTORY(tests)
+ADD_SUBDIRECTORY(kv_store)

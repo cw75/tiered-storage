@@ -1,17 +1,20 @@
 #ifndef CORE_LATTICES_H
 #define CORE_LATTICES_H
 
-#include <iostream>
-#include <unordered_set>
-#include <unordered_map>
-#include <vector>
-#include <stdlib.h>
 #include <stdio.h>
-#include <limits>
+#include <stdlib.h>
+
 #include <cassert>
-#include "base_lattices.h"
-#include "tbb/concurrent_unordered_set.h"
+#include <iostream>
+#include <limits>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+
 #include "tbb/concurrent_unordered_map.h"
+#include "tbb/concurrent_unordered_set.h"
+
+#include "include/base_lattices.h"
 
 using namespace std;
 

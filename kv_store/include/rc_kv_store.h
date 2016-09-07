@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "base_kv_store.h"
+
+#include "kv_store/include/base_kv_store.h"
 
 template <typename T>
 struct timestamp_value_pair {
@@ -30,7 +31,7 @@ protected:
     	if (p.timestamp >= this -> element.timestamp) {
     		this -> element.timestamp = p.timestamp;
     		this -> element.value = p.value;
-    	} 
+    	}
     }
 public:
     RC_KVS_PairLattice() : Lattice<timestamp_value_pair<T>>() {}
