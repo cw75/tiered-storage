@@ -1,13 +1,16 @@
-#include <zmq.hpp>
-#include <string>
-#include <iostream>
 #include <pthread.h>
 #include <unistd.h>
+
+#include <iostream>
 #include <memory>
-#include <vector>
+#include <string>
 #include <thread>
-#include "rc_kv_store.h"
-#include "message.pb.h"
+#include <vector>
+
+#include <zmq.hpp>
+
+#include "kv_store/ruc_kvs/message.pb.h"
+#include "kv_store/include/rc_kv_store.h"
 
 using namespace std;
 
