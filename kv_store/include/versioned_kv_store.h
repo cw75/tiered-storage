@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "base_kv_store.h"
+
+#include "kv_store/include/base_kv_store.h"
 
 template <typename T>
 struct version_value_pair {

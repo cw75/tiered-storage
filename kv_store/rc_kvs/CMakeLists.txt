@@ -1,5 +1,12 @@
-cmake_minimum_required (VERSION 2.6)
+CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
 
-add_executable(msgqueue msgqueue.cpp)
-add_executable(kvs_client kvs_client.cpp message.pb.cc)
-add_executable(kvs_server_distributed kvs_server_distributed.cpp message.pb.cc)
+INCLUDE(FindProtobuf)
+FIND_PACKAGE(Protobuf REQUIRED)
+INCLUDE_DIRECTORIES(${PROTOBUF_INCLUDE_DIR})
+PROTOBUF_GENERATE_CPP(PROTO_SRC PROTO_HEADER message.proto)
+
+add_executable(rc_kvs_client kvs_client.cpp ${PROTO_SRC})
+target_link_libraries(rc_kvs_client ${KV_LIBRARY_DEPENDENCIES})
+
+add_executable(rc_kvs_server_distributed kvs_server_distributed.cpp ${PROTO_SRC})
+target_link_libraries(rc_kvs_server_distributed ${KV_LIBRARY_DEPENDENCIES})
