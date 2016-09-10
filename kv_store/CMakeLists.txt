@@ -1,8 +1,11 @@
-cmake_minimum_required (VERSION 2.6)
+CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
 
-#add_subdirectory(tests)
-#add_subdirectory(benchmarks)
-#add_subdirectory(versioned_kvs)
-#add_subdirectory(ruc_kvs)
-#add_subdirectory(rc_kvs)
-add_subdirectory(ici_kvs)
+SET(KV_LIBRARY_DEPENDENCIES pthread tbb zmq protobuf)
+
+# ADD_SUBDIRECTORY(tests)
+# ADD_SUBDIRECTORY(benchmarks)
+# ADD_SUBDIRECTORY(versioned_kvs)
+ADD_SUBDIRECTORY(ici_kvs)
+ADD_SUBDIRECTORY(message_queue)
+ADD_SUBDIRECTORY(rc_kvs)
+ADD_SUBDIRECTORY(ruc_kvs)

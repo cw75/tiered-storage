@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <mutex>
+
 #include <memory>
-#include "core_lattices.h"
+#include <mutex>
+
+#include "include/core_lattices.h"
 
 using namespace std;
 
