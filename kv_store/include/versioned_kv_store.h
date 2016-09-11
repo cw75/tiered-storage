@@ -3,8 +3,10 @@
 
 #include "kv_store/include/base_kv_store.h"
 
+// NOTE(mwhittaker): See timestamp_value_pair comments.
 template <typename T>
 struct version_value_pair {
+    // NOTE(mwhittaker): What is this? A vector clock?
 	MapLattice<int, MaxLattice<int>> v_map;
 	T value;
 

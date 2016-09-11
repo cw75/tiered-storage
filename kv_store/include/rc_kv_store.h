@@ -3,6 +3,7 @@
 
 #include "kv_store/include/base_kv_store.h"
 
+// NOTE(mwhittaker): Use an std::pair?
 template <typename T>
 struct timestamp_value_pair {
 	// MapLattice<int, MaxLattice<int>> v_map;
@@ -27,6 +28,9 @@ struct timestamp_value_pair {
 template <typename T>
 class RC_KVS_PairLattice : public Lattice<timestamp_value_pair<T>> {
 protected:
+    // NOTE(mwhittaker): This function isn't commutative. Consider two
+    // timestamp_value_pairs with equal timestamps x = (42, "x") and y = (42,
+    // "y"). x.merge(y) == y, but y.merge(x) == x.
     void do_merge(const timestamp_value_pair<T> &p) {
     	if (p.timestamp >= this -> element.timestamp) {
     		this -> element.timestamp = p.timestamp;

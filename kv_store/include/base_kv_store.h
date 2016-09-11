@@ -25,17 +25,27 @@ public:
 	}
 };
 
+// NOTE(mwhittaker): Any intuition why this spin-lock implementation of the map
+// is faster than using a mutex?
+// NOTE(mwhittaker): Which workloads is it faster for?
+// NOTE(mwhittaker): Might not be a big issue, but there doesn't seem to be any
+// enforced fairness between putters and getters.
 // Lock-free implementation of concurrent kvs
 template <typename K, typename V>
 class Concurrent_KV_Store{
 protected:
 	AtomicMapLattice<K, V> db;
+    // NOTE(mwhittaker): Why is this keyed by int? Shouldn't it be a K?
+    // NOTE(mwhittaker): Why unique_ptr instead of a plain atomic<int>?
 	tbb::concurrent_unordered_map<int, unique_ptr<atomic<int>>> lock_table;
 public:
 	Concurrent_KV_Store<K, V>() {}
 	Concurrent_KV_Store<K, V>(AtomicMapLattice<K, V> &other) {
 		db = other;
 	}
+
+    // NOTE(mwhittaker): Why does this take an int? Shouldn't it take a K?
+    // NOTE(mwhittaker): Why does this return by value?
 	V get(int k) {
 		auto it = lock_table.find(k);
 		if (it == lock_table.end()) {
