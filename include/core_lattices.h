@@ -16,10 +16,25 @@
 
 #include "include/base_lattices.h"
 
+// NOTE(mwhittaker): Some general notes:
+//
+// - I think there is a lot of code duplication between the atomic and
+//   non-atomic types. It would be neat if we could figure out a way to avoid
+//   that.
+// - Maybe each lattice should be put in its own file instead of having
+//   everything in one big file?
+// - Maybe this directory should be called lattices or something similar
+//   instead of include?
+
 class BoolLattice : public Lattice<bool> {
  public:
   BoolLattice() : Lattice() {}
+
+  // NOTE(mwhittaker): I think primitives like bool should be passed by value.
   BoolLattice(const bool &e) : Lattice(e) {}
+
+  // NOTE(mwhittaker): What purpose does this function serve? Why is the return
+  // type an int?
   // this should probably be defined by the application
   const int when_true(const int (*f)()) const {
     if (element) {
@@ -49,6 +64,9 @@ class MaxLattice : public Lattice<T> {
     else
       return BoolLattice(false);
   }
+  // NOTE(mwhittaker): It seems like this lattice operates over any T that has
+  // a total order. Should these add and substract operations be in the
+  // interface? They don't seem related to the total order.
   MaxLattice<T> add(T n) const { return MaxLattice<T>(this->element + n); }
   MaxLattice<T> subtract(T n) const { return MaxLattice<T>(this->element - n); }
 
@@ -67,6 +85,8 @@ template <typename T>
 class MinLattice : public Lattice<T> {
  public:
   MinLattice() {
+    // NOTE(mwhittaker): Are MinLattice and MaxLattice only designed to work
+    // for numbers?
     // this->assign(numeric_limits<T>::max());
     this->assign(static_cast<T>(1000000));
   }
@@ -104,11 +124,13 @@ class MinLattice : public Lattice<T> {
 template <typename T>
 class SetLattice : public Lattice<std::unordered_set<T>> {
  public:
+  // NOTE(mwhittaker): I think the parent constructor will be called for us.
   SetLattice() : Lattice<std::unordered_set<T>>() {}
   SetLattice(const std::unordered_set<T> &e)
       : Lattice<std::unordered_set<T>>(e) {}
   MaxLattice<int> size() const { return MaxLattice<int>(this->element.size()); }
   void insert(const T &e) { this->element.insert(e); }
+  // NOTE(mwhittaker): Argument should be taken by reference to const.
   SetLattice<T> intersect(std::unordered_set<T> s) const {
     std::unordered_set<T> res;
     for (auto iter_i = s.begin(); iter_i != s.end(); ++iter_i) {
@@ -119,6 +141,9 @@ class SetLattice : public Lattice<std::unordered_set<T>> {
     }
     return SetLattice<T>(res);
   }
+  // NOTE(mwhittaker): I'm not familiar with the best way to take function
+  // arguments, but I know there are some other options like taking in an
+  // std::function or templating the argument.
   SetLattice<T> project(bool (*f)(T)) const {
     std::unordered_set<T> res;
     for (auto it = this->element.begin(); it != this->element.end(); ++it) {
@@ -126,6 +151,7 @@ class SetLattice : public Lattice<std::unordered_set<T>> {
     }
     return SetLattice<T>(res);
   }
+  // NOTE(mwhittaker): Argument should be taken by reference to const.
   BoolLattice contain(T v) const {
     auto it = this->element.find(v);
     if (it == this->element.end())
@@ -147,6 +173,7 @@ class SetLattice : public Lattice<std::unordered_set<T>> {
 template <typename K, typename V>
 class MapLattice : public Lattice<std::unordered_map<K, V>> {
  public:
+  // NOTE(mwhittaker): See above.
   MapLattice() : Lattice<std::unordered_map<K, V>>() {}
   MapLattice(const std::unordered_map<K, V> &m)
       : Lattice<std::unordered_map<K, V>>(m) {}
@@ -177,6 +204,7 @@ class MapLattice : public Lattice<std::unordered_map<K, V>> {
     return SetLattice<K>(res);
   }
   V &at(K k) { return this->element[k]; }
+  // NOTE(mwhittaker): Argument should be taken by reference to const.
   BoolLattice contain(K k) const {
     auto it = this->element.find(k);
     if (it == this->element.end())
@@ -245,6 +273,7 @@ class TombstoneLattice : public MapLattice<T, BoolLattice> {
   }
 };
 
+// NOTE(mwhittaker): Same as http://en.cppreference.com/w/cpp/container/array?
 template <typename T, size_t S>
 struct slotArray {
   T slots[S];
