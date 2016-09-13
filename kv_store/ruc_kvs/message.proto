@@ -1,6 +1,7 @@
 package communication;
 
 message Request {
+    // NOTE(mwhittaker): I think this would be better as an enum?
 	required string type = 1;
 	optional string key = 2;
 	optional string value = 3;
@@ -8,6 +9,8 @@ message Request {
 }
 
 message Response {
+    // NOTE(mwhittaker): The default for booleans is already false.
+    // See https://developers.google.com/protocol-buffers/docs/proto#optional.
 	optional bool err = 1 [default = false];
 	optional bool succeed = 2;
 	optional string value = 3;
