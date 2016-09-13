@@ -1,13 +1,16 @@
-#include <zmq.hpp>
-#include <string>
-#include <sstream>
-#include <vector>
-#include <iostream>
 #include <pthread.h>
 #include <unistd.h>
+
+#include <iostream>
 #include <memory>
-#include "rc_kv_store.h"
-#include "message.pb.h"
+#include <sstream>
+#include <string>
+#include <vector>
+
+#include <zmq.hpp>
+
+#include "kv_store/ici_kvs/message.pb.h"
+#include "kv_store/include/rc_kv_store.h"
 
 using namespace std;
 
@@ -42,7 +45,7 @@ int main ()
 		//cout << static_cast<int>(getpid()) << "\n";
 		cout << "Please enter a request: ";
 		getline(cin, input);
-		vector<string> v; 
+		vector<string> v;
 		split(input, ' ', v);
 	    if (v[0] == "BEGIN") {
 	    	request.mutable_begin()->set_type("BEGIN TRANSACTION");

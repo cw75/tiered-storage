@@ -1,13 +1,16 @@
-#include <zmq.hpp>
-#include <string>
-#include <sstream>
-#include <vector>
-#include <iostream>
 #include <pthread.h>
 #include <unistd.h>
+
+#include <iostream>
 #include <memory>
-#include "rc_kv_store.h"
-#include "message.pb.h"
+#include <sstream>
+#include <string>
+#include <vector>
+
+#include <zmq.hpp>
+
+#include "kv_store/ruc_kvs/message.pb.h"
+#include "kv_store/include/rc_kv_store.h"
 
 using namespace std;
 
@@ -45,6 +48,8 @@ int main ()
 	    	string data;
 			request.SerializeToString(&data);
 
+            // NOTE(mwhittaker): Any reason to use the C API instead of the C++
+            // API (http://api.zeromq.org/2-1:zmq-cpp)?
 			zmq_msg_t msg;
 			zmq_msg_init_size(&msg, data.size());
 			memcpy(zmq_msg_data(&msg), &(data[0]), data.size());
@@ -87,7 +92,7 @@ int main ()
 			zmq_msg_close(&rec);
 			communication::Response response;
 			response.ParseFromString(data);
-			
+
 			cout << "value is " << response.value() << "\n";
 
 		}
@@ -98,7 +103,7 @@ int main ()
 			request.set_key(key);
 			request.set_value(v[2]);
 			request.set_timestamp(current_timestamp);
-			
+
         	string data;
 			request.SerializeToString(&data);
 

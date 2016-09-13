@@ -1,22 +1,99 @@
-#include <zmq.hpp>
-#include <string>
-#include <iostream>
 #include <pthread.h>
 #include <unistd.h>
+
+#include <iostream>
 #include <memory>
-#include <vector>
+#include <string>
 #include <thread>
-#include "rc_kv_store.h"
-#include "message.pb.h"
+#include <vector>
+
+#include <zmq.hpp>
+
+#include "kv_store/ruc_kvs/message.pb.h"
+#include "kv_store/include/rc_kv_store.h"
 
 using namespace std;
 
+// NOTE(mwhittaker): I'm not very familiar with ZeroMQ, so this code was a bit
+// challenging for me to read. I just want to double check that I'm
+// understanding things correctly.
+//
+// A message queue (msgqueue.cpp) can connect any number of clients to any
+// number of servers:
+//
+//     clients                     servers
+//     =======                     =======
+//
+//     +---+                       +---+
+//     | a |\                     /| 1 |
+//     +---+ \                   / +---+
+//            \                 /
+//     +---+   \ +----------+  /   +---+
+//     | b |---->| msgqueue |<-----| 2 |
+//     +---+   / +----------+  \   +---+
+//            /                 \
+//     +---+ /                   \ +---+
+//     | c |/                     \| 3 |
+//     +---+                       +---+
+//
+// Messages sent by clients are fairly queued and sent in a round-robin fashion
+// to the servers. Here, for example, it would send to 1, then 2, then 3, then
+// 1, then 2, and so on. When a server receives a message, it can respond with
+// a message that is routed back to the original sender.
+//
+// In our case, we only support a single server:
+//
+//     clients                     server
+//     =======                     ======
+//
+//     +---+
+//     | a |\
+//     +---+ \
+//            \
+//     +---+   \ +----------+      +---+
+//     | b |---->| msgqueue |<-----| 1 |
+//     +---+   / +----------+      +---+
+//            /
+//     +---+ /
+//     | c |/
+//     +---+
+//
+// This server runs some number of threads, and each thread maintains a copy of
+// a key-value store as represented by a map from integers to timestamped
+// integers; this happens to be a semilattice. For example,
+//
+//   {
+//      // key: (timestamp, value)
+//      139911: (42, 100),
+//      13941: (1, 14703),
+//      ...
+//   }
+//
+// Each thread forms a connection to the message queue so that it can receive
+// messages from clients. It also forms a clique of pub-sub connections with
+// the other threads in order to gossip updates to the key-value store. These
+// pub-sub connections are made within the process and pass data around via
+// pointers to data allocated on the heap.
+//
+// A couple questions:
+// - If one client begins a transaction, reaches thread 1, and writes a value.
+//   Can't it then issue a read, reach thread 2, and not see the value there?
+//   Is this read uncommited? I don't mean to imply it's not; I truly don't
+//   know.
+// - What's the point of the message queue if we can only ever have a single
+//   server? Is the single-server thing a short term convenience?
+// - What is the purpose of the timestamps?
+
+// NOTE(mwhittaker): Prefer constants to #defines!
 // Define the number of threads
 #define THREAD_NUM 4
 
+// NOTE(mwhittaker): Prefer constants to #defines!
 // If the total number of updates to the kvs before the last gossip reaches THRESHOLD, then the thread gossips to others.
 #define THRESHOLD 1
 
+// NOTE(mwhittaker): Consider a using type alias?
+// http://en.cppreference.com/w/cpp/language/type_alias
 // For simplicity, the kvs uses integer as the key type and maxintlattice as the value lattice.
 typedef KV_Store<string, RC_KVS_PairLattice<string>> Database;
 
@@ -32,6 +109,7 @@ string process_request(unique_ptr<Database> &kvs, communication::Request &req, i
     communication::Response response;
 
     if (req.type() == "BEGIN TRANSACTION") {
+        // NOTE(mwhittaker): Why local_timestamp + thread_id?
         response.set_timestamp(stoi(to_string(local_timestamp++) + to_string(thread_id)));
     }
     // else if (req.type() == "END TRANSACTION") {
