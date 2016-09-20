@@ -28,7 +28,7 @@ template <typename L, typename R>
 class PairLattice : public Lattice<PairLattice<L, R>, std::pair<L, R>> {
  public:
   PairLattice() = default;
-  PairLattice(const L l, const R r) : p_(l, r) {}
+  PairLattice(const L& l, const R& r) : p_(l, r) {}
   PairLattice(const PairLattice<L, R>& l) = delete;
   PairLattice& operator=(const PairLattice<L, R>& l) = delete;
 

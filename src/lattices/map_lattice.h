@@ -2,8 +2,11 @@
 #define LATTICES_MAP_LATTICE_H_
 
 #include <unordered_map>
+#include <utility>
 
+#include "lattices/bool_or_lattice.h"
 #include "lattices/lattice.h"
+#include "lattices/max_lattice.h"
 
 namespace latticeflow {
 
@@ -43,6 +46,25 @@ class MapLattice : public Lattice<MapLattice<K, V>, std::unordered_map<K, V>> {
       }
     }
   }
+
+  // See http://en.cppreference.com/w/cpp/container/unordered_map/at.
+  const V& get(const K& key) const { return kvs_.at(key); }
+
+  // `kv.put(k, v)` binds `k` to `v` if `kv` doesn't have an existing binding
+  // for `k`. Otherwises, it joins `v` into the existing binding. For example,
+  // {"a": 1}.put("b", 2) produces {"a": 1, "b": 2} and {"a": 1}.put("a", 2)
+  // produces {"a": 1 join 2}.
+  void put(const K& key, const V& val) {
+    if (kvs_.count(key) == 0) {
+      kvs_.insert(std::make_pair(key, val));
+    } else {
+      kvs_[key].join(val);
+    }
+  }
+
+  // TODO(mwhittaker): Figure out very carefully which other map operations to
+  // support. We should only support the "monotonic" ones?
+  // http://en.cppreference.com/w/cpp/container/unordered_map
 
  private:
   std::unordered_map<K, V> kvs_;

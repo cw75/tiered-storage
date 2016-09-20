@@ -29,9 +29,10 @@ class TimestampLattice
     : public Lattice<TimestampLattice<Timestamp, L>, std::pair<Timestamp, L>> {
  public:
   TimestampLattice() = default;
-  TimestampLattice(const Timestamp t, const L x) : p_(t, x) {}
-  TimestampLattice(const TimestampLattice<Timestamp, L>& l) = delete;
-  TimestampLattice& operator=(const TimestampLattice<Timestamp, L>& l) = delete;
+  TimestampLattice(const Timestamp& t, const L& x) : p_(t, x) {}
+  TimestampLattice(const TimestampLattice<Timestamp, L>& l) = default;
+  TimestampLattice& operator=(const TimestampLattice<Timestamp, L>& l) =
+      default;
 
   const std::pair<Timestamp, L>& get() const override { return p_; }
 
@@ -51,9 +52,13 @@ class TimestampLattice
     }
   }
 
- private:
+  // Return the timestamp.
   const Timestamp& timestamp() const { return std::get<0>(p_); }
 
+  // Return the value.
+  const L& value() const { return std::get<1>(p_); }
+
+ private:
   std::pair<Timestamp, L> p_;
 };
 

@@ -12,8 +12,8 @@ class MaxLattice : public Lattice<MaxLattice<T>, T> {
  public:
   MaxLattice() : x_() {}
   explicit MaxLattice(const T& x) : x_(x) {}
-  MaxLattice(const MaxLattice<T>& l) = delete;
-  MaxLattice& operator=(const MaxLattice<T>& l) = delete;
+  MaxLattice(const MaxLattice<T>& l) = default;
+  MaxLattice& operator=(const MaxLattice<T>& l) = default;
 
   const T& get() const override { return x_; }
   void join(const MaxLattice<T>& l) override { x_ = std::max(x_, l.x_); }

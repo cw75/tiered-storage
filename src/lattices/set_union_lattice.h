@@ -18,9 +18,13 @@ class SetUnionLattice
   SetUnionLattice& operator=(const SetUnionLattice<T>& l) = delete;
 
   const std::unordered_set<T>& get() const override { return xs_; }
+
   void join(const SetUnionLattice<T>& l) override {
     xs_.insert(std::begin(l.xs_), std::end(l.xs_));
   }
+
+  // See http://en.cppreference.com/w/cpp/container/set/insert.
+  void insert(const T& x) { xs_.insert(x); }
 
  private:
   std::unordered_set<T> xs_;

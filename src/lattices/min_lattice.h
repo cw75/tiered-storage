@@ -12,8 +12,8 @@ class MinLattice : public Lattice<MinLattice<T>, T> {
  public:
   MinLattice() : x_() {}
   explicit MinLattice(const T& x) : x_(x) {}
-  MinLattice(const MinLattice<T>& l) = delete;
-  MinLattice& operator=(const MinLattice<T>& l) = delete;
+  MinLattice(const MinLattice<T>& l) = default;
+  MinLattice& operator=(const MinLattice<T>& l) = default;
 
   const T& get() const override { return x_; }
   void join(const MinLattice<T>& l) override { x_ = std::min(x_, l.x_); }
