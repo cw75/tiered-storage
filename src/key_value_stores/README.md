@@ -61,12 +61,12 @@ This server runs some number of threads, and each thread maintains a copy of a
 key-value store represented by a map from strings to timestamped strings; this
 happens to be a semilattice. For example,
 
-  {
-     // key: (timestamp, value)
-     "foo": (42, "moo"),
-     "bar": (10, "meow"),
-     ...
-  }
+    {
+        // key: (timestamp, value)
+        "foo": (42, "moo"),
+        "bar": (10, "meow"),
+        ...
+    }
 
 Each server thread forms a connection to the message broker so that it can
 receive messages from and send messages to the clients. It also forms a clique
