@@ -1,12 +1,5 @@
-// Read Uncommited Client.
-//
-// This file repeatedly
-//
-//   - reads commands from stdin, as specified in `usage`;
-//   - parses the commands into `communication::Request` messages;
-//   - sends the requests to the message broker at localhost:5559;
-//   - receives a response from the message broker; and
-//   - pretty prints the response.
+// READ UNCOMMITED key-value client. See README.md for a high level overview!
+
 #include <iostream>
 #include <string>
 #include <vector>
@@ -15,6 +8,7 @@
 
 #include "key_value_stores/message.pb.h"
 #include "key_value_stores/util.h"
+#include "key_value_stores/zmq_util.h"
 
 namespace {
 
@@ -31,6 +25,8 @@ int main() {
   zmq::context_t context(1);
   zmq::socket_t socket(context, ZMQ_REQ);
   socket.connect("tcp://localhost:5559");
+  std::cout << "client connected to "
+            << "tcp://localhost:5559" << std::endl;
 
   int current_timestamp = -1;
   while (true) {
@@ -43,18 +39,20 @@ int main() {
     if (input_parts[0] == "BEGIN") {
       communication::Request request;
       request.set_type(communication::Request::BEGIN_TRANSACTION);
+      send_proto(request, &socket);
 
       communication::Response response;
-      send_request(request, &response, &socket);
+      recv_proto(&response, &socket);
       current_timestamp = response.timestamp();
       std::cout << "timestamp is " << current_timestamp << std::endl;
     } else if (input_parts[0] == "GET") {
       communication::Request request;
       request.set_type(communication::Request::GET);
       request.set_key(input_parts[1]);
+      send_proto(request, &socket);
 
       communication::Response response;
-      send_request(request, &response, &socket);
+      recv_proto(&response, &socket);
       std::cout << "timestamp is " << current_timestamp << std::endl;
       std::cout << "value is " << response.value() << std::endl;
     } else if (input_parts[0] == "PUT") {
@@ -63,9 +61,10 @@ int main() {
       request.set_key(input_parts[1]);
       request.set_value(input_parts[2]);
       request.set_timestamp(current_timestamp);
+      send_proto(request, &socket);
 
       communication::Response response;
-      send_request(request, &response, &socket);
+      recv_proto(&response, &socket);
       std::cout << "Successful? " << response.succeed() << std::endl;
     } else {
       std::cout << "Invalid request: " << input << std::endl;
