@@ -1,0 +1,24 @@
+CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
+
+SET(KV_LIBRARY_DEPENDENCIES
+    protobuf
+    pthread
+    tbb
+    zmq
+)
+
+INCLUDE(FindProtobuf)
+FIND_PACKAGE(Protobuf REQUIRED)
+INCLUDE_DIRECTORIES(${PROTOBUF_INCLUDE_DIR})
+PROTOBUF_GENERATE_CPP(PROTO_SRC PROTO_HEADER message.proto)
+
+ADD_LIBRARY(key_value_stores_util util.cc)
+
+ADD_EXECUTABLE(msgqueue msgqueue.cc)
+TARGET_LINK_LIBRARIES(msgqueue ${KV_LIBRARY_DEPENDENCIES})
+
+ADD_EXECUTABLE(ruc_client ruc_client.cc ${PROTO_SRC})
+TARGET_LINK_LIBRARIES(ruc_client
+    ${KV_LIBRARY_DEPENDENCIES}
+    key_value_stores_util
+)
