@@ -3,6 +3,8 @@
 
 #include "lattices/lattice.h"
 
+namespace latticeflow {
+
 // The semilattice of an arbitrary totally ordered set where join is max. T
 // must support all comparison operators.
 template <typename T>
@@ -38,5 +40,7 @@ class MaxLattice : public Lattice<MaxLattice<T>, T> {
  private:
   T x_;
 };
+
+}  // namespace latticeflow
 
 #endif  // LATTICES_MAX_LATTICE_H_

@@ -1,6 +1,8 @@
 #ifndef LATTICES_LATTICE_H_
 #define LATTICES_LATTICE_H_
 
+namespace latticeflow {
+
 // Consider a partially ordered set (S, <=). An *upper bound* z of two elements
 // a and b in S is an element of S such that z >= a and y >= b. An upper bound
 // is said to be a *least upper bound* if it is less than or equal to all other
@@ -42,5 +44,7 @@ class Lattice {
   // Joins another instance of the semilattice into this one.
   virtual void join(const L& other) = 0;
 };
+
+}  // namespace latticeflow
 
 #endif  // LATTICES_LATTICE_H_

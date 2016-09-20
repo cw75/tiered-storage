@@ -6,6 +6,8 @@
 
 #include "lattices/lattice.h"
 
+namespace latticeflow {
+
 // The semilattice of sets ordered by superset where join is intersect.
 template <typename T>
 class SetIntersectLattice
@@ -30,5 +32,7 @@ class SetIntersectLattice
  private:
   std::unordered_set<T> xs_;
 };
+
+}  // namespace latticeflow
 
 #endif  // LATTICES_SET_INTERSECT_LATTICE_H_

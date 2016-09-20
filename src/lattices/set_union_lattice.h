@@ -6,6 +6,8 @@
 
 #include "lattices/lattice.h"
 
+namespace latticeflow {
+
 // The semilattice of sets ordered by subset where join is union.
 template <typename T>
 class SetUnionLattice
@@ -23,5 +25,7 @@ class SetUnionLattice
  private:
   std::unordered_set<T> xs_;
 };
+
+}  // namespace latticeflow
 
 #endif  // LATTICES_SET_UNION_LATTICE_H_

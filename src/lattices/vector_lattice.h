@@ -6,6 +6,8 @@
 
 #include "lattices/lattice.h"
 
+namespace latticeflow {
+
 // Consider a semillatice T = (S_T, join_T). We can form a vector semilattice V
 // = (std::vector<S_T>, join_V) where join_V is defined as follows. Let a =
 // [a_1, ..., a_m] and b = [b_1, ..., b_n] be two vectors of S_T where m <= n.
@@ -51,5 +53,7 @@ class VectorLattice : public Lattice<VectorLattice<T>, std::vector<T>> {
  private:
   std::vector<T> xs_;
 };
+
+}  // namespace latticeflow
 
 #endif  // LATTICES_VECTOR_LATTICE_H_

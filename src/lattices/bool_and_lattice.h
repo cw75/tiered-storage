@@ -3,6 +3,8 @@
 
 #include "lattices/lattice.h"
 
+namespace latticeflow {
+
 // The semilattice of booleans ordered by reverse implication where join is
 // logical and.
 class BoolAndLattice : public Lattice<BoolAndLattice, bool> {
@@ -41,5 +43,7 @@ class BoolAndLattice : public Lattice<BoolAndLattice, bool> {
 
   bool b_;
 };
+
+}  // namespace latticeflow
 
 #endif  // LATTICES_BOOL_AND_LATTICE_H_

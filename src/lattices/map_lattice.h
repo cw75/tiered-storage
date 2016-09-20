@@ -5,6 +5,8 @@
 
 #include "lattices/lattice.h"
 
+namespace latticeflow {
+
 // A MapLattice<K, V> represents a map from an arbitrary type K to a lattice V.
 // The value bound to a key in the join of two maps depends on the presence of
 // the key in the two maps.
@@ -45,5 +47,7 @@ class MapLattice : public Lattice<MapLattice<K, V>, std::unordered_map<K, V>> {
  private:
   std::unordered_map<K, V> kvs_;
 };
+
+}  // namespace latticeflow
 
 #endif  // LATTICES_MAP_LATTICE_H_

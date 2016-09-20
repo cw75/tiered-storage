@@ -7,6 +7,8 @@
 
 #include "lattices/lattice.h"
 
+namespace latticeflow {
+
 // Consider an arbitrary lattice T = (S_T, join_T). We can form an array
 // lattice of size N A = (S_t ^ N, join_A) where
 //
@@ -31,5 +33,7 @@ class ArrayLattice : public Lattice<ArrayLattice<T, N>, std::array<T, N>> {
  private:
   std::array<T, N> xs_;
 };
+
+}  // namespace latticeflow
 
 #endif  // LATTICES_ARRAY_LATTICE_H_

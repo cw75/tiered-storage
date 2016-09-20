@@ -3,6 +3,8 @@
 
 #include "lattices/lattice.h"
 
+namespace latticeflow {
+
 // The semilattice of booleans ordered by implication where join is logical or.
 class BoolOrLattice : public Lattice<BoolOrLattice, bool> {
  public:
@@ -40,5 +42,7 @@ class BoolOrLattice : public Lattice<BoolOrLattice, bool> {
 
   bool b_;
 };
+
+}  // namespace latticeflow
 
 #endif  // LATTICES_BOOL_OR_LATTICE_H_

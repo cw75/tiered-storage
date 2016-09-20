@@ -5,6 +5,8 @@
 
 #include "lattices/lattice.h"
 
+namespace latticeflow {
+
 // Consider a *timestamp* semilattice T and an arbitrary other semilattice L. A
 // TimestampLattice<T, L> is pair (t, l) with the following join:
 //
@@ -54,5 +56,7 @@ class TimestampLattice
 
   std::pair<Timestamp, L> p_;
 };
+
+}  // namespace latticeflow
 
 #endif  // LATTICES_TIMESTAMP_LATTICE_H_

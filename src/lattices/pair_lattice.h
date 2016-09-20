@@ -5,6 +5,8 @@
 
 #include "lattices/lattice.h"
 
+namespace latticeflow {
+
 // Consider two semilattices L = (S_L, join_L) and R = (S_R, join_R). The
 // semillatice P = (S_L x S_R, join_P) constructed from the cross product of L
 // and R is itself a semillatice where
@@ -39,5 +41,7 @@ class PairLattice : public Lattice<PairLattice<L, R>, std::pair<L, R>> {
  private:
   std::pair<L, R> p_;
 };
+
+}  // namespace latticeflow
 
 #endif  // LATTICES_PAIR_LATTICE_H_
