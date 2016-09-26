@@ -17,8 +17,12 @@ SET(CMAKE_CXX_FLAGS_RELEASE
     -std=c++11 \
     -stdlib=libc++")
 
+ADD_SUBDIRECTORY(vendor/googletest)
+
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR})
 INCLUDE_DIRECTORIES(.)
+include_directories(${GTEST_INCLUDE_DIRS})
 
+ENABLE_TESTING()
 ADD_SUBDIRECTORY(lattices)
 ADD_SUBDIRECTORY(key_value_stores)
