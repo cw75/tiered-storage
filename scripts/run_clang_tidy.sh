@@ -32,7 +32,7 @@ main() {
     # Argument for the header-filter command. We want to run clang-tidy on all
     # of our header files, but not on any of the system header files. We also
     # do not want to run clang-tidy on any of the generated protobuf headers.
-    local header_filter='(lattices|key_value_stores)/.*[^.][^p][^b]\.h'
+    local header_filter='src/(lattices|key_value_stores)/.*[^.][^p][^b]\.h'
 
     clang-tidy \
         -checks="$(join "${checks[@]}")" \
