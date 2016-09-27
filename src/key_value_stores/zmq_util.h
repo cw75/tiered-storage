@@ -47,7 +47,9 @@ template <typename T>
 T* recv_pointer(zmq::socket_t* socket) {
   zmq::message_t message;
   socket->recv(&message);
-  return *reinterpret_cast<T**>(message.data());
+  // NOLINT: this code is somewhat forced to be hacky due to the low-level
+  // nature of the zeromq API.
+  return *reinterpret_cast<T**>(message.data());  // NOLINT
 }
 
 #endif  // KEY_VALUE_STORES_ZMQ_UTIL_H_

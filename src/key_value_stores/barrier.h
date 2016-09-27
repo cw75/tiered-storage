@@ -26,7 +26,7 @@
 class Barrier {
  public:
   // Construct a barrier that waits for `threshold` threads to enter.
-  Barrier(const int threshold) : count_(0), threshold_(threshold) {}
+  explicit Barrier(const int threshold) : count_(0), threshold_(threshold) {}
   Barrier(const Barrier& barrier) = delete;
   Barrier& operator=(const Barrier& barrier) = delete;
 

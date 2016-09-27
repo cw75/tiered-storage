@@ -10,7 +10,7 @@
 
 #include <zmq.hpp>
 
-int main(int argc, char *argv[]) {
+int main() {
   zmq::context_t context(1);
 
   //  Socket facing clients

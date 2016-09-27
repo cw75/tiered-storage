@@ -13,7 +13,7 @@ template <typename T>
 class MaxLattice : public Lattice<MaxLattice<T>, T> {
  public:
   MaxLattice() : x_() {}
-  explicit MaxLattice(const T& x) : x_(x) {}
+  explicit MaxLattice(T x) : x_(std::move(x)) {}
   MaxLattice(const MaxLattice<T>& l) = default;
   MaxLattice& operator=(const MaxLattice<T>& l) = default;
 

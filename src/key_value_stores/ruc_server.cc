@@ -108,7 +108,7 @@ void send_gossip(const Database& db, const std::set<std::string> change_set,
   // TODO(mwhittaker): Should we just serialize things rather than passing
   // pointers around? We'll have to do that anyway when we shift to
   // inter-server gossip.
-  GossipData* gossip_data = new GossipData;
+  auto* gossip_data = new GossipData;
   for (const std::string& key : change_set) {
     gossip_data->db.put(key, db.get(key));
   }
@@ -181,10 +181,10 @@ void worker_routine(const int thread_id, Barrier* all_threads_bound,
 
   // Enter the event loop!
   while (true) {
-    zmq::poll(items, 2 /* nitems */, -1 /* timeout */);
+    zmq::poll(&items[0], 2 /* nitems */, -1 /* timeout */);
 
     // Process a request from the client.
-    if (items[0].revents & ZMQ_POLLIN) {
+    if (static_cast<bool>(items[0].revents & ZMQ_POLLIN)) {
       communication::Request request;
       recv_proto(&request, &responder);
 
@@ -195,7 +195,7 @@ void worker_routine(const int thread_id, Barrier* all_threads_bound,
     }
 
     // Process a gossip message from other threads.
-    if (items[1].revents & ZMQ_POLLIN) {
+    if (static_cast<bool>(items[1].revents & ZMQ_POLLIN)) {
       receive_gossip(&kvs, &subscriber);
     }
 
