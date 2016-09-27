@@ -1,5 +1,7 @@
+#! /bin/bash
+
 rm -rf build
-mkdir build
-cd build
-cmake -DCMAKE_BUILD_TYPE=Debug ..
-make
+export CC="clang"
+export CXX="clang++"
+cmake -DCMAKE_BUILD_TYPE=Debug -H. -Bbuild
+cmake --build build

@@ -1,0 +1,44 @@
+package communication;
+
+// A request to a key-value store.
+message Request {
+  // A request to begin a transaction with the key-value store.
+  message BeginTransaction {}
+
+  // A request to get a particular value from the key-value store.
+  message Get {
+    required string key = 1;
+  }
+
+  // A request to install a timestamped batch of key-value pairs into the
+  // key-value sotre.
+  message Put {
+    message KeyValuePair {
+      required string key = 1;
+      required string value = 2;
+    }
+    required int64 timestamp = 1;
+    repeated KeyValuePair kv_pair = 2;
+  }
+
+  oneof request {
+    BeginTransaction begin_transaction = 1;
+    Get get = 2;
+    Put put = 3;
+  }
+}
+
+// A response from a key-value store.
+message Response {
+  // True if the RPC errored;
+  optional bool err = 1;
+
+  // True if the RPC succeeded;
+  optional bool succeed = 2;
+
+  // The response to a PUT request; unset otherwise.
+  optional string value = 3;
+
+  // The response to a BEGIN_TRANSACTION request; unset otherwise.
+  optional int64 timestamp = 4;
+}
