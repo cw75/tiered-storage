@@ -19,6 +19,7 @@ template <typename T, std::size_t N>
 class ArrayLattice : public Lattice<ArrayLattice<T, N>, std::array<T, N>> {
  public:
   ArrayLattice() = default;
+  explicit ArrayLattice(std::array<T, N> xs) : xs_(xs) {}
   ArrayLattice(const ArrayLattice<T, N>& l) = delete;
   ArrayLattice& operator=(const ArrayLattice<T, N>& l) = delete;
 

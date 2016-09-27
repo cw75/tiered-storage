@@ -35,7 +35,7 @@ template <typename T>
 class VectorLattice : public Lattice<VectorLattice<T>, std::vector<T>> {
  public:
   VectorLattice() = default;
-  VectorLattice(std::initializer_list<T> xs) : xs_(xs) {}
+  explicit VectorLattice(std::initializer_list<T> xs) : xs_(xs) {}
   VectorLattice(const VectorLattice<T>& l) = delete;
   VectorLattice& operator=(const VectorLattice<T>& l) = delete;
 
@@ -46,7 +46,7 @@ class VectorLattice : public Lattice<VectorLattice<T>, std::vector<T>> {
       xs_[i].join(l.xs_[i]);
     }
     if (xs_.size() < l.xs_.size()) {
-      xs_.insert(xs_.end(), l.xs_.begin(), l.xs_.end());
+      xs_.insert(xs_.end(), l.xs_.begin() + xs_.size(), l.xs_.end());
     }
   }
 

@@ -3,6 +3,8 @@
 
 #include "lattices/lattice.h"
 
+#include <algorithm>
+
 namespace latticeflow {
 
 // The semilattice of an arbitrary totally ordered set where join is min. T

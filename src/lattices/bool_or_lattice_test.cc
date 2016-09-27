@@ -16,6 +16,18 @@ TEST(BoolOrLattice, Basics) {
   EXPECT_EQ(true, y.get());
 }
 
+TEST(BoolOrLattice, Comparison) {
+  lf::BoolOrLattice tru(true);
+  lf::BoolOrLattice fls(false);
+
+  EXPECT_TRUE(fls < tru);
+  EXPECT_TRUE(fls <= tru);
+  EXPECT_FALSE(fls > tru);
+  EXPECT_FALSE(fls >= tru);
+  EXPECT_FALSE(fls == tru);
+  EXPECT_TRUE(fls != tru);
+}
+
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();

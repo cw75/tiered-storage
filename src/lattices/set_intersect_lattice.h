@@ -14,6 +14,7 @@ class SetIntersectLattice
     : public Lattice<SetIntersectLattice<T>, std::unordered_set<T>> {
  public:
   SetIntersectLattice() = default;
+  explicit SetIntersectLattice(const std::unordered_set<T>& xs) : xs_(xs) {}
   SetIntersectLattice(const SetIntersectLattice<T>& l) = delete;
   SetIntersectLattice& operator=(const SetIntersectLattice<T>& l) = delete;
 
