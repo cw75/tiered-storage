@@ -1,22 +1,21 @@
 # Key Value Servers
-This directory includes a set of key-value stores implemented using the
-lattices in [`lattices`](../lattices). Each key-value store implements one of
-the weak isolation levels described in [*Highly Available Transactions: Virtues
-and Limitations*][hat]. For example, [`ruc_server.cc`](ruc_server.cc)
-implements a key value server that supports READ UNCOMMITTED transactions.
+This directory includes a generic key-value server and a set of key-value
+clients implemented using the lattices in [`lattices`](../lattices). Each
+key-value client implements one of the weak isolation levels described in
+[*Highly Available Transactions: Virtues and Limitations*][hat]. For example,
+[`ruc_client.cc`](ruc_client.cc) implements supports READ UNCOMMITTED
+transactions.
 
 ## Overview
-
-| Isolation Level    | Client                           | Server                           |
-| ------------------ | -------------------------------- | -------------------------------- |
-| READ UNCOMMITTED   | [`ruc_client.cc`](ruc_client.cc) | [`ruc_server.cc`](ruc_server.cc) |
-| READ COMMITTED     | TODO                             | TODO                             |
-| Item Cut Isolation | TODO                             | TODO                             |
-
+| Isolation Level    | Client                           |
+| ------------------ | -------------------------------- |
+| READ UNCOMMITTED   | [`ruc_client.cc`](ruc_client.cc) |
+| READ COMMITTED     | [`rc_client.cc`](rc_client.cc)   |
+| Item Cut Isolation | [`ici_client.cc`](ici_client.cc) |
 
 ## Architecture
-The details of each client and server are slightly different, but the overall
-architecture is the same and is detailed here.
+This directory contains a key-value server, a set of key-value clients, and a
+message broker which passes messages between the two.
 
 ### Message Broker
 A message broker (see [`msgqueue.cc`](msgqueue.cc)) is a simple program that
@@ -46,7 +45,7 @@ original sender.
 ### Client
 Clients repeatedly
 
-- read commands from stdin,
+- read commands from stdin (e.g. `BEGIN TRANSACTION`, `GET x`, `PUT x foo`),
 - parse the commands,
 - serialize them into protocol buffers,
 - send the protos to the message broker,
@@ -57,7 +56,7 @@ Different clients perform different tricks to achieve their respective
 isolation level.
 
 ### Server
-This server runs some number of threads, and each thread maintains a copy of a
+The server runs some number of threads, and each thread maintains a copy of a
 key-value store represented by a map from strings to timestamped strings; this
 happens to be a semilattice. For example,
 

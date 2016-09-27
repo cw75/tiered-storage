@@ -30,6 +30,14 @@ TARGET_LINK_LIBRARIES(msgqueue ${KV_LIBRARY_DEPENDENCIES})
 ADD_EXECUTABLE(ruc_client ruc_client.cc ${KV_SRC_DEPENDENCIES})
 TARGET_LINK_LIBRARIES(ruc_client ${KV_LIBRARY_DEPENDENCIES})
 
-# Read uncommitted server.
-ADD_EXECUTABLE(ruc_server ruc_server.cc ${KV_SRC_DEPENDENCIES})
-TARGET_LINK_LIBRARIES(ruc_server ${KV_LIBRARY_DEPENDENCIES})
+# Read committed client.
+ADD_EXECUTABLE(rc_client rc_client.cc ${KV_SRC_DEPENDENCIES})
+TARGET_LINK_LIBRARIES(rc_client ${KV_LIBRARY_DEPENDENCIES})
+
+# Isolation cut isolation client.
+ADD_EXECUTABLE(ici_client ici_client.cc ${KV_SRC_DEPENDENCIES})
+TARGET_LINK_LIBRARIES(ici_client ${KV_LIBRARY_DEPENDENCIES})
+
+# Key-value server.
+ADD_EXECUTABLE(server server.cc ${KV_SRC_DEPENDENCIES})
+TARGET_LINK_LIBRARIES(server ${KV_LIBRARY_DEPENDENCIES})

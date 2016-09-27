@@ -1,4 +1,4 @@
-// READ UNCOMMITTED key-value server. See README.md for a high level overview!
+// Key-value server. See README.md for a high level overview!
 
 #include <atomic>
 #include <iostream>
@@ -63,29 +63,35 @@ std::string process_request(communication::Request& request,
                             int* const local_timestamp) {
   communication::Response response;
 
-  switch (request.type()) {
-    case communication::Request::BEGIN_TRANSACTION: {
+  switch (request.request_case()) {
+    case communication::Request::kBeginTransaction: {
       // TODO(mwhittaker): Why local_timestamp + thread_id?
       response.set_timestamp(std::stoi(std::to_string(*local_timestamp) +
                                        std::to_string(thread_id)));
       (*local_timestamp)++;
       break;
     }
-    case communication::Request::GET: {
-      response.set_value(db->get(request.key()).value().get());
+    case communication::Request::kGet: {
+      const TimestampedStringLattice& l = db->get(request.get().key());
+      response.set_value(l.value().get());
+      response.set_timestamp(l.timestamp().get());
       response.set_succeed(true);
       break;
     }
-    case communication::Request::PUT: {
-      change_set->insert(request.key());
-      TimestampedStringLattice p(lf::MaxLattice<int>(request.timestamp()),
-                                 lf::MaxLattice<std::string>(request.value()));
-      db->put(request.key(), p);
+    case communication::Request::kPut: {
+      for (const communication::Request::Put::KeyValuePair& kv_pair :
+           request.put().kv_pair()) {
+        change_set->insert(kv_pair.key());
+        TimestampedStringLattice p(
+            lf::MaxLattice<int>(request.put().timestamp()),
+            lf::MaxLattice<std::string>(kv_pair.value()));
+        db->put(kv_pair.key(), p);
+        (*update_counter)++;
+      }
       response.set_succeed(true);
-      (*update_counter)++;
       break;
     }
-    default: {
+    case communication::Request::REQUEST_NOT_SET: {
       response.set_err(true);
       response.set_succeed(false);
       break;
