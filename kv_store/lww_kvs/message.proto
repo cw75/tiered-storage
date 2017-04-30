@@ -1,0 +1,34 @@
+package communication;
+
+message Request {
+
+	message Get {
+		required string key = 1;
+	}
+
+	message Put {
+		required string key = 1;
+		required string value = 2;
+	}
+
+	optional Get get = 1;
+	optional Put put = 2;
+}
+
+
+message Response {
+	optional bool err = 1 [default = false];
+	optional bool succeed = 2;
+	optional string value = 3;
+	optional int64 timestamp = 4;
+}
+
+
+message Gossip {
+	message Tuple {
+		required string key = 1;
+		required string value = 2;
+		required int64 timestamp = 3;
+	}
+	repeated Tuple tuple = 1;
+}

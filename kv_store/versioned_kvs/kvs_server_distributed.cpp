@@ -12,7 +12,7 @@
 using namespace std;
 
 // Define the number of threads
-#define THREAD_NUM 1
+#define THREAD_NUM 4
 
 // If the total number of updates to the kvs before the last gossip reaches THRESHOLD, then the thread gossips to others.
 #define THRESHOLD 1
@@ -132,8 +132,8 @@ void send_gossip(SetLattice<string> &change_set, unique_ptr<Database> &kvs, zmq:
     }
 
     zmq_msg_t msg;
-    zmq_msg_init_size(&msg, sizeof(coordination_data**));
-    memcpy(zmq_msg_data(&msg), &c_data, sizeof(coordination_data**));
+    zmq_msg_init_size(&msg, sizeof(coordination_data*));
+    memcpy(zmq_msg_data(&msg), &c_data, sizeof(coordination_data*));
     zmq_msg_send(&msg, static_cast<void *>(publisher), 0);
 }
 

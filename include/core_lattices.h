@@ -16,6 +16,9 @@
 using namespace std;
 
 
+// go through bloomL paper and mark which function is monotone/morphism
+// find a way in c++ to make the compiler check
+
 class BoolLattice : public Lattice<bool> {
 protected:
 	void do_merge(const bool &e) {
@@ -25,6 +28,7 @@ public:
 	BoolLattice() : Lattice() {}
 	BoolLattice(const bool &e) : Lattice(e) {}
 	// this should probably be defined by the application
+	// just make it an if-top test and put it in the lattice superclass
 	const int when_true(const int (*f)()) const{
 		if (element) {
 			return (*f)();
@@ -41,6 +45,8 @@ protected:
 	void do_merge(const T &e) {
 		// we need 'this' because this is a templated class
 		// 'this' makes the name dependent so that we can access the base definition
+
+		// T::operator< has to be properly overloaded
 		int current = this->element;
 		if (current < e) {
 			this->element = e;
@@ -49,14 +55,20 @@ protected:
 public:
 	MaxLattice() : Lattice<T>() {}
 	MaxLattice(const T &e) : Lattice<T>(e) {}
+	// overload with operator>
 	BoolLattice gt(T n) const{
 		if (this->element > n) return BoolLattice(true);
 		else return BoolLattice(false);
 	}
+	// overload with operator>=
 	BoolLattice gt_eq(T n) const{
 		if (this->element >= n) return BoolLattice(true);
 		else return BoolLattice(false);
 	}
+
+	// non-monotone mehtod should appear outside the initial class definition, fix throughout
+	// wrap with namespace? c++ custom type modifier
+	// for now, all non-merge methods are non-destructive
 	MaxLattice<T> add(T n) const{
 		return MaxLattice<T>(this->element + n);
 	}
@@ -88,10 +100,13 @@ public:
 		//return numeric_limits<T>::max();
 		return static_cast<T> (1000000);
 	}
+	// overload with operator>
 	BoolLattice lt(T n) const{
 		if (this->element < n) return BoolLattice(true);
 		else return BoolLattice(false);
 	}
+	// overload with operator>=
+	// put it in the superclass and reimplement for efficiency
 	BoolLattice lt_eq(T n) const{
 		if (this->element <= n) return BoolLattice(true);
 		else return BoolLattice(false);
@@ -112,6 +127,10 @@ protected:
 	void do_merge(const unordered_set<T> &e) {
 		// we need 'this' because this is a templated class
 		// 'this' makes the name dependent so that we can access the base definition
+
+		// is there a more efficient bulk merge for c++ set --no
+		// maybe worth doing sort-merge std::sort followed by std::set_union (benchmark)
+		// for larger set, implement join algorithm
 		for ( auto it = e.begin(); it != e.end(); ++it ) {
 			this->element.insert(*it);
 		}
@@ -134,6 +153,8 @@ public:
 		}
 		return SetLattice<T>(res);
 	}
+	// rename it "map"
+	// this should be outside the library
 	SetLattice<T> project(bool (*f)(T)) const{
 		unordered_set<T> res;
 		for (auto it = this->element.begin(); it != this->element.end(); ++it) {
@@ -153,11 +174,15 @@ public:
 template <typename K, typename V>
 class MapLattice : public Lattice<unordered_map<K, V>> {
 protected:
+	// can insert_pair be private?
  	void insert_pair(const K &k, const V &v) {
         auto search = this->element.find(k);
         if (search != this->element.end()) {
             // avoid copying the value out of the pair during casting!  Instead
             // cast the pointer. A bit ugly but seems like it should be safe.
+            // WHY NOT search->second.merge(v)??
+            // or at least
+            // (static_cast<V>(search->second)).merge(v);
             static_cast<V *>(&(search->second))->merge(v);
         } else {
             // need to copy v since we will be "growing" it within the lattice
@@ -176,6 +201,8 @@ public:
 	MaxLattice<int> size() const{
 		return this->element.size();
 	}
+	// sort and set_intersect
+	// how c++ deal with map intersect
 	MapLattice<K, V> intersect(MapLattice<K, V> other) const{
 		MapLattice<K, V> res;
 		unordered_map<K, V> m = other.reveal();
@@ -187,6 +214,7 @@ public:
         }
         return res;
 	}
+	// move it out
 	MapLattice<K, V> project(bool (*f)(V)) const{
 		unordered_map<K, V> res;
 		for (auto it = this->element.begin(); it != this->element.end(); ++it) {
@@ -194,6 +222,7 @@ public:
         }
         return MapLattice<K, V>(res);
 	}
+	// use c++ built-in function
 	SetLattice<K> key_set() const{
 		unordered_set<K> res;
 		for ( auto it = this->element.begin(); it != this->element.end(); ++it) {
@@ -248,6 +277,8 @@ public:
 	void remove(const T &e) {
 		this->insert_pair(e, BoolLattice(true));
 	}
+	// non-monotone, put it outside the class
+	// this is very inefficient for lots of dead elements inside the map (fix later with 2 maps?)
 	SetLattice<T> living_elements() const{
 		unordered_set<T> res;
 		for ( auto it = this->element.begin(); it != this->element.end(); ++it) {
@@ -259,6 +290,7 @@ public:
 
 
 
+// is there no built-in for this?
 template <typename T, size_t S>
 struct slotArray {
 	T slots[S];
@@ -277,6 +309,7 @@ class ArrayLattice : public Lattice<slotArray<T, S>> {
 protected:
     void do_merge(const slotArray<T, S> &e) {
     	// assume for now that size(e) is smaller, so no resize
+    	// make sure c++ detects the case when size is not the same (unit test this)
     	for (int i = 0; i < e.size; i++) {
     		insert(e.slots[i], i);
     	}

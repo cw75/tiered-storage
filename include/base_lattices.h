@@ -93,6 +93,9 @@ public:
 	}
 };
 
+// currently destructive to l1, should probably make a copy before calling merge
+// move it to class definition
+// callers to this method shouldn't make a copy
 template <typename T>
 bool dominated(T l1, T l2) {
 	l1.merge(l2);
