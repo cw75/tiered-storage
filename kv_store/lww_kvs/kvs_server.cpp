@@ -2,6 +2,7 @@
 #include <string>
 #include <iostream>
 #include <sstream>
+#include <fstream>
 #include <pthread.h>
 #include <unistd.h>
 #include <memory>
@@ -162,29 +163,33 @@ void send_gossip(unique_ptr<Database> &kvs, unique_ptr<SetLattice<string>>& chan
 // }
 
 // Act as an event loop for the server
-void *worker_routine (zmq::context_t* context, int thread_id)
+void *worker_routine (zmq::context_t* context, string ip, int thread_id)
 {
-    // TODO: change ip to real ip to run distributed
-    string ip = "127.0.0.1";
     size_t port = 6560 + thread_id;
     int local_timestamp = 0;
     // initialize the thread's kvs replica
     unique_ptr<Database> kvs(new Database);
     // initialize a set lattice that keeps track of the keys that get updated
     unique_ptr<SetLattice<string>> change_set(new SetLattice<string>);
-    // init consistent hash ring
+    // read in the initial server addresses and build the hash ring
     consistent_hash_t hash_ring;
-    for (int i = 0; i < THREAD_NUM; i++) {
-        hash_ring.insert(node_t("127.0.0.1", 6560 + i));
+    string ip_line;
+    ifstream address;
+    address.open("/home/ubuntu/research/high-performance-lattices/kv_store/lww_kvs/server_address.txt");
+    while (getline(address, ip_line)) {
+        for (int i = 0; i < THREAD_NUM; i++) {
+            hash_ring.insert(node_t(ip_line, 6560 + i));
+        }
     }
+    address.close();
     // used to hash keys
     crc32_hasher hasher;
     // socket that listens for client requests
     zmq::socket_t responder(*context, ZMQ_REP);
-    responder.bind("tcp://127.0.0.1:" + to_string(5560 + thread_id));
+    responder.bind("tcp://*:" + to_string(5560 + thread_id));
     // socket that listens for distributed gossip
     zmq::socket_t dgossip_puller(*context, ZMQ_PULL);
-    dgossip_puller.bind("tcp://127.0.0.1:" + to_string(6560 + thread_id));
+    dgossip_puller.bind("tcp://*:" + to_string(6560 + thread_id));
     // socket that listens for local gossip
     zmq::socket_t lgossip_puller(*context, ZMQ_PULL);
     lgossip_puller.bind("inproc://" + to_string(6560 + thread_id));
@@ -248,8 +253,12 @@ void *worker_routine (zmq::context_t* context, int thread_id)
     return (NULL);
 }
 
-int main()
-{
+int main(int argc, char* argv[]) {
+    if (argc != 2) {
+        cerr << "usage:" << argv[0] << " <server_address>" << endl;
+        return 1;
+    }
+    string ip = argv[1];
     //  Prepare our context
     zmq::context_t context(1);
 
@@ -258,7 +267,7 @@ int main()
 
     vector<thread> threads;
     for (int thread_id = 0; thread_id != THREAD_NUM; thread_id++) {
-        threads.push_back(thread(worker_routine, &context, thread_id));
+        threads.push_back(thread(worker_routine, &context, ip, thread_id));
     }
     for (auto& th: threads) th.join();
     return 0;

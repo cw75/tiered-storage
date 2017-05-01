@@ -2,6 +2,7 @@
 #include <string>
 #include <stdlib.h>
 #include <sstream>
+#include <fstream>
 #include <vector>
 #include <iostream>
 #include <pthread.h>
@@ -30,14 +31,21 @@ void split(const string &s, char delim, vector<string> &elems) {
 
 int main(int argc, char* argv[]) {
 	if (argc != 1) {
-		cerr << "usage" << argv[0] << endl;
+		cerr << "usage:" << argv[0] << endl;
 		return 1;
 	}
-    // init consistent hash ring
+    // read in the initial server addresses and build the hash ring
     consistent_hash_t hash_ring;
-    for (int i = 0; i < THREAD_NUM; i++) {
-    	hash_ring.insert(node_t("127.0.0.1", 6560 + i));
+    string ip_line;
+    ifstream address;
+    address.open("/home/ubuntu/research/high-performance-lattices/kv_store/lww_kvs/server_address.txt");
+    while (getline(address, ip_line)) {
+        cout << ip_line << "\n";
+        for (int i = 0; i < THREAD_NUM; i++) {
+            hash_ring.insert(node_t(ip_line, 6560 + i));
+        }
     }
+    address.close();
     // used to hash keys
     crc32_hasher hasher;
 
