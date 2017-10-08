@@ -21,6 +21,12 @@ public:
 	void put(K k, const V &v) {
 		db.at(k).merge(v);
 	}
+	void remove(K k) {
+		db.remove(k);
+	}
+	unordered_set<K> keys() {
+		return db.key_set().reveal();
+	}
 };
 
 // Lock-free implementation of concurrent kvs

@@ -18,9 +18,11 @@ struct node_t {
     node_t() {}
     node_t(string ip, size_t port): ip_(ip), port_(port) {
         id_ = ip + ":" + to_string(port);
-        client_connection_addr_ = "tcp://" + ip + ":" + to_string(port - 1000);
+        client_connection_addr_ = "tcp://" + ip + ":" + to_string(port - 100);
         dgossip_addr_ = "tcp://" + id_;
         lgossip_addr_ = "inproc://" + to_string(port);
+        join_addr_ = "tcp://" + ip + ":" + to_string(port + 100);
+        depart_addr_ = "tcp://" + ip + ":" + to_string(port + 200);
     }
     string id_;
     string ip_;
@@ -28,6 +30,8 @@ struct node_t {
     string client_connection_addr_;
     string dgossip_addr_;
     string lgossip_addr_;
+    string join_addr_;
+    string depart_addr_;
 };
 
 bool operator<(const node_t& l, const node_t& r) {
@@ -48,5 +52,13 @@ struct crc32_hasher {
     }
     typedef uint32_t result_type;
 };
+
+void split(const string &s, char delim, vector<string> &elems) {
+    stringstream ss(s);
+    string item;
+    while (std::getline(ss, item, delim)) {
+        elems.push_back(item);
+    }
+}
 
 #endif

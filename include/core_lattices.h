@@ -238,6 +238,10 @@ public:
 		if (it == this->element.end()) return BoolLattice(false);
 		else return BoolLattice(true);
 	}
+	void remove(K k) {
+		auto it = this->element.find(k);
+		if (it != this->element.end()) this->element.erase(k);
+	}
 };
 
 

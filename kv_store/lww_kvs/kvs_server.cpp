@@ -25,6 +25,16 @@ typedef KV_Store<string, RC_KVS_PairLattice<string>> Database;
 
 typedef consistent_hash_map<node_t,crc32_hasher> consistent_hash_t;
 
+struct pair_hash {
+    template <class T1, class T2>
+    std::size_t operator () (const std::pair<T1,T2> &p) const {
+        auto h1 = std::hash<T1>{}(p.first);
+        auto h2 = std::hash<T2>{}(p.second);
+
+        return h1 ^ h2;  
+    }
+};
+
 struct coordination_data {
     unordered_map<string, RC_KVS_PairLattice<string>> data;
 };
@@ -72,7 +82,7 @@ void process_local_gossip(unique_ptr<Database>& kvs, coordination_data* c_data, 
     delete c_data;
 }
 
-void send_gossip(unique_ptr<Database> &kvs, unique_ptr<SetLattice<string>>& change_set, SocketCache& cache, consistent_hash_t& hash_ring, crc32_hasher& hasher, string ip, size_t port, int thread_id) {
+void send_gossip(unique_ptr<Database>& kvs, unique_ptr<SetLattice<string>>& change_set, SocketCache& cache, consistent_hash_t& hash_ring, crc32_hasher& hasher, string ip, size_t port) {
     using address_t = string;
     address_t self_id = ip + ":" + to_string(port);
     unordered_map<address_t, coordination_data*> local_gossip_map;
@@ -129,6 +139,54 @@ void send_gossip(unique_ptr<Database> &kvs, unique_ptr<SetLattice<string>>& chan
     // }
 }
 
+bool responsible(string key, consistent_hash_t& hash_ring, crc32_hasher& hasher, string ip, size_t port) {
+    using address_t = string;
+    address_t self_id = ip + ":" + to_string(port);
+    bool resp = false;
+    auto pos = hash_ring.find(hasher(key));
+    for (int i = 0; i < REPLICATION; i++) {
+        if (pos->second.id_.compare(self_id) == 0) {
+            resp = true;
+        }
+        if (++pos == hash_ring.end()) pos = hash_ring.begin();
+    }
+    return resp;
+}
+
+void redistribute(unique_ptr<Database>& kvs, SocketCache& cache, consistent_hash_t& hash_ring, crc32_hasher& hasher, string ip, size_t port, node_t dest_node) {
+    // perform local gossip
+    if (ip == dest_node.ip_) {
+        cout << "local redistribute \n";
+        coordination_data* c_data = new coordination_data;
+        unordered_set<string> keys = kvs->keys();
+        for (auto it = keys.begin(); it != keys.end(); it++) {
+            if (!responsible(*it, hash_ring, hasher, ip, port)) {
+                c_data->data.emplace(*it, kvs->get(*it));
+                kvs->remove(*it);
+            }
+        }
+        zmq_util::send_msg((void*)c_data, &cache[dest_node.lgossip_addr_]);
+    }
+    // perform distributed gossip
+    else {
+        cout << "distributed redistribute \n";
+        communication::Gossip gossip;
+        unordered_set<string> keys = kvs->keys();
+        for (auto it = keys.begin(); it != keys.end(); it++) {
+            if (!responsible(*it, hash_ring, hasher, ip, port)) {
+                communication::Gossip_Tuple* tp = gossip.add_tuple();
+                tp->set_key(*it);
+                tp->set_value(kvs->get(*it).reveal().value);
+                tp->set_timestamp(kvs->get(*it).reveal().timestamp);
+                kvs->remove(*it);
+            }
+        }
+        string data;
+        gossip.SerializeToString(&data);
+        zmq_util::send_string(data, &cache[dest_node.dgossip_addr_]);
+    }
+}
+
 //TODO see how push/pop socket works
 // void send_distributed_gossip(SetLattice<string> &change_set, unique_ptr<Database> &kvs, zmq::socket_t &push_d){
 //     communication::Request request;
@@ -163,46 +221,70 @@ void send_gossip(unique_ptr<Database> &kvs, unique_ptr<SetLattice<string>>& chan
 // }
 
 // Act as an event loop for the server
-void *worker_routine (zmq::context_t* context, string ip, int thread_id)
+void *worker_routine (zmq::context_t* context, string ip, int thread_id, unordered_set<pair<string, size_t>, pair_hash>* server_addr, bool elastic)
 {
     size_t port = 6560 + thread_id;
-    int local_timestamp = 0;
+
     // initialize the thread's kvs replica
     unique_ptr<Database> kvs(new Database);
     // initialize a set lattice that keeps track of the keys that get updated
     unique_ptr<SetLattice<string>> change_set(new SetLattice<string>);
-    // read in the initial server addresses and build the hash ring
-    consistent_hash_t hash_ring;
-    string ip_line;
-    ifstream address;
-    address.open("/home/ubuntu/research/high-performance-lattices/kv_store/lww_kvs/server_address.txt");
-    while (getline(address, ip_line)) {
-        for (int i = 0; i < THREAD_NUM; i++) {
-            hash_ring.insert(node_t(ip_line, 6560 + i));
-        }
-    }
-    address.close();
-    // used to hash keys
-    crc32_hasher hasher;
     // socket that listens for client requests
     zmq::socket_t responder(*context, ZMQ_REP);
-    responder.bind("tcp://*:" + to_string(5560 + thread_id));
+    responder.bind("tcp://*:" + to_string(port - 100));
     // socket that listens for distributed gossip
     zmq::socket_t dgossip_puller(*context, ZMQ_PULL);
-    dgossip_puller.bind("tcp://*:" + to_string(6560 + thread_id));
+    dgossip_puller.bind("tcp://*:" + to_string(port));
     // socket that listens for local gossip
     zmq::socket_t lgossip_puller(*context, ZMQ_PULL);
-    lgossip_puller.bind("inproc://" + to_string(6560 + thread_id));
+    lgossip_puller.bind("inproc://" + to_string(port));
+    // socket that listens for actor joining
+    zmq::socket_t join_puller(*context, ZMQ_PULL);
+    join_puller.bind("tcp://*:" + to_string(port + 100));
+    // socket that listens for departure command
+    zmq::socket_t depart_command_puller(*context, ZMQ_PULL);
+    depart_command_puller.bind("inproc://" + to_string(port + 200));
+    // socket that listens for actor departure
+    zmq::socket_t depart_puller(*context, ZMQ_PULL);
+    depart_puller.bind("tcp://*:" + to_string(port + 200));
 
     SocketCache cache(context, ZMQ_PUSH);
+
+    // used to hash keys
+    crc32_hasher hasher;
+    // read in the current server addresses and build the hash ring
+    consistent_hash_t hash_ring;
+    for (auto it = server_addr->begin(); it != server_addr->end(); it++) {
+        hash_ring.insert(node_t(it->first, it->second));
+    }
+
+    // this is a new thread spawned elastically
+    if (elastic) {
+        // contact all other actors
+        string addr = ip + ":" + to_string(port);
+        for (auto it = hash_ring.begin(); it != hash_ring.end(); it++) {
+            zmq_util::send_string(addr, &cache[(it->second).join_addr_]);
+        }
+        // hard coded for now
+        string client_addr = "tcp://" + ip + ":" + to_string(6560 + 500);
+        zmq_util::send_string("join:" + addr, &cache[client_addr]);
+        // insert itself to the hash ring and update the global server_addr
+        hash_ring.insert(node_t(ip, port));
+        server_addr->insert(make_pair(ip, port));
+    }
 
     //  Initialize poll set
     vector<zmq::pollitem_t> pollitems = {
         { static_cast<void *>(responder), 0, ZMQ_POLLIN, 0 },
         { static_cast<void *>(dgossip_puller), 0, ZMQ_POLLIN, 0 },
-        { static_cast<void *>(lgossip_puller), 0, ZMQ_POLLIN, 0 }
+        { static_cast<void *>(lgossip_puller), 0, ZMQ_POLLIN, 0 },
+        { static_cast<void *>(join_puller), 0, ZMQ_POLLIN, 0 },
+        { static_cast<void *>(depart_command_puller), 0, ZMQ_POLLIN, 0 },
+        { static_cast<void *>(depart_puller), 0, ZMQ_POLLIN, 0 }
     };
 
+    // LWW timestamp
+    int local_timestamp = 0;
     // A counter that keep track of the number of updates performed to the kvs before the last gossip
     int update_counter = 0;
 
@@ -241,9 +323,47 @@ void *worker_routine (zmq::context_t* context, string ip, int thread_id)
             process_local_gossip(kvs, c_data, thread_id);
         }
 
+        // If there is actor joining
+        if (pollitems[3].revents & ZMQ_POLLIN) {
+            cout << "received joining\n";
+            vector<string> v;
+            split(zmq_util::recv_string(&join_puller), ':', v);
+            // update hash ring and server addr
+            hash_ring.insert(node_t(v[0], stoi(v[1])));
+            if (thread_id == 0) server_addr->insert(make_pair(v[0], stoi(v[1])));
+            redistribute(kvs, cache, hash_ring, hasher, ip, port, node_t(v[0], stoi(v[1])));
+        }
+
+        // If receives a departure command
+        if (pollitems[4].revents & ZMQ_POLLIN) {
+            cout << "received departure command\n";
+            // update hash ring
+            hash_ring.erase(node_t(ip, port));
+            string addr = ip + ":" + to_string(port);
+            for (auto it = hash_ring.begin(); it != hash_ring.end(); it++) {
+                zmq_util::send_string(addr, &cache[(it->second).depart_addr_]);
+            }
+            // hard coded for now
+            string client_addr = "tcp://" + ip + ":" + to_string(6560 + 500);
+            zmq_util::send_string("depart:" + addr, &cache[client_addr]);
+            unique_ptr<SetLattice<string>> key_set(new SetLattice<string>(kvs->keys()));
+            send_gossip(kvs, key_set, cache, hash_ring, hasher, ip, port);
+            break;
+        }
+
+        // If there is actor departing
+        if (pollitems[5].revents & ZMQ_POLLIN) {
+            cout << "received departing\n";
+            vector<string> v;
+            split(zmq_util::recv_string(&depart_puller), ':', v);
+            // update hash ring and server addr
+            hash_ring.erase(node_t(v[0], stoi(v[1])));
+            if (thread_id == 0) server_addr->erase(make_pair(v[0], stoi(v[1])));
+        }
+
         if (update_counter >= THRESHOLD && THREAD_NUM != 1) {
             cout << "sending gossip\n";
-            send_gossip(kvs, change_set, cache, hash_ring, hasher, ip, port, thread_id);
+            send_gossip(kvs, change_set, cache, hash_ring, hasher, ip, port);
             // Reset the change_set and update_counter
             change_set.reset(new SetLattice<string>);
             update_counter = 0;
@@ -262,12 +382,52 @@ int main(int argc, char* argv[]) {
     //  Prepare our context
     zmq::context_t context(1);
 
+    set<int> active_thread_id = set<int>();
+    for (int i = 0; i < THREAD_NUM; i++) {
+        active_thread_id.insert(i);
+    }
+
+    unordered_set<pair<string, size_t>, pair_hash>* server_addr = new unordered_set<pair<string, size_t>, pair_hash>();
+
+    string ip_line;
+    ifstream address;
+    address.open("/home/ubuntu/research/high-performance-lattices/kv_store/lww_kvs/server_address.txt");
+    while (getline(address, ip_line)) {
+        for (int i = 0; i < THREAD_NUM; i++) {
+            server_addr->insert(make_pair(ip_line, (6560 + i)));
+        }
+    }
+    address.close();
+
+    for (auto it = server_addr->begin(); it != server_addr->end(); it++) {
+        cout << "address is " + it->first + ":" + to_string(it->second) + "\n";
+    }
+
+    SocketCache cache(&context, ZMQ_PUSH);
     //  Launch pool of worker threads
     //cout << "Starting the server with " << THREAD_NUM << " threads and gossip threshold " << THRESHOLD << "\n";
 
     vector<thread> threads;
     for (int thread_id = 0; thread_id != THREAD_NUM; thread_id++) {
-        threads.push_back(thread(worker_routine, &context, ip, thread_id));
+        threads.push_back(thread(worker_routine, &context, ip, thread_id, server_addr, false));
+    }
+    string input;
+    int current_thread_num = THREAD_NUM;
+    while (true) {
+        getline(cin, input);
+        if (input == "ADD") {
+            cout << "adding thread\n";
+            threads.push_back(thread(worker_routine, &context, ip, current_thread_num, server_addr, true));
+            active_thread_id.insert(current_thread_num);
+            current_thread_num += 1;
+        }
+        else if (input == "REMOVE") {
+            cout << "removing thread\n";
+            zmq_util::send_string("depart", &cache["inproc://" + to_string(6560 + *(active_thread_id.rbegin()) + 200)]);
+        }
+        else {
+            cout << "Invalid Request\n";
+        }
     }
     for (auto& th: threads) th.join();
     return 0;
