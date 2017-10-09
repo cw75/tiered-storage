@@ -34,7 +34,7 @@ int main(int argc, char* argv[]) {
     address.open("/home/ubuntu/research/high-performance-lattices/kv_store/lww_kvs/server_address.txt");
     while (getline(address, ip_line)) {
         cout << ip_line << "\n";
-        for (int i = 0; i < THREAD_NUM; i++) {
+        for (int i = 1; i <= THREAD_NUM; i++) {
             hash_ring.insert(node_t(ip_line, 6560 + i));
         }
     }
@@ -52,13 +52,21 @@ int main(int argc, char* argv[]) {
 
     communication::Request request;
 
-    vector<zmq::pollitem_t> pollitems = {
+    zmq_pollitem_t pollitems [2];
+    pollitems[0].socket = static_cast<void *>(join_puller);
+    pollitems[0].events = ZMQ_POLLIN;
+    pollitems[1].socket = NULL;
+    pollitems[1].fd = 0;
+    pollitems[1].events = ZMQ_POLLIN;
+
+    /*vector<zmq::pollitem_t> pollitems = {
     	//{ NULL, 0, ZMQ_POLLIN, 0 },
     	{ static_cast<void *>(join_puller), 0, ZMQ_POLLIN, 0 }
-    };
+    };*/
 
     while (true) {
-        zmq_util::poll(0, &pollitems);
+    	zmq::poll(pollitems, 2, -1);
+        //zmq_util::poll(0, &pollitems);
         if (pollitems[0].revents & ZMQ_POLLIN) {
             vector<string> v;
             split(zmq_util::recv_string(&join_puller), ':', v);
@@ -66,11 +74,13 @@ int main(int argc, char* argv[]) {
             	cout << "received join\n";
             	// update hash ring
             	hash_ring.insert(node_t(v[1], stoi(v[2])));
+            	cout << "hash ring size is " + to_string(hash_ring.size()) + "\n";
             }
             else if (v[0] == "depart") {
             	cout << "received depart\n";
             	// update hash ring
             	hash_ring.erase(node_t(v[1], stoi(v[2])));
+            	cout << "hash ring size is " + to_string(hash_ring.size()) + "\n";
             }
         }
         else {
@@ -79,7 +89,8 @@ int main(int argc, char* argv[]) {
 			//cout << input << "\n";
 			vector<string> v; 
 			split(input, ' ', v);
-		    if (v[0] == "GET") {
+		    if (v.size() != 0 && v[0] == "GET") {
+		    	//cout << "hash ring size is " + to_string(hash_ring.size()) + "\n";
 				string key = v[1];
 				request.mutable_get()->set_key(key);
 
@@ -89,23 +100,27 @@ int main(int argc, char* argv[]) {
 				vector<node_t> dest_node;
 				// use hash ring to find the right node to contact
 				auto it = hash_ring.find(hasher(key));
-				for (int i = 0; i < REPLICATION; i++) {
-	                dest_node.push_back(it->second);
-		            if (++it == hash_ring.end()) it = hash_ring.begin();
-		        }
+				if (it != hash_ring.end()) {
+					for (int i = 0; i < REPLICATION; i++) {
+		                dest_node.push_back(it->second);
+			            if (++it == hash_ring.end()) it = hash_ring.begin();
+			        }
 
-		        address_t dest_addr = dest_node[rand()%dest_node.size()].client_connection_addr_;
+			        address_t dest_addr = dest_node[rand()%dest_node.size()].client_connection_addr_;
 
-				zmq_util::send_string(data, &cache[dest_addr]);
-				data = zmq_util::recv_string(&cache[dest_addr]);
+					zmq_util::send_string(data, &cache[dest_addr]);
+					data = zmq_util::recv_string(&cache[dest_addr]);
 
-				communication::Response response;
-				response.ParseFromString(data);
+					communication::Response response;
+					response.ParseFromString(data);
 
-				cout << "value is " << response.value() << "\n";
+					cout << "value is " << response.value() << "\n";
+				}
+				else cout << "no server thread available\n";
 				request.Clear();
 			}
-			else if (v[0] == "PUT") {
+			else if (v.size() != 0 && v[0] == "PUT") {
+				//cout << "hash ring size is " + to_string(hash_ring.size()) + "\n";
 				string key = v[1];
 				string value = v[2];
 				request.mutable_put()->set_key(key);
@@ -116,20 +131,23 @@ int main(int argc, char* argv[]) {
 				vector<node_t> dest_node;
 				// use hash ring to find the right node to contact
 				auto it = hash_ring.find(hasher(key));
-				for (int i = 0; i < REPLICATION; i++) {
-	                dest_node.push_back(it->second);
-		            if (++it == hash_ring.end()) it = hash_ring.begin();
-		        }
+				if (it != hash_ring.end()) {
+					for (int i = 0; i < REPLICATION; i++) {
+		                dest_node.push_back(it->second);
+			            if (++it == hash_ring.end()) it = hash_ring.begin();
+			        }
 
-		        address_t dest_addr = dest_node[rand()%dest_node.size()].client_connection_addr_;
-				
-				zmq_util::send_string(data, &cache[dest_addr]);
-				data = zmq_util::recv_string(&cache[dest_addr]);
+			        address_t dest_addr = dest_node[rand()%dest_node.size()].client_connection_addr_;
+					
+					zmq_util::send_string(data, &cache[dest_addr]);
+					data = zmq_util::recv_string(&cache[dest_addr]);
 
-				communication::Response response;
-				response.ParseFromString(data);
+					communication::Response response;
+					response.ParseFromString(data);
 
-				cout << "succeed status is " << response.succeed() << "\n";
+					cout << "succeed status is " << response.succeed() << "\n";					
+				}
+				else cout << "no server thread available\n";
 				request.Clear();
 			}
 			else {
@@ -137,68 +155,4 @@ int main(int argc, char* argv[]) {
 			}
         }
     }
-
-
-	/*while (true) {
-		cout << "Please enter a request: ";
-		getline(cin, input);
-		vector<string> v; 
-		split(input, ' ', v);
-	    if (v[0] == "GET") {
-			string key = v[1];
-			request.mutable_get()->set_key(key);
-
-			string data;
-			request.SerializeToString(&data);
-
-			vector<node_t> dest_node;
-			// use hash ring to find the right node to contact
-			auto it = hash_ring.find(hasher(key));
-			for (int i = 0; i < REPLICATION; i++) {
-                dest_node.push_back(it->second);
-	            if (++it == hash_ring.end()) it = hash_ring.begin();
-	        }
-
-	        address_t dest_addr = dest_node[rand()%dest_node.size()].client_connection_addr_;
-
-			zmq_util::send_string(data, &cache[dest_addr]);
-			data = zmq_util::recv_string(&cache[dest_addr]);
-
-			communication::Response response;
-			response.ParseFromString(data);
-
-			cout << "value is " << response.value() << "\n";
-			request.Clear();
-		}
-		else if (v[0] == "PUT") {
-			string key = v[1];
-			string value = v[2];
-			request.mutable_put()->set_key(key);
-			request.mutable_put()->set_value(value);
-			string data;
-			request.SerializeToString(&data);
-
-			vector<node_t> dest_node;
-			// use hash ring to find the right node to contact
-			auto it = hash_ring.find(hasher(key));
-			for (int i = 0; i < REPLICATION; i++) {
-                dest_node.push_back(it->second);
-	            if (++it == hash_ring.end()) it = hash_ring.begin();
-	        }
-
-	        address_t dest_addr = dest_node[rand()%dest_node.size()].client_connection_addr_;
-			
-			zmq_util::send_string(data, &cache[dest_addr]);
-			data = zmq_util::recv_string(&cache[dest_addr]);
-
-			communication::Response response;
-			response.ParseFromString(data);
-
-			cout << "succeed status is " << response.succeed() << "\n";
-			request.Clear();
-		}
-		else {
-			cout << "Invalid Request\n";
-		}
- 	}*/
 }

@@ -7,7 +7,7 @@
 #include <boost/crc.hpp>
 
 // Define the number of threads
-#define THREAD_NUM 2
+#define THREAD_NUM 1
 
 // Define replication factor
 #define REPLICATION 2

@@ -39,6 +39,9 @@ struct coordination_data {
     unordered_map<string, RC_KVS_PairLattice<string>> data;
 };
 
+// global variable to keep track of the server addresses
+tbb::concurrent_unordered_set<pair<string, size_t>, pair_hash>* server_addr;
+
 // Handle request from clients
 string process_client_request(unique_ptr<Database>& kvs, communication::Request& req, int& update_counter, unique_ptr<SetLattice<string>>& change_set, int& local_timestamp, int thread_id) {
     local_timestamp ++;
@@ -126,17 +129,6 @@ void send_gossip(unique_ptr<Database>& kvs, unique_ptr<SetLattice<string>>& chan
         it->second.SerializeToString(&data);
         zmq_util::send_string(data, &cache[it->first]);
     }
-
-    // for (int i = 0; i != THREAD_NUM; i++) {
-    //     if (i != thread_id) {
-    //         string addr = "inproc://" + to_string(6560 + thread_id);
-    //         coordination_data* c_data = new coordination_data;
-    //         for (auto it = change_set->reveal().begin(); it != change_set->reveal().end(); it++) {
-    //             c_data->data.emplace(*it, kvs->get(*it));
-    //         }
-    //         zmq_util::send_msg((void*)c_data, &cache[addr]);
-    //     }
-    // }
 }
 
 bool responsible(string key, consistent_hash_t& hash_ring, crc32_hasher& hasher, string ip, size_t port) {
@@ -159,11 +151,18 @@ void redistribute(unique_ptr<Database>& kvs, SocketCache& cache, consistent_hash
         cout << "local redistribute \n";
         coordination_data* c_data = new coordination_data;
         unordered_set<string> keys = kvs->keys();
+        unordered_set<string> to_remove;
         for (auto it = keys.begin(); it != keys.end(); it++) {
             if (!responsible(*it, hash_ring, hasher, ip, port)) {
-                c_data->data.emplace(*it, kvs->get(*it));
-                kvs->remove(*it);
+                to_remove.insert(*it);
             }
+            if (responsible(*it, hash_ring, hasher, dest_node.ip_, dest_node.port_)) {
+                cout << "node " + ip + " thread " + to_string(port) + " moving " + *it + " with value " + kvs->get(*it).reveal().value + " to node " + dest_node.ip_ + " thread " + to_string(dest_node.port_) + "\n";
+                c_data->data.emplace(*it, kvs->get(*it));
+            }            
+        }
+        for (auto it = to_remove.begin(); it != to_remove.end(); it++) {
+            kvs->remove(*it);
         }
         zmq_util::send_msg((void*)c_data, &cache[dest_node.lgossip_addr_]);
     }
@@ -172,56 +171,30 @@ void redistribute(unique_ptr<Database>& kvs, SocketCache& cache, consistent_hash
         cout << "distributed redistribute \n";
         communication::Gossip gossip;
         unordered_set<string> keys = kvs->keys();
+        unordered_set<string> to_remove;
         for (auto it = keys.begin(); it != keys.end(); it++) {
             if (!responsible(*it, hash_ring, hasher, ip, port)) {
+                to_remove.insert(*it);
+            }
+            if (responsible(*it, hash_ring, hasher, dest_node.ip_, dest_node.port_)) {
+                cout << "node " + ip + " thread " + to_string(port) + " moving " + *it + " with value " + kvs->get(*it).reveal().value + " to node " + dest_node.ip_ + " thread " + to_string(dest_node.port_) + "\n";
                 communication::Gossip_Tuple* tp = gossip.add_tuple();
                 tp->set_key(*it);
                 tp->set_value(kvs->get(*it).reveal().value);
                 tp->set_timestamp(kvs->get(*it).reveal().timestamp);
-                kvs->remove(*it);
             }
         }
+        for (auto it = to_remove.begin(); it != to_remove.end(); it++) {
+            kvs->remove(*it);
+        }        
         string data;
         gossip.SerializeToString(&data);
         zmq_util::send_string(data, &cache[dest_node.dgossip_addr_]);
     }
 }
 
-//TODO see how push/pop socket works
-// void send_distributed_gossip(SetLattice<string> &change_set, unique_ptr<Database> &kvs, zmq::socket_t &push_d){
-//     communication::Request request;
-
-//     for (auto it = change_set.reveal().begin(); it != change_set.reveal().end(); it++) {
-//         communication::Request_Gossip_Tuple* tp = request.mutable_gossip()->add_tuple();
-//         tp -> set_key(*it);
-//         tp -> set_value(kvs->get(*it).reveal().value);
-//         tp -> set_timestamp(kvs->get(*it).reveal().timestamp);
-//     }
-
-//     string data;
-//     request.SerializeToString(&data);
-
-//     zmq_msg_t msg;
-//     zmq_msg_init_size(&msg, data.size());
-//     memcpy(zmq_msg_data(&msg), &(data[0]), data.size());
-//     zmq_msg_send(&msg, static_cast<void *>(push_d), 0);
-// }
-
-// TODO: argument: key set
-// void send_local_gossip(SetLattice<string> &change_set, unique_ptr<Database> &kvs, zmq::socket_t &push_l){
-//     coordination_data *c_data = new coordination_data;
-//     for (auto it = change_set.reveal().begin(); it != change_set.reveal().end(); it++) {
-//         c_data->data.emplace(*it, kvs->get(*it));
-//     }
-
-//     zmq_msg_t msg;
-//     zmq_msg_init_size(&msg, sizeof(coordination_data**));
-//     memcpy(zmq_msg_data(&msg), &c_data, sizeof(coordination_data**));
-//     zmq_msg_send(&msg, static_cast<void *>(push_l), 0);
-// }
-
 // Act as an event loop for the server
-void *worker_routine (zmq::context_t* context, string ip, int thread_id, unordered_set<pair<string, size_t>, pair_hash>* server_addr, bool elastic)
+void *worker_routine (zmq::context_t* context, string ip, int thread_id, bool joining)
 {
     size_t port = 6560 + thread_id;
 
@@ -258,19 +231,18 @@ void *worker_routine (zmq::context_t* context, string ip, int thread_id, unorder
         hash_ring.insert(node_t(it->first, it->second));
     }
 
-    // this is a new thread spawned elastically
-    if (elastic) {
+    // this is a new thread joining
+    if (joining) {
         // contact all other actors
         string addr = ip + ":" + to_string(port);
         for (auto it = hash_ring.begin(); it != hash_ring.end(); it++) {
-            zmq_util::send_string(addr, &cache[(it->second).join_addr_]);
+            if (it->second.id_.compare(addr) != 0) {
+                zmq_util::send_string(addr, &cache[(it->second).join_addr_]);
+            }
         }
         // hard coded for now
-        string client_addr = "tcp://" + ip + ":" + to_string(6560 + 500);
+        string client_addr = "tcp://34.215.46.165:" + to_string(6560 + 500);
         zmq_util::send_string("join:" + addr, &cache[client_addr]);
-        // insert itself to the hash ring and update the global server_addr
-        hash_ring.insert(node_t(ip, port));
-        server_addr->insert(make_pair(ip, port));
     }
 
     //  Initialize poll set
@@ -330,13 +302,13 @@ void *worker_routine (zmq::context_t* context, string ip, int thread_id, unorder
             split(zmq_util::recv_string(&join_puller), ':', v);
             // update hash ring and server addr
             hash_ring.insert(node_t(v[0], stoi(v[1])));
-            if (thread_id == 0) server_addr->insert(make_pair(v[0], stoi(v[1])));
+            if (thread_id == 1) server_addr->insert(make_pair(v[0], stoi(v[1])));
             redistribute(kvs, cache, hash_ring, hasher, ip, port, node_t(v[0], stoi(v[1])));
         }
 
         // If receives a departure command
         if (pollitems[4].revents & ZMQ_POLLIN) {
-            cout << "received departure command\n";
+            cout << "THREAD " + to_string(thread_id) + " received departure command\n";
             // update hash ring
             hash_ring.erase(node_t(ip, port));
             string addr = ip + ":" + to_string(port);
@@ -344,10 +316,12 @@ void *worker_routine (zmq::context_t* context, string ip, int thread_id, unorder
                 zmq_util::send_string(addr, &cache[(it->second).depart_addr_]);
             }
             // hard coded for now
-            string client_addr = "tcp://" + ip + ":" + to_string(6560 + 500);
+            string client_addr = "tcp://34.215.46.165:" + to_string(6560 + 500);
             zmq_util::send_string("depart:" + addr, &cache[client_addr]);
-            unique_ptr<SetLattice<string>> key_set(new SetLattice<string>(kvs->keys()));
-            send_gossip(kvs, key_set, cache, hash_ring, hasher, ip, port);
+            if (hash_ring.size() != 0) {
+                unique_ptr<SetLattice<string>> key_set(new SetLattice<string>(kvs->keys()));
+                send_gossip(kvs, key_set, cache, hash_ring, hasher, ip, port);
+            }
             break;
         }
 
@@ -358,10 +332,10 @@ void *worker_routine (zmq::context_t* context, string ip, int thread_id, unorder
             split(zmq_util::recv_string(&depart_puller), ':', v);
             // update hash ring and server addr
             hash_ring.erase(node_t(v[0], stoi(v[1])));
-            if (thread_id == 0) server_addr->erase(make_pair(v[0], stoi(v[1])));
+            if (thread_id == 1) server_addr->unsafe_erase(make_pair(v[0], stoi(v[1])));
         }
 
-        if (update_counter >= THRESHOLD && THREAD_NUM != 1) {
+        if (update_counter >= THRESHOLD) {
             cout << "sending gossip\n";
             send_gossip(kvs, change_set, cache, hash_ring, hasher, ip, port);
             // Reset the change_set and update_counter
@@ -374,59 +348,132 @@ void *worker_routine (zmq::context_t* context, string ip, int thread_id, unorder
 }
 
 int main(int argc, char* argv[]) {
-    if (argc != 2) {
-        cerr << "usage:" << argv[0] << " <server_address>" << endl;
+    if (argc != 3) {
+        cerr << "usage:" << argv[0] << " <server_address> <new_node>" << endl;
+        return 1;
+    }
+    if (string(argv[2]) != "y" && string(argv[2]) != "n") {
+        cerr << "invalid argument" << endl;
         return 1;
     }
     string ip = argv[1];
+    string new_node = argv[2];
     //  Prepare our context
     zmq::context_t context(1);
 
+    SocketCache cache(&context, ZMQ_PUSH);
+
     set<int> active_thread_id = set<int>();
-    for (int i = 0; i < THREAD_NUM; i++) {
+    for (int i = 1; i <= THREAD_NUM; i++) {
         active_thread_id.insert(i);
     }
 
-    unordered_set<pair<string, size_t>, pair_hash>* server_addr = new unordered_set<pair<string, size_t>, pair_hash>();
+    server_addr = new tbb::concurrent_unordered_set<pair<string, size_t>, pair_hash>();
 
-    string ip_line;
-    ifstream address;
-    address.open("/home/ubuntu/research/high-performance-lattices/kv_store/lww_kvs/server_address.txt");
-    while (getline(address, ip_line)) {
-        for (int i = 0; i < THREAD_NUM; i++) {
-            server_addr->insert(make_pair(ip_line, (6560 + i)));
+    // read server address from the file
+    if (new_node == "n") {
+        string ip_line;
+        ifstream address;
+        address.open("/home/ubuntu/research/high-performance-lattices/kv_store/lww_kvs/server_address.txt");
+        while (getline(address, ip_line)) {
+            for (int i = 1; i <= THREAD_NUM; i++) {
+                server_addr->insert(make_pair(ip_line, (6560 + i)));
+            }
+        }
+        address.close();
+    }
+    // get server address from the seed node
+    else {
+        string ip_line;
+        ifstream address;
+        address.open("/home/ubuntu/research/high-performance-lattices/kv_store/lww_kvs/seed_address.txt");
+        getline(address, ip_line);       
+        address.close();
+        cout << "before zmq\n";
+        cout << ip_line + "\n";
+        zmq::socket_t addr_requester(context, ZMQ_REQ);
+        addr_requester.connect("tcp://" + ip_line + ":" + to_string(6560));
+        cout << "before sending req\n";
+        zmq_util::send_string("join", &addr_requester);
+        vector<string> addresses;
+        cout << "after sending req\n";
+        split(zmq_util::recv_string(&addr_requester), '|', addresses);
+        for (auto it = addresses.begin(); it != addresses.end(); it++) {
+            vector<string> address;
+            split(*it, ':', address);
+            server_addr->insert(make_pair(address[0], stoi(address[1])));
         }
     }
-    address.close();
 
     for (auto it = server_addr->begin(); it != server_addr->end(); it++) {
         cout << "address is " + it->first + ":" + to_string(it->second) + "\n";
     }
 
-    SocketCache cache(&context, ZMQ_PUSH);
-    //  Launch pool of worker threads
-    //cout << "Starting the server with " << THREAD_NUM << " threads and gossip threshold " << THRESHOLD << "\n";
-
     vector<thread> threads;
-    for (int thread_id = 0; thread_id != THREAD_NUM; thread_id++) {
-        threads.push_back(thread(worker_routine, &context, ip, thread_id, server_addr, false));
+
+    if (new_node == "n") {
+        for (int thread_id = 1; thread_id <= THREAD_NUM; thread_id++) {
+            threads.push_back(thread(worker_routine, &context, ip, thread_id, false));
+        }        
     }
+    else {
+        for (int thread_id = 1; thread_id <= THREAD_NUM; thread_id++) {
+            server_addr->insert(make_pair(ip, 6560 + thread_id));
+            threads.push_back(thread(worker_routine, &context, ip, thread_id, true));
+        }          
+    }
+
+    zmq::socket_t addr_responder(context, ZMQ_REP);
+    addr_responder.bind("tcp://*:" + to_string(6560));
+
+    zmq_pollitem_t pollitems [2];
+    pollitems[0].socket = static_cast<void *>(addr_responder);
+    pollitems[0].events = ZMQ_POLLIN;
+    pollitems[1].socket = NULL;
+    pollitems[1].fd = 0;
+    pollitems[1].events = ZMQ_POLLIN;
+
     string input;
-    int current_thread_num = THREAD_NUM;
+    int next_thread_id = THREAD_NUM + 1;
     while (true) {
-        getline(cin, input);
-        if (input == "ADD") {
-            cout << "adding thread\n";
-            threads.push_back(thread(worker_routine, &context, ip, current_thread_num, server_addr, true));
-            active_thread_id.insert(current_thread_num);
-            current_thread_num += 1;
-        }
-        else if (input == "REMOVE") {
-            cout << "removing thread\n";
-            zmq_util::send_string("depart", &cache["inproc://" + to_string(6560 + *(active_thread_id.rbegin()) + 200)]);
+        zmq::poll(pollitems, 2, -1);
+        if (pollitems[0].revents & ZMQ_POLLIN) {
+            string request = zmq_util::recv_string(&addr_responder);
+            cout << "request is " + request + "\n";
+            if (request == "join") {
+                string addresses;
+                for (auto it = server_addr->begin(); it != server_addr->end(); it++) {
+                    addresses += (it->first + ":" + to_string(it->second) + "|");
+                }
+                addresses.pop_back();
+                zmq_util::send_string(addresses, &addr_responder);
+            }
+            else {
+                cout << "invalid request\n";
+            }
         }
         else {
-            cout << "Invalid Request\n";
+            getline(cin, input);
+            if (input == "ADD") {
+                cout << "adding thread\n";
+                threads.push_back(thread(worker_routine, &context, ip, next_thread_id, true));
+                active_thread_id.insert(next_thread_id);
+                server_addr->insert(make_pair(ip, 6560 + next_thread_id));
+                next_thread_id += 1;
+            }
+            else if (input == "REMOVE") {
+                cout << "removing thread\n";
+                zmq_util::send_string("depart", &cache["inproc://" + to_string(6560 + *(active_thread_id.rbegin()) + 200)]);
+                active_thread_id.erase(*(active_thread_id.rbegin()));
+            }
+            else {
+                cout << "Invalid Request\n";
+            }
+            cout << "Active thread ids are:\n";
+            for (auto it = active_thread_id.begin(); it != active_thread_id.end(); it++) {
+                cout << *it << " ";
+            }
+            cout << "\n";
         }
     }
     for (auto& th: threads) th.join();
