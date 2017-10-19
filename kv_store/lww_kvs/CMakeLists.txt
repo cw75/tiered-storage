@@ -1,4 +1,25 @@
 cmake_minimum_required (VERSION 2.6)
 
-add_executable(kvs_client kvs_client.cpp message.pb.cc ../include/zmq_util.cc ../include/zmq_util.h ../include/socket_cache.cc ../include/socket_cache.h)
-add_executable(kvs_server kvs_server.cpp message.pb.cc ../include/zmq_util.cc ../include/zmq_util.h ../include/socket_cache.cc ../include/socket_cache.h)
+# Generate protocol buffers.
+INCLUDE(FindProtobuf)
+FIND_PACKAGE(Protobuf REQUIRED)
+INCLUDE_DIRECTORIES(${PROTOBUF_INCLUDE_DIR})
+PROTOBUF_GENERATE_CPP(PROTO_SRC PROTO_HEADER message.proto)
+
+# The library dependencies of the key value store clients and servers.
+SET(KV_LIBRARY_DEPENDENCIES
+    protobuf
+    pthread
+    zmq
+)
+
+# The source dependencies of the key value store clients and servers.
+SET(KV_SRC_DEPENDENCIES
+    ${PROTO_SRC}
+)
+
+ADD_EXECUTABLE(kvs_client kvs_client.cpp ${KV_SRC_DEPENDENCIES} ../include/zmq_util.cc ../include/zmq_util.h ../include/socket_cache.cc ../include/socket_cache.h)
+TARGET_LINK_LIBRARIES(kvs_client ${KV_LIBRARY_DEPENDENCIES})
+
+ADD_EXECUTABLE(kvs_server kvs_server.cpp ${KV_SRC_DEPENDENCIES} ../include/zmq_util.cc ../include/zmq_util.h ../include/socket_cache.cc ../include/socket_cache.h)
+TARGET_LINK_LIBRARIES(kvs_server ${KV_LIBRARY_DEPENDENCIES})

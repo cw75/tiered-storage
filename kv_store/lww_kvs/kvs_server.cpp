@@ -241,7 +241,7 @@ void *worker_routine (zmq::context_t* context, string ip, int thread_id, bool jo
             }
         }
         // hard coded for now
-        string client_addr = "tcp://34.215.46.165:" + to_string(6560 + 500);
+        string client_addr = "tcp://35.164.92.185:" + to_string(6560 + 500);
         zmq_util::send_string("join:" + addr, &cache[client_addr]);
     }
 
@@ -316,7 +316,7 @@ void *worker_routine (zmq::context_t* context, string ip, int thread_id, bool jo
                 zmq_util::send_string(addr, &cache[(it->second).depart_addr_]);
             }
             // hard coded for now
-            string client_addr = "tcp://34.215.46.165:" + to_string(6560 + 500);
+            string client_addr = "tcp://35.164.92.185:" + to_string(6560 + 500);
             zmq_util::send_string("depart:" + addr, &cache[client_addr]);
             if (hash_ring.size() != 0) {
                 unique_ptr<SetLattice<string>> key_set(new SetLattice<string>(kvs->keys()));
@@ -374,7 +374,7 @@ int main(int argc, char* argv[]) {
     if (new_node == "n") {
         string ip_line;
         ifstream address;
-        address.open("/home/ubuntu/research/high-performance-lattices/kv_store/lww_kvs/server_address.txt");
+        address.open("/home/ubuntu/research/tiered-storage/kv_store/lww_kvs/server_address.txt");
         while (getline(address, ip_line)) {
             for (int i = 1; i <= THREAD_NUM; i++) {
                 server_addr->insert(make_pair(ip_line, (6560 + i)));
@@ -386,7 +386,7 @@ int main(int argc, char* argv[]) {
     else {
         string ip_line;
         ifstream address;
-        address.open("/home/ubuntu/research/high-performance-lattices/kv_store/lww_kvs/seed_address.txt");
+        address.open("/home/ubuntu/research/tiered-storage/kv_store/lww_kvs/seed_address.txt");
         getline(address, ip_line);       
         address.close();
         cout << "before zmq\n";

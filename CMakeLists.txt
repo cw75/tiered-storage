@@ -1,20 +1,38 @@
 cmake_minimum_required (VERSION 2.6)
-project (High-Performance-Lattice)
+PROJECT(Tiered-Storage)
 
 SET (CMAKE_CXX_COMPILER /usr/bin/clang++)
-SET (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address -O0 --coverage -lpthread -ltbb -lzmq -lprotobuf -std=c++0x -stdlib=libc++")
-SET (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -lpthread -ltbb -lzmq -lprotobuf -std=c++0x -stdlib=libc++")
 
-find_package(Boost 1.59 REQUIRED)
+SET(CMAKE_CXX_FLAGS_COMMON
+    "-std=c++11 \
+    -stdlib=libc++ \
+    -ltbb")
+SET(CMAKE_CXX_FLAGS_DEBUG
+    "${CMAKE_CXX_FLAGS_DEBUG} \
+    ${CMAKE_CXX_FLAGS_COMMON}")
+SET(CMAKE_CXX_FLAGS_RELEASE
+    "${CMAKE_CXX_FLAGS_RELEASE} \
+    ${CMAKE_CXX_FLAGS_COMMON} \
+    -O3")
 
-INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIR})
+ADD_SUBDIRECTORY(vendor/boost)
+ADD_SUBDIRECTORY(vendor/googlebenchmark)
+ADD_SUBDIRECTORY(vendor/googletest)
+ADD_SUBDIRECTORY(vendor/zeromq)
+ADD_SUBDIRECTORY(vendor/zeromqcpp)
+
+INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR})
+INCLUDE_DIRECTORIES(.)
+INCLUDE_DIRECTORIES(${BOOST_INCLUDE_DIRS})
+INCLUDE_DIRECTORIES(${GBENCH_INCLUDE_DIRS})
+INCLUDE_DIRECTORIES(${GTEST_INCLUDE_DIRS})
+INCLUDE_DIRECTORIES(${ZEROMQCPP_INCLUDE_DIRS})
+INCLUDE_DIRECTORIES(${ZEROMQ_INCLUDE_DIRS})
+
+LINK_DIRECTORIES(${BOOST_LINK_DIRS})
+LINK_DIRECTORIES(${ZEROMQ_LINK_DIRS})
 
 include_directories (
-	/usr/local/lib
-	/usr/local/include
-	vendor/gbenchmark/include
-	vendor/gtest/include
-	vendor/tbb/include
 	include
 	kv_store/include
 )
