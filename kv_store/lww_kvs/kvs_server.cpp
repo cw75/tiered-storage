@@ -15,6 +15,8 @@
 #include "consistent_hash_map.hpp"
 #include "common.h"
 
+//#define GetCurrentDir getcwd
+
 using namespace std;
 
 // If the total number of updates to the kvs before the last gossip reaches THRESHOLD, then the thread gossips to others.
@@ -24,6 +26,13 @@ using namespace std;
 typedef KV_Store<string, RC_KVS_PairLattice<string>> Database;
 
 typedef consistent_hash_map<node_t,crc32_hasher> consistent_hash_t;
+
+/*std::string GetCurrentWorkingDir( void ) {
+  char buff[FILENAME_MAX];
+  GetCurrentDir( buff, FILENAME_MAX );
+  std::string current_working_dir(buff);
+  return current_working_dir;
+}*/
 
 struct pair_hash {
     template <class T1, class T2>
@@ -41,6 +50,9 @@ struct coordination_data {
 
 // global variable to keep track of the server addresses
 tbb::concurrent_unordered_set<pair<string, size_t>, pair_hash>* server_addr;
+
+// global variable to keep track of the client addresses
+tbb::concurrent_unordered_set<pair<string, size_t>, pair_hash>* client_addr;
 
 // Handle request from clients
 string process_client_request(unique_ptr<Database>& kvs, communication::Request& req, int& update_counter, unique_ptr<SetLattice<string>>& change_set, int& local_timestamp, int thread_id) {
@@ -240,9 +252,12 @@ void *worker_routine (zmq::context_t* context, string ip, int thread_id, bool jo
                 zmq_util::send_string(addr, &cache[(it->second).join_addr_]);
             }
         }
+        for (auto it = client_addr->begin(); it != client_addr->end(); it++) {
+            zmq_util::send_string("join:" + addr, &cache["tcp://" + it->first + ":" + to_string(it->second)]);
+        }
         // hard coded for now
-        string client_addr = "tcp://35.164.92.185:" + to_string(6560 + 500);
-        zmq_util::send_string("join:" + addr, &cache[client_addr]);
+        //string client_addr = "tcp://35.164.92.185:" + to_string(6560 + 500);
+        //zmq_util::send_string("join:" + addr, &cache[client_addr]);
     }
 
     //  Initialize poll set
@@ -315,9 +330,12 @@ void *worker_routine (zmq::context_t* context, string ip, int thread_id, bool jo
             for (auto it = hash_ring.begin(); it != hash_ring.end(); it++) {
                 zmq_util::send_string(addr, &cache[(it->second).depart_addr_]);
             }
+            for (auto it = client_addr->begin(); it != client_addr->end(); it++) {
+                zmq_util::send_string("depart:" + addr, &cache["tcp://" + it->first + ":" + to_string(it->second)]);
+            }
             // hard coded for now
-            string client_addr = "tcp://35.164.92.185:" + to_string(6560 + 500);
-            zmq_util::send_string("depart:" + addr, &cache[client_addr]);
+            //string client_addr = "tcp://35.164.92.185:" + to_string(6560 + 500);
+            //zmq_util::send_string("depart:" + addr, &cache[client_addr]);
             if (hash_ring.size() != 0) {
                 unique_ptr<SetLattice<string>> key_set(new SetLattice<string>(kvs->keys()));
                 send_gossip(kvs, key_set, cache, hash_ring, hasher, ip, port);
@@ -356,6 +374,9 @@ int main(int argc, char* argv[]) {
         cerr << "invalid argument" << endl;
         return 1;
     }
+
+    //std::cout << GetCurrentWorkingDir() << std::endl;
+
     string ip = argv[1];
     string new_node = argv[2];
     //  Prepare our context
@@ -369,12 +390,20 @@ int main(int argc, char* argv[]) {
     }
 
     server_addr = new tbb::concurrent_unordered_set<pair<string, size_t>, pair_hash>();
+    client_addr = new tbb::concurrent_unordered_set<pair<string, size_t>, pair_hash>();
+
+    // read client address from the file
+    string ip_line;
+    ifstream address;
+    address.open("kv_store/lww_kvs/client_address.txt");
+    while (getline(address, ip_line)) {
+        client_addr->insert(make_pair(ip_line, (6560 + 500)));
+    }
+    address.close();
 
     // read server address from the file
     if (new_node == "n") {
-        string ip_line;
-        ifstream address;
-        address.open("/home/ubuntu/research/tiered-storage/kv_store/lww_kvs/server_address.txt");
+        address.open("kv_store/lww_kvs/server_address.txt");
         while (getline(address, ip_line)) {
             for (int i = 1; i <= THREAD_NUM; i++) {
                 server_addr->insert(make_pair(ip_line, (6560 + i)));
@@ -384,19 +413,17 @@ int main(int argc, char* argv[]) {
     }
     // get server address from the seed node
     else {
-        string ip_line;
-        ifstream address;
-        address.open("/home/ubuntu/research/tiered-storage/kv_store/lww_kvs/seed_address.txt");
+        address.open("kv_store/lww_kvs/seed_address.txt");
         getline(address, ip_line);       
         address.close();
-        cout << "before zmq\n";
-        cout << ip_line + "\n";
+        //cout << "before zmq\n";
+        //cout << ip_line + "\n";
         zmq::socket_t addr_requester(context, ZMQ_REQ);
         addr_requester.connect("tcp://" + ip_line + ":" + to_string(6560));
-        cout << "before sending req\n";
+        //cout << "before sending req\n";
         zmq_util::send_string("join", &addr_requester);
         vector<string> addresses;
-        cout << "after sending req\n";
+        //cout << "after sending req\n";
         split(zmq_util::recv_string(&addr_requester), '|', addresses);
         for (auto it = addresses.begin(); it != addresses.end(); it++) {
             vector<string> address;

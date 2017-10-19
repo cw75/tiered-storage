@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
     consistent_hash_t hash_ring;
     string ip_line;
     ifstream address;
-    address.open("/home/ubuntu/research/tiered-storage/kv_store/lww_kvs/server_address.txt");
+    address.open("kv_store/lww_kvs/server_address.txt");
     while (getline(address, ip_line)) {
         cout << ip_line << "\n";
         for (int i = 1; i <= THREAD_NUM; i++) {

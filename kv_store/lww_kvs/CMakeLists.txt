@@ -27,3 +27,7 @@ TARGET_LINK_LIBRARIES(kvs_client ${KV_LIBRARY_DEPENDENCIES} ${TBB_LIBRARIES})
 
 ADD_EXECUTABLE(kvs_server kvs_server.cpp ${KV_SRC_DEPENDENCIES} ../include/zmq_util.cc ../include/zmq_util.h ../include/socket_cache.cc ../include/socket_cache.h)
 TARGET_LINK_LIBRARIES(kvs_server ${KV_LIBRARY_DEPENDENCIES} ${TBB_LIBRARIES})
+
+CONFIGURE_FILE(server_address.txt . COPYONLY)
+CONFIGURE_FILE(seed_address.txt . COPYONLY)
+CONFIGURE_FILE(client_address.txt . COPYONLY)
