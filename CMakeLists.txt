@@ -5,8 +5,7 @@ SET (CMAKE_CXX_COMPILER /usr/bin/clang++)
 
 SET(CMAKE_CXX_FLAGS_COMMON
     "-std=c++11 \
-    -stdlib=libc++ \
-    -ltbb")
+    -stdlib=libc++")
 SET(CMAKE_CXX_FLAGS_DEBUG
     "${CMAKE_CXX_FLAGS_DEBUG} \
     ${CMAKE_CXX_FLAGS_COMMON}")
@@ -14,6 +13,8 @@ SET(CMAKE_CXX_FLAGS_RELEASE
     "${CMAKE_CXX_FLAGS_RELEASE} \
     ${CMAKE_CXX_FLAGS_COMMON} \
     -O3")
+
+list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules/)
 
 ADD_SUBDIRECTORY(vendor/boost)
 ADD_SUBDIRECTORY(vendor/googlebenchmark)

@@ -6,6 +6,10 @@ FIND_PACKAGE(Protobuf REQUIRED)
 INCLUDE_DIRECTORIES(${PROTOBUF_INCLUDE_DIR})
 PROTOBUF_GENERATE_CPP(PROTO_SRC PROTO_HEADER message.proto)
 
+FIND_PACKAGE(TBB)
+include_directories(${TBB_INCLUDE_DIRS})
+add_definitions(${TBB_DEFINITIONS})
+
 # The library dependencies of the key value store clients and servers.
 SET(KV_LIBRARY_DEPENDENCIES
     protobuf
@@ -19,7 +23,7 @@ SET(KV_SRC_DEPENDENCIES
 )
 
 ADD_EXECUTABLE(kvs_client kvs_client.cpp ${KV_SRC_DEPENDENCIES} ../include/zmq_util.cc ../include/zmq_util.h ../include/socket_cache.cc ../include/socket_cache.h)
-TARGET_LINK_LIBRARIES(kvs_client ${KV_LIBRARY_DEPENDENCIES})
+TARGET_LINK_LIBRARIES(kvs_client ${KV_LIBRARY_DEPENDENCIES} ${TBB_LIBRARIES})
 
 ADD_EXECUTABLE(kvs_server kvs_server.cpp ${KV_SRC_DEPENDENCIES} ../include/zmq_util.cc ../include/zmq_util.h ../include/socket_cache.cc ../include/socket_cache.h)
-TARGET_LINK_LIBRARIES(kvs_server ${KV_LIBRARY_DEPENDENCIES})
+TARGET_LINK_LIBRARIES(kvs_server ${KV_LIBRARY_DEPENDENCIES} ${TBB_LIBRARIES})
