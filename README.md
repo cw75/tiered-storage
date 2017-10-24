@@ -5,10 +5,10 @@ An elastic, tiered KVS.
 ## Build Instructions:
 
 1. Download and install Clang and libc++.
-On Ubuntu, run:
+On Ubuntu, run:<br />
 `sudo apt-get install clang-4.0`.<br />
-`sudo apt-get install libc++-dev libc++abi-dev`.
-Clang/Clang++ is assumed to reside in `/usr/bin/`. Therefore, run:
+`sudo apt-get install libc++-dev libc++abi-dev`.<br />
+Clang/Clang++ is assumed to reside in `/usr/bin/`. Therefore, run:<br />
 `sudo ln -s "$(which clang-4.0)” /usr/bin/clang`.<br />
 `sudo ln -s "$(which clang++-4.0)" /usr/bin/clang++`.
 2. Download and install Google protobuf (https://github.com/google/protobuf).
