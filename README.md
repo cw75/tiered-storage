@@ -4,7 +4,13 @@ An elastic, tiered KVS.
 
 ## Build Instructions:
 
-1. Download and install Clang and libc++. Clang/Clang++ is assumed to reside in `/usr/bin/`.
+1. Download and install Clang and libc++.
+On Ubuntu, run:
+`sudo apt-get install clang-4.0`.<br />
+`sudo apt-get install libc++-dev libc++abi-dev`.
+Clang/Clang++ is assumed to reside in `/usr/bin/`. Therefore, run:
+`sudo ln -s "$(which clang-4.0)” /usr/bin/clang`.<br />
+`sudo ln -s "$(which clang++-4.0)" /usr/bin/clang++`.
 2. Download and install Google protobuf (https://github.com/google/protobuf).
 3. Download and install Intel TBB. For Mac OS X, run `brew install tbb`. For Ubuntu/Linux, run `apt-get install libtbb-dev`. Note that you may have to run the above commands with `sudo`.
 
