@@ -4,15 +4,13 @@ An elastic, tiered KVS.
 
 ## Build Instructions:
 
-1. Download and install llvm and Clang (http://llvm.org/docs/GettingStarted.html). Clang/Clang++ is assumed to reside in `/usr/bin/`.
-2. Download and install zeromq, which is used for message passing. The instruction for installing zmq can be found here (http://zeromq.org/intro:get-the-software). Note that for Mac OS X, after building zmq, you may have to manually rename `libzmq-static.a` in `/path-to-libzmq/path-to-build-directory/lib/` to `libzmq.a` and put it in `/usr/local/lib/`. Otherwise, clang may generate 'library not found' error while compiling.
-3. Download and install Google protobuf (https://github.com/google/protobuf).
-4. Run `sh ./scripts/build_googletest.sh` to build Google Test.
-5. Run `sh ./scripts/build_googlebenchmark.sh` to build Google Benchmark.
-6. Download and install Intel TBB. For Mac OS X, run `brew install tbb`. For Ubuntu/Linux, run `apt-get install libtbb-dev`. Note that you may have to run the above commands with `sudo`.
+1. Download and install Clang and libc++. Clang/Clang++ is assumed to reside in `/usr/bin/`.
+2. Download and install Google protobuf (https://github.com/google/protobuf).
+3. Download and install Intel TBB. For Mac OS X, run `brew install tbb`. For Ubuntu/Linux, run `apt-get install libtbb-dev`. Note that you may have to run the above commands with `sudo`.
 
-To build the KVS in debug mode, run `sh ./scripts/build_debug.sh`.<br />
-To build the KVS in release mode, run `sh ./scripts/build_release.sh`.
+To build the KVS in debug mode, run `bash ./scripts/build_debug.sh`.<br />
+To build the KVS in release mode, run `bash ./scripts/build_release.sh`.<br />
+To clear the EBS storage, run `bash ./scripts/clear_storage.sh`.<br />
 
 To run the KVS,
 
