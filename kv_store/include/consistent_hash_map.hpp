@@ -76,6 +76,10 @@ public:
         return it;
     }
 
+    iterator find(string key) {
+        return find(hasher_(key));
+    }
+
     iterator begin() { return nodes_.begin(); }
     iterator end() { return nodes_.end(); }
     reverse_iterator rbegin() { return nodes_.rbegin(); }

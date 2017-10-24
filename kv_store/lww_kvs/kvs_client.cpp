@@ -18,7 +18,7 @@
 using namespace std;
 using address_t = string;
 
-typedef consistent_hash_map<node_t,crc32_hasher> consistent_hash_t;
+typedef consistent_hash_map<node_t,crc32_hasher> global_hash_t;
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {
@@ -26,27 +26,25 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     string ip = argv[1];
-    size_t port = 6560;
+    size_t client_join_port = 6560 + 500;
     // read in the initial server addresses and build the hash ring
-    consistent_hash_t hash_ring;
+    global_hash_t global_hash_ring;
     string ip_line;
     ifstream address;
     address.open("kv_store/lww_kvs/server_address.txt");
+    size_t server_port = 6560;
     while (getline(address, ip_line)) {
         cout << ip_line << "\n";
-        for (int i = 1; i <= THREAD_NUM; i++) {
-            hash_ring.insert(node_t(ip_line, 6560 + i));
-        }
+        global_hash_ring.insert(node_t(ip_line, server_port));
     }
     address.close();
-    // used to hash keys
-    crc32_hasher hasher;
 
 	zmq::context_t context(1);
 	SocketCache cache(&context, ZMQ_REQ);
 
+	// responsible for both node join and departure
 	zmq::socket_t join_puller(context, ZMQ_PULL);
-    join_puller.bind("tcp://*:" + to_string(port + 500));
+    join_puller.bind("tcp://*:" + to_string(client_join_port));
 
     string input;
 
@@ -73,14 +71,14 @@ int main(int argc, char* argv[]) {
             if (v[0] == "join") {
             	cout << "received join\n";
             	// update hash ring
-            	hash_ring.insert(node_t(v[1], stoi(v[2])));
-            	cout << "hash ring size is " + to_string(hash_ring.size()) + "\n";
+            	global_hash_ring.insert(node_t(v[1], server_port));
+            	cout << "hash ring size is " + to_string(global_hash_ring.size()) + "\n";
             }
             else if (v[0] == "depart") {
             	cout << "received depart\n";
             	// update hash ring
-            	hash_ring.erase(node_t(v[1], stoi(v[2])));
-            	cout << "hash ring size is " + to_string(hash_ring.size()) + "\n";
+            	global_hash_ring.erase(node_t(v[1], server_port));
+            	cout << "hash ring size is " + to_string(global_hash_ring.size()) + "\n";
             }
         }
         else {
@@ -89,63 +87,55 @@ int main(int argc, char* argv[]) {
 			//cout << input << "\n";
 			vector<string> v; 
 			split(input, ' ', v);
-		    if (v.size() != 0 && v[0] == "GET") {
-		    	//cout << "hash ring size is " + to_string(hash_ring.size()) + "\n";
+		    if (v.size() != 0 && (v[0] == "GET" || v[0] == "PUT")) {
+		    	//cout << "hash ring size is " + to_string(global_hash_ring.size()) + "\n";
 				string key = v[1];
-				request.mutable_get()->set_key(key);
-
+                if (v[0] == "GET") {
+                    request.mutable_get()->set_key(key);
+                }
+				else {
+                    request.mutable_put()->set_key(key);
+                    request.mutable_put()->set_value(v[2]);
+                }
 				string data;
 				request.SerializeToString(&data);
 
-				vector<node_t> dest_node;
+				vector<node_t> server_nodes;
 				// use hash ring to find the right node to contact
-				auto it = hash_ring.find(hasher(key));
-				if (it != hash_ring.end()) {
+				auto it = global_hash_ring.find(key);
+				if (it != global_hash_ring.end()) {
 					for (int i = 0; i < REPLICATION; i++) {
-		                dest_node.push_back(it->second);
-			            if (++it == hash_ring.end()) it = hash_ring.begin();
+		                server_nodes.push_back(it->second);
+			            if (++it == global_hash_ring.end()) it = global_hash_ring.begin();
 			        }
 
-			        address_t dest_addr = dest_node[rand()%dest_node.size()].client_connection_addr_;
-
-					zmq_util::send_string(data, &cache[dest_addr]);
-					data = zmq_util::recv_string(&cache[dest_addr]);
+			        address_t server_address = server_nodes[rand()%server_nodes.size()].key_exchange_addr_;
+			        communication::Key_Request req;
+			        req.set_sender("client");
+			        communication::Key_Request_Tuple* tp = req.add_tuple();
+			        tp->set_key(key);
+			        string key_req;
+        			req.SerializeToString(&key_req);
+        			zmq_util::send_string(key_req, &cache[server_address]);
+					string key_res = zmq_util::recv_string(&cache[server_address]);
+					communication::Key_Response res;
+					res.ParseFromString(key_res);
+					//cout << "address size is " << res.tuple(0).address_size() << "\n";
+					address_t worker_address = res.tuple(0).address(0).addr();
+					zmq_util::send_string(data, &cache[worker_address]);
+					data = zmq_util::recv_string(&cache[worker_address]);
 
 					communication::Response response;
 					response.ParseFromString(data);
 
-					cout << "value is " << response.value() << "\n";
-				}
-				else cout << "no server thread available\n";
-				request.Clear();
-			}
-			else if (v.size() != 0 && v[0] == "PUT") {
-				//cout << "hash ring size is " + to_string(hash_ring.size()) + "\n";
-				string key = v[1];
-				string value = v[2];
-				request.mutable_put()->set_key(key);
-				request.mutable_put()->set_value(value);
-				string data;
-				request.SerializeToString(&data);
-
-				vector<node_t> dest_node;
-				// use hash ring to find the right node to contact
-				auto it = hash_ring.find(hasher(key));
-				if (it != hash_ring.end()) {
-					for (int i = 0; i < REPLICATION; i++) {
-		                dest_node.push_back(it->second);
-			            if (++it == hash_ring.end()) it = hash_ring.begin();
-			        }
-
-			        address_t dest_addr = dest_node[rand()%dest_node.size()].client_connection_addr_;
-					
-					zmq_util::send_string(data, &cache[dest_addr]);
-					data = zmq_util::recv_string(&cache[dest_addr]);
-
-					communication::Response response;
-					response.ParseFromString(data);
-
-					cout << "succeed status is " << response.succeed() << "\n";					
+					if (v[0] == "GET") {
+                        if (response.succeed())
+                            cout << "value is " << response.value() << "\n";
+						else
+                            cout << "Key does not exist\n";
+                    }
+					else
+						cout << "succeed status is " << response.succeed() << "\n";
 				}
 				else cout << "no server thread available\n";
 				request.Clear();

@@ -17,10 +17,9 @@ message Request {
 
 
 message Response {
-	optional bool err = 1 [default = false];
-	optional bool succeed = 2;
-	optional string value = 3;
-	optional int64 timestamp = 4;
+	optional bool succeed = 1;
+	optional string value = 2;
+	optional int64 timestamp = 3;
 }
 
 
@@ -31,4 +30,28 @@ message Gossip {
 		required int64 timestamp = 3;
 	}
 	repeated Tuple tuple = 1;
+}
+
+message Key_Request {
+	message Tuple {
+		required string key = 1;
+	}
+	required string sender = 1;
+	repeated Tuple tuple = 2;
+}
+
+message Key_Response {
+	message Address {
+		required string addr = 1;
+	}
+	message Tuple {
+		required string key = 1;
+		repeated Address address = 2;
+	}
+	repeated Tuple tuple = 1;
+}
+
+message Payload {
+	required string value = 1;
+	required int64 timestamp = 2;
 }

@@ -5,14 +5,12 @@
 #include <boost/functional/hash.hpp>
 #include <boost/format.hpp>
 #include <boost/crc.hpp>
-
-// Define the number of threads
-#define THREAD_NUM 1
-
-// Define replication factor
-#define REPLICATION 2
+#include <functional>
 
 using namespace std;
+
+// Define global replication factor
+#define REPLICATION 2
 
 struct node_t {
     node_t() {}
@@ -21,8 +19,10 @@ struct node_t {
         client_connection_addr_ = "tcp://" + ip + ":" + to_string(port - 100);
         dgossip_addr_ = "tcp://" + id_;
         lgossip_addr_ = "inproc://" + to_string(port);
-        join_addr_ = "tcp://" + ip + ":" + to_string(port + 100);
-        depart_addr_ = "tcp://" + ip + ":" + to_string(port + 200);
+        node_join_addr_ = "tcp://" + ip + ":" + to_string(port + 100);
+        node_depart_addr_ = "tcp://" + ip + ":" + to_string(port + 200);
+        key_exchange_addr_ = "tcp://" + ip + ":" + to_string(port + 300);
+        //gossip_command_addr_ = "inproc://" + to_string(port + 400);
     }
     string id_;
     string ip_;
@@ -30,14 +30,27 @@ struct node_t {
     string client_connection_addr_;
     string dgossip_addr_;
     string lgossip_addr_;
-    string join_addr_;
-    string depart_addr_;
+    string node_join_addr_;
+    string node_depart_addr_;
+    string key_exchange_addr_;
+    //string gossip_command_addr_;
 };
 
 bool operator<(const node_t& l, const node_t& r) {
     if (l.id_.compare(r.id_) == 0) return false;
-    else return true;  
+    else return true;
 }
+
+bool operator==(const node_t& l, const node_t& r) {
+    if (l.id_.compare(r.id_) == 0) return true;
+    else return false;
+}
+
+struct node_hash {
+    std::size_t operator () (const node_t &n) const {
+        return std::hash<string>{}(n.id_);
+    }
+};
 
 struct crc32_hasher {
     uint32_t operator()(const node_t& node) {
@@ -51,6 +64,16 @@ struct crc32_hasher {
         return ret.checksum();
     }
     typedef uint32_t result_type;
+};
+
+struct ebs_hasher {
+    hash<string>::result_type operator()(const node_t& node) {
+        return hash<string>{}(node.id_);
+    }
+    hash<string>::result_type operator()(const string& key) {
+        return hash<string>{}(key);
+    }
+    typedef hash<string>::result_type result_type;
 };
 
 void split(const string &s, char delim, vector<string> &elems) {
