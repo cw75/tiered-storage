@@ -4,7 +4,7 @@ An elastic, tiered KVS.
 
 ## Build Instructions:
 
-1. Download and install Clang and libc++.
+1. Install Clang and libc++.
 On Ubuntu, run:<br />
 `sudo apt-get install clang-4.0`.<br />
 `sudo apt-get install libc++-dev libc++abi-dev`.<br />
@@ -12,7 +12,8 @@ Clang/Clang++ is assumed to reside in `/usr/bin/`. Therefore, run:<br />
 `sudo ln -s "$(which clang-4.0)” /usr/bin/clang`.<br />
 `sudo ln -s "$(which clang++-4.0)" /usr/bin/clang++`.
 2. Download and install Google protobuf (https://github.com/google/protobuf).
-3. Download and install Intel TBB. For Mac OS X, run `brew install tbb`. For Ubuntu/Linux, run `apt-get install libtbb-dev`. Note that you may have to run the above commands with `sudo`.
+3. Install Intel TBB. On Mac OS X, run `brew install tbb`. On Ubuntu/Linux, run `apt-get install libtbb-dev`. Note that you may have to run the above commands with `sudo`.
+4. Install Curl. On Ubuntu, run `sudo apt-get install libcurl4-openssl-dev`.
 
 To build the KVS in debug mode, run `bash ./scripts/build_debug.sh`.<br />
 To build the KVS in release mode, run `bash ./scripts/build_release.sh`.<br />
