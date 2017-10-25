@@ -21,17 +21,12 @@ using address_t = string;
 typedef consistent_hash_map<node_t,crc32_hasher> global_hash_t;
 
 int main(int argc, char* argv[]) {
-    if (argc != 2) {
-        cerr << "usage:" << argv[0] << " <client_address>" << endl;
-        return 1;
-    }
-    string ip = argv[1];
     size_t client_join_port = 6560 + 500;
     // read in the initial server addresses and build the hash ring
     global_hash_t global_hash_ring;
     string ip_line;
     ifstream address;
-    address.open("kv_store/lww_kvs/server_address.txt");
+    address.open("kv_store/lww_kvs/client_server_address.txt");
     size_t server_port = 6560;
     while (getline(address, ip_line)) {
         cout << ip_line << "\n";

@@ -474,10 +474,11 @@ int main(int argc, char* argv[]) {
                 zmq_util::send_string(ip, &cache[(it->second).node_join_addr_]);
             }
         }
-        // notify clients
-        for (auto it = client_address.begin(); it != client_address.end(); it++) {
-            zmq_util::send_string("join:" + ip, &cache["tcp://" + *it + ":" + to_string(client_join_port)]);
-        }
+    }
+
+    // notify clients
+    for (auto it = client_address.begin(); it != client_address.end(); it++) {
+      zmq_util::send_string("join:" + ip, &cache["tcp://" + *it + ":" + to_string(client_join_port)]);
     }
     //cout << "debug1\n";
 
