@@ -1,4 +1,4 @@
-#arguments: device_id, volume_size, thread_id
+#!/bin/bash
 iid=$(curl http://169.254.169.254/latest/meta-data/instance-id)
 did='/dev/xvd'$1
 dsize=$2

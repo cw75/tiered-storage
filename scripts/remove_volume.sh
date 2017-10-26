@@ -1,4 +1,4 @@
-#arguments: device_id, thread_id
+#!/bin/bash
 iid=$(curl http://169.254.169.254/latest/meta-data/instance-id)
 did='/dev/xvd'$1
 tid=$2

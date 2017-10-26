@@ -6,6 +6,7 @@
 #include <boost/format.hpp>
 #include <boost/crc.hpp>
 #include <functional>
+#include <curl/curl.h>
 
 using namespace std;
 
@@ -19,10 +20,12 @@ struct node_t {
         client_connection_addr_ = "tcp://" + ip + ":" + to_string(port - 100);
         dgossip_addr_ = "tcp://" + id_;
         lgossip_addr_ = "inproc://" + to_string(port);
+        lredistribute_addr_ = "inproc://" + to_string(port + 100);
+        lthread_depart_addr_ = "inproc://" + to_string(port + 200);
+        ldepart_done_addr_ = "inproc://" + to_string(port + 300);
         node_join_addr_ = "tcp://" + ip + ":" + to_string(port + 100);
         node_depart_addr_ = "tcp://" + ip + ":" + to_string(port + 200);
         key_exchange_addr_ = "tcp://" + ip + ":" + to_string(port + 300);
-        //gossip_command_addr_ = "inproc://" + to_string(port + 400);
     }
     string id_;
     string ip_;
@@ -30,10 +33,12 @@ struct node_t {
     string client_connection_addr_;
     string dgossip_addr_;
     string lgossip_addr_;
+    string lredistribute_addr_;
     string node_join_addr_;
     string node_depart_addr_;
     string key_exchange_addr_;
-    //string gossip_command_addr_;
+    string lthread_depart_addr_;
+    string ldepart_done_addr_;
 };
 
 bool operator<(const node_t& l, const node_t& r) {
@@ -83,5 +88,29 @@ void split(const string &s, char delim, vector<string> &elems) {
         elems.push_back(item);
     }
 }
+
+size_t WriteCallback(void *contents, size_t size, size_t nmemb, void *userp)
+{
+    ((std::string*)userp)->append((char*)contents, size * nmemb);
+    return size * nmemb;
+}
+
+string getIP() {
+    CURL *curl;
+    CURLcode res;
+    string readBuffer;
+
+    curl = curl_easy_init();
+    if(curl) {
+    curl_easy_setopt(curl, CURLOPT_URL, "http://169.254.169.254/latest/meta-data/public-ipv4");
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
+    res = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
+    }
+    return readBuffer;
+}
+
+
 
 #endif

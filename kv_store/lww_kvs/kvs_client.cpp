@@ -22,6 +22,7 @@ typedef consistent_hash_map<node_t,crc32_hasher> global_hash_t;
 
 int main(int argc, char* argv[]) {
     size_t client_join_port = 6560 + 500;
+    size_t client_contact_port = 6560 + 600;
     // read in the initial server addresses and build the hash ring
     global_hash_t global_hash_ring;
     string ip_line;
@@ -40,26 +41,29 @@ int main(int argc, char* argv[]) {
 	// responsible for both node join and departure
 	zmq::socket_t join_puller(context, ZMQ_PULL);
     join_puller.bind("tcp://*:" + to_string(client_join_port));
+    // responsible for receiving user requests
+    zmq::socket_t user_responder(context, ZMQ_REP);
+    user_responder.bind("tcp://*:" + to_string(client_contact_port));
 
     string input;
 
     communication::Request request;
 
-    zmq_pollitem_t pollitems [2];
+    /*zmq_pollitem_t pollitems [2];
     pollitems[0].socket = static_cast<void *>(join_puller);
     pollitems[0].events = ZMQ_POLLIN;
     pollitems[1].socket = NULL;
     pollitems[1].fd = 0;
-    pollitems[1].events = ZMQ_POLLIN;
+    pollitems[1].events = ZMQ_POLLIN;*/
 
-    /*vector<zmq::pollitem_t> pollitems = {
-    	//{ NULL, 0, ZMQ_POLLIN, 0 },
-    	{ static_cast<void *>(join_puller), 0, ZMQ_POLLIN, 0 }
-    };*/
+    vector<zmq::pollitem_t> pollitems = {
+    	{ static_cast<void *>(join_puller), 0, ZMQ_POLLIN, 0 },
+    	{ static_cast<void *>(user_responder), 0, ZMQ_POLLIN, 0 }
+    };
 
     while (true) {
-    	zmq::poll(pollitems, 2, -1);
-        //zmq_util::poll(0, &pollitems);
+    	//zmq::poll(pollitems, 2, -1);
+        zmq_util::poll(-1, &pollitems);
         if (pollitems[0].revents & ZMQ_POLLIN) {
             vector<string> v;
             split(zmq_util::recv_string(&join_puller), ':', v);
@@ -76,12 +80,10 @@ int main(int argc, char* argv[]) {
             	cout << "hash ring size is " + to_string(global_hash_ring.size()) + "\n";
             }
         }
-        else {
-        	//cout << "received something\n";
-			getline(cin, input);
-			//cout << input << "\n";
+        else if (pollitems[1].revents & ZMQ_POLLIN) {
+        	cout << "received user request\n";
 			vector<string> v; 
-			split(input, ' ', v);
+			split(zmq_util::recv_string(&user_responder), ' ', v);
 		    if (v.size() != 0 && (v[0] == "GET" || v[0] == "PUT")) {
 		    	//cout << "hash ring size is " + to_string(global_hash_ring.size()) + "\n";
 				string key = v[1];
@@ -125,18 +127,19 @@ int main(int argc, char* argv[]) {
 
 					if (v[0] == "GET") {
                         if (response.succeed())
-                            cout << "value is " << response.value() << "\n";
+                            zmq_util::send_string("value is " + response.value() + "\n", &user_responder);
 						else
-                            cout << "Key does not exist\n";
+                            zmq_util::send_string("Key does not exist\n", &user_responder);
                     }
 					else
-						cout << "succeed status is " << response.succeed() << "\n";
+                        zmq_util::send_string("succeed status is " + to_string(response.succeed()) + "\n", &user_responder);
 				}
-				else cout << "no server thread available\n";
+				else
+                    zmq_util::send_string("no server thread available\n", &user_responder);
 				request.Clear();
 			}
 			else {
-				cout << "Invalid Request\n";
+                zmq_util::send_string("Invalid Request\n", &user_responder);
 			}
         }
     }
