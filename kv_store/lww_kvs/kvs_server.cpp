@@ -88,6 +88,8 @@ atomic<int> lww_timestamp(0);
 
 size_t server_port(6560);
 
+bool enable_ebs(false);
+
 pair<RC_KVS_PairLattice<string>, bool> process_get(string key, int thread_id) {
     RC_KVS_PairLattice<string> res;
     bool succeed = true;
@@ -416,7 +418,11 @@ void ebs_worker_routine (zmq::context_t* context, string ip, int thread_id)
                 changeset_address* res = *(changeset_address **)(msg.data());
                 send_gossip(res, cache, ip, thread_id);
                 delete res;
-                string shell_command = "scripts/remove_volume.sh " + v[1] + " " + to_string(thread_id);
+                string shell_command;
+                if (enable_ebs)
+                    shell_command = "scripts/remove_volume.sh " + v[1] + " " + to_string(thread_id);
+                else
+                    shell_command = "scripts/remove_volume_dummy.sh " + v[1] + " " + to_string(thread_id);
                 system(shell_command.c_str());
                 zmq_util::send_string(v[1] + ":" + to_string(thread_id), &cache["inproc://" + to_string(server_port + 300)]);
                 break;
@@ -451,8 +457,8 @@ void ebs_worker_routine (zmq::context_t* context, string ip, int thread_id)
 }
 
 int main(int argc, char* argv[]) {
-    if (argc != 2) {
-        cerr << "usage:" << argv[0] << " <new_node>" << endl;
+    if (argc != 3) {
+        cerr << "usage:" << argv[0] << " <new_node> <enable_ebs>" << endl;
         return 1;
     }
     if (string(argv[1]) != "y" && string(argv[1]) != "n") {
@@ -464,6 +470,10 @@ int main(int argc, char* argv[]) {
 
     string ip = getIP();
     string new_node = argv[1];
+    if (string(argv[2]) == "y")
+        enable_ebs = true;
+    else
+        enable_ebs = false;
     //  Prepare our context
     zmq::context_t context(1);
 
@@ -539,7 +549,11 @@ int main(int argc, char* argv[]) {
         inverse_ebs_device_map[thread_id] = eid;
         cout << "device id to be added is " + eid + "\n";
         cout << "thread id is " + to_string(thread_id) + "\n";
-        string shell_command = "scripts/add_volume.sh " + eid + " 10 " + to_string(thread_id);
+        string shell_command;
+        if (enable_ebs)
+            shell_command = "scripts/add_volume.sh " + eid + " 10 " + to_string(thread_id);
+        else
+            shell_command = "scripts/add_volume_dummy.sh " + eid + " 10 " + to_string(thread_id);
         system(shell_command.c_str());
         eid = getNextDeviceID(eid);
         ebs_threads.push_back(thread(ebs_worker_routine, &context, ip, thread_id));
@@ -783,7 +797,11 @@ int main(int argc, char* argv[]) {
                 }
                 cout << "device id to be added is " + ebs_device_id + "\n";
                 cout << "thread id is " + to_string(next_thread_id) + "\n";
-                string shell_command = "scripts/add_volume.sh " + ebs_device_id + " 10 " + to_string(next_thread_id);
+                string shell_command;
+                if (enable_ebs)
+                    shell_command = "scripts/add_volume.sh " + ebs_device_id + " 10 " + to_string(next_thread_id);
+                else
+                    shell_command = "scripts/add_volume_dummy.sh " + ebs_device_id + " 10 " + to_string(next_thread_id);
                 system(shell_command.c_str());
                 ebs_threads.push_back(thread(ebs_worker_routine, &context, ip, next_thread_id));
                 active_thread_id.insert(next_thread_id);
@@ -827,7 +845,11 @@ int main(int argc, char* argv[]) {
                 for (auto it = inverse_ebs_device_map.begin(); it != inverse_ebs_device_map.end(); it++) {
                     active_thread_id.erase(it->first);
                     ebs_hash_ring.erase(node_t(ip, server_port + it->first));
-                    string shell_command = "scripts/remove_volume.sh " + it->second + " " + to_string(it->first);
+                    string shell_command;
+                    if (enable_ebs)
+                        shell_command = "scripts/remove_volume.sh " + it->second + " " + to_string(it->first);
+                    else
+                        shell_command = "scripts/remove_volume_dummy.sh " + it->second + " " + to_string(it->first);
                     system(shell_command.c_str());
                 }
             }
