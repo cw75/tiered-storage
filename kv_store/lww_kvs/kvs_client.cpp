@@ -18,20 +18,17 @@
 using namespace std;
 using address_t = string;
 
-typedef consistent_hash_map<node_t,crc32_hasher> global_hash_t;
-
 int main(int argc, char* argv[]) {
-    size_t client_join_port = 6560 + 500;
+    string ip = getIP();
     size_t client_contact_port = 6560 + 600;
     // read in the initial server addresses and build the hash ring
     global_hash_t global_hash_ring;
     string ip_line;
     ifstream address;
     address.open("kv_store/lww_kvs/client_server_address.txt");
-    size_t server_port = 6560;
     while (getline(address, ip_line)) {
         cout << ip_line << "\n";
-        global_hash_ring.insert(node_t(ip_line, server_port));
+        global_hash_ring.insert(master_node_t(ip_line));
     }
     address.close();
 
@@ -40,7 +37,7 @@ int main(int argc, char* argv[]) {
 
 	// responsible for both node join and departure
 	zmq::socket_t join_puller(context, ZMQ_PULL);
-    join_puller.bind("tcp://*:" + to_string(client_join_port));
+    join_puller.bind(master_node_t(ip).client_notify_bind_addr_);
     // responsible for receiving user requests
     zmq::socket_t user_responder(context, ZMQ_REP);
     user_responder.bind("tcp://*:" + to_string(client_contact_port));
@@ -70,13 +67,13 @@ int main(int argc, char* argv[]) {
             if (v[0] == "join") {
             	cout << "received join\n";
             	// update hash ring
-            	global_hash_ring.insert(node_t(v[1], server_port));
+            	global_hash_ring.insert(master_node_t(v[1]));
             	cout << "hash ring size is " + to_string(global_hash_ring.size()) + "\n";
             }
             else if (v[0] == "depart") {
             	cout << "received depart\n";
             	// update hash ring
-            	global_hash_ring.erase(node_t(v[1], server_port));
+            	global_hash_ring.erase(master_node_t(v[1]));
             	cout << "hash ring size is " + to_string(global_hash_ring.size()) + "\n";
             }
         }
@@ -97,7 +94,7 @@ int main(int argc, char* argv[]) {
 				string data;
 				request.SerializeToString(&data);
 
-				vector<node_t> server_nodes;
+				vector<master_node_t> server_nodes;
 				// use hash ring to find the right node to contact
 				auto it = global_hash_ring.find(key);
 				if (it != global_hash_ring.end()) {
@@ -106,7 +103,7 @@ int main(int argc, char* argv[]) {
 			            if (++it == global_hash_ring.end()) it = global_hash_ring.begin();
 			        }
 
-			        address_t server_address = server_nodes[rand()%server_nodes.size()].key_exchange_addr_;
+			        address_t server_address = server_nodes[rand()%server_nodes.size()].key_exchange_connect_addr_;
 			        communication::Key_Request req;
 			        req.set_sender("client");
 			        communication::Key_Request_Tuple* tp = req.add_tuple();
