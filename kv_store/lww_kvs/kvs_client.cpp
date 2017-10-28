@@ -98,7 +98,7 @@ int main(int argc, char* argv[]) {
 				// use hash ring to find the right node to contact
 				auto it = global_hash_ring.find(key);
 				if (it != global_hash_ring.end()) {
-					for (int i = 0; i < REPLICATION; i++) {
+					for (int i = 0; i < GLOBAL_EBS_REPLICATION; i++) {
 		                server_nodes.push_back(it->second);
 			            if (++it == global_hash_ring.end()) it = global_hash_ring.begin();
 			        }

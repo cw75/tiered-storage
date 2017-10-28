@@ -10,8 +10,8 @@
 
 using namespace std;
 
-// Define global replication factor
-#define REPLICATION 2
+// Define global ebs replication factor
+#define GLOBAL_EBS_REPLICATION 2
 
 // Define port offset
 #define CLIENT_CONNECTION_OFFSET -100
