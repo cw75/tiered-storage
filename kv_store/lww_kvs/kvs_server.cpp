@@ -604,7 +604,7 @@ int main(int argc, char* argv[]) {
     zmq::socket_t depart_done_puller(context, ZMQ_PULL);
     depart_done_puller.bind(master_node_t(ip).local_depart_done_addr_);
 
-    zmq_pollitem_t pollitems [7];
+    zmq_pollitem_t pollitems [6];
     pollitems[0].socket = static_cast<void *>(addr_responder);
     pollitems[0].events = ZMQ_POLLIN;
     pollitems[1].socket = static_cast<void *>(join_puller);
@@ -617,14 +617,11 @@ int main(int argc, char* argv[]) {
     pollitems[4].events = ZMQ_POLLIN;
     pollitems[5].socket = static_cast<void *>(depart_done_puller);
     pollitems[5].events = ZMQ_POLLIN;
-    pollitems[6].socket = NULL;
-    pollitems[6].fd = 0;
-    pollitems[6].events = ZMQ_POLLIN;
 
     string input;
     int next_thread_id = EBS_THREAD_NUM + 1;
     while (true) {
-        zmq::poll(pollitems, 7, -1);
+        zmq::poll(pollitems, 6, -1);
         if (pollitems[0].revents & ZMQ_POLLIN) {
             string request = zmq_util::recv_string(&addr_responder);
             cout << "request is " + request + "\n";
