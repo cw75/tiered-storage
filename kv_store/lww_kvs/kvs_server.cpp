@@ -39,6 +39,8 @@ using namespace std;
 // Define local ebs replication factor
 #define LOCAL_EBS_REPLICATION 2
 
+#define EBS_ROOT_FILE "conf/server/ebs_root.txt"
+
 // For simplicity, the kvs uses integer as the key type and maxintlattice as the value lattice.
 typedef KV_Store<string, RC_KVS_PairLattice<string>> Database;
 
@@ -87,15 +89,31 @@ struct key_info {
 atomic<int> lww_timestamp(0);
 
 bool enable_ebs(false);
+string ebs_root(NULL);
+
+string get_ebs_path(string subpath) {
+  if (!ebs_root) {
+    ifstream address;
+
+    address.open(EBS_ROOT_FILE);
+    std::getline(address, ebs_root);
+    address.close();
+
+    if (ebs_root.back() != '/') {
+      ebs_root = ebs_root + "/";
+    }
+  }
+  
+  return ebs_root + subpath;
+}
 
 pair<RC_KVS_PairLattice<string>, bool> process_get(string key, int thread_id) {
     RC_KVS_PairLattice<string> res;
     bool succeed = true;
     communication::Payload pl;
-    string fname = "/home/ubuntu/ebs/ebs_" + to_string(thread_id) + "/" + key;
+    string fname = get_ebs_path("ebs_" + to_string(thread_id) + "/" + key);
     fstream input(fname, ios::in | ios::binary);
     if (!input) {
-      //cout << "File not found.  Creating a new file.\n";
       succeed = false;
     }
     else if (!pl.ParseFromIstream(&input)) {
@@ -113,7 +131,7 @@ bool process_put(string key, int timestamp, string value, int thread_id, unorder
     timestamp_value_pair<string> p = timestamp_value_pair<string>(timestamp, value);
     communication::Payload pl_orig;
     communication::Payload pl;
-    string fname = "/home/ubuntu/ebs/ebs_" + to_string(thread_id) + "/" + key;
+    string fname = get_ebs_path("ebs_" + to_string(thread_id) + "/" + key);
     fstream input(fname, ios::in | ios::binary);
     if (!input) {
         //cout << "File not found.  Creating a new file.\n";
@@ -397,7 +415,7 @@ void ebs_worker_routine (zmq::context_t* context, string ip, int thread_id)
             // remove keys in the remove set
             for (auto it = remove_set.begin(); it != remove_set.end(); it++) {
                 key_set.erase(*it);
-                string fname = "/home/ubuntu/ebs/ebs_" + to_string(thread_id) + "/" + *it;
+                string fname = get_ebs_path("ebs_" + to_string(thread_id) + "/" + *it);
                 if( remove( fname.c_str() ) != 0 )
                     perror( "Error deleting file" );
                 else
