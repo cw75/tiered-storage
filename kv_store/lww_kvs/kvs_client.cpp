@@ -25,7 +25,7 @@ int main(int argc, char* argv[]) {
     global_hash_t global_hash_ring;
     string ip_line;
     ifstream address;
-    address.open("kv_store/lww_kvs/client_server_address.txt");
+    address.open("conf/client/existing_servers.txt");
     while (getline(address, ip_line)) {
         cout << ip_line << "\n";
         global_hash_ring.insert(master_node_t(ip_line));

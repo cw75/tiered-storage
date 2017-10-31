@@ -416,10 +416,12 @@ void ebs_worker_routine (zmq::context_t* context, string ip, int thread_id)
             for (auto it = remove_set.begin(); it != remove_set.end(); it++) {
                 key_set.erase(*it);
                 string fname = get_ebs_path("ebs_" + to_string(thread_id) + "/" + *it);
-                if( remove( fname.c_str() ) != 0 )
+                if(remove(fname.c_str()) != 0) {
                     perror( "Error deleting file" );
-                else
+                }
+                else {
                     puts( "File successfully deleted" );
+                }
             }
         }
         // If receives a departure command
@@ -523,7 +525,7 @@ int main(int argc, char* argv[]) {
     // read client address from the file
     string ip_line;
     ifstream address;
-    address.open("build/kv_store/lww_kvs/client_address.txt");
+    address.open("conf/server/client_address.txt");
     while (getline(address, ip_line)) {
         client_address.insert(ip_line);
     }
@@ -531,25 +533,26 @@ int main(int argc, char* argv[]) {
 
     // read server address from the file
     if (new_node == "n") {
-        address.open("build/kv_store/lww_kvs/server_address.txt");
+        address.open("conf/server/start_servers.txt");
+        // add all other servers
         while (getline(address, ip_line)) {
             global_hash_ring.insert(master_node_t(ip_line));
         }
         address.close();
+       
+        // add yourself to the ring
+        global_hash_ring.insert(master_node_t(ip));
     }
+
     // get server address from the seed node
     else {
-        address.open("build/kv_store/lww_kvs/seed_address.txt");
+        address.open("conf/server/seed_server.txt");
         getline(address, ip_line);       
         address.close();
-        //cout << "before zmq\n";
-        //cout << ip_line + "\n";
         zmq::socket_t addr_requester(context, ZMQ_REQ);
         addr_requester.connect(master_node_t(ip_line).seed_connection_connect_addr_);
-        //cout << "before sending req\n";
         zmq_util::send_string("join", &addr_requester);
         vector<string> addresses;
-        //cout << "after sending req\n";
         split(zmq_util::recv_string(&addr_requester), '|', addresses);
         for (auto it = addresses.begin(); it != addresses.end(); it++) {
             global_hash_ring.insert(master_node_t(*it));
