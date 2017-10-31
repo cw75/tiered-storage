@@ -37,6 +37,9 @@ int main(int argc, char* argv[]) {
 
 	// responsible for both node join and departure
 	zmq::socket_t join_puller(context, ZMQ_PULL);
+    // TODO: this is wonky because client_notify_bind_addr_ doesn't use the IP
+    // address. should this be factored out better? why doesn't the
+    // user_responder bind in this way?
     join_puller.bind(master_node_t(ip).client_notify_bind_addr_);
     // responsible for receiving user requests
     zmq::socket_t user_responder(context, ZMQ_REP);

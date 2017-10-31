@@ -89,10 +89,10 @@ struct key_info {
 atomic<int> lww_timestamp(0);
 
 bool enable_ebs(false);
-string ebs_root(NULL);
+string ebs_root("empty");
 
 string get_ebs_path(string subpath) {
-  if (!ebs_root) {
+  if (ebs_root == "empty") {
     ifstream address;
 
     address.open(EBS_ROOT_FILE);
