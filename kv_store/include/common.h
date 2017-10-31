@@ -6,7 +6,6 @@
 #include <boost/format.hpp>
 #include <boost/crc.hpp>
 #include <functional>
-#include <curl/curl.h>
 
 using namespace std;
 
@@ -154,6 +153,7 @@ string getIP() {
 
   address.open(SERVER_IP_FILE);
   std::getline(address, server_ip);
+  address.close();
 
   return server_ip;
 }
