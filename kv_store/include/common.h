@@ -13,9 +13,12 @@ using namespace std;
 #define GLOBAL_EBS_REPLICATION 2
 
 // Define port offset
+// TODO: is there any reason these should be relative? can we just hardcode
+// these and avoid unnecessary arithmetic? will make code more readable
 #define SERVER_PORT 6560
 #define CLIENT_CONNECTION_OFFSET -100
 #define CLIENT_NOTIFY_OFFSET 500
+#define CLIENT_USER_OFFSET 600
 #define SEED_CONNECTION_OFFSET 0
 #define CHANGESET_OFFSET 0
 #define LOCAL_GOSSIP_OFFSET 0

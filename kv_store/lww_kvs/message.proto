@@ -2,56 +2,56 @@ package communication;
 
 message Request {
 
-	message Get {
-		required string key = 1;
-	}
+  message Get {
+    required string key = 1;
+  }
 
-	message Put {
-		required string key = 1;
-		required string value = 2;
-	}
+  message Put {
+    required string key = 1;
+    required string value = 2;
+  }
 
-	optional Get get = 1;
-	optional Put put = 2;
+  optional Get get = 1;
+  optional Put put = 2;
 }
 
 
 message Response {
-	optional bool succeed = 1;
-	optional string value = 2;
-	optional int64 timestamp = 3;
+  optional bool succeed = 1;
+  optional string value = 2;
+  optional int64 timestamp = 3;
 }
 
 
 message Gossip {
-	message Tuple {
-		required string key = 1;
-		required string value = 2;
-		required int64 timestamp = 3;
-	}
-	repeated Tuple tuple = 1;
+  message Tuple {
+    required string key = 1;
+    required string value = 2;
+    required int64 timestamp = 3;
+  }
+  repeated Tuple tuple = 1;
 }
 
 message Key_Request {
-	message Tuple {
-		required string key = 1;
-	}
-	required string sender = 1;
-	repeated Tuple tuple = 2;
+  message Tuple {
+    required string key = 1;
+  }
+  required string sender = 1;
+  repeated Tuple tuple = 2;
 }
 
 message Key_Response {
-	message Address {
-		required string addr = 1;
-	}
-	message Tuple {
-		required string key = 1;
-		repeated Address address = 2;
-	}
-	repeated Tuple tuple = 1;
+  message Address {
+    required string addr = 1;
+  }
+  message Tuple {
+    required string key = 1;
+    repeated Address address = 2;
+  }
+  repeated Tuple tuple = 1;
 }
 
 message Payload {
-	required string value = 1;
-	required int64 timestamp = 2;
+  required string value = 1;
+  required int64 timestamp = 2;
 }
