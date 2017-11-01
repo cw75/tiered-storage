@@ -18,6 +18,7 @@
 using namespace std;
 using address_t = string;
 
+// TODO: instead of cout or cerr, everything should be written to a log file.
 int main(int argc, char* argv[]) {
     string ip = getIP();
     size_t client_contact_port = 6560 + 600;

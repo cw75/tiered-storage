@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
     // this should eventually be round-robin / random
     string client_ip = *(client_address.begin());
 
-	zmq::context_t context(1);
+    zmq::context_t context(1);
     zmq::socket_t client_connector(context, ZMQ_REQ);
     client_connector.connect("tcp://" + client_ip + ":" + to_string(client_contact_port));
 
