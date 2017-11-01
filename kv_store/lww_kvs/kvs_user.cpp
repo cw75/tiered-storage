@@ -21,13 +21,14 @@ int main(int argc, char* argv[]) {
     // read client address from the file
     string ip_line;
     ifstream address;
-    address.open("build/kv_store/lww_kvs/client_address.txt");
+    address.open("conf/user/client_address.txt");
     while (getline(address, ip_line)) {
         client_address.insert(ip_line);
     }
     address.close();
 
-    // just pick the first client proxy to contact for now
+    // just pick the first client proxy to contact for now;
+    // this should eventually be round-robin / random
     string client_ip = *(client_address.begin());
 
 	zmq::context_t context(1);

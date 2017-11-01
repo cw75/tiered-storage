@@ -27,7 +27,7 @@ int main(int argc, char* argv[]) {
     ifstream address;
     address.open("conf/client/existing_servers.txt");
     while (getline(address, ip_line)) {
-        cout << ip_line << "\n";
+        cerr << ip_line << "\n";
         global_hash_ring.insert(master_node_t(ip_line));
     }
     address.close();
@@ -68,24 +68,24 @@ int main(int argc, char* argv[]) {
             vector<string> v;
             split(zmq_util::recv_string(&join_puller), ':', v);
             if (v[0] == "join") {
-            	cout << "received join\n";
+            	cerr << "received join\n";
             	// update hash ring
             	global_hash_ring.insert(master_node_t(v[1]));
-            	cout << "hash ring size is " + to_string(global_hash_ring.size()) + "\n";
+            	cerr << "hash ring size is " + to_string(global_hash_ring.size()) + "\n";
             }
             else if (v[0] == "depart") {
-            	cout << "received depart\n";
+            	cerr << "received depart\n";
             	// update hash ring
             	global_hash_ring.erase(master_node_t(v[1]));
-            	cout << "hash ring size is " + to_string(global_hash_ring.size()) + "\n";
+            	cerr << "hash ring size is " + to_string(global_hash_ring.size()) + "\n";
             }
         }
         else if (pollitems[1].revents & ZMQ_POLLIN) {
-        	cout << "received user request\n";
+        	cerr << "received user request\n";
 			vector<string> v; 
 			split(zmq_util::recv_string(&user_responder), ' ', v);
 		    if (v.size() != 0 && (v[0] == "GET" || v[0] == "PUT")) {
-		    	//cout << "hash ring size is " + to_string(global_hash_ring.size()) + "\n";
+		    	//cerr << "hash ring size is " + to_string(global_hash_ring.size()) + "\n";
 				string key = v[1];
                 if (v[0] == "GET") {
                     request.mutable_get()->set_key(key);
@@ -117,7 +117,7 @@ int main(int argc, char* argv[]) {
 					string key_res = zmq_util::recv_string(&cache[server_address]);
 					communication::Key_Response res;
 					res.ParseFromString(key_res);
-					//cout << "address size is " << res.tuple(0).address_size() << "\n";
+					//cerr << "address size is " << res.tuple(0).address_size() << "\n";
 					address_t worker_address = res.tuple(0).address(0).addr();
 					zmq_util::send_string(data, &cache[worker_address]);
 					data = zmq_util::recv_string(&cache[worker_address]);
