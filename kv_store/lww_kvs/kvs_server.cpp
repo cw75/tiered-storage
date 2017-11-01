@@ -30,9 +30,6 @@ using namespace std;
 // Define the gossip period (frequency)
 #define PERIOD 5
 
-// Define the number of memory threads
-#define MEMORY_THREAD_NUM 1
-
 // Define the number of ebs threads
 #define EBS_THREAD_NUM 3
 
