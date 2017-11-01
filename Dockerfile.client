@@ -37,4 +37,4 @@ RUN rm -rf protobuf
 RUN git clone https://github.com/cw75/tiered-storage
 RUN cd tiered-storage && sh scripts/build_release.sh
 
-CMD cd tiered-storage && git pull origin k8s && make -C build/ > /dev/null && ./build/kv_store/lww_kvs/kvs_client
+CMD cd tiered-storage && ./build/kv_store/lww_kvs/kvs_client
