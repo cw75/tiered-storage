@@ -86,6 +86,8 @@ int main(int argc, char* argv[]) {
       cerr << "received user request\n";
       vector<string> v; 
 
+      // TODO: there should be a programmatic API as well, so we probably don't
+      // want to just rely on splitting by spaces?
       split(zmq_util::recv_string(&user_responder), ' ', v);
 
       // TODO: why are we checking if v.size() is 0? does that just mean that
