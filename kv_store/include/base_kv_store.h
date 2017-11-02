@@ -65,6 +65,18 @@ public:
 		db.at(k).merge(v);
 		it->second->fetch_sub(1);
 	}
+	void remove(const K& k) {
+		auto it = lock_table.find(k);
+		if (it == lock_table.end()) {
+			it = lock_table.insert({k, new atomic<int>(0)}).first;
+		}
+		int expected = 0;
+		while(!it->second->compare_exchange_strong(expected, expected + 1)) {
+			expected = 0;
+		}
+		db.remove(k);
+		it->second->fetch_sub(1);
+	}
 };
 
 // Concurrent kvs implementation using software lock (mutex). Not as efficient as the previous lock-free implementation.
