@@ -12,6 +12,9 @@ using namespace std;
 // Define global ebs replication factor
 #define GLOBAL_EBS_REPLICATION 2
 
+// Define global memory replication factor
+#define GLOBAL_MEMORY_REPLICATION 2
+
 // Define port offset
 #define SERVER_PORT 6560
 #define CLIENT_CONNECTION_OFFSET -100

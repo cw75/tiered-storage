@@ -30,9 +30,6 @@ using namespace std;
 // Define the gossip period (frequency)
 #define PERIOD 5
 
-// Define the number of memory threads
-#define MEMORY_THREAD_NUM 1
-
 // Define the number of ebs threads
 #define EBS_THREAD_NUM 3
 
@@ -671,7 +668,7 @@ int main(int argc, char* argv[]) {
                 master_node_t sender_node;
                 bool remove = false;
                 // use global replication factor for all keys for now
-                bool resp = responsible<master_node_t, crc32_hasher>(it->first, GLOBAL_EBS_REPLICATION, global_hash_ring, new_server_ip, SERVER_PORT, sender_node, remove);
+                bool resp = responsible<master_node_t, crc32_hasher>(it->first, it->second.global_ebs_replication_, global_hash_ring, new_server_ip, SERVER_PORT, sender_node, remove);
                 if (resp && (sender_node.ip_.compare(ip) == 0)) {
                     key_to_query.insert(it->first);
                     key_remove_map[it->first] = remove;
