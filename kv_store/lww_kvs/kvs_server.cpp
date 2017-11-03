@@ -36,6 +36,8 @@ using namespace std;
 // Define local ebs replication factor
 #define LOCAL_EBS_REPLICATION 2
 
+#define EBS_ROOT_FILE "conf/server/ebs_root.txt"
+
 // For simplicity, the kvs uses integer as the key type and maxintlattice as the value lattice.
 typedef KV_Store<string, RC_KVS_PairLattice<string>> Database;
 
@@ -84,15 +86,31 @@ struct key_info {
 atomic<int> lww_timestamp(0);
 
 bool enable_ebs(false);
+string ebs_root("empty");
+
+string get_ebs_path(string subpath) {
+  if (ebs_root == "empty") {
+    ifstream address;
+
+    address.open(EBS_ROOT_FILE);
+    std::getline(address, ebs_root);
+    address.close();
+
+    if (ebs_root.back() != '/') {
+      ebs_root = ebs_root + "/";
+    }
+  }
+  
+  return ebs_root + subpath;
+}
 
 pair<RC_KVS_PairLattice<string>, bool> process_get(string key, int thread_id) {
     RC_KVS_PairLattice<string> res;
     bool succeed = true;
     communication::Payload pl;
-    string fname = "/home/ubuntu/ebs/ebs_" + to_string(thread_id) + "/" + key;
+    string fname = get_ebs_path("ebs_" + to_string(thread_id) + "/" + key);
     fstream input(fname, ios::in | ios::binary);
     if (!input) {
-      //cout << "File not found.  Creating a new file.\n";
       succeed = false;
     }
     else if (!pl.ParseFromIstream(&input)) {
@@ -110,7 +128,7 @@ bool process_put(string key, int timestamp, string value, int thread_id, unorder
     timestamp_value_pair<string> p = timestamp_value_pair<string>(timestamp, value);
     communication::Payload pl_orig;
     communication::Payload pl;
-    string fname = "/home/ubuntu/ebs/ebs_" + to_string(thread_id) + "/" + key;
+    string fname = get_ebs_path("ebs_" + to_string(thread_id) + "/" + key);
     fstream input(fname, ios::in | ios::binary);
     if (!input) {
         //cout << "File not found.  Creating a new file.\n";
@@ -394,11 +412,13 @@ void ebs_worker_routine (zmq::context_t* context, string ip, int thread_id)
             // remove keys in the remove set
             for (auto it = remove_set.begin(); it != remove_set.end(); it++) {
                 key_set.erase(*it);
-                string fname = "/home/ubuntu/ebs/ebs_" + to_string(thread_id) + "/" + *it;
-                if( remove( fname.c_str() ) != 0 )
+                string fname = get_ebs_path("ebs_" + to_string(thread_id) + "/" + *it);
+                if(remove(fname.c_str()) != 0) {
                     perror( "Error deleting file" );
-                else
+                }
+                else {
                     puts( "File successfully deleted" );
+                }
             }
         }
         // If receives a departure command
@@ -502,7 +522,7 @@ int main(int argc, char* argv[]) {
     // read client address from the file
     string ip_line;
     ifstream address;
-    address.open("build/kv_store/lww_kvs/client_address.txt");
+    address.open("conf/server/client_address.txt");
     while (getline(address, ip_line)) {
         client_address.insert(ip_line);
     }
@@ -510,25 +530,26 @@ int main(int argc, char* argv[]) {
 
     // read server address from the file
     if (new_node == "n") {
-        address.open("build/kv_store/lww_kvs/server_address.txt");
+        address.open("conf/server/start_servers.txt");
+        // add all other servers
         while (getline(address, ip_line)) {
             global_hash_ring.insert(master_node_t(ip_line));
         }
         address.close();
+       
+        // add yourself to the ring
+        global_hash_ring.insert(master_node_t(ip));
     }
+
     // get server address from the seed node
     else {
-        address.open("build/kv_store/lww_kvs/seed_address.txt");
+        address.open("conf/server/seed_server.txt");
         getline(address, ip_line);       
         address.close();
-        //cout << "before zmq\n";
-        //cout << ip_line + "\n";
         zmq::socket_t addr_requester(context, ZMQ_REQ);
         addr_requester.connect(master_node_t(ip_line).seed_connection_connect_addr_);
-        //cout << "before sending req\n";
         zmq_util::send_string("join", &addr_requester);
         vector<string> addresses;
-        //cout << "after sending req\n";
         split(zmq_util::recv_string(&addr_requester), '|', addresses);
         for (auto it = addresses.begin(); it != addresses.end(); it++) {
             global_hash_ring.insert(master_node_t(*it));
@@ -601,7 +622,7 @@ int main(int argc, char* argv[]) {
     zmq::socket_t depart_done_puller(context, ZMQ_PULL);
     depart_done_puller.bind(master_node_t(ip).local_depart_done_addr_);
 
-    zmq_pollitem_t pollitems [7];
+    zmq_pollitem_t pollitems [6];
     pollitems[0].socket = static_cast<void *>(addr_responder);
     pollitems[0].events = ZMQ_POLLIN;
     pollitems[1].socket = static_cast<void *>(join_puller);
@@ -614,14 +635,11 @@ int main(int argc, char* argv[]) {
     pollitems[4].events = ZMQ_POLLIN;
     pollitems[5].socket = static_cast<void *>(depart_done_puller);
     pollitems[5].events = ZMQ_POLLIN;
-    pollitems[6].socket = NULL;
-    pollitems[6].fd = 0;
-    pollitems[6].events = ZMQ_POLLIN;
 
     string input;
     int next_thread_id = EBS_THREAD_NUM + 1;
     while (true) {
-        zmq::poll(pollitems, 7, -1);
+        zmq::poll(pollitems, 6, -1);
         if (pollitems[0].revents & ZMQ_POLLIN) {
             string request = zmq_util::recv_string(&addr_responder);
             cout << "request is " + request + "\n";

@@ -6,7 +6,6 @@
 #include <boost/format.hpp>
 #include <boost/crc.hpp>
 #include <functional>
-#include <curl/curl.h>
 
 using namespace std;
 
@@ -17,6 +16,7 @@ using namespace std;
 #define GLOBAL_MEMORY_REPLICATION 2
 
 // Define port offset
+#define SERVER_PORT 6560
 #define CLIENT_CONNECTION_OFFSET -100
 #define CLIENT_NOTIFY_OFFSET 500
 #define SEED_CONNECTION_OFFSET 0
@@ -30,7 +30,7 @@ using namespace std;
 #define NODE_DEPART_OFFSET 200
 #define KEY_EXCHANGE_OFFSET 300
 
-#define SERVER_PORT 6560
+#define SERVER_IP_FILE "conf/server/server_ip.txt"
 
 class node_t {
 public:
@@ -83,6 +83,7 @@ public:
         local_gossip_addr_ = "inproc://" + to_string(port + LOCAL_GOSSIP_OFFSET);
         distributed_gossip_connect_addr_ = "tcp://" + ip + ":" + to_string(port + DISTRIBUTED_GOSSIP_OFFSET);
         distributed_gossip_bind_addr_ = "tcp://*:" + to_string(port + DISTRIBUTED_GOSSIP_OFFSET);
+
         local_redistribute_addr_ = "inproc://" + to_string(port + LOCAL_REDISTRIBUTE_OFFSET);
         local_depart_addr_ = "inproc://" + to_string(port + LOCAL_DEPART_OFFSET);
     }
@@ -150,23 +151,16 @@ size_t WriteCallback(void *contents, size_t size, size_t nmemb, void *userp)
 }
 
 string getIP() {
-    CURL *curl;
-    CURLcode res;
-    string readBuffer;
+  string server_ip;
+  ifstream address;
 
-    curl = curl_easy_init();
-    if(curl) {
-    curl_easy_setopt(curl, CURLOPT_URL, "http://169.254.169.254/latest/meta-data/public-ipv4");
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
-    res = curl_easy_perform(curl);
-    curl_easy_cleanup(curl);
-    }
-    return readBuffer;
+  address.open(SERVER_IP_FILE);
+  std::getline(address, server_ip);
+  address.close();
+
+  return server_ip;
 }
 
 typedef consistent_hash_map<master_node_t,crc32_hasher> global_hash_t;
-
-
 
 #endif
