@@ -33,7 +33,7 @@ using namespace std;
 // Define the number of memory threads
 #define MEMORY_THREAD_NUM 3
 
-// For simplicity, the kvs uses integer as the key type and maxintlattice as the value lattice.
+// For simplicity, the kvs uses string as the key type and maxintlattice as the value lattice.
 typedef Concurrent_KV_Store<string, RC_KVS_PairLattice<string>> Database;
 
 struct pair_hash {
@@ -289,7 +289,7 @@ int main(int argc, char* argv[]) {
     // read client address from the file
     string ip_line;
     ifstream address;
-    address.open("build/kv_store/lww_kvs/client_address.txt");
+    address.open("conf/server/client_address.txt");
     while (getline(address, ip_line)) {
         client_address.insert(ip_line);
     }
@@ -297,25 +297,26 @@ int main(int argc, char* argv[]) {
 
     // read server address from the file
     if (new_node == "n") {
-        address.open("build/kv_store/lww_kvs/server_address.txt");
+        address.open("conf/server/start_servers.txt");
+        // add all other servers
         while (getline(address, ip_line)) {
             global_hash_ring.insert(master_node_t(ip_line));
         }
         address.close();
+       
+        // add yourself to the ring
+        global_hash_ring.insert(master_node_t(ip));
     }
+
     // get server address from the seed node
     else {
-        address.open("build/kv_store/lww_kvs/seed_address.txt");
+        address.open("conf/server/seed_server.txt");
         getline(address, ip_line);       
         address.close();
-        //cout << "before zmq\n";
-        //cout << ip_line + "\n";
         zmq::socket_t addr_requester(context, ZMQ_REQ);
         addr_requester.connect(master_node_t(ip_line).seed_connection_connect_addr_);
-        //cout << "before sending req\n";
         zmq_util::send_string("join", &addr_requester);
         vector<string> addresses;
-        //cout << "after sending req\n";
         split(zmq_util::recv_string(&addr_requester), '|', addresses);
         for (auto it = addresses.begin(); it != addresses.end(); it++) {
             global_hash_ring.insert(master_node_t(*it));
@@ -545,6 +546,10 @@ int main(int argc, char* argv[]) {
                 global_hash_ring.erase(master_node_t(ip));
                 for (auto it = global_hash_ring.begin(); it != global_hash_ring.end(); it++) {
                     zmq_util::send_string(ip, &cache[it->second.node_depart_connect_addr_]);
+                }
+                // notify clients
+                for (auto it = client_address.begin(); it != client_address.end(); it++) {
+                  zmq_util::send_string("depart:" + ip, &cache[master_node_t(*it).client_notify_connect_addr_]);
                 }
                 // form the key_request map
                 unordered_map<string, communication::Key_Request> key_request_map;

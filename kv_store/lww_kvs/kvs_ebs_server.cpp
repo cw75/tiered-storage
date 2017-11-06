@@ -915,6 +915,10 @@ int main(int argc, char* argv[]) {
                 for (auto it = global_hash_ring.begin(); it != global_hash_ring.end(); it++) {
                     zmq_util::send_string(ip, &cache[it->second.node_depart_connect_addr_]);
                 }
+                // notify clients
+                for (auto it = client_address.begin(); it != client_address.end(); it++) {
+                  zmq_util::send_string("depart:" + ip, &cache[master_node_t(*it).client_notify_connect_addr_]);
+                }
                 // form the key_request map
                 unordered_map<string, communication::Key_Request> key_request_map;
                 for (auto it = placement.begin(); it != placement.end(); it++) {
