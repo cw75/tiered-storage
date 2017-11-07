@@ -21,8 +21,6 @@ using address_t = string;
 // TODO: instead of cout or cerr, everything should be written to a log file.
 int main(int argc, char* argv[]) {
   string ip = getIP();
-  size_t client_contact_port = SERVER_PORT + CLIENT_USER_OFFSET;
-
   global_hash_t global_hash_ring;
  
   // read in the initial server addresses and build the hash ring
@@ -40,19 +38,17 @@ int main(int argc, char* argv[]) {
   SocketCache cache(&context, ZMQ_REQ);
 
   // responsible for both node join and departure
-  // TODO: this is wonky because client_notify_bind_addr_ doesn't use the IP
-  // address. should this be factored out better? why doesn't the
-  // user_responder bind in this way on lin 50?
   zmq::socket_t join_puller(context, ZMQ_PULL);
-  join_puller.bind(master_node_t(ip).client_notify_bind_addr_);
+  join_puller.bind(CLIENT_NOTIFY_BIND_ADDR);
   // responsible for receiving user requests
   zmq::socket_t user_responder(context, ZMQ_REP);
-  user_responder.bind("tcp://*:" + to_string(client_contact_port));
+  user_responder.bind(CLIENT_CONTACT_BIND_ADDR);
 
   string input;
-  // TODO: why are we reusing the same request again and again here but not 
-  // for other kinds of requests below?
   communication::Request request;
+  communication::Key_Request server_req;
+  communication::Key_Response res;
+  communication::Response response;
 
   vector<zmq::pollitem_t> pollitems = {
     { static_cast<void *>(join_puller), 0, ZMQ_POLLIN, 0 },
@@ -61,9 +57,6 @@ int main(int argc, char* argv[]) {
 
   while (true) {
     // listen for ZMQ events
-    // TODO: does this mean that we can only ever handle a single user vs.
-    // server facing request at a time? That's what it seems like to me, but
-    // I'm not sure if I'm missing something related to threading.
     zmq_util::poll(-1, &pollitems);
 
     // handle a join or depart event coming from the server side
@@ -86,14 +79,16 @@ int main(int argc, char* argv[]) {
       cerr << "received user request\n";
       vector<string> v; 
 
-      // TODO: there should be a programmatic API as well, so we probably don't
-      // want to just rely on splitting by spaces?
+      // NOTE: once we start thinking about building a programmatic API, we
+      // will need a more robust form of serialization between the user & the
+      // proxy & the server
       split(zmq_util::recv_string(&user_responder), ' ', v);
 
-      // TODO: why are we checking if v.size() is 0? does that just mean that
-      // we got an empty request; shouldn't we require the size to be >= 2
-      // specifically? doesn't make sense to process just a "GET" with no key?
-      if (v.size() != 0 && (v[0] == "GET" || v[0] == "PUT")) {
+      if (v.size == 0) {
+          zmq_util::send_string("Empty request.\n", &user_responder);
+      } else if (v[0] != "GET" && v[0] != "PUT") { 
+          zmq_util::send_string("Invalid request: " + v[0] + ".\n", &user_responder);
+      } else {
         string key = v[1];
         if (v[0] == "GET") {
           request.mutable_get()->set_key(key);
@@ -121,7 +116,6 @@ int main(int argc, char* argv[]) {
           address_t server_address = server_nodes[rand() % server_nodes.size()].key_exchange_connect_addr_;
 
           // create a request and set the tuple to have the key we want
-          communication::Key_Request server_req;
           server_req.set_sender("client");
           communication::Key_Request_Tuple* tp = server_req.add_tuple();
           tp->set_key(key);
@@ -132,29 +126,32 @@ int main(int argc, char* argv[]) {
           zmq_util::send_string(key_req, &cache[server_address]);
 
           // wait for a response from the server and deserialize
-          // TODO: is this synchronous? shouldn't it be async?
           string key_res = zmq_util::recv_string(&cache[server_address]);
-          communication::Key_Response res;
           res.ParseFromString(key_res);
 
           // get the worker address from the response and sent the serialized
-          // data from up above to the worker thread
-          // TODO: why do we need to do this? why can't the metadata thread
-          // automatically route a request based on the key to the correct
-          // thread locally via ZMQ? this seems like unnecessary communication
-          address_t worker_address = res.tuple(0).address(0).addr();
+          // data from up above to the worker thread; the reason that we do
+          // this is to let the metadata thread avoid having to receive a
+          // potentially large request body; since the metadata thread is
+          // serial, this could potentially be a bottleneck; the current way
+          // allows the metadata thread to answer lightweight requests only
+          //
+          // TODO: currently we only pick a random worker; we should allow
+          // requests with multiple keys in the future
+          address_t worker_address = res.tuple(0).address(rand() % res.tuple(0).size()).addr();
           zmq_util::send_string(data, &cache[worker_address]);
 
           // wait for response to actual request
           data = zmq_util::recv_string(&cache[worker_address]);
-          communication::Response response;
           response.ParseFromString(data);
 
           // based on the request type and response content, send a message
           // back to the user
+          // TODO: send a more intelligent response to the user based on the response from server
+          // TODO: we should send a protobuf response that is deserialized on the client side... allows for a programmatic API
           if (v[0] == "GET") {
             if (response.succeed()) {
-              zmq_util::send_string("value is " + response.value() + "\n", &user_responder);
+              zmq_util::send_string("Value is " + response.value() + ".\n", &user_responder);
             } else {
               zmq_util::send_string("Key does not exist\n", &user_responder);
             }
@@ -162,20 +159,14 @@ int main(int argc, char* argv[]) {
             zmq_util::send_string("succeed status is " + to_string(response.succeed()) + "\n", &user_responder);
           }
         } else {
-          // TODO: this doesn't make sense to me... if global_hash_ring.find
-          // doesn't return any nodes, why are no server *threads* available?
-          // doesn't that just mean that there are no servers available at all?
-          zmq_util::send_string("no server thread available\n", &user_responder);
+          zmq_util::send_string("No servers available.\n", &user_responder);
         }
         
         request.Clear();
-      } else {
-        if (v.size() == 0) {
-          zmq_util::send_string("Empty request.\n", &user_responder);
-        } else {
-          zmq_util::send_string("Invalid request: " + v[0] + ".\n", &user_responder);
-        }
-      }
+        server_req.Clear();
+        res.Clear();
+        response.Clear();
+      }     
     }
   }
 }

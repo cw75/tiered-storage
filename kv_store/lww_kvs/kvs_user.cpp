@@ -14,7 +14,6 @@
 using namespace std;
 
 int main(int argc, char* argv[]) {
-  size_t client_contact_port = SERVER_PORT + CLIENT_USER_OFFSET;
   // read in the client addresses
   unordered_set<string> client_address;
 
@@ -33,8 +32,7 @@ int main(int argc, char* argv[]) {
 
   zmq::context_t context(1);
   zmq::socket_t client_connector(context, ZMQ_REQ);
-  // TODO should this not be hardcoded?
-  client_connector.connect("tcp://" + client_ip + ":" + to_string(client_contact_port));
+  client_connector.connect("tcp://" + client_ip + ":" + to_string(CLIENT_USER_PORT));
 
   string input;
 
