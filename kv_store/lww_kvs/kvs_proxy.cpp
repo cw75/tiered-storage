@@ -20,7 +20,18 @@ using address_t = string;
 
 // TODO: instead of cout or cerr, everything should be written to a log file.
 int main(int argc, char* argv[]) {
+  if (argc != 2) {
+    cerr << "usage:" << argv[0] << " <tier>" << endl;
+    return 1;
+  }
+  if (string(argv[1]) != "m" && string(argv[1]) != "e") {
+    cerr << "invalid argument" << endl;
+    return 1;
+  }
+
   string ip = getIP();
+  string tier = argv[1];
+
   global_hash_t global_hash_ring;
  
   // read in the initial server addresses and build the hash ring
@@ -125,20 +136,25 @@ int main(int argc, char* argv[]) {
           server_req.SerializeToString(&key_req);
           zmq_util::send_string(key_req, &cache[server_address]);
 
+          address_t worker_address;
           // wait for a response from the server and deserialize
-          string key_res = zmq_util::recv_string(&cache[server_address]);
-          res.ParseFromString(key_res);
+          if (tier == "e") {
+            string key_res = zmq_util::recv_string(&cache[server_address]);
+            res.ParseFromString(key_res);
 
-          // get the worker address from the response and sent the serialized
-          // data from up above to the worker thread; the reason that we do
-          // this is to let the metadata thread avoid having to receive a
-          // potentially large request body; since the metadata thread is
-          // serial, this could potentially be a bottleneck; the current way
-          // allows the metadata thread to answer lightweight requests only
-          //
-          // TODO: currently we only pick a random worker; we should allow
-          // requests with multiple keys in the future
-          address_t worker_address =  res.tuple(0).address(rand() % res.tuple(0).address().size()).addr();
+            // get the worker address from the response and sent the serialized
+            // data from up above to the worker thread; the reason that we do
+            // this is to let the metadata thread avoid having to receive a
+            // potentially large request body; since the metadata thread is
+            // serial, this could potentially be a bottleneck; the current way
+            // allows the metadata thread to answer lightweight requests only
+            //
+            // TODO: currently we only pick a random worker; we should allow
+            // requests with multiple keys in the future
+            worker_address =  res.tuple(0).address(rand() % res.tuple(0).address().size()).addr();
+          } else {
+            worker_address =  zmq_util::recv_string(&cache[server_address]);
+          }
           zmq_util::send_string(data, &cache[worker_address]);
 
           // wait for response to actual request

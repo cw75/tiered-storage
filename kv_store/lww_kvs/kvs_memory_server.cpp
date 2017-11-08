@@ -236,7 +236,6 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  //std::cout << GetCurrentWorkingDir() << std::endl;
   Database* kvs = new Database();
 
   string ip = getIP();

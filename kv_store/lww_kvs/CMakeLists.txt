@@ -29,8 +29,8 @@ SET(KV_SRC_DEPENDENCIES
 ADD_EXECUTABLE(kvs_user kvs_user.cpp ../include/zmq_util.cc ../include/zmq_util.h)
 TARGET_LINK_LIBRARIES(kvs_user ${KV_LIBRARY_DEPENDENCIES})
 
-ADD_EXECUTABLE(kvs_client kvs_client.cpp ${KV_SRC_DEPENDENCIES} ../include/zmq_util.cc ../include/zmq_util.h ../include/socket_cache.cc ../include/socket_cache.h)
-TARGET_LINK_LIBRARIES(kvs_client ${KV_LIBRARY_DEPENDENCIES} ${TBB_LIBRARIES} ${CURL_LIBRARIES})
+ADD_EXECUTABLE(kvs_proxy kvs_proxy.cpp ${KV_SRC_DEPENDENCIES} ../include/zmq_util.cc ../include/zmq_util.h ../include/socket_cache.cc ../include/socket_cache.h)
+TARGET_LINK_LIBRARIES(kvs_proxy ${KV_LIBRARY_DEPENDENCIES} ${TBB_LIBRARIES} ${CURL_LIBRARIES})
 
 ADD_EXECUTABLE(kvs_ebs_server kvs_ebs_server.cpp ${KV_SRC_DEPENDENCIES} ../include/zmq_util.cc ../include/zmq_util.h ../include/socket_cache.cc ../include/socket_cache.h)
 TARGET_LINK_LIBRARIES(kvs_ebs_server ${KV_LIBRARY_DEPENDENCIES} ${TBB_LIBRARIES} ${CURL_LIBRARIES})
