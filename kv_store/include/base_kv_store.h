@@ -33,17 +33,17 @@ public:
 template <typename K, typename V>
 class Concurrent_KV_Store{
 protected:
-	AtomicMapLattice<K, V> db;
-	tbb::concurrent_unordered_map<int, unique_ptr<atomic<int>>> lock_table;
+	MapLattice<K, V> db;
+	tbb::concurrent_unordered_map<K, atomic<int>*> lock_table;
 public:
 	Concurrent_KV_Store<K, V>() {}
-	Concurrent_KV_Store<K, V>(AtomicMapLattice<K, V> &other) {
+	Concurrent_KV_Store<K, V>(MapLattice<K, V> &other) {
 		db = other;
 	}
-	V get(int k) {
+	V get(const K& k) {
 		auto it = lock_table.find(k);
 		if (it == lock_table.end()) {
-			it = lock_table.insert({k, unique_ptr<atomic<int>>(new atomic<int>(0))}).first;
+			it = lock_table.insert({k, new atomic<int>(0)}).first;
 		}
 		int expected = 0;
 		while(!it->second->compare_exchange_strong(expected, expected - 1)) {
@@ -53,16 +53,28 @@ public:
 		it->second->fetch_add(1);
 		return result;
 	}
-	void put(const K &k, const V &v) {
+	void put(const K& k, const V& v) {
 		auto it = lock_table.find(k);
 		if (it == lock_table.end()) {
-			it = lock_table.insert({k, unique_ptr<atomic<int>>(new atomic<int>(0))}).first;
+			it = lock_table.insert({k, new atomic<int>(0)}).first;
 		}
 		int expected = 0;
 		while(!it->second->compare_exchange_strong(expected, expected + 1)) {
 			expected = 0;
 		}
 		db.at(k).merge(v);
+		it->second->fetch_sub(1);
+	}
+	void remove(const K& k) {
+		auto it = lock_table.find(k);
+		if (it == lock_table.end()) {
+			it = lock_table.insert({k, new atomic<int>(0)}).first;
+		}
+		int expected = 0;
+		while(!it->second->compare_exchange_strong(expected, expected + 1)) {
+			expected = 0;
+		}
+		db.remove(k);
 		it->second->fetch_sub(1);
 	}
 };
