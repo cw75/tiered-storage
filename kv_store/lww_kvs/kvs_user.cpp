@@ -10,6 +10,7 @@
 #include <unordered_set>
 #include "socket_cache.h"
 #include "zmq_util.h"
+#include "common.h"
 
 using namespace std;
 

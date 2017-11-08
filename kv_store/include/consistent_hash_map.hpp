@@ -4,7 +4,7 @@
 #include <functional> 
 #include <algorithm>
 
-
+using namespace::std;
 
 #ifndef __CONSISTENT_HASH_H__
 #define __CONSISTENT_HASH_H__

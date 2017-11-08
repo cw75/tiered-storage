@@ -6,6 +6,7 @@
 #include <boost/format.hpp>
 #include <boost/crc.hpp>
 #include <functional>
+#include "consistent_hash_map.hpp"
 
 using namespace std;
 
@@ -72,7 +73,7 @@ public:
 class worker_node_t: public node_t {
 public:
     worker_node_t() : node_t() {}
-    worker_node_t(string ip, size_t port) : node_t(ip, tid) {
+    worker_node_t(string ip, int tid) : node_t(ip, SERVER_PORT + tid) {
         client_connection_connect_addr_ = "tcp://" + ip + ":" + to_string(tid + CLIENT_CONNECTION_BASE_PORT);
         client_connection_bind_addr_ = "tcp://*:" + to_string(tid + CLIENT_CONNECTION_BASE_PORT);
 

@@ -210,14 +210,14 @@ string process_client_request(communication::Request& req, int thread_id, unorde
 
 void process_distributed_gossip(communication::Gossip& gossip, int thread_id, unordered_set<string>& key_set) {
   for (int i = 0; i < gossip.tuple_size(); i++) {
-    process_put(gossip.tuple(i).key(), gossip.tuple(i).timestamp(), gossip.tuple(i).value(), thread_id, key_set);
+    process_ebs_put(gossip.tuple(i).key(), gossip.tuple(i).timestamp(), gossip.tuple(i).value(), thread_id, key_set);
   }
 }
 
 // This is not serialized into protobuf and using the method above for serializiation overhead
 void process_local_gossip(gossip_data* g_data, int thread_id, unordered_set<string>& key_set) {
   for (auto it = g_data->begin(); it != g_data->end(); it++) {
-    process_put(it->first, it->second.reveal().timestamp, it->second.reveal().value, thread_id, key_set);
+    process_ebs_put(it->first, it->second.reveal().timestamp, it->second.reveal().value, thread_id, key_set);
   }
   delete g_data;
 }
@@ -238,18 +238,18 @@ void send_gossip(changeset_address* change_set_addr, SocketCache& cache, string 
       for (auto set_it = map_it->second.begin(); set_it != map_it->second.end(); set_it++) {
         cout << "Local gossip key " + *set_it + " sent on thread " + to_string(thread_id) + ".\n";
 
-        auto res = process_get(*set_it, thread_id);
+        auto res = process_ebs_get(*set_it, thread_id);
         local_gossip_map[wnode.local_gossip_addr_]->emplace(*set_it, res.first);
       }
     } else { // add to distributed gossip map
-      string gossip_addr = wnode.distributed_gossip_connect_addr;
+      string gossip_addr = wnode.distributed_gossip_connect_addr_;
       for (auto set_it = map_it->second.begin(); set_it != map_it->second.end(); set_it++) {
         cout << "Distributed gossip key " + *set_it + " sent on thread " + to_string(thread_id) + ".\n";
 
         communication::Gossip_Tuple* tp = distributed_gossip_map[gossip_addr].add_tuple();
         tp->set_key(*set_it);
 
-        auto res = process_get(*set_it, thread_id);
+        auto res = process_ebs_get(*set_it, thread_id);
         tp->set_value(res.first.reveal().value);
         tp->set_timestamp(res.first.reveal().timestamp);
       }
@@ -275,7 +275,6 @@ void send_gossip(changeset_address* change_set_addr, SocketCache& cache, string 
 template<typename N, typename H>
 bool responsible(string key, int rep, consistent_hash_map<N,H>& hash_ring, string ip, node_t& sender_node, bool& remove) {
   // the ip of the node for which we are checking responsibility
-  string self_id = ip + ":" + to_string(port);
   bool resp = false;
 
   auto pos = hash_ring.find(key);
@@ -286,7 +285,7 @@ bool responsible(string key, int rep, consistent_hash_map<N,H>& hash_ring, strin
   for (int i = 0; i < rep; i++) {
     // if one of the replicas is the node we care about, we set response to
     // true; we also store that node in target_pos
-    if (pos->second.id_.compare(self_id) == 0) {
+    if (pos->second.id_.compare(ip) == 0) {
       resp = true;
       target_pos = pos;
     }
@@ -464,7 +463,7 @@ void ebs_worker_routine (zmq::context_t* context, string ip, int thread_id) {
       }
 
       system(shell_command.c_str());
-      zmq_util::send_string(device_name + ":" + to_string(thread_id), &cache[master_node_t(ip).local_depart_done_addr_]);
+      zmq_util::send_string(device_name + ":" + to_string(thread_id), &cache[LOCAL_DEPART_DONE_ADDR]);
       
       // break because we have now successfully removed the volume and are
       // ending this thread's execution
@@ -506,8 +505,12 @@ void add_thread(map<string, int> ebs_device_map,
     unordered_map<int, string> inverse_ebs_device_map, 
     vector<thread> ebs_threads,
     ebs_hash_t ebs_hash_ring,
-    unordered_map>string, key_info> placement,
-    set<int> active_thread_id) {
+    unordered_map<string, key_info> placement,
+    set<int> active_thread_id,
+    int next_thread_id,
+    string ip,
+    zmq::context_t context,
+    SocketCache cache) {
 
   cout << "Adding a new thread.\n";
   string ebs_device_id;
@@ -580,7 +583,7 @@ void add_thread(map<string, int> ebs_device_map,
   next_thread_id += 1;
 }
 
-void remove_thread(set<int> active_thread_id, ebs_hash_t ebs_hash_ring, unordered_map<int, string> inverse_ebs_device_map) {
+void remove_thread(set<int> active_thread_id, ebs_hash_t ebs_hash_ring, unordered_map<int, string> inverse_ebs_device_map, string ip, SocketCache cache) {
   if (active_thread_id.rbegin() == active_thread_id.rend()) {
     cout << "Error: No remaining threads are running. Nothing to remove.\n";
   } else {
@@ -928,7 +931,11 @@ int main(int argc, char* argv[]) {
         for (int i = 0; i < placement[key].local_ebs_replication_; i++) {
           // add each one to the response
           communication::Key_Response_Address* tp_addr = tp->add_address();
-          tp_addr->set_addr(it->second.id_);
+          if (sender == "server") {
+            tp_addr->set_addr(it->second.id_);
+          } else {
+            tp_addr->set_addr(it->second.client_connection_connect_addr_);
+          }
 
           if (++it == ebs_hash_ring.end()) {
             it = ebs_hash_ring.begin();
@@ -940,7 +947,7 @@ int main(int argc, char* argv[]) {
         zmq_util::send_string(response, &key_address_responder);
       } 
     } else if (pollitems[4].revents & ZMQ_POLLIN) {
-      cout << "Received a changeset address request from a worker thread.\n"
+      cout << "Received a changeset address request from a worker thread.\n";
 
       zmq::message_t msg;
       zmq_util::recv_msg(&changeset_address_responder, msg);

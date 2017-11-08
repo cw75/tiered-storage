@@ -84,7 +84,7 @@ int main(int argc, char* argv[]) {
       // proxy & the server
       split(zmq_util::recv_string(&user_responder), ' ', v);
 
-      if (v.size == 0) {
+      if (v.size() == 0) {
           zmq_util::send_string("Empty request.\n", &user_responder);
       } else if (v[0] != "GET" && v[0] != "PUT") { 
           zmq_util::send_string("Invalid request: " + v[0] + ".\n", &user_responder);
@@ -138,12 +138,13 @@ int main(int argc, char* argv[]) {
           //
           // TODO: currently we only pick a random worker; we should allow
           // requests with multiple keys in the future
-          address_t worker_address = res.tuple(0).address(rand() % res.tuple(0).size()).addr();
+          address_t worker_address =  res.tuple(0).address(rand() % res.tuple(0).address().size()).addr();
           zmq_util::send_string(data, &cache[worker_address]);
 
           // wait for response to actual request
           data = zmq_util::recv_string(&cache[worker_address]);
           response.ParseFromString(data);
+          
 
           // based on the request type and response content, send a message
           // back to the user
