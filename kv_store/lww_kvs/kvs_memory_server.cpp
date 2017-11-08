@@ -408,7 +408,7 @@ int main(int argc, char* argv[]) {
             size_t random_port = SERVER_PORT + rand()%MEMORY_THREAD_NUM + 1;
             string worker_address = worker_node_t(ip, random_port).local_redistribute_addr_;
             unordered_set<string> key_to_query;
-            unordered_map<string, bool> key_remove_map;
+            unordered_set<pair<string, bool>, pair_hash> key_set;
             for (auto it = placement.begin(); it != placement.end(); it++) {
                 master_node_t sender_node;
                 bool remove = false;
@@ -416,7 +416,7 @@ int main(int argc, char* argv[]) {
                 bool resp = responsible<master_node_t, crc32_hasher>(it->first, it->second.global_memory_replication_, global_hash_ring, new_server_ip, SERVER_PORT, sender_node, remove);
                 if (resp && (sender_node.ip_.compare(ip) == 0)) {
                     key_to_query.insert(it->first);
-                    key_remove_map[it->first] = remove;
+                    key_set.insert(pair<string, bool>(it->first, remove));
                 }
             }
             // send key address request
@@ -429,17 +429,9 @@ int main(int argc, char* argv[]) {
             string key_req;
             req.SerializeToString(&key_req);
             zmq_util::send_string(key_req, &key_address_requesters[master_node_t(new_server_ip).key_exchange_connect_addr_]);
-            string key_res = zmq_util::recv_string(&key_address_requesters[master_node_t(new_server_ip).key_exchange_connect_addr_]);
-            communication::Key_Response resp;
-            resp.ParseFromString(key_res);
+            string target_address = zmq_util::recv_string(&key_address_requesters[master_node_t(new_server_ip).key_exchange_connect_addr_]);
             redistribution_address* r_address = new redistribution_address();
-            for (int i = 0; i < resp.tuple_size(); i++) {
-                for (int j = 0; j < resp.tuple(i).address_size(); j++) {
-                    string key = resp.tuple(i).key();
-                    string target_address = resp.tuple(i).address(j).addr();
-                    (*r_address)[target_address].insert(pair<string, bool>(key, key_remove_map[key]));
-                }
-            }
+            (*r_address)[target_address] = unordered_set<pair<string, bool>, pair_hash>(key_set);
             zmq_util::send_msg((void*)r_address, &cache[worker_address]);
         }
         else if (pollitems[2].revents & ZMQ_POLLIN) {
@@ -455,48 +447,26 @@ int main(int argc, char* argv[]) {
             communication::Key_Request req;
             req.ParseFromString(key_req);
             string sender = req.sender();
-            communication::Key_Response res;
-            // received worker thread address request (for a given key) from the client proxy
-            if (sender == "client") {
-                string key = req.tuple(0).key();
+            for (int i = 0; i < req.tuple_size(); i++) {
+                string key = req.tuple(i).key();
                 cout << "key requested is " + key + "\n";
                 // update placement metadata
                 if (placement.find(key) == placement.end())
                     placement[key] = key_info('M', GLOBAL_MEMORY_REPLICATION);
-                // for now, randomly select a memory thread
-                size_t random_port = SERVER_PORT + rand()%MEMORY_THREAD_NUM + 1;
-                string worker_address = worker_node_t(ip, random_port).client_connection_connect_addr_;
-                cout << "worker address is " + worker_address + "\n";
-                communication::Key_Response_Tuple* tp = res.add_tuple();
-                tp->set_key(key);
-                communication::Key_Response_Address* tp_addr = tp->add_address();
-                tp_addr->set_addr(worker_address);
-                string response;
-                res.SerializeToString(&response);
-                zmq_util::send_string(response, &key_address_responder);
             }
-            // received worker thread address request (for a set of keys) from another server node
+            // for now, randomly select a memory thread
+            size_t random_port = SERVER_PORT + rand()%MEMORY_THREAD_NUM + 1;
+            string worker_address;
+            if (sender == "client") {
+                worker_address = worker_node_t(ip, random_port).client_connection_connect_addr_;
+            }
             else if (sender == "server") {
-                size_t random_port = SERVER_PORT + rand()%MEMORY_THREAD_NUM + 1;
-                string worker_address = worker_node_t(ip, random_port).id_;
-                for (int i = 0; i < req.tuple_size(); i++) {
-                    communication::Key_Response_Tuple* tp = res.add_tuple();
-                    string key = req.tuple(i).key();
-                    tp->set_key(key);
-                    cout << "key requested is " + key + "\n";
-                    // update placement metadata
-                    if (placement.find(key) == placement.end())
-                        placement[key] = key_info('M', GLOBAL_MEMORY_REPLICATION);
-                    communication::Key_Response_Address* tp_addr = tp->add_address();
-                    tp_addr->set_addr(worker_address);
-                }
-                string response;
-                res.SerializeToString(&response);
-                zmq_util::send_string(response, &key_address_responder);
+                worker_address = worker_node_t(ip, random_port).id_;
             }
             else {
-                cout << "Invalid sender \n";
+                cerr << "invalid sender\n";
             }
+            zmq_util::send_string(worker_address, &key_address_responder);
         }
         else if (pollitems[4].revents & ZMQ_POLLIN) {
             cout << "received changeset address request from the worker threads (for gossiping)\n";
@@ -527,14 +497,8 @@ int main(int argc, char* argv[]) {
                 string key_req;
                 req.SerializeToString(&key_req);
                 zmq_util::send_string(key_req, &key_address_requesters[map_iter->first.key_exchange_connect_addr_]);
-                string key_res = zmq_util::recv_string(&key_address_requesters[map_iter->first.key_exchange_connect_addr_]);
-                communication::Key_Response resp;
-                resp.ParseFromString(key_res);
-                for (int i = 0; i < resp.tuple_size(); i++) {
-                    for (int j = 0; j < resp.tuple(i).address_size(); j++) {
-                        (*res)[resp.tuple(i).address(j).addr()].insert(resp.tuple(i).key());
-                    }
-                }
+                string target_address = zmq_util::recv_string(&key_address_requesters[map_iter->first.key_exchange_connect_addr_]);
+                (*res)[target_address] = unordered_set<string>(map_iter->second);
             }
             zmq_util::send_msg((void*)res, &changeset_address_responder);
             delete data;
@@ -553,6 +517,7 @@ int main(int argc, char* argv[]) {
                 }
                 // form the key_request map
                 unordered_map<string, communication::Key_Request> key_request_map;
+                unordered_map<string, unordered_set<pair<string, bool>, pair_hash>> key_set_map;
                 for (auto it = placement.begin(); it != placement.end(); it++) {
                     string key = it->first;
                     auto pos = global_hash_ring.find(key);
@@ -560,10 +525,10 @@ int main(int argc, char* argv[]) {
                         key_request_map[pos->second.key_exchange_connect_addr_].set_sender("server");
                         communication::Key_Request_Tuple* tp = key_request_map[pos->second.key_exchange_connect_addr_].add_tuple();
                         tp->set_key(key);
+                        key_set_map[pos->second.key_exchange_connect_addr_].insert(pair<string, bool>(key, true));
                         if (++pos == global_hash_ring.end()) pos = global_hash_ring.begin();
                     }
                 }
-                unordered_map<string, redistribution_address*> redistribution_map;
                 // send key addrss requests to other server nodes
                 // instruct a random worker to send gossip to the new server! (2 phase)
                 size_t random_port = SERVER_PORT + rand()%MEMORY_THREAD_NUM + 1;
@@ -573,16 +538,8 @@ int main(int argc, char* argv[]) {
                     string key_req;
                     it->second.SerializeToString(&key_req);
                     zmq_util::send_string(key_req, &key_address_requesters[it->first]);
-                    string key_res = zmq_util::recv_string(&key_address_requesters[it->first]);
-                    communication::Key_Response resp;
-                    resp.ParseFromString(key_res);
-                    for (int i = 0; i < resp.tuple_size(); i++) {
-                        for (int j = 0; j < resp.tuple(i).address_size(); j++) {
-                            string key = resp.tuple(i).key();
-                            string target_address = resp.tuple(i).address(j).addr();
-                            (*r_address)[target_address].insert(pair<string, bool>(key, true));
-                        }
-                    }
+                    string target_address = zmq_util::recv_string(&key_address_requesters[it->first]);
+                    (*r_address)[target_address] = unordered_set<pair<string, bool>, pair_hash>(key_set_map[it->first]);
                 }
                 zmq_util::send_msg((void*)r_address, &cache[worker_address]);
             }
