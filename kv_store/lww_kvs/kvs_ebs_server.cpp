@@ -707,29 +707,20 @@ int main(int argc, char* argv[]) {
   self_depart_responder.bind(SELF_DEPART_BIND_ADDR);
 
   // set up zmq receivers
-  zmq_pollitem_t pollitems [7];
-  pollitems[0].socket = static_cast<void *>(addr_responder);
-  pollitems[0].events = ZMQ_POLLIN;
-  pollitems[1].socket = static_cast<void *>(join_puller);
-  pollitems[1].events = ZMQ_POLLIN;
-  pollitems[2].socket = static_cast<void *>(depart_puller);
-  pollitems[2].events = ZMQ_POLLIN;
-  pollitems[3].socket = static_cast<void *>(key_address_responder);
-  pollitems[3].events = ZMQ_POLLIN;
-  pollitems[4].socket = static_cast<void *>(changeset_address_responder);
-  pollitems[4].events = ZMQ_POLLIN;
-  pollitems[5].socket = static_cast<void *>(depart_done_puller);
-  pollitems[5].events = ZMQ_POLLIN;
-  pollitems[6].socket = static_cast<void *>(self_depart_responder);
-  pollitems[6].events = ZMQ_POLLIN;
-
+  vector<zmq::pollitem_t> pollitems = {{static_cast<void*>(addr_responder), 0, ZMQ_POLLIN, 0},
+                                       {static_cast<void*>(join_puller), 0, ZMQ_POLLIN, 0},
+                                       {static_cast<void*>(depart_puller), 0, ZMQ_POLLIN, 0},
+                                       {static_cast<void*>(key_address_responder), 0, ZMQ_POLLIN, 0},
+                                       {static_cast<void*>(changeset_address_responder), 0, ZMQ_POLLIN, 0},
+                                       {static_cast<void*>(depart_done_puller), 0, ZMQ_POLLIN, 0},
+                                       {static_cast<void*>(self_depart_responder), 0, ZMQ_POLLIN, 0}};
 
   string input;
   int next_thread_id = EBS_THREAD_NUM + 1;
 
   // enter event loop
   while (true) {
-    zmq::poll(pollitems, 7, -1);
+    zmq_util::poll(-1, &pollitems);
 
     if (pollitems[0].revents & ZMQ_POLLIN) {
       cout << "Received an address request.\n";
