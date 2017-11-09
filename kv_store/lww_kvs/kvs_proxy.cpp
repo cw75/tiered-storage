@@ -18,32 +18,46 @@
 using namespace std;
 using address_t = string;
 
+#define DEFAULT_GLOBAL_MEMORY_REPLICATION 1
+#define DEFAULT_GLOBAL_EBS_REPLICATION 2
+#define DEFAULT_LOCAL_EBS_REPLICATION 1
+
 // TODO: instead of cout or cerr, everything should be written to a log file.
 int main(int argc, char* argv[]) {
-  if (argc != 2) {
-    cerr << "usage:" << argv[0] << " <tier>" << endl;
-    return 1;
-  }
-  if (string(argv[1]) != "m" && string(argv[1]) != "e") {
-    cerr << "invalid argument" << endl;
+  if (argc != 1) {
+    cerr << "usage:" << argv[0] << endl;
     return 1;
   }
 
   string ip = getIP();
-  string tier = argv[1];
 
-  global_hash_t global_hash_ring;
+  global_hash_t global_memory_hash_ring;
+  global_hash_t global_ebs_hash_ring;
+
+  // keep track of the keys' replication info
+  unordered_map<string, key_info> placement;
  
   // read in the initial server addresses and build the hash ring
   string ip_line;
   ifstream address;
-  address.open("conf/client/existing_servers.txt");
+  // read existing memory servers and populate the memory hash ring
+  address.open("conf/client/existing_memory_servers.txt");
 
   while (getline(address, ip_line)) {
     cerr << ip_line << "\n";
-    global_hash_ring.insert(master_node_t(ip_line));
+    global_memory_hash_ring.insert(master_node_t(ip_line, "M"));
   }
   address.close();
+
+  // read existing ebs servers and populate the ebs hash ring
+  address.open("conf/client/existing_ebs_servers.txt");
+
+  while (getline(address, ip_line)) {
+    cerr << ip_line << "\n";
+    global_ebs_hash_ring.insert(master_node_t(ip_line, "E"));
+  }
+  address.close();
+
 
   zmq::context_t context(1);
   SocketCache cache(&context, ZMQ_REQ);
@@ -77,13 +91,27 @@ int main(int argc, char* argv[]) {
       if (v[0] == "join") {
         cerr << "received join\n";
         // update hash ring
-        global_hash_ring.insert(master_node_t(v[1]));
-        cerr << "hash ring size is " + to_string(global_hash_ring.size()) + "\n";
+        if (v[1] == "M") {
+          global_memory_hash_ring.insert(master_node_t(v[2], "M"));
+        } else if (v[1] == "E") {
+          global_ebs_hash_ring.insert(master_node_t(v[2], "E"));
+        } else {
+          cerr << "Invalid Tier info\n";
+        }
+        cerr << "memory hash ring size is " + to_string(global_memory_hash_ring.size()) + "\n";
+        cerr << "ebs hash ring size is " + to_string(global_ebs_hash_ring.size()) + "\n";
       } else if (v[0] == "depart") {
         cerr << "received depart\n";
         // update hash ring
-        global_hash_ring.erase(master_node_t(v[1]));
-        cerr << "hash ring size is " + to_string(global_hash_ring.size()) + "\n";
+        if (v[1] == "M") {
+          global_memory_hash_ring.erase(master_node_t(v[2], "M"));
+        } else if (v[1] == "E") {
+          global_ebs_hash_ring.erase(master_node_t(v[2], "E"));
+        } else {
+          cerr << "Invalid Tier info\n";
+        }
+        cerr << "memory hash ring size is " + to_string(global_memory_hash_ring.size()) + "\n";
+        cerr << "ebs hash ring size is " + to_string(global_ebs_hash_ring.size()) + "\n";
       }
     } else if (pollitems[1].revents & ZMQ_POLLIN) {
       // handle a user facing request
@@ -101,6 +129,8 @@ int main(int argc, char* argv[]) {
           zmq_util::send_string("Invalid request: " + v[0] + ".\n", &user_responder);
       } else {
         string key = v[1];
+        // set the key info for this key (using the default replication factor for now)
+        placement[key] = key_info(DEFAULT_GLOBAL_MEMORY_REPLICATION, DEFAULT_GLOBAL_EBS_REPLICATION, DEFAULT_LOCAL_EBS_REPLICATION);
         if (v[0] == "GET") {
           request.mutable_get()->set_key(key);
         } else { // i.e., the request is a PUT
@@ -113,23 +143,40 @@ int main(int argc, char* argv[]) {
 
         vector<master_node_t> server_nodes;
         // use hash ring to find the right node to contact
-        auto it = global_hash_ring.find(key);
-        if (it != global_hash_ring.end()) {
-          for (int i = 0; i < GLOBAL_EBS_REPLICATION; i++) {
+        // first, look up the memory hash ring
+        auto it = global_memory_hash_ring.find(key);
+        if (it != global_memory_hash_ring.end()) {
+          for (int i = 0; i < placement[key].global_memory_replication_; i++) {
             server_nodes.push_back(it->second);
-            if (++it == global_hash_ring.end()) {
-              it = global_hash_ring.begin();
+            if (++it == global_memory_hash_ring.end()) {
+              it = global_memory_hash_ring.begin();
             }
           }
+        }
+        // then check the ebs hash ring
+        it = global_ebs_hash_ring.find(key);
+        if (it != global_ebs_hash_ring.end()) {
+          for (int i = 0; i < placement[key].global_ebs_replication_; i++) {
+            server_nodes.push_back(it->second);
+            if (++it == global_ebs_hash_ring.end()) {
+              it = global_ebs_hash_ring.begin();
+            }
+          }
+        }
 
+        if (server_nodes.size() != 0) {
           // get the address-port combination for a particular server; which
           // server the request is sent to is chosen at random
-          address_t server_address = server_nodes[rand() % server_nodes.size()].key_exchange_connect_addr_;
-
+          master_node_t server_node = server_nodes[rand() % server_nodes.size()];
+          address_t server_address = server_node.key_exchange_connect_addr_;
+          string server_tier = server_node.tier_;
           // create a request and set the tuple to have the key we want
           server_req.set_sender("client");
           communication::Key_Request_Tuple* tp = server_req.add_tuple();
           tp->set_key(key);
+          tp->set_global_memory_replication(placement[key].global_memory_replication_);
+          tp->set_global_ebs_replication(placement[key].global_ebs_replication_);
+          tp->set_local_ebs_replication(placement[key].local_ebs_replication_);
 
           // serialize request and send
           string key_req;
@@ -138,7 +185,7 @@ int main(int argc, char* argv[]) {
 
           address_t worker_address;
           // wait for a response from the server and deserialize
-          if (tier == "e") {
+          if (server_tier == "E") {
             string key_res = zmq_util::recv_string(&cache[server_address]);
             res.ParseFromString(key_res);
 
@@ -155,7 +202,8 @@ int main(int argc, char* argv[]) {
           } else {
             worker_address =  zmq_util::recv_string(&cache[server_address]);
           }
-          zmq_util::send_string(data, &cache[worker_address]);
+          cout << "worker address is " + worker_address + "\n";
+          zmq_util::send_string(data, &cache[worker_address]);          
 
           // wait for response to actual request
           data = zmq_util::recv_string(&cache[worker_address]);

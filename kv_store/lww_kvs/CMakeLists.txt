@@ -5,6 +5,7 @@ INCLUDE(FindProtobuf)
 FIND_PACKAGE(Protobuf REQUIRED)
 INCLUDE_DIRECTORIES(${PROTOBUF_INCLUDE_DIR})
 PROTOBUF_GENERATE_CPP(PROTO_SRC PROTO_HEADER message.proto)
+INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR})
 
 FIND_PACKAGE(TBB)
 INCLUDE_DIRECTORIES(${TBB_INCLUDE_DIRS})
@@ -24,6 +25,7 @@ SET(KV_LIBRARY_DEPENDENCIES
 # The source dependencies of the key value store clients and servers.
 SET(KV_SRC_DEPENDENCIES
     ${PROTO_SRC}
+    ${PROTO_HEADER}
 )
 
 ADD_EXECUTABLE(kvs_user kvs_user.cpp ../include/zmq_util.cc ../include/zmq_util.h)

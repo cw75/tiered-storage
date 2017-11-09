@@ -14,7 +14,7 @@ using namespace std;
 #define GLOBAL_EBS_REPLICATION 2
 
 // Define global memory replication factor
-#define GLOBAL_MEMORY_REPLICATION 2
+#define GLOBAL_MEMORY_REPLICATION 1
 
 // Define port offset
 #define SERVER_PORT 6560
@@ -46,108 +46,126 @@ using namespace std;
 
 class node_t {
 public:
-    node_t() {}
-    node_t(string ip, size_t port): ip_(ip), port_(port) {
-        id_ = ip + ":" + to_string(port);
-    }
-    string id_;
-    string ip_;
-    size_t port_;
+  node_t() {}
+  node_t(string ip, size_t port): ip_(ip), port_(port) {
+    id_ = ip + ":" + to_string(port);
+  }
+  string id_;
+  string ip_;
+  size_t port_;
 };
 
 class master_node_t: public node_t {
 public:
-    master_node_t() : node_t() {}
-    master_node_t(string ip) : node_t(ip, SERVER_PORT) {
-        seed_connection_connect_addr_ = "tcp://" + ip + ":" + to_string(SEED_CONNECTION_PORT);
-        client_notify_connect_addr_ = "tcp://" + ip + ":" + to_string(CLIENT_NOTIFY_PORT);
-        node_join_connect_addr_ = "tcp://" + ip + ":" + to_string(NODE_JOIN_PORT);
-        node_depart_connect_addr_ = "tcp://" + ip + ":" + to_string(NODE_DEPART_PORT);
-        key_exchange_connect_addr_ = "tcp://" + ip + ":" + to_string(KEY_EXCHANGE_PORT);
-    }
+  master_node_t() : node_t() {}
+  master_node_t(string ip, string tier) : node_t(ip, SERVER_PORT) {
+    tier_ = tier;
+    seed_connection_connect_addr_ = "tcp://" + ip + ":" + to_string(SEED_CONNECTION_PORT);
+    client_notify_connect_addr_ = "tcp://" + ip + ":" + to_string(CLIENT_NOTIFY_PORT);
+    node_join_connect_addr_ = "tcp://" + ip + ":" + to_string(NODE_JOIN_PORT);
+    node_depart_connect_addr_ = "tcp://" + ip + ":" + to_string(NODE_DEPART_PORT);
+    key_exchange_connect_addr_ = "tcp://" + ip + ":" + to_string(KEY_EXCHANGE_PORT);
+  }
 
-    string seed_connection_connect_addr_;
-    string client_notify_connect_addr_;
-    string node_join_connect_addr_;
-    string node_depart_connect_addr_;
-    string key_exchange_connect_addr_;
+  string tier_;
+  string seed_connection_connect_addr_;
+  string client_notify_connect_addr_;
+  string node_join_connect_addr_;
+  string node_depart_connect_addr_;
+  string key_exchange_connect_addr_;
 };
 
 class worker_node_t: public node_t {
 public:
-    worker_node_t() : node_t() {}
-    worker_node_t(string ip, int tid) : node_t(ip, SERVER_PORT + tid) {
-        client_connection_connect_addr_ = "tcp://" + ip + ":" + to_string(tid + CLIENT_CONNECTION_BASE_PORT);
-        client_connection_bind_addr_ = "tcp://*:" + to_string(tid + CLIENT_CONNECTION_BASE_PORT);
+  worker_node_t() : node_t() {}
+  worker_node_t(string ip, int tid) : node_t(ip, SERVER_PORT + tid) {
+    client_connection_connect_addr_ = "tcp://" + ip + ":" + to_string(tid + CLIENT_CONNECTION_BASE_PORT);
+    client_connection_bind_addr_ = "tcp://*:" + to_string(tid + CLIENT_CONNECTION_BASE_PORT);
 
-        distributed_gossip_connect_addr_ = "tcp://" + ip + ":" + to_string(tid + DISTRIBUTED_GOSSIP_BASE_PORT);
-        distributed_gossip_bind_addr_ = "tcp://*:" + to_string(tid + DISTRIBUTED_GOSSIP_BASE_PORT);
+    distributed_gossip_connect_addr_ = "tcp://" + ip + ":" + to_string(tid + DISTRIBUTED_GOSSIP_BASE_PORT);
+    distributed_gossip_bind_addr_ = "tcp://*:" + to_string(tid + DISTRIBUTED_GOSSIP_BASE_PORT);
 
-        local_gossip_addr_ = "inproc://" + to_string(tid + LOCAL_GOSSIP_BASE_PORT);
-        local_redistribute_addr_ = "inproc://" + to_string(tid + LOCAL_REDISTRIBUTE_BASE_PORT);
-        local_depart_addr_ = "inproc://" + to_string(tid + LOCAL_DEPART_BASE_PORT);
-    }
-    string client_connection_connect_addr_;
-    string client_connection_bind_addr_;
-    string local_gossip_addr_;
-    string distributed_gossip_connect_addr_;
-    string distributed_gossip_bind_addr_;
-    string local_redistribute_addr_;
-    string local_depart_addr_;
+    local_gossip_addr_ = "inproc://" + to_string(tid + LOCAL_GOSSIP_BASE_PORT);
+    local_redistribute_addr_ = "inproc://" + to_string(tid + LOCAL_REDISTRIBUTE_BASE_PORT);
+    local_depart_addr_ = "inproc://" + to_string(tid + LOCAL_DEPART_BASE_PORT);
+  }
+  string client_connection_connect_addr_;
+  string client_connection_bind_addr_;
+  string local_gossip_addr_;
+  string distributed_gossip_connect_addr_;
+  string distributed_gossip_bind_addr_;
+  string local_redistribute_addr_;
+  string local_depart_addr_;
 };
 
 bool operator<(const node_t& l, const node_t& r) {
-    if (l.id_.compare(r.id_) == 0) return false;
-    else return true;
+  if (l.id_.compare(r.id_) == 0) {
+    return false;
+  } else {
+    return true;
+  }
 }
 
 bool operator==(const node_t& l, const node_t& r) {
-    if (l.id_.compare(r.id_) == 0) return true;
-    else return false;
+  if (l.id_.compare(r.id_) == 0) {
+    return true;
+  } else {
+    return false;
+  }
 }
 
 struct node_hash {
-    std::size_t operator () (const node_t &n) const {
-        return std::hash<string>{}(n.id_);
-    }
+  std::size_t operator () (const node_t &n) const {
+    return std::hash<string>{}(n.id_);
+  }
+};
+
+// represents the replication state for each key
+struct key_info {
+  key_info() : global_memory_replication_(1), global_ebs_replication_(2), local_ebs_replication_(1) {}
+  key_info(int gmr, int ger, int ler)
+    : global_memory_replication_(gmr), global_ebs_replication_(ger), local_ebs_replication_(ler) {}
+  int global_memory_replication_;
+  int global_ebs_replication_;
+  int local_ebs_replication_;
 };
 
 struct crc32_hasher {
-    uint32_t operator()(const node_t& node) {
-        boost::crc_32_type ret;
-        ret.process_bytes(node.id_.c_str(), node.id_.size());
-        return ret.checksum();
-    }
-    uint32_t operator()(const string& key) {
-        boost::crc_32_type ret;
-        ret.process_bytes(key.c_str(), key.size());
-        return ret.checksum();
-    }
-    typedef uint32_t result_type;
+  uint32_t operator()(const node_t& node) {
+    boost::crc_32_type ret;
+    ret.process_bytes(node.id_.c_str(), node.id_.size());
+    return ret.checksum();
+  }
+  uint32_t operator()(const string& key) {
+    boost::crc_32_type ret;
+    ret.process_bytes(key.c_str(), key.size());
+    return ret.checksum();
+  }
+  typedef uint32_t result_type;
 };
 
 struct ebs_hasher {
-    hash<string>::result_type operator()(const node_t& node) {
-        return hash<string>{}(node.id_);
-    }
-    hash<string>::result_type operator()(const string& key) {
-        return hash<string>{}(key);
-    }
-    typedef hash<string>::result_type result_type;
+  hash<string>::result_type operator()(const node_t& node) {
+      return hash<string>{}(node.id_);
+  }
+  hash<string>::result_type operator()(const string& key) {
+      return hash<string>{}(key);
+  }
+  typedef hash<string>::result_type result_type;
 };
 
 void split(const string &s, char delim, vector<string> &elems) {
-    stringstream ss(s);
-    string item;
-    while (std::getline(ss, item, delim)) {
-        elems.push_back(item);
-    }
+  stringstream ss(s);
+  string item;
+  while (std::getline(ss, item, delim)) {
+    elems.push_back(item);
+  }
 }
 
 size_t WriteCallback(void *contents, size_t size, size_t nmemb, void *userp)
 {
-    ((std::string*)userp)->append((char*)contents, size * nmemb);
-    return size * nmemb;
+  ((std::string*)userp)->append((char*)contents, size * nmemb);
+  return size * nmemb;
 }
 
 string getIP() {
