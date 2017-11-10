@@ -9,17 +9,23 @@ message Request {
   message Put {
     required string key = 1;
     required string value = 2;
+    optional int64 timestamp = 3;
   }
 
-  optional Get get = 1;
-  optional Put put = 2;
+  repeated Get get = 1;
+  repeated Put put = 2;
 }
 
 
 message Response {
-  optional bool succeed = 1;
-  optional string value = 2;
-  optional int64 timestamp = 3;
+  message Tuple {
+    required bool succeed = 1;
+    required string key = 2;
+    optional string value = 3;
+    optional int64 timestamp = 4;
+  }
+
+  repeated Tuple tuple = 1;
 }
 
 
@@ -30,6 +36,7 @@ message Gossip {
     required int64 timestamp = 3;
   }
   repeated Tuple tuple = 1;
+  optional string target_tier = 2;
 }
 
 message Key_Request {

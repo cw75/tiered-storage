@@ -1,7 +1,6 @@
 build
 vendor/gtest/build
 vendor/gbenchmark/build
-conf
 
 # ignore compiled byte code
 target

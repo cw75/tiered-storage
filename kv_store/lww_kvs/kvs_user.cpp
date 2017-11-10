@@ -15,32 +15,32 @@
 using namespace std;
 
 int main(int argc, char* argv[]) {
-  // read in the client addresses
-  unordered_set<string> client_address;
+  // read in the proxy addresses
+  vector<string> proxy_address;
 
-  // read client address from the file
+  // read proxy address from the file
   string ip_line;
   ifstream address;
-  address.open("conf/user/client_address.txt");
+  address.open("conf/user/proxy_address.txt");
   while (getline(address, ip_line)) {
-    client_address.insert(ip_line);
+    proxy_address.push_back(ip_line);
   }
   address.close();
 
-  // just pick the first client proxy to contact for now;
+  // just pick the first proxy to contact for now;
   // this should eventually be round-robin / random
-  string client_ip = *(client_address.begin());
+  string proxy_ip = *(proxy_address.begin());
 
   zmq::context_t context(1);
-  zmq::socket_t client_connector(context, ZMQ_REQ);
-  client_connector.connect("tcp://" + client_ip + ":" + to_string(CLIENT_USER_PORT));
+  zmq::socket_t proxy_connector(context, ZMQ_REQ);
+  proxy_connector.connect("tcp://" + proxy_ip + ":" + to_string(PROXY_USER_PORT));
 
   string input;
 
   while (true) {
     cout << "kvs> ";
     getline(cin, input);
-    zmq_util::send_string(input, &client_connector);
-    cout << zmq_util::recv_string(&client_connector);
+    zmq_util::send_string(input, &proxy_connector);
+    cout << zmq_util::recv_string(&proxy_connector);
   }
 }

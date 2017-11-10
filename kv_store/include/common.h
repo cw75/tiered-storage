@@ -18,9 +18,10 @@ using namespace std;
 
 // Define port offset
 #define SERVER_PORT 6560
-#define CLIENT_CONNECTION_BASE_PORT 6460
-#define CLIENT_NOTIFY_PORT 7060
-#define CLIENT_USER_PORT 7160
+#define PROXY_CONNECTION_BASE_PORT 6460
+#define PROXY_NOTIFY_PORT 7060
+#define PROXY_USER_PORT 7160
+#define PROXY_GOSSIP_PORT 7260
 #define SEED_CONNECTION_PORT 6560
 #define CHANGESET_PORT 6560
 #define LOCAL_GOSSIP_BASE_PORT 6560
@@ -33,12 +34,13 @@ using namespace std;
 #define KEY_EXCHANGE_PORT 6860
 
 #define SEED_BIND_ADDR "tcp://*:6560"
-#define CLIENT_NOTIFY_BIND_ADDR "tcp://*:7060"
+#define PROXY_NOTIFY_BIND_ADDR "tcp://*:7060"
 #define NODE_JOIN_BIND_ADDR "tcp://*:6660"
 #define NODE_DEPART_BIND_ADDR "tcp://*:6760"
 #define KEY_EXCHANGE_BIND_ADDR "tcp://*:6860"
 #define LOCAL_DEPART_DONE_ADDR "inproc://6860"
-#define CLIENT_CONTACT_BIND_ADDR "tcp://*:7160"
+#define PROXY_CONTACT_BIND_ADDR "tcp://*:7160"
+#define PROXY_GOSSIP_BIND_ADDR "tcp://*:7260"
 #define CHANGESET_ADDR "inproc://6560"
 #define SELF_DEPART_BIND_ADDR "tcp://*:6960"
 
@@ -61,7 +63,7 @@ public:
   master_node_t(string ip, string tier) : node_t(ip, SERVER_PORT) {
     tier_ = tier;
     seed_connection_connect_addr_ = "tcp://" + ip + ":" + to_string(SEED_CONNECTION_PORT);
-    client_notify_connect_addr_ = "tcp://" + ip + ":" + to_string(CLIENT_NOTIFY_PORT);
+    proxy_notify_connect_addr_ = "tcp://" + ip + ":" + to_string(PROXY_NOTIFY_PORT);
     node_join_connect_addr_ = "tcp://" + ip + ":" + to_string(NODE_JOIN_PORT);
     node_depart_connect_addr_ = "tcp://" + ip + ":" + to_string(NODE_DEPART_PORT);
     key_exchange_connect_addr_ = "tcp://" + ip + ":" + to_string(KEY_EXCHANGE_PORT);
@@ -69,7 +71,7 @@ public:
 
   string tier_;
   string seed_connection_connect_addr_;
-  string client_notify_connect_addr_;
+  string proxy_notify_connect_addr_;
   string node_join_connect_addr_;
   string node_depart_connect_addr_;
   string key_exchange_connect_addr_;
@@ -79,8 +81,8 @@ class worker_node_t: public node_t {
 public:
   worker_node_t() : node_t() {}
   worker_node_t(string ip, int tid) : node_t(ip, SERVER_PORT + tid) {
-    client_connection_connect_addr_ = "tcp://" + ip + ":" + to_string(tid + CLIENT_CONNECTION_BASE_PORT);
-    client_connection_bind_addr_ = "tcp://*:" + to_string(tid + CLIENT_CONNECTION_BASE_PORT);
+    proxy_connection_connect_addr_ = "tcp://" + ip + ":" + to_string(tid + PROXY_CONNECTION_BASE_PORT);
+    proxy_connection_bind_addr_ = "tcp://*:" + to_string(tid + PROXY_CONNECTION_BASE_PORT);
 
     distributed_gossip_connect_addr_ = "tcp://" + ip + ":" + to_string(tid + DISTRIBUTED_GOSSIP_BASE_PORT);
     distributed_gossip_bind_addr_ = "tcp://*:" + to_string(tid + DISTRIBUTED_GOSSIP_BASE_PORT);
@@ -89,8 +91,8 @@ public:
     local_redistribute_addr_ = "inproc://" + to_string(tid + LOCAL_REDISTRIBUTE_BASE_PORT);
     local_depart_addr_ = "inproc://" + to_string(tid + LOCAL_DEPART_BASE_PORT);
   }
-  string client_connection_connect_addr_;
-  string client_connection_bind_addr_;
+  string proxy_connection_connect_addr_;
+  string proxy_connection_bind_addr_;
   string local_gossip_addr_;
   string distributed_gossip_connect_addr_;
   string distributed_gossip_bind_addr_;
