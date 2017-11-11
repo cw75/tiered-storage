@@ -44,7 +44,6 @@ message Key_Request {
     required string key = 1;
     required int64 global_memory_replication = 2;
     required int64 global_ebs_replication = 3;
-    required int64 local_ebs_replication = 4;
   }
   required string sender = 1;
   repeated Tuple tuple = 2;
@@ -64,4 +63,13 @@ message Key_Response {
 message Payload {
   required string value = 1;
   required int64 timestamp = 2;
+}
+
+message Placement_Request {
+  message Tuple {
+    required string key = 1;
+    required int64 global_memory_replication = 2;
+    required int64 global_ebs_replication = 3;
+  }
+  repeated Tuple tuple = 1;
 }

@@ -32,8 +32,8 @@ using namespace std;
 // Define the number of ebs threads
 #define EBS_THREAD_NUM 3
 
-// Define local ebs replication factor
-#define LOCAL_EBS_REPLICATION 2
+// Define the default local ebs replication factor
+#define DEFAULT_LOCAL_EBS_REPLICATION 1
 
 // Define the locatioon of the conf file with the ebs root path
 #define EBS_ROOT_FILE "conf/server/ebs_root.txt"
@@ -62,6 +62,17 @@ atomic<int> lww_timestamp(0);
 
 bool enable_ebs(false);
 string ebs_root("empty");
+
+struct ebs_key_info {
+  ebs_key_info() : global_memory_replication_(1), global_ebs_replication_(2), local_ebs_replication_(1) {}
+  ebs_key_info(int gmr, int ger, int ler)
+    : global_memory_replication_(gmr), global_ebs_replication_(ger), local_ebs_replication_(ler) {}
+  ebs_key_info(int gmr, int ger)
+    : global_memory_replication_(gmr), global_ebs_replication_(ger), local_ebs_replication_(DEFAULT_LOCAL_EBS_REPLICATION) {}
+  int global_memory_replication_;
+  int global_ebs_replication_;
+  int local_ebs_replication_;
+};
 
 string get_ebs_path(string subpath) {
   if (ebs_root == "empty") {
@@ -161,6 +172,7 @@ string process_proxy_request(communication::Request& req, int thread_id, unorder
       communication::Response_Tuple* tp = response.add_tuple();
       tp->set_key(req.get(i).key());
       tp->set_value(res.first.reveal().value);
+      tp->set_timestamp(res.first.reveal().timestamp);
       tp->set_succeed(res.second);
     }
   }
@@ -296,6 +308,10 @@ void ebs_worker_routine (zmq::context_t* context, string ip, int thread_id) {
   zmq::socket_t depart_puller(*context, ZMQ_PULL);
   depart_puller.bind(wnode.local_depart_addr_);
 
+  // socket that listens for key remove request
+  zmq::socket_t key_remove_puller(*context, ZMQ_PULL);
+  key_remove_puller.bind(wnode.local_key_remove_addr_);
+
   // used to communicate with master thread for changeset addresses
   zmq::socket_t changeset_address_requester(*context, ZMQ_REQ);
   changeset_address_requester.connect(CHANGESET_ADDR);
@@ -310,6 +326,7 @@ void ebs_worker_routine (zmq::context_t* context, string ip, int thread_id) {
     { static_cast<void *>(lgossip_puller), 0, ZMQ_POLLIN, 0 },
     { static_cast<void *>(lredistribute_puller), 0, ZMQ_POLLIN, 0 },
     { static_cast<void *>(depart_puller), 0, ZMQ_POLLIN, 0 },
+    { static_cast<void *>(key_remove_puller), 0, ZMQ_POLLIN, 0 }
   };
 
   auto start = std::chrono::system_clock::now();
@@ -416,6 +433,22 @@ void ebs_worker_routine (zmq::context_t* context, string ip, int thread_id) {
       // break because we have now successfully removed the volume and are
       // ending this thread's execution
       break;
+    } else if (pollitems[5].revents & ZMQ_POLLIN) {
+      cout << "received local key remove request by thread " + to_string(thread_id) + "\n";
+      zmq::message_t msg;
+      zmq_util::recv_msg(&key_remove_puller, msg);
+      unordered_set<string>* remove_set = *(unordered_set<string> **)(msg.data());
+      // remove keys in the remove set
+      for (auto it = remove_set->begin(); it != remove_set->end(); it++) {
+        key_set.erase(*it);
+        string fname = get_ebs_path("ebs_" + to_string(thread_id) + "/" + *it);
+        if(remove(fname.c_str()) != 0) {
+          cout << "Error deleting file";
+        } else {
+          cout << "File successfully deleted";
+        }
+      }
+      delete remove_set;
     }
 
     end = std::chrono::system_clock::now();
@@ -453,7 +486,7 @@ void add_thread(map<string, int> ebs_device_map,
     unordered_map<int, string> inverse_ebs_device_map, 
     vector<thread> ebs_threads,
     ebs_hash_t local_ebs_hash_ring,
-    unordered_map<string, key_info> placement,
+    unordered_map<string, ebs_key_info> placement,
     set<int> active_thread_id,
     int next_thread_id,
     string ip,
@@ -581,7 +614,7 @@ int main(int argc, char* argv[]) {
   // create our hash rings
   global_hash_t global_ebs_hash_ring;
   ebs_hash_t local_ebs_hash_ring;
-  unordered_map<string, key_info> placement;
+  unordered_map<string, ebs_key_info> placement;
 
   set<int> active_ebs_thread_id = set<int>();
   for (int i = 1; i <= EBS_THREAD_NUM; i++) {
@@ -711,6 +744,10 @@ int main(int argc, char* argv[]) {
   zmq::socket_t self_depart_responder(context, ZMQ_REP);
   self_depart_responder.bind(SELF_DEPART_BIND_ADDR);
 
+  // responsible for listening for key replication factor change
+  zmq::socket_t placement_puller(context, ZMQ_PULL);
+  placement_puller.bind(NODE_PLACEMENT_BIND_ADDR);
+
   // set up zmq receivers
   vector<zmq::pollitem_t> pollitems = {{static_cast<void*>(addr_responder), 0, ZMQ_POLLIN, 0},
                                        {static_cast<void*>(join_puller), 0, ZMQ_POLLIN, 0},
@@ -718,7 +755,9 @@ int main(int argc, char* argv[]) {
                                        {static_cast<void*>(key_address_responder), 0, ZMQ_POLLIN, 0},
                                        {static_cast<void*>(changeset_address_responder), 0, ZMQ_POLLIN, 0},
                                        {static_cast<void*>(depart_done_puller), 0, ZMQ_POLLIN, 0},
-                                       {static_cast<void*>(self_depart_responder), 0, ZMQ_POLLIN, 0}};
+                                       {static_cast<void*>(self_depart_responder), 0, ZMQ_POLLIN, 0},
+                                       {static_cast<void*>(placement_puller), 0, ZMQ_POLLIN, 0}
+                                     };
 
   string input;
   int next_thread_id = EBS_THREAD_NUM + 1;
@@ -764,7 +803,7 @@ int main(int argc, char* argv[]) {
         bool remove = false;
 
         string key = it->first;
-        key_info info = it->second;
+        ebs_key_info info = it->second;
 
         // NOTE: We are assuming all keys have the default global replication
         // factor for now. This won't be true in the future.
@@ -787,7 +826,6 @@ int main(int argc, char* argv[]) {
         tp->set_key(*it);
         tp->set_global_memory_replication(placement[*it].global_memory_replication_);
         tp->set_global_ebs_replication(placement[*it].global_ebs_replication_);
-        tp->set_local_ebs_replication(placement[*it].local_ebs_replication_);
       }
 
       string key_req;
@@ -837,6 +875,13 @@ int main(int argc, char* argv[]) {
       for (auto it = redistribution_map.begin(); it != redistribution_map.end(); it++) {
         zmq_util::send_msg((void*)it->second, &cache[it->first]);
       }
+
+      // delete the placement info for all the keys that are removed
+      for (auto it = key_remove_map.begin(); it != key_remove_map.end(); it++) {
+        if (it->second) {
+          placement.erase(it->first);
+        }
+      }
     } else if (pollitems[2].revents & ZMQ_POLLIN) {
       string departing_server_ip = zmq_util::recv_string(&depart_puller);
       cout << "Received departure for node " << departing_server_ip << ".\n";
@@ -859,14 +904,15 @@ int main(int argc, char* argv[]) {
         string key = req.tuple(i).key();
         int gmr = req.tuple(i).global_memory_replication();
         int ger = req.tuple(i).global_ebs_replication();
-        int ler = req.tuple(i).local_ebs_replication();
         cout << "Received a key request for key " + key + ".\n";
 
         communication::Key_Response_Tuple* tp = res.add_tuple();
         tp->set_key(key);
 
-        // update placement metadata
-        placement[key] = key_info(gmr, ger, ler);
+        // fill in placement metadata only if not already exist
+        if (placement.find(key) == placement.end()) {
+          placement[key] = ebs_key_info(gmr, ger);
+        }
 
         // find all the local worker threads that are assigned to this key
         auto it = local_ebs_hash_ring.find(key);
@@ -952,7 +998,6 @@ int main(int argc, char* argv[]) {
           tp->set_key(*set_iter);
           tp->set_global_memory_replication(placement[*set_iter].global_memory_replication_);
           tp->set_global_ebs_replication(placement[*set_iter].global_ebs_replication_);
-          tp->set_local_ebs_replication(placement[*set_iter].local_ebs_replication_);
         }
 
         // send the request to the node
@@ -1012,7 +1057,6 @@ int main(int argc, char* argv[]) {
           tp->set_key(key);
           tp->set_global_memory_replication(placement[key].global_memory_replication_);
           tp->set_global_ebs_replication(placement[key].global_ebs_replication_);
-          tp->set_local_ebs_replication(placement[key].local_ebs_replication_);
 
           if (++pos == global_ebs_hash_ring.end()) {
             pos = global_ebs_hash_ring.begin();
@@ -1075,6 +1119,65 @@ int main(int argc, char* argv[]) {
       // TODO: once we break here, I don't think that the threads will have
       // finished. they will still be looping.
       break;
+    } else if (pollitems[7].revents & ZMQ_POLLIN) {
+      cout << "Received replication factor change request\n";
+
+      // key is the worker key remove address, value is the remove set
+      unordered_map<string, unordered_set<string>*> remove_map;
+      //int tid = 1 + rand()%MEMORY_THREAD_NUM;
+      //string worker_address = worker_node_t(ip, tid).local_key_remove_addr_;
+
+      //unordered_set<string>* remove_set = new unordered_set<string>();
+
+      string placement_req = zmq_util::recv_string(&key_address_responder);
+      communication::Placement_Request req;
+      req.ParseFromString(placement_req);
+
+      // for every key, update the replication factor and 
+      // check if the node is still responsible for the key
+      for (int i = 0; i < req.tuple_size(); i++) {
+        string key = req.tuple(i).key();
+
+        placement[key].global_memory_replication_ = req.tuple(i).global_memory_replication();
+        placement[key].global_ebs_replication_ = req.tuple(i).global_ebs_replication();
+
+        bool resp = false;
+        auto pos = global_ebs_hash_ring.find(key);
+
+        for (int i = 0; i < placement[key].global_ebs_replication_; i++) {
+          if (pos->second.ip_.compare(ip) == 0) {
+            resp = true;
+          }
+
+          if (++pos == global_ebs_hash_ring.end()) {
+            pos = global_ebs_hash_ring.begin();
+          }
+        }
+
+        // remove the key if not responsible
+        if (!resp) {
+          // find all ebs worker nodes responsible for the key
+          auto it = local_ebs_hash_ring.find(key);
+          for (int i = 0; i < placement[key].local_ebs_replication_; i++) {
+            string worker_address = it->second.local_key_remove_addr_;
+            if (remove_map.find(worker_address) == remove_map.end()) {
+              remove_map[worker_address] = new unordered_set<string>();
+            }
+            remove_map[worker_address]->insert(key);
+
+            if (++it == local_ebs_hash_ring.end()) {
+              it = local_ebs_hash_ring.begin();
+            }
+          }
+          // also delete the placement info for the key
+          placement.erase(key);
+        }
+      }
+
+      // send the key remove request to all worker
+      for (auto it = remove_map.begin(); it != remove_map.end(); it++) {
+        zmq_util::send_msg((void*)it->second, &cache[it->first]);
+      }
     } else {
       cout << "Invalid Request\n";
     }

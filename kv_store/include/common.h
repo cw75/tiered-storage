@@ -22,6 +22,8 @@ using namespace std;
 #define PROXY_NOTIFY_PORT 7060
 #define PROXY_USER_PORT 7160
 #define PROXY_GOSSIP_PORT 7260
+#define PROXY_PLACEMENT_PORT 7360
+#define NODE_PLACEMENT_PORT 6360
 #define SEED_CONNECTION_PORT 6560
 #define CHANGESET_PORT 6560
 #define LOCAL_GOSSIP_BASE_PORT 6560
@@ -29,6 +31,7 @@ using namespace std;
 #define LOCAL_REDISTRIBUTE_BASE_PORT 6660
 #define LOCAL_DEPART_BASE_PORT 6760
 #define LOCAL_DEPART_DONE_PORT 6860
+#define LOCAL_KEY_REMOVE_PORT 6960
 #define NODE_JOIN_PORT 6660
 #define NODE_DEPART_PORT 6760
 #define KEY_EXCHANGE_PORT 6860
@@ -41,6 +44,8 @@ using namespace std;
 #define LOCAL_DEPART_DONE_ADDR "inproc://6860"
 #define PROXY_CONTACT_BIND_ADDR "tcp://*:7160"
 #define PROXY_GOSSIP_BIND_ADDR "tcp://*:7260"
+#define PROXY_PLACEMENT_BIND_ADDR "tcp://*:7360"
+#define NODE_PLACEMENT_BIND_ADDR "tcp://*:6360"
 #define CHANGESET_ADDR "inproc://6560"
 #define SELF_DEPART_BIND_ADDR "tcp://*:6960"
 
@@ -67,6 +72,7 @@ public:
     node_join_connect_addr_ = "tcp://" + ip + ":" + to_string(NODE_JOIN_PORT);
     node_depart_connect_addr_ = "tcp://" + ip + ":" + to_string(NODE_DEPART_PORT);
     key_exchange_connect_addr_ = "tcp://" + ip + ":" + to_string(KEY_EXCHANGE_PORT);
+    node_placement_connect_addr_ = "tcp://" + ip + ":" + to_string(NODE_PLACEMENT_PORT);
   }
 
   string tier_;
@@ -75,6 +81,7 @@ public:
   string node_join_connect_addr_;
   string node_depart_connect_addr_;
   string key_exchange_connect_addr_;
+  string node_placement_connect_addr_;
 };
 
 class worker_node_t: public node_t {
@@ -90,6 +97,7 @@ public:
     local_gossip_addr_ = "inproc://" + to_string(tid + LOCAL_GOSSIP_BASE_PORT);
     local_redistribute_addr_ = "inproc://" + to_string(tid + LOCAL_REDISTRIBUTE_BASE_PORT);
     local_depart_addr_ = "inproc://" + to_string(tid + LOCAL_DEPART_BASE_PORT);
+    local_key_remove_addr_ = "inproc://" + to_string(tid + LOCAL_KEY_REMOVE_PORT);
   }
   string proxy_connection_connect_addr_;
   string proxy_connection_bind_addr_;
@@ -98,6 +106,7 @@ public:
   string distributed_gossip_bind_addr_;
   string local_redistribute_addr_;
   string local_depart_addr_;
+  string local_key_remove_addr_;
 };
 
 bool operator<(const node_t& l, const node_t& r) {
@@ -122,14 +131,13 @@ struct node_hash {
   }
 };
 
-// represents the replication state for each key
+// represents the replication state for each key (used in proxy and memory tier)
 struct key_info {
-  key_info() : global_memory_replication_(1), global_ebs_replication_(2), local_ebs_replication_(1) {}
-  key_info(int gmr, int ger, int ler)
-    : global_memory_replication_(gmr), global_ebs_replication_(ger), local_ebs_replication_(ler) {}
+  key_info() : global_memory_replication_(1), global_ebs_replication_(2) {}
+  key_info(int gmr, int ger)
+    : global_memory_replication_(gmr), global_ebs_replication_(ger) {}
   int global_memory_replication_;
   int global_ebs_replication_;
-  int local_ebs_replication_;
 };
 
 struct crc32_hasher {

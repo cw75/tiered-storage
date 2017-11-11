@@ -68,6 +68,7 @@ string process_proxy_request(communication::Request& req, int thread_id, unorder
       communication::Response_Tuple* tp = response.add_tuple();
       tp->set_key(req.get(i).key());
       tp->set_value(res.first.reveal().value);
+      tp->set_timestamp(res.first.reveal().timestamp);
       tp->set_succeed(res.second);
     }
   }
@@ -147,6 +148,9 @@ void memory_worker_routine (zmq::context_t* context, Database* kvs, string ip, i
   // socket that listens for redistribution
   zmq::socket_t lredistribute_puller(*context, ZMQ_PULL);
   lredistribute_puller.bind(wnode.local_redistribute_addr_);
+  // socket that listens for key remove request
+  zmq::socket_t key_remove_puller(*context, ZMQ_PULL);
+  key_remove_puller.bind(wnode.local_key_remove_addr_);
 
   // used to communicate with master thread for changeset addresses
   zmq::socket_t changeset_address_requester(*context, ZMQ_REQ);
@@ -160,6 +164,7 @@ void memory_worker_routine (zmq::context_t* context, Database* kvs, string ip, i
     { static_cast<void *>(responder), 0, ZMQ_POLLIN, 0 },
     { static_cast<void *>(dgossip_puller), 0, ZMQ_POLLIN, 0 },
     { static_cast<void *>(lredistribute_puller), 0, ZMQ_POLLIN, 0 },
+    { static_cast<void *>(key_remove_puller), 0, ZMQ_POLLIN, 0 }
   };
 
   auto start = std::chrono::system_clock::now();
@@ -213,6 +218,19 @@ void memory_worker_routine (zmq::context_t* context, Database* kvs, string ip, i
       for (auto it = remove_set.begin(); it != remove_set.end(); it++) {
           kvs->remove(*it);
       }
+    }
+
+    // If receives a key remove request
+    if (pollitems[3].revents & ZMQ_POLLIN) {
+      cout << "received local key remove request by thread " + to_string(thread_id) + "\n";
+      zmq::message_t msg;
+      zmq_util::recv_msg(&key_remove_puller, msg);
+      unordered_set<string>* remove_set = *(unordered_set<string> **)(msg.data());
+      // remove keys in the remove set
+      for (auto it = remove_set->begin(); it != remove_set->end(); it++) {
+          kvs->remove(*it);
+      }
+      delete remove_set;
     }
 
     end = std::chrono::system_clock::now();
@@ -359,13 +377,19 @@ int main(int argc, char* argv[]) {
   zmq::socket_t self_depart_responder(context, ZMQ_REP);
   self_depart_responder.bind(SELF_DEPART_BIND_ADDR);
 
+  // responsible for listening for key replication factor change
+  zmq::socket_t placement_puller(context, ZMQ_PULL);
+  placement_puller.bind(NODE_PLACEMENT_BIND_ADDR);
+
   // set up zmq receivers
   vector<zmq::pollitem_t> pollitems = {{static_cast<void*>(addr_responder), 0, ZMQ_POLLIN, 0},
                                        {static_cast<void*>(join_puller), 0, ZMQ_POLLIN, 0},
                                        {static_cast<void*>(depart_puller), 0, ZMQ_POLLIN, 0},
                                        {static_cast<void*>(key_address_responder), 0, ZMQ_POLLIN, 0},
                                        {static_cast<void*>(changeset_address_responder), 0, ZMQ_POLLIN, 0},
-                                       {static_cast<void*>(self_depart_responder), 0, ZMQ_POLLIN, 0}};
+                                       {static_cast<void*>(self_depart_responder), 0, ZMQ_POLLIN, 0},
+                                       {static_cast<void*>(placement_puller), 0, ZMQ_POLLIN, 0}
+                                     };
 
   string input;
   while (true) {
@@ -415,7 +439,6 @@ int main(int argc, char* argv[]) {
         tp->set_key(*it);
         tp->set_global_memory_replication(placement[*it].global_memory_replication_);
         tp->set_global_ebs_replication(placement[*it].global_ebs_replication_);
-        tp->set_local_ebs_replication(placement[*it].local_ebs_replication_);
       }
       string key_req;
       req.SerializeToString(&key_req);
@@ -435,6 +458,13 @@ int main(int argc, char* argv[]) {
       }
 
       zmq_util::send_msg((void*)r_address, &cache[worker_address]);
+
+      // delete the placement info for all the keys that are removed
+      for (auto it = key_remove_map.begin(); it != key_remove_map.end(); it++) {
+        if (it->second) {
+          placement.erase(it->first);
+        }
+      }
     } else if (pollitems[2].revents & ZMQ_POLLIN) {
       cout << "received departure of other nodes\n";
       string departing_server_ip = zmq_util::recv_string(&depart_puller);
@@ -454,14 +484,15 @@ int main(int argc, char* argv[]) {
         string key = req.tuple(i).key();
         int gmr = req.tuple(i).global_memory_replication();
         int ger = req.tuple(i).global_ebs_replication();
-        int ler = req.tuple(i).local_ebs_replication();
         cout << "Received a key request for key " + key + ".\n";
 
         communication::Key_Response_Tuple* tp = res.add_tuple();
         tp->set_key(key);
 
-        // update placement metadata
-        placement[key] = key_info(gmr, ger, ler);
+        // fill in placement metadata only if not already exist
+        if (placement.find(key) == placement.end()) {
+          placement[key] = key_info(gmr, ger);
+        }
         
         // for now, randomly select a memory thread
         int tid = 1 + rand()%MEMORY_THREAD_NUM;
@@ -505,7 +536,6 @@ int main(int argc, char* argv[]) {
           tp->set_key(*set_iter);
           tp->set_global_memory_replication(placement[*set_iter].global_memory_replication_);
           tp->set_global_ebs_replication(placement[*set_iter].global_ebs_replication_);
-          tp->set_local_ebs_replication(placement[*set_iter].local_ebs_replication_);
         }
         string key_req;
         req.SerializeToString(&key_req);
@@ -546,7 +576,6 @@ int main(int argc, char* argv[]) {
           tp->set_key(key);
           tp->set_global_memory_replication(placement[key].global_memory_replication_);
           tp->set_global_ebs_replication(placement[key].global_ebs_replication_);
-          tp->set_local_ebs_replication(placement[key].local_ebs_replication_);
 
           if (++pos == global_memory_hash_ring.end()) {
             pos = global_memory_hash_ring.begin();
@@ -579,6 +608,50 @@ int main(int argc, char* argv[]) {
       // TODO: once we break here, I don't think that the threads will have
       // finished. they will still be looping.
       break;
+    } else if (pollitems[6].revents & ZMQ_POLLIN) {
+      cout << "Received replication factor change request\n";
+
+      // choose a random worker to remove the keys
+      int tid = 1 + rand()%MEMORY_THREAD_NUM;
+      string worker_address = worker_node_t(ip, tid).local_key_remove_addr_;
+
+      unordered_set<string>* remove_set = new unordered_set<string>();
+
+      string placement_req = zmq_util::recv_string(&key_address_responder);
+      communication::Placement_Request req;
+      req.ParseFromString(placement_req);
+
+      // for every key, update the replication factor and 
+      // check if the node is still responsible for the key
+      for (int i = 0; i < req.tuple_size(); i++) {
+        string key = req.tuple(i).key();
+
+        placement[key].global_memory_replication_ = req.tuple(i).global_memory_replication();
+        placement[key].global_ebs_replication_ = req.tuple(i).global_ebs_replication();
+
+        bool resp = false;
+        auto pos = global_memory_hash_ring.find(key);
+
+        for (int i = 0; i < placement[key].global_memory_replication_; i++) {
+          if (pos->second.ip_.compare(ip) == 0) {
+            resp = true;
+          }
+
+          if (++pos == global_memory_hash_ring.end()) {
+            pos = global_memory_hash_ring.begin();
+          }
+        }
+
+        // remove the key if not responsible
+        if (!resp) {
+          remove_set->insert(key);
+          // also delete the placement info for the key
+          placement.erase(key);
+        }
+      }
+
+      // send the key remove request to the worker
+      zmq_util::send_msg((void*)remove_set, &cache[worker_address]);
     } else {
       cout << "Invalid Request\n";
     }
