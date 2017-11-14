@@ -1111,10 +1111,6 @@ int main(int argc, char* argv[]) {
     } else if (pollitems[7].revents & ZMQ_POLLIN) {
       cout << "Received replication factor change request\n";
 
-      // choose a random worker to remove the keys
-      //int tid = 1 + rand()%MEMORY_THREAD_NUM;
-      //string worker_address = worker_node_t(ip, tid).local_redistribute_addr_;
-
       string placement_req = zmq_util::recv_string(&replication_factor_change_puller);
       communication::Placement_Request req;
       req.ParseFromString(placement_req);
@@ -1163,6 +1159,7 @@ int main(int argc, char* argv[]) {
         }
       }
 
+      // initialize the redistribution map (key is the address of ebs worker thread)
       unordered_map<string, redistribution_address*> redistribution_map;
 
       for (auto map_iter = node_map.begin(); map_iter != node_map.end(); map_iter++) {
