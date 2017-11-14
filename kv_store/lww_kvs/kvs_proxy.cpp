@@ -22,28 +22,32 @@ using address_t = string;
 #define DEFAULT_GLOBAL_EBS_REPLICATION 2
 
 // given a key, check memory and ebs hash ring to find all the server nodes responsible for the key
-vector<master_node_t> get_nodes(string key, global_hash_t& global_memory_hash_ring, global_hash_t& global_ebs_hash_ring, unordered_map<string, key_info>& placement) {
+vector<master_node_t> get_nodes(string key, global_hash_t* global_memory_hash_ring, global_hash_t* global_ebs_hash_ring, unordered_map<string, key_info>& placement) {
   vector<master_node_t> server_nodes;
   // use hash ring to find the right node to contact
   // first, look up the memory hash ring
-  auto it = global_memory_hash_ring.find(key);
-  if (it != global_memory_hash_ring.end()) {
-    for (int i = 0; i < placement[key].global_memory_replication_; i++) {
-      server_nodes.push_back(it->second);
-      if (++it == global_memory_hash_ring.end()) {
-        it = global_memory_hash_ring.begin();
+  if (global_memory_hash_ring != nullptr) {
+    auto it = global_memory_hash_ring->find(key);
+    if (it != global_memory_hash_ring->end()) {
+      for (int i = 0; i < placement[key].global_memory_replication_; i++) {
+        server_nodes.push_back(it->second);
+        if (++it == global_memory_hash_ring->end()) {
+          it = global_memory_hash_ring->begin();
+        }
       }
     }
   }
   // then check the ebs hash ring
-  it = global_ebs_hash_ring.find(key);
-  if (it != global_ebs_hash_ring.end()) {
-    for (int i = 0; i < placement[key].global_ebs_replication_; i++) {
-      server_nodes.push_back(it->second);
-      if (++it == global_ebs_hash_ring.end()) {
-        it = global_ebs_hash_ring.begin();
+  if (global_ebs_hash_ring != nullptr) {
+    auto it = global_ebs_hash_ring->find(key);
+    if (it != global_ebs_hash_ring->end()) {
+      for (int i = 0; i < placement[key].global_ebs_replication_; i++) {
+        server_nodes.push_back(it->second);
+        if (++it == global_ebs_hash_ring->end()) {
+          it = global_ebs_hash_ring->begin();
+        }
       }
-    }
+    }  
   }
   return server_nodes;
 }
@@ -96,19 +100,19 @@ int main(int argc, char* argv[]) {
   zmq::socket_t user_responder(context, ZMQ_REP);
   user_responder.bind(PROXY_CONTACT_BIND_ADDR);
   // responsible for routing gossip to other tiers
-  zmq::socket_t gossip_puller(context, ZMQ_PULL);
-  gossip_puller.bind(PROXY_GOSSIP_BIND_ADDR);
+  zmq::socket_t gossip_responder(context, ZMQ_REP);
+  gossip_responder.bind(PROXY_GOSSIP_BIND_ADDR);
   // responsible for handling key replication factor change requests from server nodes
-  zmq::socket_t placement_puller(context, ZMQ_PULL);
-  placement_puller.bind(PROXY_PLACEMENT_BIND_ADDR);
+  zmq::socket_t replication_factor_change_puller(context, ZMQ_PULL);
+  replication_factor_change_puller.bind(PROXY_PLACEMENT_BIND_ADDR);
 
   string input;
 
   vector<zmq::pollitem_t> pollitems = {
     { static_cast<void *>(join_puller), 0, ZMQ_POLLIN, 0 },
     { static_cast<void *>(user_responder), 0, ZMQ_POLLIN, 0 },
-    { static_cast<void *>(gossip_puller), 0, ZMQ_POLLIN, 0 },
-    { static_cast<void *>(placement_puller), 0, ZMQ_POLLIN, 0 }
+    { static_cast<void *>(gossip_responder), 0, ZMQ_POLLIN, 0 },
+    { static_cast<void *>(replication_factor_change_puller), 0, ZMQ_POLLIN, 0 }
   };
 
   while (true) {
@@ -181,9 +185,10 @@ int main(int argc, char* argv[]) {
           if (placement.find(key) == placement.end()) {
             placement[key] = key_info(DEFAULT_GLOBAL_MEMORY_REPLICATION, DEFAULT_GLOBAL_EBS_REPLICATION);
           }
-          // randomly choose a server node responsible for this key and update the key request map
-          vector<master_node_t> server_nodes = get_nodes(key, global_memory_hash_ring, global_ebs_hash_ring, placement);
+
+          vector<master_node_t> server_nodes = get_nodes(key, &global_memory_hash_ring, &global_ebs_hash_ring, placement);
           if (server_nodes.size() != 0) {
+            // randomly choose a server node responsible for this key and update the key request map
             master_node_t server_node = server_nodes[rand() % server_nodes.size()];
             // TODO: before setting the sender, check if it's already been set
             key_request_map[server_node].set_sender("proxy");
@@ -275,38 +280,23 @@ int main(int argc, char* argv[]) {
       // handle gossip request
       // NOTE from Chenggang: I didn't treat the gossip as a normal user PUT because it can cause infinite loop
       cerr << "received gossip request\n";
-      string data = zmq_util::recv_string(&gossip_puller);
-      communication::Gossip gossip;
-      gossip.ParseFromString(data);
-      string target_tier = gossip.target_tier();
-      // this data structure is for keeping track of the key value mapping in PUT request
-      unordered_map<string, pair<string, int>> key_value_map;
+      string key_req = zmq_util::recv_string(&gossip_responder);
+      communication::Key_Request req;
+      req.ParseFromString(key_req);
+      string target_tier = req.target_tier();
+      // this data structure is for keeping track of the mapping between each key and the workers responsible for the key
+      unordered_map<string, unordered_set<address_t>> key_worker_map;
       vector<master_node_t> server_nodes;
       unordered_map<address_t, communication::Gossip> gossip_map;
       unordered_map<master_node_t, communication::Key_Request, node_hash> key_request_map;
 
-      // loop through "gossip" to create the key request map for sending key address requests
-      for (int i = 0; i < gossip.tuple_size(); i++) {
-        string key = gossip.tuple(i).key();
-        key_value_map[key] = pair<string, int>(gossip.tuple(i).value(), gossip.tuple(i).timestamp());
+      // loop through "req" to create the key request map for sending key address requests
+      for (int i = 0; i < req.tuple_size(); i++) {
+        string key = req.tuple(i).key();
         if (target_tier == "M") {
-          auto it = global_memory_hash_ring.find(key);
-          for (int i = 0; i < placement[key].global_memory_replication_; i++) {
-            server_nodes.push_back(it->second);
-
-            if (++it == global_memory_hash_ring.end()) {
-              it = global_memory_hash_ring.begin();
-            }
-          }
+          server_nodes = get_nodes(key, &global_memory_hash_ring, nullptr, placement);
         } else {
-          auto it = global_ebs_hash_ring.find(key);
-          for (int i = 0; i < placement[key].global_ebs_replication_; i++) {
-            server_nodes.push_back(it->second);
-
-            if (++it == global_ebs_hash_ring.end()) {
-              it = global_ebs_hash_ring.begin();
-            }
-          }
+          server_nodes = get_nodes(key, nullptr, &global_ebs_hash_ring, placement);
         }
 
         if (server_nodes.size() == 0) {
@@ -316,7 +306,7 @@ int main(int argc, char* argv[]) {
         // loop through every server node
         for (auto it = server_nodes.begin(); it != server_nodes.end(); it++) {
           // TODO: before setting the sender, check if it's already been set for efficiency
-          // set the sender to "server" because the proxy is sending the gossip on behalf of a server
+          // set the sender to "server" because the proxy is sending the key request on behalf of a server
           key_request_map[*it].set_sender("server");
           communication::Key_Request_Tuple* tp = key_request_map[*it].add_tuple();
           tp->set_key(key);
@@ -326,7 +316,7 @@ int main(int argc, char* argv[]) {
       }
 
       // loop through key request map, send key request to all nodes
-      // receive key responses, and form the gossip map
+      // receive key responses, and form the key_worker_map
       for (auto it = key_request_map.begin(); it != key_request_map.end(); it++) {
         // serialize request and send
         string key_req;
@@ -340,7 +330,6 @@ int main(int argc, char* argv[]) {
 
         string key;
         address_t worker_id;
-        address_t gossip_addr;
         // get the worker address from the response and sent the serialized
         // data from up above to the worker thread; the reason that we do
         // this is to let the metadata thread avoid having to receive a
@@ -351,40 +340,35 @@ int main(int argc, char* argv[]) {
           key = server_res.tuple(i).key();
           if (it->first.tier_ == "E") {
             for (int j = 0; j < server_res.tuple(i).address_size(); j++) {
-              worker_id = server_res.tuple(i).address(j).addr();
-              vector<string> v;
-              split(worker_id, ':', v);
-              gossip_addr = worker_node_t(v[0], stoi(v[1]) - SERVER_PORT).distributed_gossip_connect_addr_;
-              communication::Gossip_Tuple* tp = gossip_map[gossip_addr].add_tuple();
-              tp->set_key(key);
-              tp->set_value(key_value_map[key].first);
-              tp->set_timestamp(key_value_map[key].second);
+              key_worker_map[key].insert(server_res.tuple(i).address(j).addr());
             }
           } else {
             // we only have one address for memory tier
-            worker_id = server_res.tuple(i).address(0).addr();
-            vector<string> v;
-            split(worker_id, ':', v);
-            gossip_addr = worker_node_t(v[0], stoi(v[1]) - SERVER_PORT).distributed_gossip_connect_addr_;
-            communication::Gossip_Tuple* tp = gossip_map[gossip_addr].add_tuple();
-            tp->set_key(key);
-            tp->set_value(key_value_map[key].first);
-            tp->set_timestamp(key_value_map[key].second);
+            key_worker_map[key].insert(server_res.tuple(i).address(0).addr());
           }
         }
       }
 
-      // send as distributed gossips to worker nodes
-      for (auto it = gossip_map.begin(); it != gossip_map.end(); it++) {
-        string data;
-        it->second.SerializeToString(&data);
-        zmq_util::send_string(data, &pushers[it->first]);
+      // form the key address response
+      communication::Key_Response res;
+      for (auto map_it = key_worker_map.begin(); map_it != key_worker_map.end(); map_it++) {
+        communication::Key_Response_Tuple* tp = res.add_tuple();
+        tp->set_key(map_it->first);
+        for (auto set_it = map_it->second.begin(); set_it != map_it->second.end(); set_it++) {
+          communication::Key_Response_Address* ad = tp->add_address();
+          ad->set_addr(*set_it);
+        }
       }
+
+      // send the key address response to the server node
+      string response;
+      res.SerializeToString(&response);
+      zmq_util::send_string(response, &gossip_responder);
     } else if (pollitems[3].revents & ZMQ_POLLIN) {
       cerr << "received replication factor change request\n";
-      string key_req = zmq_util::recv_string(&placement_puller);
+      string placement_req = zmq_util::recv_string(&replication_factor_change_puller);
       communication::Placement_Request req;
-      req.ParseFromString(key_req);
+      req.ParseFromString(placement_req);
 
       // used to keep track of the original replication factors for the requested keys
       unordered_map<string, pair<int, int>> orig_placement_info;
@@ -396,9 +380,10 @@ int main(int argc, char* argv[]) {
 
       for (int i = 0; i < req.tuple_size(); i++) {
         string key = req.tuple(i).key();
-        // randomly choose a server node responsible for this key and update the key request map
-        vector<master_node_t> server_nodes = get_nodes(key, global_memory_hash_ring, global_ebs_hash_ring, placement);
 
+        vector<master_node_t> server_nodes = get_nodes(key, &global_memory_hash_ring, &global_ebs_hash_ring, placement);
+
+        // randomly choose a server node responsible for this key and update the key request map
         // assume the size of server_nodes is not 0 (it shouldn't be) 
         master_node_t server_node = server_nodes[rand() % server_nodes.size()];
         // TODO: before setting the sender, check if it's already been set
@@ -479,7 +464,7 @@ int main(int argc, char* argv[]) {
         int memory_rep = max(placement[key].global_memory_replication_, orig_placement_info[key].first);
         int ebs_rep = max(placement[key].global_ebs_replication_, orig_placement_info[key].second);
 
-        // send the placement request to memory tier
+        // form placement requests for memory tier nodes
         auto it = global_memory_hash_ring.find(key);
         if (it != global_memory_hash_ring.end()) {
           for (int i = 0; i < memory_rep; i++) {
@@ -494,7 +479,7 @@ int main(int argc, char* argv[]) {
           }
         }
 
-        // send the placement request to ebs tier
+        // form placement requests for ebs tier nodes
         it = global_ebs_hash_ring.find(key);
         if (it != global_ebs_hash_ring.end()) {
           for (int i = 0; i < ebs_rep; i++) {
@@ -516,280 +501,6 @@ int main(int argc, char* argv[]) {
         it->second.SerializeToString(&data);
         zmq_util::send_string(data, &pushers[it->first]);
       }
-
-      // send the key value pairs as gossips to new nodes that are responsible for the keys
-      vector<master_node_t> server_nodes;
-      unordered_map<address_t, communication::Gossip> gossip_map;
-      key_request_map.clear();
-
-      // loop through "gossip" to create the key request map for sending key address requests
-      for (int i = 0; i < req.tuple_size(); i++) {
-        string key = req.tuple(i).key();
-        // if the memory tier has more replica
-        if (placement[key].global_memory_replication_ > orig_placement_info[key].first) {
-          auto it = global_memory_hash_ring.find(key);
-          for (int i = 0; i < placement[key].global_memory_replication_; i++) {
-            // add to server nodes only when the iterator exceed the original max position
-            if (i >= orig_placement_info[key].first) {
-              server_nodes.push_back(it->second);
-            }
-
-            if (++it == global_memory_hash_ring.end()) {
-              it = global_memory_hash_ring.begin();
-            }
-          }
-        }
-        if (placement[key].global_ebs_replication_ > orig_placement_info[key].second) {
-          auto it = global_ebs_hash_ring.find(key);
-          for (int i = 0; i < placement[key].global_ebs_replication_; i++) {
-            // add to server nodes only when the iterator exceed the original max position
-            if (i >= orig_placement_info[key].second) {
-              server_nodes.push_back(it->second);
-            }
-
-            if (++it == global_ebs_hash_ring.end()) {
-              it = global_ebs_hash_ring.begin();
-            }
-          }
-        }
-
-        if (server_nodes.size() == 0) {
-          cerr << "Error: no server node is responsible for the key " + key + "\n";
-        }
-
-        // loop through every server node
-        for (auto it = server_nodes.begin(); it != server_nodes.end(); it++) {
-          // TODO: before setting the sender, check if it's already been set for efficiency
-          // set the sender to "server" because the proxy is sending the gossip on behalf of a server
-          key_request_map[*it].set_sender("server");
-          communication::Key_Request_Tuple* tp = key_request_map[*it].add_tuple();
-          tp->set_key(key);
-          tp->set_global_memory_replication(placement[key].global_memory_replication_);
-          tp->set_global_ebs_replication(placement[key].global_ebs_replication_);
-        }
-      }
-
-      // loop through key request map, send key request to all nodes
-      // receive key responses, and form the gossip map
-      for (auto it = key_request_map.begin(); it != key_request_map.end(); it++) {
-        // serialize request and send
-        string key_req;
-        it->second.SerializeToString(&key_req);
-        zmq_util::send_string(key_req, &requesters[it->first.key_exchange_connect_addr_]);
-
-        // wait for a response from the server and deserialize
-        string key_res = zmq_util::recv_string(&requesters[it->first.key_exchange_connect_addr_]);
-        communication::Key_Response server_res;
-        server_res.ParseFromString(key_res);
-
-        string key;
-        address_t worker_id;
-        address_t gossip_addr;
-        // get the worker address from the response and sent the serialized
-        // data from up above to the worker thread; the reason that we do
-        // this is to let the metadata thread avoid having to receive a
-        // potentially large request body; since the metadata thread is
-        // serial, this could potentially be a bottleneck; the current way
-        // allows the metadata thread to answer lightweight requests only
-        for (int i = 0; i < server_res.tuple_size(); i++) {
-          key = server_res.tuple(i).key();
-          if (it->first.tier_ == "E") {
-            for (int j = 0; j < server_res.tuple(i).address_size(); j++) {
-              worker_id = server_res.tuple(i).address(j).addr();
-              vector<string> v;
-              split(worker_id, ':', v);
-              gossip_addr = worker_node_t(v[0], stoi(v[1]) - SERVER_PORT).distributed_gossip_connect_addr_;
-              communication::Gossip_Tuple* tp = gossip_map[gossip_addr].add_tuple();
-              tp->set_key(key);
-              tp->set_value(key_value_map[key].first);
-              tp->set_timestamp(key_value_map[key].second);
-            }
-          } else {
-            // we only have one address for memory tier
-            worker_id = server_res.tuple(i).address(0).addr();
-            vector<string> v;
-            split(worker_id, ':', v);
-            gossip_addr = worker_node_t(v[0], stoi(v[1]) - SERVER_PORT).distributed_gossip_connect_addr_;
-            communication::Gossip_Tuple* tp = gossip_map[gossip_addr].add_tuple();
-            tp->set_key(key);
-            tp->set_value(key_value_map[key].first);
-            tp->set_timestamp(key_value_map[key].second);
-          }
-        }
-      }
-
-      // send as distributed gossips to worker nodes
-      for (auto it = gossip_map.begin(); it != gossip_map.end(); it++) {
-        string data;
-        it->second.SerializeToString(&data);
-        zmq_util::send_string(data, &pushers[it->first]);
-      }
-
-
-
-      // code below is kept just in case we want to change the design...
-
-      /*string key = req.key();
-      int orig_global_memory_replication = placement[key].global_memory_replication_;
-      int orig_global_ebs_replication = placement[key].global_ebs_replication_;
-      // update the placement map
-      placement[key].global_memory_replication_ = req.global_memory_replication();
-      placement[key].global_ebs_replication_ = req.global_ebs_replication();
-
-      // we need to perform cross tier gossip
-      if (orig_global_memory_replication == 0 && placement[key].global_memory_replication_ != 0) {
-        // pick the first node (for now) in the ebs ring responsible for this key
-        auto it = global_ebs_hash_ring.find(key);
-        if (it == global_ebs_hash_ring.end()) {
-          cerr << "Error: no ebs node found\n";
-        }
-        // form and send key address request to ebs tier
-        communication::Key_Request server_req;
-        server_req.set_sender("proxy");
-        communication::Key_Request_Tuple* tp = server_req.add_tuple();
-        tp->set_key(key);
-        tp->set_global_memory_replication(placement[key].global_memory_replication_);
-        tp->set_global_ebs_replication(placement[key].global_ebs_replication_);
-        string key_req;
-        server_req.SerializeToString(&key_req);
-        zmq_util::send_string(key_req, &requesters[it->second.key_exchange_connect_addr_]);
-
-        // wait for a response from the server and deserialize
-        string key_res = zmq_util::recv_string(&requesters[it->second.key_exchange_connect_addr_]);
-        communication::Key_Response server_res;
-        server_res.ParseFromString(key_res);
-
-        address_t worker_address = server_res.tuple(0).address(rand() % server_res.tuple(0).address().size()).addr();
-        server_res.clear();
-
-        // form and send GET request to ebs worker node
-        communication::Request req;
-        communication::Request_Get* g = req.add_get();
-        g->set_key(key);
-        string data;
-        req.SerializeToString(&data);
-        zmq_util::send_string(data, &requesters[worker_address]);
-        req.clear();
-        // wait for response
-        data = zmq_util::recv_string(&requesters[worker_address]);
-        communication::Response response;
-        response.ParseFromString(data);
-        string value = response.tuple(0).value();
-        int timestamp = response.tuple(0).timestamp();
-
-        // send (the same) key address request to memory tier
-        // pick the first node (for now) in the memory ring responsible for this key
-        it = global_memory_hash_ring.find(key);
-        if (it == global_memory_hash_ring.end()) {
-          cerr << "Error: no memory node found\n";
-        }
-        zmq_util::send_string(key_req, &requesters[it->second.key_exchange_connect_addr_]);
-        key_res = zmq_util::recv_string(&requesters[it->second.key_exchange_connect_addr_]);
-        server_res.ParseFromString(key_res);
-
-        worker_address = server_res.tuple(0).address(0).addr();
-
-        // form and send PUT request to memory worker node
-        communication::Request_Put* p = req.add_put();
-        p->set_key(key);
-        p->set_value(value);
-        p->set_timestamp(timestamp);
-        // clear data
-        data = "";
-        req.SerializeToString(&data);
-        zmq_util::send_string(data, &requesters[worker_address]);
-      }
-
-      if (orig_global_ebs_replication == 0 && placement[key].global_ebs_replication_ != 0) {
-        // pick the first node (for now) in the memory ring responsible for this key
-        auto it = global_memory_hash_ring.find(key);
-        if (it == global_memory_hash_ring.end()) {
-          cerr << "Error: no memory node found\n";
-        }
-        // form and send key address request to memory tier
-        communication::Key_Request server_req;
-        server_req.set_sender("proxy");
-        communication::Key_Request_Tuple* tp = server_req.add_tuple();
-        tp->set_key(key);
-        tp->set_global_memory_replication(placement[key].global_memory_replication_);
-        tp->set_global_ebs_replication(placement[key].global_ebs_replication_);
-        string key_req;
-        server_req.SerializeToString(&key_req);
-        zmq_util::send_string(key_req, &requesters[it->second.key_exchange_connect_addr_]);
-
-        // wait for a response from the server and deserialize
-        string key_res = zmq_util::recv_string(&requesters[it->second.key_exchange_connect_addr_]);
-        communication::Key_Response server_res;
-        server_res.ParseFromString(key_res);
-
-        address_t worker_address = server_res.tuple(0).address(0).addr();
-        server_res.clear();
-
-        // form and send GET request to ebs worker node
-        communication::Request req;
-        communication::Request_Get* g = req.add_get();
-        g->set_key(key);
-        string data;
-        req.SerializeToString(&data);
-        zmq_util::send_string(data, &requesters[worker_address]);
-        req.clear();
-        // wait for response
-        data = zmq_util::recv_string(&requesters[worker_address]);
-        communication::Response response;
-        response.ParseFromString(data);
-        string value = response.tuple(0).value();
-        int timestamp = response.tuple(0).timestamp();
-
-        // send (the same) key address request to ebs tier
-        // pick the first node (for now) in the ebs ring responsible for this key
-        it = global_ebs_hash_ring.find(key);
-        if (it == global_ebs_hash_ring.end()) {
-          cerr << "Error: no ebs node found\n";
-        }
-        zmq_util::send_string(key_req, &requesters[it->second.key_exchange_connect_addr_]);
-        key_res = zmq_util::recv_string(&requesters[it->second.key_exchange_connect_addr_]);
-        server_res.ParseFromString(key_res);
-
-        worker_address = server_res.tuple(0).address(rand() % server_res.tuple(0).address().size()).addr();
-
-        // form and send PUT request to ebs worker node
-        communication::Request_Put* p = req.add_put();
-        p->set_key(key);
-        p->set_value(value);
-        p->set_timestamp(timestamp);
-        // clear data
-        data = "";
-        req.SerializeToString(&data);
-        zmq_util::send_string(data, &requesters[worker_address]);
-      }
-
-      // no need to perform cross tier gossip
-      if (orig_global_memory_replication != 0) {
-        auto it = global_memory_hash_ring.find(key);
-        if (it != global_memory_hash_ring.end()) {
-          for (int i = 0; i < orig_global_memory_replication; i++) {
-            // route the placement request to the server node
-            zmq_util::send_string(key_req, &pushers[it->second.node_placement_connect_addr_]);
-            if (++it == global_memory_hash_ring.end()) {
-              it = global_memory_hash_ring.begin();
-            }
-          }
-        }
-      }
-
-      // no need to perform cross tier gossip
-      if (orig_global_ebs_replication != 0) {
-        auto it = global_ebs_hash_ring.find(key);
-        if (it != global_ebs_hash_ring.end()) {
-          for (int i = 0; i < orig_global_ebs_replication; i++) {
-            // route the placement request to the server node
-            zmq_util::send_string(key_req, &pushers[it->second.node_placement_connect_addr_]);
-            if (++it == global_ebs_hash_ring.end()) {
-              it = global_ebs_hash_ring.begin();
-            }
-          }
-        }
-      }*/
     }
   }
 }

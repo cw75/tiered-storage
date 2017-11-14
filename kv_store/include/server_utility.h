@@ -33,14 +33,14 @@ struct pair_hash {
 // we have this template because we use responsible for with different hash
 // functions depending on whether we are checking local or remote
 // responsibility
+// New comment by chenggang: simplified the code
+// assuming the replication factor will never be greater than the number of nodes in a tier
 template<typename N, typename H>
-bool responsible(string key, int rep, consistent_hash_map<N,H>& hash_ring, string id, node_t& sender_node, bool& remove) {
+pair<bool, N*> responsible(string key, int rep, consistent_hash_map<N,H>& hash_ring, string id) {
   // the id of the node for which we are checking responsibility
   bool resp = false;
 
   auto pos = hash_ring.find(key);
-  // this is just a dummy value
-  auto target_pos = hash_ring.begin();
 
   // iterate once for every value in the replication factor
   for (int i = 0; i < rep; i++) {
@@ -48,7 +48,6 @@ bool responsible(string key, int rep, consistent_hash_map<N,H>& hash_ring, strin
     // true; we also store that node in target_pos
     if (pos->second.id_.compare(id) == 0) {
       resp = true;
-      target_pos = pos;
     }
 
     if (++pos == hash_ring.end()) {
@@ -57,21 +56,12 @@ bool responsible(string key, int rep, consistent_hash_map<N,H>& hash_ring, strin
   }
 
 
-  // at the end of the previous loop, pos has the last node responsible for the
-  // key; we only remove that key if we have more nodes than there should be replicas
-  if (resp && (hash_ring.size() > rep)) {
-    remove = true;
-    sender_node = pos->second;
-  } else if (resp && (hash_ring.size() <= rep)) {
-    remove = false;
-    if (++target_pos == hash_ring.end()) {
-      target_pos = hash_ring.begin();
-    }
-
-    sender_node = target_pos->second;
+  // at the end of the previous loop, pos has the last node responsible for the key
+  if (resp) {
+    return pair<bool, N*>(resp, &(pos->second));
+  } else {
+    return pair<bool, N*>(resp, nullptr);
   }
-
-  return resp;
 }
 
 #endif

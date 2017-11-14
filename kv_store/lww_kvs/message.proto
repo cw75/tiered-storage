@@ -36,7 +36,6 @@ message Gossip {
     required int64 timestamp = 3;
   }
   repeated Tuple tuple = 1;
-  optional string target_tier = 2;
 }
 
 message Key_Request {
@@ -47,6 +46,7 @@ message Key_Request {
   }
   required string sender = 1;
   repeated Tuple tuple = 2;
+  optional string target_tier = 3;
 }
 
 message Key_Response {
