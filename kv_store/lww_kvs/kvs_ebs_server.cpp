@@ -771,25 +771,7 @@ int main(int argc, char* argv[]) {
         }
       }
 
-      // prepare & send key address request
-      communication::Key_Request req;
-      req.set_sender("server");
-      for (auto it = key_to_query.begin(); it != key_to_query.end(); it++) {
-        communication::Key_Request_Tuple* tp = req.add_tuple();
-        tp->set_key(*it);
-        tp->set_global_memory_replication(placement[*it].global_memory_replication_);
-        tp->set_global_ebs_replication(placement[*it].global_ebs_replication_);
-      }
-
-      string key_req;
-      req.SerializeToString(&key_req);
-      // make a key exchange request to the new server for each of the keys we
-      // are sending
-      zmq_util::send_string(key_req, &key_address_requesters[new_node.key_exchange_connect_addr_]);
-
-      string key_res = zmq_util::recv_string(&key_address_requesters[new_node.key_exchange_connect_addr_]);
-      communication::Key_Response resp;
-      resp.ParseFromString(key_res);
+      communication::Key_Response resp = get_key_address<ebs_key_info>(new_node.key_exchange_connect_addr_, "", key_to_query, key_address_requesters, placement);
 
       // for each key in the response
       for (int i = 0; i < resp.tuple_size(); i++) {
@@ -940,27 +922,8 @@ int main(int argc, char* argv[]) {
       // for any remote nodes that should receive gossip, we make key
       // requests
       for (auto map_iter = node_map.begin(); map_iter != node_map.end(); map_iter++) {
-        // create key request
-        communication::Key_Request req;
-        req.set_sender("server");
-
-        // add each key that is going to this particular node
-        for (auto set_iter = map_iter->second.begin(); set_iter != map_iter->second.end(); set_iter++) {
-          communication::Key_Request_Tuple* tp = req.add_tuple();
-          tp->set_key(*set_iter);
-          tp->set_global_memory_replication(placement[*set_iter].global_memory_replication_);
-          tp->set_global_ebs_replication(placement[*set_iter].global_ebs_replication_);
-        }
-
-        // send the request to the node
-        string key_req;
-        req.SerializeToString(&key_req);
-        zmq_util::send_string(key_req, &key_address_requesters[map_iter->first.key_exchange_connect_addr_]);
-
-        // receive the request
-        string key_res = zmq_util::recv_string(&key_address_requesters[map_iter->first.key_exchange_connect_addr_]);
-        communication::Key_Response resp;
-        resp.ParseFromString(key_res);
+        // get key address
+        communication::Key_Response resp = get_key_address<ebs_key_info>(map_iter->first.key_exchange_connect_addr_, "", map_iter->second, key_address_requesters, placement);
 
         // for each key, add the address of *every* (there can be multiple)
         // worker thread on the other node that should receive this key
@@ -972,32 +935,11 @@ int main(int argc, char* argv[]) {
       }
 
       // check if there are key requests to send to proxy
-      // NOTE: this is very similar to the code above, the only difference being the proxy address 
       if (key_to_proxy.size() != 0) {
-        communication::Key_Request req;
-        req.set_sender("server");
-        req.set_target_tier("M");
-
-        for (auto it = key_to_proxy.begin(); it != key_to_proxy.end(); it++) {
-          communication::Key_Request_Tuple* tp = req.add_tuple();
-          tp->set_key(*it);
-          tp->set_global_memory_replication(placement[*it].global_memory_replication_);
-          tp->set_global_ebs_replication(placement[*it].global_ebs_replication_);
-        }
-
-        // form the proxy gossip connection address
         // for now, randomly choose a proxy to contact
-        string proxy_ip = proxy_address[rand() % proxy_address.size()];
-
-        // send the request to the proxy
-        string key_req;
-        req.SerializeToString(&key_req);
-        zmq_util::send_string(key_req, &key_address_requesters[proxy_ip + ":" + to_string(PROXY_GOSSIP_PORT)]);
-
-        // receive the request
-        string key_res = zmq_util::recv_string(&key_address_requesters[proxy_ip + ":" + to_string(PROXY_GOSSIP_PORT)]);
-        communication::Key_Response resp;
-        resp.ParseFromString(key_res);
+        string target_proxy_address = proxy_address[rand() % proxy_address.size()] + ":" + to_string(PROXY_GOSSIP_PORT);
+        // get key address
+        communication::Key_Response resp = get_key_address<ebs_key_info>(target_proxy_address, "M", key_to_proxy, key_address_requesters, placement);
 
         // for each key, add the address of *every* (there can be multiple)
         // worker thread on the other node that should receive this key
@@ -1163,23 +1105,8 @@ int main(int argc, char* argv[]) {
       unordered_map<string, redistribution_address*> redistribution_map;
 
       for (auto map_iter = node_map.begin(); map_iter != node_map.end(); map_iter++) {
-        // send key address request
-        communication::Key_Request req;
-        req.set_sender("server");
-        for (auto set_iter = map_iter->second.begin(); set_iter != map_iter->second.end(); set_iter++) {
-          communication::Key_Request_Tuple* tp = req.add_tuple();
-          tp->set_key(*set_iter);
-          tp->set_global_memory_replication(placement[*set_iter].global_memory_replication_);
-          tp->set_global_ebs_replication(placement[*set_iter].global_ebs_replication_);
-        }
-        string key_req;
-        req.SerializeToString(&key_req);
-        zmq_util::send_string(key_req, &key_address_requesters[map_iter->first.key_exchange_connect_addr_]);
-        string key_res = zmq_util::recv_string(&key_address_requesters[map_iter->first.key_exchange_connect_addr_]);
-
-        communication::Key_Response resp;
-        resp.ParseFromString(key_res);
-
+        // get key address
+        communication::Key_Response resp = get_key_address<ebs_key_info>(map_iter->first.key_exchange_connect_addr_, "", map_iter->second, key_address_requesters, placement);
         // for each key in the response
         for (int i = 0; i < resp.tuple_size(); i++) {
           // for each of the workers we are sending the key to (if the local
@@ -1214,32 +1141,11 @@ int main(int argc, char* argv[]) {
       }
 
       // check if there are key requests to send to proxy
-      // NOTE: this is very similar to the code above, the only difference being the proxy address 
       if (key_to_proxy.size() != 0) {
-        communication::Key_Request req;
-        req.set_sender("server");
-        req.set_target_tier("M");
-
-        for (auto it = key_to_proxy.begin(); it != key_to_proxy.end(); it++) {
-          communication::Key_Request_Tuple* tp = req.add_tuple();
-          tp->set_key(*it);
-          tp->set_global_memory_replication(placement[*it].global_memory_replication_);
-          tp->set_global_ebs_replication(placement[*it].global_ebs_replication_);
-        }
-
-        // form the proxy gossip connection address
         // for now, randomly choose a proxy to contact
-        string proxy_ip = proxy_address[rand() % proxy_address.size()];
-
-        // send the request to the proxy
-        string key_req;
-        req.SerializeToString(&key_req);
-        zmq_util::send_string(key_req, &key_address_requesters[proxy_ip + ":" + to_string(PROXY_GOSSIP_PORT)]);
-
-        // receive the request
-        string key_res = zmq_util::recv_string(&key_address_requesters[proxy_ip + ":" + to_string(PROXY_GOSSIP_PORT)]);
-        communication::Key_Response resp;
-        resp.ParseFromString(key_res);
+        string target_proxy_address = proxy_address[rand() % proxy_address.size()] + ":" + to_string(PROXY_GOSSIP_PORT);
+        // get key address
+        communication::Key_Response resp = get_key_address<ebs_key_info>(target_proxy_address, "M", key_to_proxy, key_address_requesters, placement);
 
         // for each key in the response
         for (int i = 0; i < resp.tuple_size(); i++) {

@@ -64,4 +64,32 @@ pair<bool, N*> responsible(string key, int rep, consistent_hash_map<N,H>& hash_r
   }
 }
 
+template<typename T>
+communication::Key_Response get_key_address(string target_node_address, string target_tier, unordered_set<string> keys, SocketCache& key_address_requesters, unordered_map<string, T> placement) {
+  // form key address request
+  communication::Key_Request req;
+  req.set_sender("server");
+  if (target_tier == "M") {
+    req.set_target_tier("M");
+  } else if (target_tier == "E") {
+    req.set_target_tier("E");
+  }
+  for (auto it = keys.begin(); it != keys.end(); it++) {
+    communication::Key_Request_Tuple* tp = req.add_tuple();
+    tp->set_key(*it);
+    tp->set_global_memory_replication(placement[*it].global_memory_replication_);
+    tp->set_global_ebs_replication(placement[*it].global_ebs_replication_);
+  }
+  string key_req;
+  req.SerializeToString(&key_req);
+  // send key address request
+  zmq_util::send_string(key_req, &key_address_requesters[target_node_address]);
+  // receive key address response
+  string key_res = zmq_util::recv_string(&key_address_requesters[target_node_address]);
+
+  communication::Key_Response resp;
+  resp.ParseFromString(key_res);
+  return resp;
+}
+
 #endif
