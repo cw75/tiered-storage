@@ -32,8 +32,8 @@ using namespace std;
 // Define the number of ebs threads
 #define EBS_THREAD_NUM 3
 
-// Define local ebs replication factor
-#define LOCAL_EBS_REPLICATION 2
+// Define the default local ebs replication factor
+#define DEFAULT_LOCAL_EBS_REPLICATION 1
 
 // Define the locatioon of the conf file with the ebs root path
 #define EBS_ROOT_FILE "conf/server/ebs_root.txt"
@@ -49,15 +49,6 @@ typedef unordered_map<string, RC_KVS_PairLattice<string>> gossip_data;
 // a pair to keep track of where each key in the changeset should be sent
 typedef pair<size_t, unordered_set<string>> changeset_data;
 
-// A wrapper around changeset data that indicates whether or not the data
-// transfer is local or not
-struct changeset_data_wrapper {
-  changeset_data_wrapper() : local(false) {}
-
-  changeset_data c_data;
-  bool local;
-};
-
 // a map that represents which keys should be sent to which IP-port
 // combinations
 typedef unordered_map<string, unordered_set<string>> changeset_address;
@@ -66,22 +57,22 @@ typedef unordered_map<string, unordered_set<string>> changeset_address;
 // should delete the key
 typedef unordered_map<string, unordered_set<pair<string, bool>, pair_hash>> redistribution_address;
 
-// represents the replication state for each key
-struct key_info {
-  key_info(): tier_('E'), global_ebs_replication_(GLOBAL_EBS_REPLICATION), local_ebs_replication_(LOCAL_EBS_REPLICATION) {}
-  key_info(char tier, int global_ebs_replication, int local_ebs_replication)
-    : tier_(tier), global_ebs_replication_(global_ebs_replication), local_ebs_replication_(local_ebs_replication) {}
-
-  char tier_;
-  int global_ebs_replication_;
-  int local_ebs_replication_;
-};
-
 // TODO:  this should be changed to something more globally robust
 atomic<int> lww_timestamp(0);
 
 bool enable_ebs(false);
 string ebs_root("empty");
+
+struct ebs_key_info {
+  ebs_key_info() : global_memory_replication_(1), global_ebs_replication_(2), local_ebs_replication_(1) {}
+  ebs_key_info(int gmr, int ger, int ler)
+    : global_memory_replication_(gmr), global_ebs_replication_(ger), local_ebs_replication_(ler) {}
+  ebs_key_info(int gmr, int ger)
+    : global_memory_replication_(gmr), global_ebs_replication_(ger), local_ebs_replication_(DEFAULT_LOCAL_EBS_REPLICATION) {}
+  int global_memory_replication_;
+  int global_ebs_replication_;
+  int local_ebs_replication_;
+};
 
 string get_ebs_path(string subpath) {
   if (ebs_root == "empty") {
@@ -171,23 +162,29 @@ bool process_ebs_put(string key, int timestamp, string value, int thread_id, uno
   return succeed;
 }
 
-string process_client_request(communication::Request& req, int thread_id, unordered_set<string>& local_changeset, unordered_set<string>& key_set) {
+string process_proxy_request(communication::Request& req, int thread_id, unordered_set<string>& local_changeset, unordered_set<string>& key_set) {
   communication::Response response;
 
-  if (req.has_get()) {
-    cout << "Received get on thread " << thread_id << "\n";
-    auto res = process_ebs_get(req.get().key(), thread_id);
-
-    response.set_succeed(res.second);
-    response.set_value(res.first.reveal().value);
-  } else if (req.has_put()) {
-    cout << "Received put on thread " << thread_id << "\n";
-
-    response.set_succeed(process_ebs_put(req.put().key(), lww_timestamp.load(), req.put().value(), thread_id, key_set));
-
-    local_changeset.insert(req.put().key());
-  } else {
-    response.set_succeed(false);
+  if (req.get_size() != 0) {
+    cout << "received get by thread " << thread_id << "\n";
+    for (int i = 0; i < req.get_size(); i++) {
+      auto res = process_ebs_get(req.get(i).key(), thread_id);
+      communication::Response_Tuple* tp = response.add_tuple();
+      tp->set_key(req.get(i).key());
+      tp->set_value(res.first.reveal().value);
+      tp->set_timestamp(res.first.reveal().timestamp);
+      tp->set_succeed(res.second);
+    }
+  }
+  else if (req.put_size() != 0) {
+    cout << "received put by thread " << thread_id << "\n";
+    for (int i = 0; i < req.put_size(); i++) {
+      bool succeed = process_ebs_put(req.put(i).key(), lww_timestamp.load(), req.put(i).value(), thread_id, key_set);
+      communication::Response_Tuple* tp = response.add_tuple();
+      tp->set_key(req.put(i).key());
+      tp->set_succeed(succeed);
+      local_changeset.insert(req.put(i).key());
+    }
   }
 
   string data;
@@ -270,9 +267,9 @@ void ebs_worker_routine (zmq::context_t* context, string ip, int thread_id) {
   // initialize the thread's kvs replica
   unique_ptr<Database> kvs(new Database);
 
-  // socket that respond to client requests
+  // socket that respond to proxy requests
   zmq::socket_t responder(*context, ZMQ_REP);
-  responder.bind(wnode.client_connection_bind_addr_);
+  responder.bind(wnode.proxy_connection_bind_addr_);
 
   // socket that listens for distributed gossip
   zmq::socket_t dgossip_puller(*context, ZMQ_PULL);
@@ -303,7 +300,7 @@ void ebs_worker_routine (zmq::context_t* context, string ip, int thread_id) {
     { static_cast<void *>(dgossip_puller), 0, ZMQ_POLLIN, 0 },
     { static_cast<void *>(lgossip_puller), 0, ZMQ_POLLIN, 0 },
     { static_cast<void *>(lredistribute_puller), 0, ZMQ_POLLIN, 0 },
-    { static_cast<void *>(depart_puller), 0, ZMQ_POLLIN, 0 },
+    { static_cast<void *>(depart_puller), 0, ZMQ_POLLIN, 0 }
   };
 
   auto start = std::chrono::system_clock::now();
@@ -313,15 +310,15 @@ void ebs_worker_routine (zmq::context_t* context, string ip, int thread_id) {
   while (true) {
     zmq_util::poll(0, &pollitems);
 
-    if (pollitems[0].revents & ZMQ_POLLIN) { // process a request from the client
+    if (pollitems[0].revents & ZMQ_POLLIN) { // process a request from the proxy
       string data = zmq_util::recv_string(&responder);
       communication::Request req;
       req.ParseFromString(data);
 
       //  Process request
-      string result = process_client_request(req, thread_id, local_changeset, key_set);
+      string result = process_proxy_request(req, thread_id, local_changeset, key_set);
 
-      //  Send reply back to client
+      //  Send reply back to proxy
       zmq_util::send_string(result, &responder);
     } else if (pollitems[1].revents & ZMQ_POLLIN) { // process distributed gossip
       cout << "Received distributed gossip on thread " + to_string(thread_id) + ".\n";
@@ -379,14 +376,13 @@ void ebs_worker_routine (zmq::context_t* context, string ip, int thread_id) {
 
       string device_name = zmq_util::recv_string(&depart_puller);
 
-      changeset_data_wrapper* data = new changeset_data_wrapper();
-      data->local = true;
-      data->c_data.first = port;
+      changeset_data* data = new changeset_data();
+      data->first = port;
 
       // for every key this thread is responsible for, add it to the changeset
       // wrapper
       for (auto it = key_set.begin(); it != key_set.end(); it++) {
-        (data->c_data.second).insert(*it);
+        (data->second).insert(*it);
       }
 
       zmq_util::send_msg((void*)data, &changeset_address_requester);
@@ -419,11 +415,11 @@ void ebs_worker_routine (zmq::context_t* context, string ip, int thread_id) {
       // only gossip if we have changes
       if (local_changeset.size() > 0) {
         // populate the data that has changed
-        changeset_data_wrapper* data = new changeset_data_wrapper();
-        data->c_data.first = port;
+        changeset_data* data = new changeset_data();
+        data->first = port;
 
         for (auto it = local_changeset.begin(); it != local_changeset.end(); it++) {
-          (data->c_data.second).insert(*it);
+          (data->second).insert(*it);
         }
 
         // send a message to the master thread requesting the addresses of the
@@ -447,8 +443,8 @@ void ebs_worker_routine (zmq::context_t* context, string ip, int thread_id) {
 void add_thread(map<string, int> ebs_device_map, 
     unordered_map<int, string> inverse_ebs_device_map, 
     vector<thread> ebs_threads,
-    ebs_hash_t ebs_hash_ring,
-    unordered_map<string, key_info> placement,
+    ebs_hash_t local_ebs_hash_ring,
+    unordered_map<string, ebs_key_info> placement,
     set<int> active_thread_id,
     int next_thread_id,
     string ip,
@@ -495,27 +491,28 @@ void add_thread(map<string, int> ebs_device_map,
   ebs_threads.push_back(thread(ebs_worker_routine, &context, ip, next_thread_id));
 
   active_thread_id.insert(next_thread_id);
-  ebs_hash_ring.insert(worker_node_t(ip, next_thread_id));
+  local_ebs_hash_ring.insert(worker_node_t(ip, next_thread_id));
 
   // repartition data
   unordered_map<string, redistribution_address*> redistribution_map;
 
   string target_address = ip + ":" + to_string(SERVER_PORT + next_thread_id);
   for (auto it = placement.begin(); it != placement.end(); it++) {
-    worker_node_t sender_node;
-    bool remove = false;
-    bool resp = responsible<worker_node_t, ebs_hasher>(it->first, it->second.local_ebs_replication_, ebs_hash_ring, target_address, sender_node, remove);
+
+    auto result = responsible<worker_node_t, ebs_hasher>(it->first, it->second.local_ebs_replication_, local_ebs_hash_ring, target_address);
+
+    bool resp = result.first;
 
     if (resp) {
       cout << "The new thread is responsible for key " + it->first + ".\n";
-      string sender_address = sender_node.local_redistribute_addr_;
+      string sender_address = result.second->local_redistribute_addr_;
       cout << "The sender address is " + sender_address + ".\n";
 
       if (redistribution_map.find(sender_address) == redistribution_map.end()) {
         redistribution_map[sender_address] = new redistribution_address();
       }
 
-      (*redistribution_map[sender_address])[target_address].insert(pair<string, bool>(it->first, remove));
+      (*redistribution_map[sender_address])[target_address].insert(pair<string, bool>(it->first, true));
     }
   }
 
@@ -526,7 +523,7 @@ void add_thread(map<string, int> ebs_device_map,
   next_thread_id += 1;
 }
 
-void remove_thread(set<int> active_thread_id, ebs_hash_t ebs_hash_ring, unordered_map<int, string> inverse_ebs_device_map, string ip, SocketCache cache) {
+void remove_thread(set<int> active_thread_id, ebs_hash_t local_ebs_hash_ring, unordered_map<int, string> inverse_ebs_device_map, string ip, SocketCache cache) {
   if (active_thread_id.rbegin() == active_thread_id.rend()) {
     cout << "Error: No remaining threads are running. Nothing to remove.\n";
   } else {
@@ -534,7 +531,7 @@ void remove_thread(set<int> active_thread_id, ebs_hash_t ebs_hash_ring, unordere
     cout << "Removing thread " + to_string(target_thread_id) + ".\n";
 
     worker_node_t wnode = worker_node_t(ip, target_thread_id);
-    ebs_hash_ring.erase(wnode);
+    local_ebs_hash_ring.erase(wnode);
     active_thread_id.erase(target_thread_id);
 
     string device_id = inverse_ebs_device_map[target_thread_id];
@@ -566,7 +563,7 @@ int main(int argc, char* argv[]) {
     enable_ebs = false;
   }
 
-  master_node_t mnode = master_node_t(ip);
+  master_node_t mnode = master_node_t(ip, "E");
 
   // prepare the zmq context
   zmq::context_t context(1);
@@ -574,34 +571,34 @@ int main(int argc, char* argv[]) {
   SocketCache key_address_requesters(&context, ZMQ_REQ);
 
   // create our hash rings
-  global_hash_t global_hash_ring;
-  ebs_hash_t ebs_hash_ring;
-  unordered_map<string, key_info> placement;
+  global_hash_t global_ebs_hash_ring;
+  ebs_hash_t local_ebs_hash_ring;
+  unordered_map<string, ebs_key_info> placement;
 
   set<int> active_ebs_thread_id = set<int>();
   for (int i = 1; i <= EBS_THREAD_NUM; i++) {
     active_ebs_thread_id.insert(i);
   }
 
-  // read address of client proxies from conf file
-  unordered_set<string> client_address;
+  // read address of proxies from conf file
+  vector<string> proxy_address;
   string ip_line;
   ifstream address;
-  address.open("conf/server/client_address.txt");
+  address.open("conf/server/proxy_address.txt");
   while (getline(address, ip_line)) {
-    client_address.insert(ip_line);
+    proxy_address.push_back(ip_line);
   }
   address.close();
 
   // read server address from the file
   if (new_node == "n") {
     address.open("conf/server/start_servers.txt");
-    // add yourself to the ring
-    global_hash_ring.insert(mnode);
+    // add itself to the ring
+    global_ebs_hash_ring.insert(mnode);
 
     // add all other servers
     while (getline(address, ip_line)) {
-      global_hash_ring.insert(master_node_t(ip_line));
+      global_ebs_hash_ring.insert(master_node_t(ip_line, "E"));
     }
     address.close();
   } else { // get server address from the seed node
@@ -611,18 +608,18 @@ int main(int argc, char* argv[]) {
 
     // tell the seed node that you are joining
     zmq::socket_t addr_requester(context, ZMQ_REQ);
-    addr_requester.connect(master_node_t(ip_line).seed_connection_connect_addr_);
+    addr_requester.connect(master_node_t(ip_line, "E").seed_connection_connect_addr_);
     zmq_util::send_string("join", &addr_requester);
 
     // receive and add all the addresses that seed node sent
     vector<string> addresses;
     split(zmq_util::recv_string(&addr_requester), '|', addresses);
     for (auto it = addresses.begin(); it != addresses.end(); it++) {
-      global_hash_ring.insert(master_node_t(*it));
+      global_ebs_hash_ring.insert(master_node_t(*it, "E"));
     }
 
     // add itself to global hash ring
-    global_hash_ring.insert(mnode);
+    global_ebs_hash_ring.insert(mnode);
   }
 
   // this map is ordered, so that we can figure out the device name when adding
@@ -656,7 +653,7 @@ int main(int argc, char* argv[]) {
     system(shell_command.c_str());
     eid = getNextDeviceID(eid);
     ebs_threads.push_back(thread(ebs_worker_routine, &context, ip, thread_id));
-    ebs_hash_ring.insert(worker_node_t(ip, thread_id));
+    local_ebs_hash_ring.insert(worker_node_t(ip, thread_id));
   }
 
   set<int> active_thread_id = set<int>();
@@ -666,16 +663,16 @@ int main(int argc, char* argv[]) {
 
   if (new_node == "y") {
     // notify other servers that there is a new node
-    for (auto it = global_hash_ring.begin(); it != global_hash_ring.end(); it++) {
+    for (auto it = global_ebs_hash_ring.begin(); it != global_ebs_hash_ring.end(); it++) {
       if (it->second.ip_.compare(ip) != 0) {
         zmq_util::send_string(ip, &cache[(it->second).node_join_connect_addr_]);
       }
     }
   }
 
-  // notify clients that this node has joined the service
-  for (auto it = client_address.begin(); it != client_address.end(); it++) {
-    zmq_util::send_string("join:" + ip, &cache[master_node_t(*it).client_notify_connect_addr_]);
+  // notify proxies that this node has joined the service
+  for (auto it = proxy_address.begin(); it != proxy_address.end(); it++) {
+    zmq_util::send_string("join:" + ip, &cache[master_node_t(*it, "E").proxy_notify_connect_addr_]);
   }
 
   // responsible for sending the server address to a new node
@@ -690,7 +687,7 @@ int main(int argc, char* argv[]) {
   zmq::socket_t depart_puller(context, ZMQ_PULL);
   depart_puller.bind(NODE_DEPART_BIND_ADDR);
 
-  // responsible for sending the worker address (responsible for the requested key) to the client or other to servers
+  // responsible for sending the worker address (responsible for the requested key) to the proxy or other to servers
   zmq::socket_t key_address_responder(context, ZMQ_REP);
   key_address_responder.bind(KEY_EXCHANGE_BIND_ADDR);
 
@@ -706,6 +703,10 @@ int main(int argc, char* argv[]) {
   zmq::socket_t self_depart_responder(context, ZMQ_REP);
   self_depart_responder.bind(SELF_DEPART_BIND_ADDR);
 
+  // responsible for listening for key replication factor change
+  zmq::socket_t replication_factor_change_puller(context, ZMQ_PULL);
+  replication_factor_change_puller.bind(NODE_PLACEMENT_BIND_ADDR);
+
   // set up zmq receivers
   vector<zmq::pollitem_t> pollitems = {{static_cast<void*>(addr_responder), 0, ZMQ_POLLIN, 0},
                                        {static_cast<void*>(join_puller), 0, ZMQ_POLLIN, 0},
@@ -713,7 +714,9 @@ int main(int argc, char* argv[]) {
                                        {static_cast<void*>(key_address_responder), 0, ZMQ_POLLIN, 0},
                                        {static_cast<void*>(changeset_address_responder), 0, ZMQ_POLLIN, 0},
                                        {static_cast<void*>(depart_done_puller), 0, ZMQ_POLLIN, 0},
-                                       {static_cast<void*>(self_depart_responder), 0, ZMQ_POLLIN, 0}};
+                                       {static_cast<void*>(self_depart_responder), 0, ZMQ_POLLIN, 0},
+                                       {static_cast<void*>(replication_factor_change_puller), 0, ZMQ_POLLIN, 0}
+                                     };
 
   string input;
   int next_thread_id = EBS_THREAD_NUM + 1;
@@ -727,7 +730,7 @@ int main(int argc, char* argv[]) {
       string request = zmq_util::recv_string(&addr_responder);
 
       string addresses;
-      for (auto it = global_hash_ring.begin(); it != global_hash_ring.end(); it++) {
+      for (auto it = global_ebs_hash_ring.begin(); it != global_ebs_hash_ring.end(); it++) {
         addresses += (it->second.ip_ + "|");
       }
 
@@ -737,10 +740,10 @@ int main(int argc, char* argv[]) {
     } else if (pollitems[1].revents & ZMQ_POLLIN) {
       string new_server_ip = zmq_util::recv_string(&join_puller);
       cout << "Received a node join. New node is " << new_server_ip << ".\n";
-      master_node_t mnode = master_node_t(new_server_ip);
+      master_node_t new_node = master_node_t(new_server_ip, "E");
 
       // update global hash ring
-      global_hash_ring.insert(mnode);
+      global_ebs_hash_ring.insert(new_node);
 
       // a map for each local worker that has to redistribute to the remote
       // node
@@ -750,47 +753,25 @@ int main(int argc, char* argv[]) {
       // key should be sent to
       unordered_set<string> key_to_query;
 
-      // determine which keys should be removed
-      unordered_map<string, bool> key_remove_map;
-
       // iterate through all of my keys
       for (auto it = placement.begin(); it != placement.end(); it++) {
-        master_node_t sender_node;
-        bool remove = false;
 
         string key = it->first;
-        key_info info = it->second;
+        ebs_key_info info = it->second;
 
         // NOTE: We are assuming all keys have the default global replication
         // factor for now. This won't be true in the future.
         // TODO: can we clean up this logic? especially if we have the
         // constraint that there are never fewer nodes than the replication
         // factor
-        bool resp = responsible<master_node_t, crc32_hasher>(key, info.global_ebs_replication_, global_hash_ring, mnode.id_, sender_node, remove);
+        auto result = responsible<master_node_t, crc32_hasher>(key, info.global_ebs_replication_, global_ebs_hash_ring, new_node.id_);
 
-        if (resp && (sender_node.ip_.compare(ip) == 0)) {
+        if (result.first && (result.second->ip_.compare(ip) == 0)) {
           key_to_query.insert(it->first);
-          key_remove_map[it->first] = remove;
         }
       }
 
-      // prepare & send key address request
-      communication::Key_Request req;
-      req.set_sender("server");
-      for (auto it = key_to_query.begin(); it != key_to_query.end(); it++) {
-        communication::Key_Request_Tuple* tp = req.add_tuple();
-        tp->set_key(*it);
-      }
-
-      string key_req;
-      req.SerializeToString(&key_req);
-      // make a key exchange request to the new server for each of the keys we
-      // are sending
-      zmq_util::send_string(key_req, &key_address_requesters[mnode.key_exchange_connect_addr_]);
-
-      string key_res = zmq_util::recv_string(&key_address_requesters[mnode.key_exchange_connect_addr_]);
-      communication::Key_Response resp;
-      resp.ParseFromString(key_res);
+      communication::Key_Response resp = get_key_address<ebs_key_info>(new_node.key_exchange_connect_addr_, "", key_to_query, key_address_requesters, placement);
 
       // for each key in the response
       for (int i = 0; i < resp.tuple_size(); i++) {
@@ -803,7 +784,7 @@ int main(int argc, char* argv[]) {
           // TODO; only send from *one* local replica not from many...
           // figure out how to tell local replica to *remove* but not gossip
           // for each replica of the key on this machine
-          auto pos = ebs_hash_ring.find(key);
+          auto pos = local_ebs_hash_ring.find(key);
           for (int k = 0; k < placement[key].local_ebs_replication_; k++) {
             // create a redistribution_address object for each of the local
             // workers
@@ -814,11 +795,11 @@ int main(int argc, char* argv[]) {
 
             // insert this key into the redistrution address for each of the
             // local workers based on the destination
-            (*redistribution_map[worker_address])[target_address].insert(pair<string, bool>(key, key_remove_map[key]));
+            (*redistribution_map[worker_address])[target_address].insert(pair<string, bool>(key, true));
 
             // go to the next position on the ring
-            if (++pos == ebs_hash_ring.end()) {
-              pos = ebs_hash_ring.begin();
+            if (++pos == local_ebs_hash_ring.end()) {
+              pos = local_ebs_hash_ring.begin();
             }
           }
         }
@@ -829,12 +810,18 @@ int main(int argc, char* argv[]) {
       for (auto it = redistribution_map.begin(); it != redistribution_map.end(); it++) {
         zmq_util::send_msg((void*)it->second, &cache[it->first]);
       }
+
+      // delete the placement info for all the keys that are removed
+      for (auto it = key_to_query.begin(); it != key_to_query.end(); it++) {
+        // TODO: find a way to not remove the key as it may introduce race condition
+        placement.erase(*it);
+      }
     } else if (pollitems[2].revents & ZMQ_POLLIN) {
       string departing_server_ip = zmq_util::recv_string(&depart_puller);
       cout << "Received departure for node " << departing_server_ip << ".\n";
 
       // update hash ring
-      global_hash_ring.erase(master_node_t(departing_server_ip));
+      global_ebs_hash_ring.erase(master_node_t(departing_server_ip, "E"));
     } else if (pollitems[3].revents & ZMQ_POLLIN) {
       cout << "Received a key address request.\n";
       lww_timestamp++;
@@ -849,30 +836,31 @@ int main(int argc, char* argv[]) {
       // for every requested key
       for (int i = 0; i < req.tuple_size(); i++) {
         string key = req.tuple(i).key();
+        int gmr = req.tuple(i).global_memory_replication();
+        int ger = req.tuple(i).global_ebs_replication();
         cout << "Received a key request for key " + key + ".\n";
 
         communication::Key_Response_Tuple* tp = res.add_tuple();
         tp->set_key(key);
 
-        // for now, just use EBS as tier and LOCAL_EBS_REPLICATION as rep factor
-        // update placement metadata
+        // fill in placement metadata only if not already exist
         if (placement.find(key) == placement.end()) {
-          placement[key] = key_info('E', GLOBAL_EBS_REPLICATION, LOCAL_EBS_REPLICATION);
+          placement[key] = ebs_key_info(gmr, ger);
         }
 
         // find all the local worker threads that are assigned to this key
-        auto it = ebs_hash_ring.find(key);
+        auto it = local_ebs_hash_ring.find(key);
         for (int i = 0; i < placement[key].local_ebs_replication_; i++) {
           // add each one to the response
           communication::Key_Response_Address* tp_addr = tp->add_address();
           if (sender == "server") {
             tp_addr->set_addr(it->second.id_);
           } else {
-            tp_addr->set_addr(it->second.client_connection_connect_addr_);
+            tp_addr->set_addr(it->second.proxy_connection_connect_addr_);
           }
 
-          if (++it == ebs_hash_ring.end()) {
-            it = ebs_hash_ring.begin();
+          if (++it == local_ebs_hash_ring.end()) {
+            it = local_ebs_hash_ring.begin();
           }
         }
 
@@ -885,19 +873,21 @@ int main(int argc, char* argv[]) {
 
       zmq::message_t msg;
       zmq_util::recv_msg(&changeset_address_responder, msg);
-      changeset_data_wrapper* data = *(changeset_data_wrapper **)(msg.data());
-      changeset_data changeset = data->c_data;
+      changeset_data* data = *(changeset_data **)(msg.data());
 
       // determine the IP and port of the thread that made the request
-      string self_id = ip + ":" + to_string(changeset.first);
+      string self_id = ip + ":" + to_string(data->first);
       changeset_address* res = new changeset_address();
       unordered_map<master_node_t, unordered_set<string>, node_hash> node_map;
 
+      // a set of keys to send to proxy to perform cross tier gossip
+      unordered_set<string> key_to_proxy;
+
       // look for every key requestsed by the worker thread
-      for (auto it = changeset.second.begin(); it != changeset.second.end(); it++) {
+      for (auto it = data->second.begin(); it != data->second.end(); it++) {
         string key = *it;
         // first, check the local ebs ring
-        auto ebs_pos = ebs_hash_ring.find(key);
+        auto ebs_pos = local_ebs_hash_ring.find(key);
         for (int i = 0; i < placement[key].local_ebs_replication_; i++) {
           // add any thread that is responsible for this key but is not the
           // thread that made the request
@@ -905,57 +895,57 @@ int main(int argc, char* argv[]) {
             (*res)[ebs_pos->second.id_].insert(key);
           }
 
-          if (++ebs_pos == ebs_hash_ring.end()) {
-            ebs_pos = ebs_hash_ring.begin();
+          if (++ebs_pos == local_ebs_hash_ring.end()) {
+            ebs_pos = local_ebs_hash_ring.begin();
           }
         }
 
-        // second, check the global ring for any nodes that might also be
+        // second, check the global ebs ring for any nodes that might also be
         // responsible for this key
-        if (!data->local) {
-          auto pos = global_hash_ring.find(key);
-          for (int i = 0; i < placement[key].global_ebs_replication_; i++) {
-            if (pos->second.ip_.compare(ip) != 0) {
-              node_map[pos->second].insert(key);
-            }
+        auto pos = global_ebs_hash_ring.find(key);
+        for (int i = 0; i < placement[key].global_ebs_replication_; i++) {
+          if (pos->second.ip_.compare(ip) != 0) {
+            node_map[pos->second].insert(key);
+          }
 
-            if (++pos == global_hash_ring.end()) {
-              pos = global_hash_ring.begin();
-            }
+          if (++pos == global_ebs_hash_ring.end()) {
+            pos = global_ebs_hash_ring.begin();
+          }
+        }
+
+        // finally, check if the key has replica on the memory tier
+        if (placement[key].global_memory_replication_ != 0) {
+          key_to_proxy.insert(key);
+        }
+      }
+
+      // for any remote nodes that should receive gossip, we make key
+      // requests
+      for (auto map_iter = node_map.begin(); map_iter != node_map.end(); map_iter++) {
+        // get key address
+        communication::Key_Response resp = get_key_address<ebs_key_info>(map_iter->first.key_exchange_connect_addr_, "", map_iter->second, key_address_requesters, placement);
+
+        // for each key, add the address of *every* (there can be multiple)
+        // worker thread on the other node that should receive this key
+        for (int i = 0; i < resp.tuple_size(); i++) {
+          for (int j = 0; j < resp.tuple(i).address_size(); j++) {
+            (*res)[resp.tuple(i).address(j).addr()].insert(resp.tuple(i).key());
           }
         }
       }
 
-      if (!data->local) {
-        // for any remote nodes that should receive gossip, we make key
-        // requests
-        for (auto map_iter = node_map.begin(); map_iter != node_map.end(); map_iter++) {
-          // create key request
-          communication::Key_Request req;
-          req.set_sender("server");
+      // check if there are key requests to send to proxy
+      if (key_to_proxy.size() != 0) {
+        // for now, randomly choose a proxy to contact
+        string target_proxy_address = proxy_address[rand() % proxy_address.size()] + ":" + to_string(PROXY_GOSSIP_PORT);
+        // get key address
+        communication::Key_Response resp = get_key_address<ebs_key_info>(target_proxy_address, "M", key_to_proxy, key_address_requesters, placement);
 
-          // add each key that is going to this particular node
-          for (auto set_iter = map_iter->second.begin(); set_iter != map_iter->second.end(); set_iter++) {
-            communication::Key_Request_Tuple* tp = req.add_tuple();
-            tp->set_key(*set_iter);
-          }
-
-          // send the request to the node
-          string key_req;
-          req.SerializeToString(&key_req);
-          zmq_util::send_string(key_req, &key_address_requesters[map_iter->first.key_exchange_connect_addr_]);
-
-          // receive the request
-          string key_res = zmq_util::recv_string(&key_address_requesters[map_iter->first.key_exchange_connect_addr_]);
-          communication::Key_Response resp;
-          resp.ParseFromString(key_res);
-
-          // for each key, add the address of *every* (there can be multiple)
-          // worker thread on the other node that should receive this key
-          for (int i = 0; i < resp.tuple_size(); i++) {
-            for (int j = 0; j < resp.tuple(i).address_size(); j++) {
-              (*res)[resp.tuple(i).address(j).addr()].insert(resp.tuple(i).key());
-            }
+        // for each key, add the address of *every* (there can be multiple)
+        // worker thread on the other node that should receive this key
+        for (int i = 0; i < resp.tuple_size(); i++) {
+          for (int j = 0; j < resp.tuple(i).address_size(); j++) {
+            (*res)[resp.tuple(i).address(j).addr()].insert(resp.tuple(i).key());
           }
         }
       }
@@ -976,29 +966,31 @@ int main(int argc, char* argv[]) {
     } else if (pollitems[6].revents & ZMQ_POLLIN) {
       cout << "Node is departing.\n";
 
-      global_hash_ring.erase(mnode);
-      for (auto it = global_hash_ring.begin(); it != global_hash_ring.end(); it++) {
+      global_ebs_hash_ring.erase(mnode);
+      for (auto it = global_ebs_hash_ring.begin(); it != global_ebs_hash_ring.end(); it++) {
         zmq_util::send_string(ip, &cache[it->second.node_depart_connect_addr_]);
       }
       
-      // notify clients
-      for (auto it = client_address.begin(); it != client_address.end(); it++) {
-        zmq_util::send_string("depart:" + ip, &cache[master_node_t(*it).client_notify_connect_addr_]);
+      // notify proxies
+      for (auto it = proxy_address.begin(); it != proxy_address.end(); it++) {
+        zmq_util::send_string("depart:" + ip, &cache[master_node_t(*it, "E").proxy_notify_connect_addr_]);
       }
 
       // form the key_request map
       unordered_map<string, communication::Key_Request> key_request_map;
       for (auto it = placement.begin(); it != placement.end(); it++) {
         string key = it->first;
-        auto pos = global_hash_ring.find(key);
+        auto pos = global_ebs_hash_ring.find(key);
 
         for (int i = 0; i < placement[key].global_ebs_replication_; i++) {
           key_request_map[pos->second.key_exchange_connect_addr_].set_sender("server");
           communication::Key_Request_Tuple* tp = key_request_map[pos->second.key_exchange_connect_addr_].add_tuple();
           tp->set_key(key);
+          tp->set_global_memory_replication(placement[key].global_memory_replication_);
+          tp->set_global_ebs_replication(placement[key].global_ebs_replication_);
 
-          if (++pos == global_hash_ring.end()) {
-            pos = global_hash_ring.begin();
+          if (++pos == global_ebs_hash_ring.end()) {
+            pos = global_ebs_hash_ring.begin();
           }
         }
       }
@@ -1018,7 +1010,7 @@ int main(int argc, char* argv[]) {
           for (int j = 0; j < resp.tuple(i).address_size(); j++) {
             string key = resp.tuple(i).key();
             string target_address = resp.tuple(i).address(j).addr();
-            auto pos = ebs_hash_ring.find(key);
+            auto pos = local_ebs_hash_ring.find(key);
 
             for (int k = 0; k < placement[key].local_ebs_replication_; k++) {
               string worker_address = pos->second.local_redistribute_addr_;
@@ -1028,8 +1020,8 @@ int main(int argc, char* argv[]) {
 
               (*redistribution_map[worker_address])[target_address].insert(pair<string, bool>(key, false));
 
-              if (++pos == ebs_hash_ring.end()) {
-                pos = ebs_hash_ring.begin();
+              if (++pos == local_ebs_hash_ring.end()) {
+                pos = local_ebs_hash_ring.begin();
               }
             }
           }
@@ -1044,7 +1036,7 @@ int main(int argc, char* argv[]) {
 
       for (auto it = inverse_ebs_device_map.begin(); it != inverse_ebs_device_map.end(); it++) {
         active_thread_id.erase(it->first);
-        ebs_hash_ring.erase(worker_node_t(ip, it->first));
+        local_ebs_hash_ring.erase(worker_node_t(ip, it->first));
         string shell_command;
         if (enable_ebs) {
           shell_command = "scripts/remove_volume.sh " + it->second + " " + to_string(it->first);
@@ -1058,6 +1050,149 @@ int main(int argc, char* argv[]) {
       // TODO: once we break here, I don't think that the threads will have
       // finished. they will still be looping.
       break;
+    } else if (pollitems[7].revents & ZMQ_POLLIN) {
+      cout << "Received replication factor change request\n";
+
+      string placement_req = zmq_util::recv_string(&replication_factor_change_puller);
+      communication::Placement_Request req;
+      req.ParseFromString(placement_req);
+
+      unordered_map<master_node_t, unordered_set<string>, node_hash> node_map;
+      // a set of keys to send to proxy to perform cross tier gossip
+      unordered_set<string> key_to_proxy;
+      // keep track of which key should be removed
+      unordered_map<string, bool> key_remove_map;
+
+      // for every key, update the replication factor and 
+      // check if the node is still responsible for the key
+      for (int i = 0; i < req.tuple_size(); i++) {
+        string key = req.tuple(i).key();
+
+        // first, check whether the node is responsible for the key before the replication factor change
+        auto result = responsible<master_node_t, crc32_hasher>(key, placement[key].global_ebs_replication_, global_ebs_hash_ring, mnode.id_);
+        // update placement info
+        placement[key].global_memory_replication_ = req.tuple(i).global_memory_replication();
+        placement[key].global_ebs_replication_ = req.tuple(i).global_ebs_replication();
+        // proceed only if the node is responsible for the key before the replication factor change
+        if (result.first) {
+          // check the global ring and request worker addresses from other node's master thread
+          auto pos = global_ebs_hash_ring.find(key);
+          for (int i = 0; i < placement[key].global_ebs_replication_; i++) {
+            if (pos->second.ip_.compare(ip) != 0) {
+              node_map[pos->second].insert(key);
+            }
+            if (++pos == global_ebs_hash_ring.end()) {
+              pos = global_ebs_hash_ring.begin();
+            }
+          }
+
+          // check if the key has replica on the memory tier
+          if (placement[key].global_memory_replication_ != 0) {
+            key_to_proxy.insert(key);
+          }
+
+          // check if the key has to be removed under the new replication factor
+          result = responsible<master_node_t, crc32_hasher>(key, placement[key].global_ebs_replication_, global_ebs_hash_ring, mnode.id_);
+          if (result.first) {
+            key_remove_map[key] = false;
+          } else {
+            key_remove_map[key] = true;
+          }
+        }
+      }
+
+      // initialize the redistribution map (key is the address of ebs worker thread)
+      unordered_map<string, redistribution_address*> redistribution_map;
+
+      for (auto map_iter = node_map.begin(); map_iter != node_map.end(); map_iter++) {
+        // get key address
+        communication::Key_Response resp = get_key_address<ebs_key_info>(map_iter->first.key_exchange_connect_addr_, "", map_iter->second, key_address_requesters, placement);
+        // for each key in the response
+        for (int i = 0; i < resp.tuple_size(); i++) {
+          // for each of the workers we are sending the key to (if the local
+          // replication factor is > 1)
+          for (int j = 0; j < resp.tuple(i).address_size(); j++) {
+            string key = resp.tuple(i).key();
+            string target_address = resp.tuple(i).address(j).addr();
+
+            // TODO; only send from *one* local replica not from many...
+            // figure out how to tell local replica to *remove* but not gossip
+            // for each replica of the key on this machine
+            auto pos = local_ebs_hash_ring.find(key);
+            for (int k = 0; k < placement[key].local_ebs_replication_; k++) {
+              // create a redistribution_address object for each of the local
+              // workers
+              string worker_address = pos->second.local_redistribute_addr_;
+              if (redistribution_map.find(worker_address) == redistribution_map.end()) {
+                redistribution_map[worker_address] = new redistribution_address();
+              }
+
+              // insert this key into the redistrution address for each of the
+              // local workers based on the destination
+              (*redistribution_map[worker_address])[target_address].insert(pair<string, bool>(key, key_remove_map[key]));
+
+              // go to the next position on the ring
+              if (++pos == local_ebs_hash_ring.end()) {
+                pos = local_ebs_hash_ring.begin();
+              }
+            }
+          }
+        }
+      }
+
+      // check if there are key requests to send to proxy
+      if (key_to_proxy.size() != 0) {
+        // for now, randomly choose a proxy to contact
+        string target_proxy_address = proxy_address[rand() % proxy_address.size()] + ":" + to_string(PROXY_GOSSIP_PORT);
+        // get key address
+        communication::Key_Response resp = get_key_address<ebs_key_info>(target_proxy_address, "M", key_to_proxy, key_address_requesters, placement);
+
+        // for each key in the response
+        for (int i = 0; i < resp.tuple_size(); i++) {
+          // for each of the workers we are sending the key to (if the local
+          // replication factor is > 1)
+          for (int j = 0; j < resp.tuple(i).address_size(); j++) {
+            string key = resp.tuple(i).key();
+            string target_address = resp.tuple(i).address(j).addr();
+
+            // TODO; only send from *one* local replica not from many...
+            // figure out how to tell local replica to *remove* but not gossip
+            // for each replica of the key on this machine
+            auto pos = local_ebs_hash_ring.find(key);
+            for (int k = 0; k < placement[key].local_ebs_replication_; k++) {
+              // create a redistribution_address object for each of the local
+              // workers
+              string worker_address = pos->second.local_redistribute_addr_;
+              if (redistribution_map.find(worker_address) == redistribution_map.end()) {
+                redistribution_map[worker_address] = new redistribution_address();
+              }
+
+              // insert this key into the redistrution address for each of the
+              // local workers based on the destination
+              (*redistribution_map[worker_address])[target_address].insert(pair<string, bool>(key, key_remove_map[key]));
+
+              // go to the next position on the ring
+              if (++pos == local_ebs_hash_ring.end()) {
+                pos = local_ebs_hash_ring.begin();
+              }
+            }
+          }
+        }
+      }
+
+      // send a local message for each local worker that has to redistribute
+      // data to a remote node
+      for (auto it = redistribution_map.begin(); it != redistribution_map.end(); it++) {
+        zmq_util::send_msg((void*)it->second, &cache[it->first]);
+      }
+
+      // delete the placement info for all the keys that are removed
+      // TODO: find a way to not remove the key as it may introduce race condition
+      for (auto it = key_remove_map.begin(); it != key_remove_map.end(); it++) {
+        if (it->second) {
+          placement.erase(it->first);
+        }
+      }
     } else {
       cout << "Invalid Request\n";
     }

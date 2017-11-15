@@ -33,14 +33,14 @@ struct pair_hash {
 // we have this template because we use responsible for with different hash
 // functions depending on whether we are checking local or remote
 // responsibility
+// New comment by chenggang: simplified the code
+// assuming the replication factor will never be greater than the number of nodes in a tier
 template<typename N, typename H>
-bool responsible(string key, int rep, consistent_hash_map<N,H>& hash_ring, string id, node_t& sender_node, bool& remove) {
+pair<bool, N*> responsible(string key, int rep, consistent_hash_map<N,H>& hash_ring, string id) {
   // the id of the node for which we are checking responsibility
   bool resp = false;
 
   auto pos = hash_ring.find(key);
-  // this is just a dummy value
-  auto target_pos = hash_ring.begin();
 
   // iterate once for every value in the replication factor
   for (int i = 0; i < rep; i++) {
@@ -48,7 +48,6 @@ bool responsible(string key, int rep, consistent_hash_map<N,H>& hash_ring, strin
     // true; we also store that node in target_pos
     if (pos->second.id_.compare(id) == 0) {
       resp = true;
-      target_pos = pos;
     }
 
     if (++pos == hash_ring.end()) {
@@ -57,20 +56,39 @@ bool responsible(string key, int rep, consistent_hash_map<N,H>& hash_ring, strin
   }
 
 
-  // at the end of the previous loop, pos has the last node responsible for the
-  // key; we only remove that key if we have more nodes than there should be replicas
-  if (resp && (hash_ring.size() > rep)) {
-    remove = true;
-    sender_node = pos->second;
-  } else if (resp && (hash_ring.size() <= rep)) {
-    remove = false;
-    if (++target_pos == hash_ring.end()) {
-      target_pos = hash_ring.begin();
-    }
-
-    sender_node = target_pos->second;
+  // at the end of the previous loop, pos has the last node responsible for the key
+  if (resp) {
+    return pair<bool, N*>(resp, &(pos->second));
+  } else {
+    return pair<bool, N*>(resp, nullptr);
   }
+}
 
+template<typename T>
+communication::Key_Response get_key_address(string target_node_address, string target_tier, unordered_set<string> keys, SocketCache& key_address_requesters, unordered_map<string, T> placement) {
+  // form key address request
+  communication::Key_Request req;
+  req.set_sender("server");
+  if (target_tier == "M") {
+    req.set_target_tier("M");
+  } else if (target_tier == "E") {
+    req.set_target_tier("E");
+  }
+  for (auto it = keys.begin(); it != keys.end(); it++) {
+    communication::Key_Request_Tuple* tp = req.add_tuple();
+    tp->set_key(*it);
+    tp->set_global_memory_replication(placement[*it].global_memory_replication_);
+    tp->set_global_ebs_replication(placement[*it].global_ebs_replication_);
+  }
+  string key_req;
+  req.SerializeToString(&key_req);
+  // send key address request
+  zmq_util::send_string(key_req, &key_address_requesters[target_node_address]);
+  // receive key address response
+  string key_res = zmq_util::recv_string(&key_address_requesters[target_node_address]);
+
+  communication::Key_Response resp;
+  resp.ParseFromString(key_res);
   return resp;
 }
 
