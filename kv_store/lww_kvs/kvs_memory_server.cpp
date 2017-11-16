@@ -708,15 +708,16 @@ int main(int argc, char* argv[]) {
         consumption += it->second->load();
       }
 
-      string target_proxy_address = proxy_address[rand() % proxy_address.size()] + ":" + to_string(PROXY_STORAGE_CONSUMPTION_PORT);
+      string target_proxy_address = "tcp://" + proxy_address[rand() % proxy_address.size()] + ":" + to_string(PROXY_STORAGE_CONSUMPTION_PORT);
       communication::Storage_Update su;
       su.set_node_ip(mnode.ip_);
       su.set_node_type("M");
       su.set_memory_storage(consumption);
       string msg;
       su.SerializeToString(&msg);
+
       // send the storage consumption update
-      zmq_util::send_string(msg, &cache[target_proxy_address]);      
+      zmq_util::send_string(msg, &cache[target_proxy_address]);
 
       start = std::chrono::system_clock::now();
     }
