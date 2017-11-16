@@ -21,6 +21,9 @@ using address_t = string;
 #define DEFAULT_GLOBAL_MEMORY_REPLICATION 1
 #define DEFAULT_GLOBAL_EBS_REPLICATION 2
 
+#define MONITORING_THRESHOLD 30
+#define MONITORING_PERIOD 3
+
 // given a key, check memory and ebs hash ring to find all the server nodes responsible for the key
 vector<master_node_t> get_nodes(string key, global_hash_t* global_memory_hash_ring, global_hash_t* global_ebs_hash_ring, unordered_map<string, key_info>& placement) {
   vector<master_node_t> server_nodes;
@@ -66,6 +69,16 @@ int main(int argc, char* argv[]) {
 
   // keep track of the keys' replication info
   unordered_map<string, key_info> placement;
+
+  // keep track of the keys' hotness
+  unordered_map<string, size_t> key_access_frequency;
+  unordered_map<string, multiset<std::chrono::time_point<std::chrono::system_clock>>> key_access_monitoring;
+
+  // keep track of memory tier storage consumption
+  unordered_map<master_node_t, size_t, node_hash> memory_tier_storage;
+
+  // keep track of ebs tier storage consumption
+  unordered_map<master_node_t, unordered_map<string, size_t>, node_hash> ebs_tier_storage;
  
   // read in the initial server addresses and build the hash ring
   string ip_line;
@@ -105,19 +118,24 @@ int main(int argc, char* argv[]) {
   // responsible for handling key replication factor change requests from server nodes
   zmq::socket_t replication_factor_change_puller(context, ZMQ_PULL);
   replication_factor_change_puller.bind(PROXY_PLACEMENT_BIND_ADDR);
-
-  string input;
+  // responsible for receiving storage consumption updates
+  zmq::socket_t storage_consumption_puller(context, ZMQ_PULL);
+  storage_consumption_puller.bind(PROXY_STORAGE_CONSUMPTION_BIND_ADDR);
 
   vector<zmq::pollitem_t> pollitems = {
     { static_cast<void *>(join_puller), 0, ZMQ_POLLIN, 0 },
     { static_cast<void *>(user_responder), 0, ZMQ_POLLIN, 0 },
     { static_cast<void *>(gossip_responder), 0, ZMQ_POLLIN, 0 },
-    { static_cast<void *>(replication_factor_change_puller), 0, ZMQ_POLLIN, 0 }
+    { static_cast<void *>(replication_factor_change_puller), 0, ZMQ_POLLIN, 0 },
+    { static_cast<void *>(storage_consumption_puller), 0, ZMQ_POLLIN, 0 }
   };
+
+  auto start = std::chrono::system_clock::now();
+  auto end = std::chrono::system_clock::now();
 
   while (true) {
     // listen for ZMQ events
-    zmq_util::poll(-1, &pollitems);
+    zmq_util::poll(0, &pollitems);
 
     // handle a join or depart event coming from the server side
     if (pollitems[0].revents & ZMQ_POLLIN) {
@@ -148,7 +166,9 @@ int main(int argc, char* argv[]) {
         cerr << "memory hash ring size is " + to_string(global_memory_hash_ring.size()) + "\n";
         cerr << "ebs hash ring size is " + to_string(global_ebs_hash_ring.size()) + "\n";
       }
-    } else if (pollitems[1].revents & ZMQ_POLLIN) {
+    }
+
+    if (pollitems[1].revents & ZMQ_POLLIN) {
       // handle a user facing request
       cerr << "received user request\n";
       vector<string> v; 
@@ -185,6 +205,9 @@ int main(int argc, char* argv[]) {
           if (placement.find(key) == placement.end()) {
             placement[key] = key_info(DEFAULT_GLOBAL_MEMORY_REPLICATION, DEFAULT_GLOBAL_EBS_REPLICATION);
           }
+
+          // update key access monitoring map
+          key_access_monitoring[key].insert(std::chrono::system_clock::now());
 
           vector<master_node_t> server_nodes = get_nodes(key, &global_memory_hash_ring, &global_ebs_hash_ring, placement);
           if (server_nodes.size() != 0) {
@@ -276,7 +299,9 @@ int main(int argc, char* argv[]) {
           zmq_util::send_string(response_string, &user_responder);
         }
       }
-    } else if (pollitems[2].revents & ZMQ_POLLIN) {
+    }
+
+    if (pollitems[2].revents & ZMQ_POLLIN) {
       // handle gossip request
       // NOTE from Chenggang: I didn't treat the gossip as a normal user PUT because it can cause infinite loop
       cerr << "received gossip request\n";
@@ -364,7 +389,9 @@ int main(int argc, char* argv[]) {
       string response;
       res.SerializeToString(&response);
       zmq_util::send_string(response, &gossip_responder);
-    } else if (pollitems[3].revents & ZMQ_POLLIN) {
+    }
+
+    if (pollitems[3].revents & ZMQ_POLLIN) {
       cerr << "received replication factor change request\n";
       string placement_req = zmq_util::recv_string(&replication_factor_change_puller);
       communication::Placement_Request req;
@@ -502,5 +529,41 @@ int main(int argc, char* argv[]) {
         zmq_util::send_string(data, &pushers[it->first]);
       }
     }
+
+    if (pollitems[4].revents & ZMQ_POLLIN) {
+      cerr << "received storage update\n";
+      string storage_msg = zmq_util::recv_string(&storage_consumption_puller);
+      communication::Storage_Update su;
+      su.ParseFromString(storage_msg);
+      if (su.node_type() == "M") {
+        memory_tier_storage[master_node_t(su.node_ip(), "M")] = su.memory_storage();
+      } else {
+        for (int i = 0; i < su.ebs_size(); i++) {
+          ebs_tier_storage[master_node_t(su.node_ip(), "E")][su.ebs(i).id()] = su.ebs(i).storage();
+        }
+      }
+    }
+
+    end = std::chrono::system_clock::now();
+    if (chrono::duration_cast<std::chrono::seconds>(end-start).count() >= MONITORING_PERIOD) {
+      for (auto map_iter = key_access_monitoring.begin(); map_iter != key_access_monitoring.end(); map_iter++) {
+        string key = map_iter->first;
+        auto mset = map_iter->second;
+
+        // garbage collect key_access_monitoring
+        for (auto set_iter = mset.rbegin(); set_iter != mset.rend(); set_iter++) {
+          if (chrono::duration_cast<std::chrono::seconds>(end-*set_iter).count() >= MONITORING_THRESHOLD) {
+            mset.erase(mset.begin(), set_iter.base());
+            break;
+          }
+        }
+
+        // update key_access_frequency
+        key_access_frequency[key] = mset.size();
+      }
+      
+      start = std::chrono::system_clock::now();
+    }
+
   }
 }
