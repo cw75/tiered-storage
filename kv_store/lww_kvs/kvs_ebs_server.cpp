@@ -672,7 +672,7 @@ int main(int argc, char* argv[]) {
 
   // notify proxies that this node has joined the service
   for (auto it = proxy_address.begin(); it != proxy_address.end(); it++) {
-    zmq_util::send_string("join:" + ip, &cache[master_node_t(*it, "E").proxy_notify_connect_addr_]);
+    zmq_util::send_string("join:E:" + ip, &cache[master_node_t(*it, "E").proxy_notify_connect_addr_]);
   }
 
   // responsible for sending the server address to a new node

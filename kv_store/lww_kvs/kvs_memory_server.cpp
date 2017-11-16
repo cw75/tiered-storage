@@ -322,7 +322,7 @@ int main(int argc, char* argv[]) {
 
   // notify proxies
   for (auto it = proxy_address.begin(); it != proxy_address.end(); it++) {
-    zmq_util::send_string("join:" + ip, &cache[master_node_t(*it, "M").proxy_notify_connect_addr_]);
+    zmq_util::send_string("join:M:" + ip, &cache[master_node_t(*it, "M").proxy_notify_connect_addr_]);
   }
 
   // (seed node) responsible for sending the server address to the new node
