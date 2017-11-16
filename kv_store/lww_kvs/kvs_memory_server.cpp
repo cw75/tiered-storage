@@ -71,8 +71,7 @@ string process_proxy_request(communication::Request& req, int thread_id, unorder
       tp->set_timestamp(res.first.reveal().timestamp);
       tp->set_succeed(res.second);
     }
-  }
-  else if (req.put_size() != 0) {
+  } else if (req.put_size() != 0) {
     cout << "received put by thread " << thread_id << "\n";
     for (int i = 0; i < req.put_size(); i++) {
       bool succeed = process_memory_put(req.put(i).key(), lww_timestamp.load(), req.put(i).value(), kvs);

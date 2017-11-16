@@ -156,10 +156,10 @@ struct crc32_hasher {
 
 struct ebs_hasher {
   hash<string>::result_type operator()(const node_t& node) {
-      return hash<string>{}(node.id_);
+    return hash<string>{}(node.id_);
   }
   hash<string>::result_type operator()(const string& key) {
-      return hash<string>{}(key);
+    return hash<string>{}(key);
   }
   typedef hash<string>::result_type result_type;
 };
