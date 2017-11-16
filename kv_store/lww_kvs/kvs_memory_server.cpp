@@ -48,13 +48,29 @@ typedef unordered_map<string, unordered_set<pair<string, bool>, pair_hash>> redi
 atomic<int> lww_timestamp(0);
 
 pair<RC_KVS_PairLattice<string>, bool> process_memory_get(string key, Database* kvs) {
-  return pair<RC_KVS_PairLattice<string>, bool>(kvs->get(key), true);
+  bool succeed;
+  auto res = kvs->get(key, succeed);
+  // check if the value is an empty string
+  if (res.reveal().value == "") {
+    succeed = false;
+  }
+  return pair<RC_KVS_PairLattice<string>, bool>(res, succeed);
 }
 
 bool process_memory_put(string key, int timestamp, string value, Database* kvs) {
   timestamp_value_pair<string> p = timestamp_value_pair<string>(timestamp, value);
-  kvs->put(key, RC_KVS_PairLattice<string>(p));
-  return true;
+  bool succeed;
+  kvs->put(key, RC_KVS_PairLattice<string>(p), succeed);
+  return succeed;
+}
+
+// remove in memory tier is implemented as replacing the value with an empty string
+// because concurrent unordered map's erase is not thread safe
+void process_memory_remove(string key, Database* kvs) {
+  bool succeed;
+  auto res = kvs->get(key, succeed);
+  timestamp_value_pair<string> p = timestamp_value_pair<string>(res.reveal().timestamp, "");
+  kvs->put(key, RC_KVS_PairLattice<string>(p), succeed);
 }
 
 // Handle request from proxies
@@ -96,6 +112,7 @@ void process_distributed_gossip(communication::Gossip& gossip, int thread_id, Da
 
 void send_gossip(changeset_address* change_set_addr, SocketCache& cache, string ip, int thread_id, Database* kvs) {
   unordered_map<string, communication::Gossip> distributed_gossip_map;
+
   for (auto map_it = change_set_addr->begin(); map_it != change_set_addr->end(); map_it++) {
     vector<string> v;
     split(map_it->first, ':', v);
@@ -103,12 +120,15 @@ void send_gossip(changeset_address* change_set_addr, SocketCache& cache, string 
 
     // add to distribute gossip map
     for (auto set_it = map_it->second.begin(); set_it != map_it->second.end(); set_it++) {
-      cout << "distribute gossip key: " + *set_it + " by thread " + to_string(thread_id) + "\n";
-      communication::Gossip_Tuple* tp = distributed_gossip_map[gossip_addr].add_tuple();
-      tp->set_key(*set_it);
       auto res = process_memory_get(*set_it, kvs);
-      tp->set_value(res.first.reveal().value);
-      tp->set_timestamp(res.first.reveal().timestamp);
+      // if the GET is successful
+      if (res.second) {
+        cout << "distribute gossip key: " + *set_it + " by thread " + to_string(thread_id) + "\n";
+        communication::Gossip_Tuple* tp = distributed_gossip_map[gossip_addr].add_tuple();
+        tp->set_key(*set_it);
+        tp->set_value(res.first.reveal().value);
+        tp->set_timestamp(res.first.reveal().timestamp);
+      }
     }
   }
   // send distributed gossip
@@ -200,7 +220,7 @@ void memory_worker_routine (zmq::context_t* context, Database* kvs, string ip, i
       delete r_data;
       // remove keys in the remove set
       for (auto it = remove_set.begin(); it != remove_set.end(); it++) {
-          kvs->remove(*it);
+        process_memory_remove(*it, kvs);
       }
     }
 
@@ -362,9 +382,11 @@ int main(int argc, char* argv[]) {
                                        {static_cast<void*>(replication_factor_change_puller), 0, ZMQ_POLLIN, 0}
                                      };
 
-  string input;
+  auto start = std::chrono::system_clock::now();
+  auto end = std::chrono::system_clock::now();
+
   while (true) {
-    zmq_util::poll(-1, &pollitems);
+    zmq_util::poll(0, &pollitems);
     if (pollitems[0].revents & ZMQ_POLLIN) {
       string request = zmq_util::recv_string(&addr_responder);
       cout << "request is " + request + "\n";
@@ -379,7 +401,9 @@ int main(int argc, char* argv[]) {
       else {
         cout << "invalid request\n";
       }
-    } else if (pollitems[1].revents & ZMQ_POLLIN) {
+    }
+
+    if (pollitems[1].revents & ZMQ_POLLIN) {
       string new_server_ip = zmq_util::recv_string(&join_puller);
       cout << "Received a node join. New node is " << new_server_ip << ".\n";
       master_node_t new_node = master_node_t(new_server_ip, "M");
@@ -410,18 +434,16 @@ int main(int argc, char* argv[]) {
       }
 
       zmq_util::send_msg((void*)r_address, &cache[worker_address]);
+    }
 
-      // delete the placement info for all the keys that are removed
-      // TODO: find a way to not remove the key as it may introduce race condition
-      for (auto it = key_to_query.begin(); it != key_to_query.end(); it++) {
-        placement.erase(*it);
-      }
-    } else if (pollitems[2].revents & ZMQ_POLLIN) {
+    if (pollitems[2].revents & ZMQ_POLLIN) {
       cout << "received departure of other nodes\n";
       string departing_server_ip = zmq_util::recv_string(&depart_puller);
       // update hash ring
       global_memory_hash_ring.erase(master_node_t(departing_server_ip, "M"));
-    } else if (pollitems[3].revents & ZMQ_POLLIN) {
+    }
+
+    if (pollitems[3].revents & ZMQ_POLLIN) {
       cout << "received key address request\n";
       lww_timestamp++;
       string key_req = zmq_util::recv_string(&key_address_responder);
@@ -437,28 +459,34 @@ int main(int argc, char* argv[]) {
         int ger = req.tuple(i).global_ebs_replication();
         cout << "Received a key request for key " + key + ".\n";
 
-        communication::Key_Response_Tuple* tp = res.add_tuple();
-        tp->set_key(key);
-
         // fill in placement metadata only if not already exist
         if (placement.find(key) == placement.end()) {
           placement[key] = key_info(gmr, ger);
         }
-        
-        // for now, randomly select a memory thread
-        int tid = 1 + rand()%MEMORY_THREAD_NUM;
-        communication::Key_Response_Address* tp_addr = tp->add_address();
-        if (sender == "server") {
-          tp_addr->set_addr(worker_node_t(ip, tid).id_);
-        } else {
-          tp_addr->set_addr(worker_node_t(ip, tid).proxy_connection_connect_addr_);
+
+        // check if the node is responsible for this key
+        auto result = responsible<master_node_t, crc32_hasher>(key, placement[key].global_memory_replication_, global_memory_hash_ring, mnode.id_);
+
+        if (result.first) {
+          communication::Key_Response_Tuple* tp = res.add_tuple();
+          tp->set_key(key);
+          // for now, randomly select a memory thread
+          int tid = 1 + rand()%MEMORY_THREAD_NUM;
+          communication::Key_Response_Address* tp_addr = tp->add_address();
+          if (sender == "server") {
+            tp_addr->set_addr(worker_node_t(ip, tid).id_);
+          } else {
+            tp_addr->set_addr(worker_node_t(ip, tid).proxy_connection_connect_addr_);
+          }
         }
       }
 
       string response;
       res.SerializeToString(&response);
       zmq_util::send_string(response, &key_address_responder);
-    } else if (pollitems[4].revents & ZMQ_POLLIN) {
+    }
+
+    if (pollitems[4].revents & ZMQ_POLLIN) {
       cout << "received changeset address request from the worker threads (for gossiping)\n";
       zmq::message_t msg;
       zmq_util::recv_msg(&changeset_address_responder, msg);
@@ -518,7 +546,9 @@ int main(int argc, char* argv[]) {
 
       zmq_util::send_msg((void*)res, &changeset_address_responder);
       delete data;
-    } else if (pollitems[5].revents & ZMQ_POLLIN) {
+    }
+
+    if (pollitems[5].revents & ZMQ_POLLIN) {
       cout << "Node is departing.\n";
       global_memory_hash_ring.erase(mnode);
       for (auto it = global_memory_hash_ring.begin(); it != global_memory_hash_ring.end(); it++) {
@@ -571,7 +601,9 @@ int main(int argc, char* argv[]) {
       // TODO: once we break here, I don't think that the threads will have
       // finished. they will still be looping.
       break;
-    } else if (pollitems[6].revents & ZMQ_POLLIN) {
+    }
+
+    if (pollitems[6].revents & ZMQ_POLLIN) {
       cout << "Received replication factor change request\n";
 
       // choose a random worker to remove the keys
@@ -593,11 +625,19 @@ int main(int argc, char* argv[]) {
       for (int i = 0; i < req.tuple_size(); i++) {
         string key = req.tuple(i).key();
 
+        int gmr = req.tuple(i).global_memory_replication();
+        int ger = req.tuple(i).global_ebs_replication();
+
+        // fill in placement metadata only if not already exist
+        if (placement.find(key) == placement.end()) {
+          placement[key] = key_info(gmr, ger);
+        }
+
         // first, check whether the node is responsible for the key before the replication factor change
         auto result = responsible<master_node_t, crc32_hasher>(key, placement[key].global_memory_replication_, global_memory_hash_ring, mnode.id_);
         // update placement info
-        placement[key].global_memory_replication_ = req.tuple(i).global_memory_replication();
-        placement[key].global_ebs_replication_ = req.tuple(i).global_ebs_replication();
+        placement[key].global_memory_replication_ = gmr;
+        placement[key].global_ebs_replication_ = ger;
         // proceed only if the node is responsible for the key before the replication factor change
         if (result.first) {
           // check the global ring and request worker addresses from other node's master thread
@@ -658,16 +698,27 @@ int main(int argc, char* argv[]) {
       }
 
       zmq_util::send_msg((void*)r_address, &cache[worker_address]);
+    }
 
-      // delete the placement info for all the keys that are removed
-      // TODO: find a way to not remove the key as it may introduce race condition
-      for (auto it = key_remove_map.begin(); it != key_remove_map.end(); it++) {
-        if (it->second) {
-          placement.erase(it->first);
-        }
+    end = std::chrono::system_clock::now();
+    if (chrono::duration_cast<std::chrono::seconds>(end-start).count() >= STORAGE_CONSUMPTION_REPORT_THRESHOLD) {
+      // compute total storage consumption
+      size_t consumption = 0;
+      for (auto it = kvs->size_map.begin(); it != kvs->size_map.end(); it++) {
+        consumption += it->second->load();
       }
-    } else {
-      cout << "Invalid Request\n";
+
+      string target_proxy_address = proxy_address[rand() % proxy_address.size()] + ":" + to_string(PROXY_STORAGE_CONSUMPTION_PORT);
+      communication::Storage_Update su;
+      su.set_node_ip(mnode.ip_);
+      su.set_node_type("M");
+      su.set_memory_storage(consumption);
+      string msg;
+      su.SerializeToString(&msg);
+      // send the storage consumption update
+      zmq_util::send_string(msg, &cache[target_proxy_address]);      
+
+      start = std::chrono::system_clock::now();
     }
   }
   for (auto& th: memory_threads) {

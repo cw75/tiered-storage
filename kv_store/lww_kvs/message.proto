@@ -73,3 +73,15 @@ message Placement_Request {
   }
   repeated Tuple tuple = 1;
 }
+
+message Storage_Update {
+  message EBS {
+    required string id = 1;
+    required int64 storage = 2;
+  }
+
+  required string node_ip = 1;
+  required string node_type = 2;
+  optional int64 memory_storage = 3;
+  repeated EBS ebs = 4;
+}

@@ -3,6 +3,8 @@
 
 #include <string>
 
+#define STORAGE_CONSUMPTION_REPORT_THRESHOLD 10
+
 using namespace std;
 
 string alphabet("abcdefghijklmnopqrstuvwxyz");

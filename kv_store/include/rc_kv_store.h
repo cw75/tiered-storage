@@ -35,4 +35,21 @@ protected:
 public:
     RC_KVS_PairLattice() : Lattice<timestamp_value_pair<T>>() {}
     RC_KVS_PairLattice(const timestamp_value_pair<T> &p)  : Lattice<timestamp_value_pair<T>>(p) {}
+
+    // this Merge is specific to lww lattice
+    // return true if the new value replaced the old value
+    // return false otherwise
+    bool Merge(const timestamp_value_pair<T>& p) {
+      if (p.timestamp >= this -> element.timestamp) {
+        this -> element.timestamp = p.timestamp;
+        this -> element.value = p.value;
+        return true;
+      } else {
+        return false;
+      }
+    }
+
+    bool Merge(const RC_KVS_PairLattice<T>& pl) {
+      return Merge(pl.reveal());
+    }
 };
