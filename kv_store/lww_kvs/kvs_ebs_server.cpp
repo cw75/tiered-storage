@@ -983,7 +983,7 @@ int main(int argc, char* argv[]) {
       // check if there are key requests to send to proxy
       if (key_to_proxy.size() != 0) {
         // for now, randomly choose a proxy to contact
-        string target_proxy_address = proxy_address[rand() % proxy_address.size()] + ":" + to_string(PROXY_GOSSIP_PORT);
+        string target_proxy_address = "tcp://" + proxy_address[rand() % proxy_address.size()] + ":" + to_string(PROXY_GOSSIP_PORT);
         // get key address
         communication::Key_Response resp = get_key_address<ebs_key_info>(target_proxy_address, "M", key_to_proxy, key_address_requesters, placement);
 
@@ -1023,7 +1023,7 @@ int main(int argc, char* argv[]) {
       
       // notify proxies
       for (auto it = proxy_address.begin(); it != proxy_address.end(); it++) {
-        zmq_util::send_string("depart:" + ip, &cache[master_node_t(*it, "E").proxy_notify_connect_addr_]);
+        zmq_util::send_string("depart:E:" + ip, &cache[master_node_t(*it, "E").proxy_notify_connect_addr_]);
       }
 
       // form the key_request map
@@ -1203,7 +1203,7 @@ int main(int argc, char* argv[]) {
       // check if there are key requests to send to proxy
       if (key_to_proxy.size() != 0) {
         // for now, randomly choose a proxy to contact
-        string target_proxy_address = proxy_address[rand() % proxy_address.size()] + ":" + to_string(PROXY_GOSSIP_PORT);
+        string target_proxy_address = "tcp://" + proxy_address[rand() % proxy_address.size()] + ":" + to_string(PROXY_GOSSIP_PORT);
         // get key address
         communication::Key_Response resp = get_key_address<ebs_key_info>(target_proxy_address, "M", key_to_proxy, key_address_requesters, placement);
 
@@ -1260,7 +1260,7 @@ int main(int argc, char* argv[]) {
 
     end = std::chrono::system_clock::now();
     if (chrono::duration_cast<std::chrono::seconds>(end-start).count() >= STORAGE_CONSUMPTION_REPORT_THRESHOLD) {
-      string target_proxy_address = proxy_address[rand() % proxy_address.size()] + ":" + to_string(PROXY_STORAGE_CONSUMPTION_PORT);
+      string target_proxy_address = "tcp://" + proxy_address[rand() % proxy_address.size()] + ":" + to_string(PROXY_STORAGE_CONSUMPTION_PORT);
       communication::Storage_Update su;
       su.set_node_ip(mnode.ip_);
       su.set_node_type("E");
