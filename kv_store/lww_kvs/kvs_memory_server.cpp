@@ -531,7 +531,7 @@ int main(int argc, char* argv[]) {
       // check if there are key requests to send to proxy
       if (key_to_proxy.size() != 0) {
         // for now, randomly choose a proxy to contact
-        string target_proxy_address = proxy_address[rand() % proxy_address.size()] + ":" + to_string(PROXY_GOSSIP_PORT);
+        string target_proxy_address = "tcp://" + proxy_address[rand() % proxy_address.size()] + ":" + to_string(PROXY_GOSSIP_PORT);
         // get key address
         communication::Key_Response resp = get_key_address<key_info>(target_proxy_address, "E", key_to_proxy, key_address_requesters, placement);
 
@@ -556,7 +556,7 @@ int main(int argc, char* argv[]) {
       }
       // notify proxies
       for (auto it = proxy_address.begin(); it != proxy_address.end(); it++) {
-        zmq_util::send_string("depart:" + ip, &cache[master_node_t(*it, "M").proxy_notify_connect_addr_]);
+        zmq_util::send_string("depart:M:" + ip, &cache[master_node_t(*it, "M").proxy_notify_connect_addr_]);
       }
       // form the key_request map
       unordered_map<string, communication::Key_Request> key_request_map;
@@ -684,7 +684,7 @@ int main(int argc, char* argv[]) {
       // check if there are key requests to send to proxy
       if (key_to_proxy.size() != 0) {
         // for now, randomly choose a proxy to contact
-        string target_proxy_address = proxy_address[rand() % proxy_address.size()] + ":" + to_string(PROXY_GOSSIP_PORT);
+        string target_proxy_address = "tcp://" + proxy_address[rand() % proxy_address.size()] + ":" + to_string(PROXY_GOSSIP_PORT);
         // get key address
         communication::Key_Response resp = get_key_address<key_info>(target_proxy_address, "E", key_to_proxy, key_address_requesters, placement);
 
