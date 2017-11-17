@@ -19,7 +19,7 @@ using namespace std;
 using address_t = string;
 
 #define DEFAULT_GLOBAL_MEMORY_REPLICATION 1
-#define DEFAULT_GLOBAL_EBS_REPLICATION 2
+#define DEFAULT_GLOBAL_EBS_REPLICATION 0
 
 #define MONITORING_THRESHOLD 30
 #define MONITORING_PERIOD 3
@@ -541,7 +541,7 @@ int main(int argc, char* argv[]) {
         memory_tier_storage[master_node_t(su.node_ip(), "M")] = su.memory_storage();
       } else {
         ebs_tier_storage[master_node_t(su.node_ip(), "E")].clear();
-        
+
         for (int i = 0; i < su.ebs_size(); i++) {
           ebs_tier_storage[master_node_t(su.node_ip(), "E")][su.ebs(i).id()] = su.ebs(i).storage();
         }
