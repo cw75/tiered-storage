@@ -19,7 +19,7 @@ using namespace std;
 using address_t = string;
 
 #define DEFAULT_GLOBAL_MEMORY_REPLICATION 1
-#define DEFAULT_GLOBAL_EBS_REPLICATION 0
+#define DEFAULT_GLOBAL_EBS_REPLICATION 2
 
 #define MONITORING_THRESHOLD 30
 #define MONITORING_PERIOD 3
@@ -158,8 +158,10 @@ int main(int argc, char* argv[]) {
         // update hash ring
         if (v[1] == "M") {
           global_memory_hash_ring.erase(master_node_t(v[2], "M"));
+          memory_tier_storage.erase(master_node_t(v[2], "M"));
         } else if (v[1] == "E") {
           global_ebs_hash_ring.erase(master_node_t(v[2], "E"));
+          ebs_tier_storage.erase(master_node_t(v[2], "E"));
         } else {
           cerr << "Invalid Tier info\n";
         }
@@ -538,6 +540,8 @@ int main(int argc, char* argv[]) {
       if (su.node_type() == "M") {
         memory_tier_storage[master_node_t(su.node_ip(), "M")] = su.memory_storage();
       } else {
+        ebs_tier_storage[master_node_t(su.node_ip(), "E")].clear();
+        
         for (int i = 0; i < su.ebs_size(); i++) {
           ebs_tier_storage[master_node_t(su.node_ip(), "E")][su.ebs(i).id()] = su.ebs(i).storage();
         }

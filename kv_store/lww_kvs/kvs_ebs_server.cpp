@@ -377,7 +377,7 @@ void ebs_worker_routine (zmq::context_t* context, string ip, int thread_id) {
       for (auto it = remove_set.begin(); it != remove_set.end(); it++) {
         key_set.erase(*it);
         // update value size
-        size_map[*it] = 0;
+        size_map.erase(*it);
 
         string fname = get_ebs_path("ebs_" + to_string(thread_id) + "/" + *it);
         if(remove(fname.c_str()) != 0) {
@@ -474,16 +474,16 @@ void ebs_worker_routine (zmq::context_t* context, string ip, int thread_id) {
   }
 }
 
-void add_thread(map<string, int> ebs_device_map, 
-    unordered_map<int, string> inverse_ebs_device_map, 
-    vector<thread> ebs_threads,
-    ebs_hash_t local_ebs_hash_ring,
-    unordered_map<string, ebs_key_info> placement,
-    set<int> active_thread_id,
+void add_thread(map<string, int>& ebs_device_map, 
+    unordered_map<int, string>& inverse_ebs_device_map, 
+    vector<thread>& ebs_threads,
+    ebs_hash_t& local_ebs_hash_ring,
+    unordered_map<string, ebs_key_info>& placement,
+    set<int>& active_thread_id,
     int next_thread_id,
     string ip,
-    zmq::context_t context,
-    SocketCache cache) {
+    zmq::context_t& context,
+    SocketCache& cache) {
 
   cout << "Adding a new thread.\n";
   string ebs_device_id;
@@ -557,7 +557,13 @@ void add_thread(map<string, int> ebs_device_map,
   next_thread_id += 1;
 }
 
-void remove_thread(set<int> active_thread_id, ebs_hash_t local_ebs_hash_ring, unordered_map<int, string> inverse_ebs_device_map, string ip, SocketCache cache) {
+void remove_thread(set<int>& active_thread_id,
+    ebs_hash_t& local_ebs_hash_ring,
+    unordered_map<int, string>& inverse_ebs_device_map,
+    string ip,
+    SocketCache& cache,
+    unordered_map<string, size_t>& ebs_storage) {
+
   if (active_thread_id.rbegin() == active_thread_id.rend()) {
     cout << "Error: No remaining threads are running. Nothing to remove.\n";
   } else {
@@ -567,6 +573,7 @@ void remove_thread(set<int> active_thread_id, ebs_hash_t local_ebs_hash_ring, un
     worker_node_t wnode = worker_node_t(ip, target_thread_id);
     local_ebs_hash_ring.erase(wnode);
     active_thread_id.erase(target_thread_id);
+    ebs_storage.erase(to_string(target_thread_id));
 
     string device_id = inverse_ebs_device_map[target_thread_id];
     zmq_util::send_string(device_id, &cache[wnode.local_depart_addr_]);
