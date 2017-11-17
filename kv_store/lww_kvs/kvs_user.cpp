@@ -15,6 +15,17 @@
 using namespace std;
 
 int main(int argc, char* argv[]) {
+
+  bool batch;
+  if (argc == 1) {
+    batch = false;
+  } else if (argc == 2) {
+    batch = true;
+  } else {
+    cerr << "invalid argument" << endl;
+    return 1;
+  }
+
   // read in the proxy addresses
   vector<string> proxy_address;
 
@@ -35,12 +46,24 @@ int main(int argc, char* argv[]) {
   zmq::socket_t proxy_connector(context, ZMQ_REQ);
   proxy_connector.connect("tcp://" + proxy_ip + ":" + to_string(PROXY_USER_PORT));
 
-  string input;
+  if (!batch) {
+    string input;
 
-  while (true) {
-    cout << "kvs> ";
-    getline(cin, input);
-    zmq_util::send_string(input, &proxy_connector);
-    cout << zmq_util::recv_string(&proxy_connector);
+    while (true) {
+      cout << "kvs> ";
+      getline(cin, input);
+      zmq_util::send_string(input, &proxy_connector);
+      cout << zmq_util::recv_string(&proxy_connector);
+    }
+  } else {
+    // read in the request
+    string request;
+    ifstream request_reader;
+    request_reader.open(argv[1]);
+
+    while (getline(request_reader, request)) {
+      zmq_util::send_string(request, &proxy_connector);
+      cout << zmq_util::recv_string(&proxy_connector);
+    }
   }
 }
