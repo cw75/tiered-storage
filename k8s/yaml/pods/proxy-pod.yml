@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: proxy-pod
+  labels: 
+    role: proxy
+spec:
+  containers:
+  - name: kvs-proxy-container
+    image: vsreekanti/kvs
+    env: 
+    - name: RUN_SCRIPT
+      value: proxy_start.sh
+  nodeSelector:
+    role: proxy

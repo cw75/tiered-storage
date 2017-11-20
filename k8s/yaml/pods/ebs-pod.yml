@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ebs-pod
+  labels: 
+    role: ebs
+spec:
+  containers:
+    - name: kvs-ebs-container
+      image: vsreekanti/kvs
+      env: 
+      - name: RUN_SCRIPT
+        value: ebs_start.sh
+      - name: CLIENT_IPS
+        value: CLIENT_IPS_DUMMY

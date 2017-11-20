@@ -1,0 +1,21 @@
+# template for creating a new memory tier pod
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: memory-instance-UNIQUE
+  labels: 
+    role: memory
+spec:
+  containers:
+  - name: kvs-memory-container
+    image: vsreekanti/kvs
+    env: 
+    - name: RUN_SCRIPT
+      value: memory_start.sh
+    - name: CLIENT_IPS
+      value: CLIENT_IPS_DUMMY
+    - name: SEED_SERVER
+      value: SEED_SERVER_DUMMY
+  nodeSelector:
+    role: memory-UNIQUE
