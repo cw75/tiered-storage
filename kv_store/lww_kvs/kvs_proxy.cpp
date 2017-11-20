@@ -74,6 +74,9 @@ int main(int argc, char* argv[]) {
   unordered_map<string, size_t> key_access_frequency;
   unordered_map<string, multiset<std::chrono::time_point<std::chrono::system_clock>>> key_access_monitoring;
 
+  // keep track of memory tier worker thread occupancy
+  unordered_map<master_node_t, float, node_hash> memory_tier_occupancy;
+
   // keep track of memory tier storage consumption
   unordered_map<master_node_t, size_t, node_hash> memory_tier_storage;
 
@@ -237,8 +240,13 @@ int main(int argc, char* argv[]) {
             it->second.SerializeToString(&key_req);
             zmq_util::send_string(key_req, &requesters[it->first.key_exchange_connect_addr_]);
 
+            auto send_time = std::chrono::system_clock::now();
             // wait for a response from the server and deserialize
             string key_res = zmq_util::recv_string(&requesters[it->first.key_exchange_connect_addr_]);
+            auto receive_time = std::chrono::system_clock::now();
+
+            cout << "key request took " + to_string(chrono::duration_cast<std::chrono::milliseconds>(receive_time-send_time).count()) + " milliseconds\n";
+
             communication::Key_Response server_res;
             server_res.ParseFromString(key_res);
 
@@ -279,8 +287,14 @@ int main(int argc, char* argv[]) {
             string data;
             it->second.SerializeToString(&data);
             zmq_util::send_string(data, &requesters[it->first]);
+
+            auto send_time = std::chrono::system_clock::now();
             // wait for response to actual request
             data = zmq_util::recv_string(&requesters[it->first]);
+            auto receive_time = std::chrono::system_clock::now();
+
+            cout << "request took " + to_string(chrono::duration_cast<std::chrono::milliseconds>(receive_time-send_time).count()) + " milliseconds\n";
+
             communication::Response response;
             response.ParseFromString(data);
 
@@ -539,6 +553,7 @@ int main(int argc, char* argv[]) {
       su.ParseFromString(storage_msg);
       if (su.node_type() == "M") {
         memory_tier_storage[master_node_t(su.node_ip(), "M")] = su.memory_storage();
+        memory_tier_occupancy[master_node_t(su.node_ip(), "M")] = su.thread_occupancy();
       } else {
         ebs_tier_storage[master_node_t(su.node_ip(), "E")].clear();
 

@@ -83,5 +83,6 @@ message Storage_Update {
   required string node_ip = 1;
   required string node_type = 2;
   optional int64 memory_storage = 3;
-  repeated EBS ebs = 4;
+  optional float thread_occupancy = 4;
+  repeated EBS ebs = 5;
 }
