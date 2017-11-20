@@ -11,13 +11,10 @@
 #include "socket_cache.h"
 #include "zmq_util.h"
 #include "common.h"
-//#include "yaml-cpp/yaml.h"
 
 using namespace std;
 
 int main(int argc, char* argv[]) {
-
-  //YAML::Node config = YAML::LoadFile("conf/config.yaml");
 
   bool batch;
   if (argc == 1) {

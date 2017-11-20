@@ -24,6 +24,20 @@ using address_t = string;
 #define MONITORING_THRESHOLD 30
 #define MONITORING_PERIOD 3
 
+master_node_t get_least_occupied_memory_node(vector<master_node_t>& server_nodes, unordered_map<master_node_t, float, node_hash>& memory_tier_occupancy) {
+  master_node_t best_node;
+  float min_occupancy = 1.0;
+
+  for (auto it = server_nodes.begin(); it != server_nodes.end(); it++) {
+    if (memory_tier_occupancy[*it] <= min_occupancy) {
+      min_occupancy = memory_tier_occupancy[*it];
+      best_node = *it;
+    }
+  }
+
+  return best_node;
+}
+
 // given a key, check memory and ebs hash ring to find all the server nodes responsible for the key
 vector<master_node_t> get_nodes(string key, global_hash_t* global_memory_hash_ring, global_hash_t* global_ebs_hash_ring, unordered_map<string, key_info>& placement) {
   vector<master_node_t> server_nodes;
@@ -216,8 +230,8 @@ int main(int argc, char* argv[]) {
 
           vector<master_node_t> server_nodes = get_nodes(key, &global_memory_hash_ring, &global_ebs_hash_ring, placement);
           if (server_nodes.size() != 0) {
-            // randomly choose a server node responsible for this key and update the key request map
-            master_node_t server_node = server_nodes[rand() % server_nodes.size()];
+            // get the least occupied memory node
+            master_node_t server_node = get_least_occupied_memory_node(server_nodes, memory_tier_occupancy);
             // TODO: before setting the sender, check if it's already been set
             key_request_map[server_node].set_sender("proxy");
             communication::Key_Request_Tuple* tp = key_request_map[server_node].add_tuple();
@@ -415,78 +429,6 @@ int main(int argc, char* argv[]) {
 
       // used to keep track of the original replication factors for the requested keys
       unordered_map<string, pair<int, int>> orig_placement_info;
-
-      // used to keep track of the key value mapping
-      unordered_map<string, pair<string, int>> key_value_map;
-      unordered_map<address_t, communication::Request> request_map;
-      unordered_map<master_node_t, communication::Key_Request, node_hash> key_request_map;
-
-      for (int i = 0; i < req.tuple_size(); i++) {
-        string key = req.tuple(i).key();
-
-        vector<master_node_t> server_nodes = get_nodes(key, &global_memory_hash_ring, &global_ebs_hash_ring, placement);
-
-        // randomly choose a server node responsible for this key and update the key request map
-        // assume the size of server_nodes is not 0 (it shouldn't be) 
-        master_node_t server_node = server_nodes[rand() % server_nodes.size()];
-        // TODO: before setting the sender, check if it's already been set
-        key_request_map[server_node].set_sender("proxy");
-        communication::Key_Request_Tuple* tp = key_request_map[server_node].add_tuple();
-        tp->set_key(key);
-        tp->set_global_memory_replication(placement[key].global_memory_replication_);
-        tp->set_global_ebs_replication(placement[key].global_ebs_replication_);
-      }
-
-      // loop through key request map, send key request to all nodes
-      // receive key responses, and form the request map
-      for (auto it = key_request_map.begin(); it != key_request_map.end(); it++) {
-        // serialize request and send
-        string key_req;
-        it->second.SerializeToString(&key_req);
-        zmq_util::send_string(key_req, &requesters[it->first.key_exchange_connect_addr_]);
-
-        // wait for a response from the server and deserialize
-        string key_res = zmq_util::recv_string(&requesters[it->first.key_exchange_connect_addr_]);
-        communication::Key_Response server_res;
-        server_res.ParseFromString(key_res);
-
-        string key;
-        address_t worker_address;
-        // get the worker address from the response and sent the serialized
-        // data from up above to the worker thread; the reason that we do
-        // this is to let the metadata thread avoid having to receive a
-        // potentially large request body; since the metadata thread is
-        // serial, this could potentially be a bottleneck; the current way
-        // allows the metadata thread to answer lightweight requests only
-        for (int i = 0; i < server_res.tuple_size(); i++) {
-          key = server_res.tuple(i).key();
-          if (it->first.tier_ == "E") {
-            // randomly choose a worker address for a key
-            worker_address = server_res.tuple(i).address(rand() % server_res.tuple(i).address().size()).addr();
-          } else {
-            // we only have one address for memory tier
-            worker_address = server_res.tuple(i).address(0).addr();
-          }
-
-          communication::Request_Get* g = request_map[worker_address].add_get();
-          g->set_key(key);
-        }
-      }
-
-      for (auto it = request_map.begin(); it != request_map.end(); it++) {
-        string data;
-        it->second.SerializeToString(&data);
-        zmq_util::send_string(data, &requesters[it->first]);
-        // wait for response to actual request
-        data = zmq_util::recv_string(&requesters[it->first]);
-        communication::Response response;
-        response.ParseFromString(data);
-
-        // populate key value map
-        for (int i = 0; i < response.tuple_size(); i++) {
-          key_value_map[response.tuple(i).key()] = pair<string, int>(response.tuple(i).value(), response.tuple(i).timestamp());
-        }
-      }
 
       // update the placement info
       for (int i = 0; i < req.tuple_size(); i++) {
