@@ -11,10 +11,10 @@ spec:
   - name: kvs-memory-container
     image: vsreekanti/kvs
     env: 
-    - name: RUN_SCRIPT
-      value: memory_start.sh
-    - name: CLIENT_IPS
-      value: CLIENT_IPS_DUMMY
+    - name: SERVER_TYPE
+      value: m
+    - name: PROXY_IPS
+      value: PROXY_IPS_DUMMY
     - name: SEED_SERVER
       value: SEED_SERVER_DUMMY
   nodeSelector:

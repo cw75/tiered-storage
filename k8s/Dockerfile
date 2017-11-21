@@ -40,11 +40,9 @@ RUN apt-get install -y awscli jq
 RUN git clone https://github.com/cw75/tiered-storage
 RUN cd tiered-storage && sh scripts/build_release.sh
 
-COPY memory_start.sh /
-COPY ebs_start.sh /
-COPY proxy_start.sh /
+COPY start.sh /
 
 RUN mkdir tiered-storage/k8s
 COPY ./ /tiered-storage/k8s
 
-CMD sh $RUN_SCRIPT
+CMD sh start.sh $SERVER_TYPE

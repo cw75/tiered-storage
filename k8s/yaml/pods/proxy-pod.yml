@@ -9,7 +9,7 @@ spec:
   - name: kvs-proxy-container
     image: vsreekanti/kvs
     env: 
-    - name: RUN_SCRIPT
-      value: proxy_start.sh
+    - name: SERVER_TYPE
+      value: p
   nodeSelector:
     role: proxy
