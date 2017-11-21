@@ -5,28 +5,27 @@ if [ -z "$1" ]; then
   exit 1
 fi
   
-UID=`cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 16 | head -n 1`
+UUID=`cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 16 | head -n 1`
 
 if [ "$1" = "m" ]; then
   YML_FILE=yaml/pods/memory-pod.yml
 
   # add a new memory server
-  ./add_server.sh m y $UID
+  ./add_server.sh m y $UUID
 elif [ "$1" = "e" ]; then
   YML_FILE=yaml/pods/ebs-pod.yml
 
   # add a new EBS server
-  ./add_server.sh e y $UID
+  ./add_server.sh e y $UUID
 
   # create new EBS volumes; we have 3 per server by default
   EBS_V1=`aws ec2 create-volume --availability-zone=us-east-1a --size=64 --volume-type=gp2 | grep VolumeId | cut -d\" -f4`
   EBS_V2=`aws ec2 create-volume --availability-zone=us-east-1a --size=64 --volume-type=gp2 | grep VolumeId | cut -d\" -f4`
   EBS_V3=`aws ec2 create-volume --availability-zone=us-east-1a --size=64 --volume-type=gp2 | grep VolumeId | cut -d\" -f4`
-  sed -i "s|VOLUME_DUMMY_1|$EBS_V1|g" tmp.yml
 elif [ "$1" = "p" ]; then
   # for now, we only have one proxy... we will worry about uniqueness for
   # proxies later... see create_cluster for more detail
-  kubectl create -f yaml/pods/proxy-pod.yml 
+  kubectl create -f yaml/pods/proxy-pod.yml > /dev/null 2>&1
   exit 0
 else
   echo "Unrecognized node type $1. Valid node types are m (memory), e (EBS), and p (proxy)."
@@ -46,7 +45,7 @@ fi
 
 sed "s|PROXY_IPS_DUMMY|$PROXY_IPS|g" $YML_FILE > tmp.yml
 sed -i "s|SEED_SERVER_DUMMY|$SEED_SERVER|g" tmp.yml
-sed -i "s|UNIQUE|$MEM_UID|g" tmp.yml
+sed -i "s|UNIQUE|$UUID|g" tmp.yml
 
 if [ "$1" = "e" ]; then
   sed -i "s|VOLUME_DUMMY_1|$EBS_V1|g" tmp.yml

@@ -34,6 +34,7 @@ done
 echo "Creating proxy node..."
 ./add_node.sh p
 
+# TODO: optimize this to create multiple nodes at once
 echo "Creating $1 memory node(s)..."
 for i in $(seq 1 $1); do
   ./add_node.sh m

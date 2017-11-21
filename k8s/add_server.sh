@@ -13,12 +13,13 @@ elif [ "$1" = "p" ]; then
   sed "s|CLUSTER_NAME|$NAME|g" yaml/igs/proxy-ig.yml > tmp.yml
   kops create -f tmp.yml > /dev/null 2>&1
   rm tmp.yml
+  exit 0
 else
-  echo "Unrecognized node type $1. Valid node types are m (memory), e (EBS), and p (proxy).\n"
+  echo "Unrecognized node type $1. Valid node types are m (memory), e (EBS), and p (proxy)."
 fi
 
 if [ -z "$3" ]; then
-  echo "Must provide a unique ID when creating a storage node.\n"
+  echo "Must provide a unique ID when creating a storage node."
   exit 1
 fi
 
