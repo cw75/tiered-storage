@@ -1,5 +1,9 @@
 #!/bin/bash
 
+if [ -z "$1" ] && [ -z "$2"]; then
+  echo "Usage: ./create_cluster.sh <min_mem_instances> <min_ebs_instances>"
+fi
+
 export NAME=kvs.k8s.local
 export KOPS_STATE_STORE=s3://tiered-storage-state-store
 
@@ -30,8 +34,16 @@ done
 echo "Creating proxy node..."
 ./add_node.sh p
 
-echo "Creating a single memory node..."
-./add_node.sh m
+echo "Creating $1 memory node(s)..."
+for i in $(seq 1 $1); do
+  ./add_node.sh m
+done
 
-# TODO: create EBS ig
+echo "Creating $2 EBS node(s)..."
+for i in $(seq 1 $2); do
+  ./add_node.sh e
+done
 
+# TODO: once we have a yaml config file, we will have to set the values in each
+# of the pod scripts for the replication factors, etc. otherwise, we'll end up
+# with weird inconsistencies

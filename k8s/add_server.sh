@@ -6,28 +6,30 @@ if [ -z "$1" ] && [ -z "$2" ]; then
 fi
 
 if [ "$1" = "m" ]; then
-  if [ -z "$3" ]; then
-    echo "Must provide a unique ID when creating a memory node.\n"
-    exit 1
-  fi
-
-  sed "s|CLUSTER_NAME|$NAME|g" yaml/igs/memory-ig.yml > tmp.yml
-  sed -i "s|UNIQUE|$3|g" tmp.yml
-
-  echo "Adding an EC2 server to the cluster..."
-  kops create -f tmp.yml > /dev/null 2>&1
-  rm tmp.yml
+  YML_FILE=yaml/igs/memory-ig.yml
 elif [ "$1" = "e" ]; then
-  echo "EBS not yet implemented."
-  exit 1
+  YML_FILE=yaml/igs/ebs-ig.yml
 elif [ "$1" = "p" ]; then
   sed "s|CLUSTER_NAME|$NAME|g" yaml/igs/proxy-ig.yml > tmp.yml
   kops create -f tmp.yml > /dev/null 2>&1
   rm tmp.yml
 else
   echo "Unrecognized node type $1. Valid node types are m (memory), e (EBS), and p (proxy).\n"
-fi 
+fi
 
+if [ -z "$3" ]; then
+  echo "Must provide a unique ID when creating a storage node.\n"
+  exit 1
+fi
+
+sed "s|CLUSTER_NAME|$NAME|g" $YML_FILE > tmp.yml
+sed -i "s|UNIQUE|$3|g" tmp.yml
+
+echo "Adding an EC2 server to the cluster..."
+kops create -f tmp.yml > /dev/null 2>&1
+rm tmp.yml
+
+# if "y" is set, that means we want to validate the cluster
 if [ "$2" = "y" ]; then
   kops update cluster ${NAME} --yes
 
