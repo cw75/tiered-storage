@@ -616,6 +616,10 @@ int main(int argc, char* argv[]) {
   ebs_hash_t local_ebs_hash_ring;
   unordered_map<string, ebs_key_info> placement;
 
+  // keep track of the keys' hotness
+  unordered_map<string, size_t> key_access_frequency;
+  unordered_map<string, multiset<std::chrono::time_point<std::chrono::system_clock>>> key_access_monitoring;
+
   // keep track of the storage consumption for all ebs volumes
   unordered_map<string, size_t> ebs_storage;
 
@@ -624,8 +628,11 @@ int main(int argc, char* argv[]) {
     active_ebs_thread_id.insert(i);
   }
 
-  // read address of proxies from conf file
   vector<string> proxy_address;
+
+  vector<string> monitoring_address;
+
+  // read address of proxies from conf file
   string ip_line;
   ifstream address;
   address.open("conf/server/proxy_address.txt");
@@ -633,6 +640,16 @@ int main(int argc, char* argv[]) {
     proxy_address.push_back(ip_line);
   }
   address.close();
+
+  // read address of monitoring nodes from conf file
+  address.open("conf/server/monitoring_address.txt");
+  while (getline(address, ip_line)) {
+    monitoring_address.push_back(ip_line);
+  }
+  address.close();
+
+  // use the first address for now
+  monitoring_node_t monitoring_node = monitoring_node_t(*monitoring_address.begin());
 
   // read server address from the file
   if (new_node == "n") {
@@ -716,7 +733,12 @@ int main(int argc, char* argv[]) {
 
   // notify proxies that this node has joined the service
   for (auto it = proxy_address.begin(); it != proxy_address.end(); it++) {
-    zmq_util::send_string("join:E:" + ip, &cache[master_node_t(*it, "E").proxy_notify_connect_addr_]);
+    zmq_util::send_string("join:E:" + ip, &cache[proxy_node_t(*it).notify_connect_addr_]);
+  }
+
+  // notify monitoring nodes that this node has joined the service
+  for (auto it = monitoring_address.begin(); it != monitoring_address.end(); it++) {
+    zmq_util::send_string("join:E:" + ip, &cache[monitoring_node_t(*it).notify_connect_addr_]);
   }
 
   // responsible for sending the server address to a new node
@@ -749,7 +771,7 @@ int main(int argc, char* argv[]) {
 
   // responsible for listening for key replication factor change
   zmq::socket_t replication_factor_change_puller(context, ZMQ_PULL);
-  replication_factor_change_puller.bind(NODE_PLACEMENT_BIND_ADDR);
+  replication_factor_change_puller.bind(REPLICATION_FACTOR_BIND_ADDR);
 
   // responsible for receiving storage consumption updates from worker threads
   zmq::socket_t storage_consumption_puller(context, ZMQ_PULL);
@@ -769,8 +791,10 @@ int main(int argc, char* argv[]) {
 
   int next_thread_id = EBS_THREAD_NUM + 1;
 
-  auto start = std::chrono::system_clock::now();
-  auto end = std::chrono::system_clock::now();
+  auto storage_start = std::chrono::system_clock::now();
+  auto storage_end = std::chrono::system_clock::now();
+  auto hotness_start = std::chrono::system_clock::now();
+  auto hotness_end = std::chrono::system_clock::now();
 
   // enter event loop
   while (true) {
@@ -895,6 +919,11 @@ int main(int argc, char* argv[]) {
         auto result = responsible<master_node_t, crc32_hasher>(key, placement[key].global_ebs_replication_, global_ebs_hash_ring, mnode.id_);
 
         if (result.first) {
+          if (sender == "proxy") {
+            // update key access monitoring map
+            key_access_monitoring[key].insert(std::chrono::system_clock::now());
+          }
+
           communication::Key_Response_Tuple* tp = res.add_tuple();
           tp->set_key(key);
 
@@ -989,8 +1018,9 @@ int main(int argc, char* argv[]) {
 
       // check if there are key requests to send to proxy
       if (key_to_proxy.size() != 0) {
-        // for now, randomly choose a proxy to contact
-        string target_proxy_address = "tcp://" + proxy_address[rand() % proxy_address.size()] + ":" + to_string(PROXY_GOSSIP_PORT);
+        // for now, randomly choose a proxy worker to contact
+        int tid = 1 + rand() % PROXY_THREAD_NUM;
+        string target_proxy_address = proxy_worker_thread_t(proxy_address[rand() % proxy_address.size()], tid).proxy_gossip_connect_addr_;
         // get key address
         communication::Key_Response resp = get_key_address<ebs_key_info>(target_proxy_address, "M", key_to_proxy, key_address_requesters, placement);
 
@@ -1030,7 +1060,7 @@ int main(int argc, char* argv[]) {
       
       // notify proxies
       for (auto it = proxy_address.begin(); it != proxy_address.end(); it++) {
-        zmq_util::send_string("depart:E:" + ip, &cache[master_node_t(*it, "E").proxy_notify_connect_addr_]);
+        zmq_util::send_string("depart:E:" + ip, &cache[proxy_node_t(*it).notify_connect_addr_]);
       }
 
       // form the key_request map
@@ -1113,7 +1143,7 @@ int main(int argc, char* argv[]) {
       cout << "Received replication factor change request\n";
 
       string placement_req = zmq_util::recv_string(&replication_factor_change_puller);
-      communication::Placement_Request req;
+      communication::Replication_Factor_Request req;
       req.ParseFromString(placement_req);
 
       unordered_map<master_node_t, unordered_set<string>, node_hash> node_map;
@@ -1209,8 +1239,9 @@ int main(int argc, char* argv[]) {
 
       // check if there are key requests to send to proxy
       if (key_to_proxy.size() != 0) {
-        // for now, randomly choose a proxy to contact
-        string target_proxy_address = "tcp://" + proxy_address[rand() % proxy_address.size()] + ":" + to_string(PROXY_GOSSIP_PORT);
+        // for now, randomly choose a proxy worker to contact
+        int tid = 1 + rand() % PROXY_THREAD_NUM;
+        string target_proxy_address = proxy_worker_thread_t(proxy_address[rand() % proxy_address.size()], tid).proxy_gossip_connect_addr_;
         // get key address
         communication::Key_Response resp = get_key_address<ebs_key_info>(target_proxy_address, "M", key_to_proxy, key_address_requesters, placement);
 
@@ -1265,9 +1296,10 @@ int main(int argc, char* argv[]) {
       delete data;
     }
 
-    end = std::chrono::system_clock::now();
-    if (chrono::duration_cast<std::chrono::seconds>(end-start).count() >= STORAGE_CONSUMPTION_REPORT_THRESHOLD) {
-      string target_proxy_address = "tcp://" + proxy_address[rand() % proxy_address.size()] + ":" + to_string(PROXY_STORAGE_CONSUMPTION_PORT);
+    storage_end = std::chrono::system_clock::now();
+    hotness_end = std::chrono::system_clock::now();
+
+    if (chrono::duration_cast<std::chrono::seconds>(storage_end-storage_start).count() >= STORAGE_CONSUMPTION_REPORT_THRESHOLD) {
       communication::Storage_Update su;
       su.set_node_ip(mnode.ip_);
       su.set_node_type("E");
@@ -1280,16 +1312,41 @@ int main(int argc, char* argv[]) {
       string msg;
       su.SerializeToString(&msg);
       // send the storage consumption update
-      zmq_util::send_string(msg, &cache[target_proxy_address]);      
+      zmq_util::send_string(msg, &cache[monitoring_node.storage_consumption_connect_addr_]);
 
-      start = std::chrono::system_clock::now();
+      storage_start = std::chrono::system_clock::now();
     }
 
-  }
+    if (chrono::duration_cast<std::chrono::seconds>(hotness_end-hotness_start).count() >= MONITORING_PERIOD) {
+      for (auto map_iter = key_access_monitoring.begin(); map_iter != key_access_monitoring.end(); map_iter++) {
+        string key = map_iter->first;
+        auto mset = map_iter->second;
 
-  for (auto& th: ebs_threads) {
-    th.join();
-  }
+        // garbage collect key_access_monitoring
+        for (auto set_iter = mset.rbegin(); set_iter != mset.rend(); set_iter++) {
+          if (chrono::duration_cast<std::chrono::seconds>(hotness_end-*set_iter).count() >= MONITORING_THRESHOLD) {
+            mset.erase(mset.begin(), set_iter.base());
+            break;
+          }
+        }
 
-  return 0;
+        // update key_access_frequency
+        key_access_frequency[key] = mset.size();
+      }
+
+      // send hotness info to the monitoring node
+      communication::Key_Hotness_Update khu;
+      khu.set_node_ip(mnode.ip_);
+      for (auto it = key_access_frequency.begin(); it != key_access_frequency.end(); it++) {
+        communication::Key_Hotness_Update_Tuple* tp = khu.add_tuple();
+        tp->set_key(it->first);
+        tp->set_access(it->second);
+      }
+      string msg;
+      khu.SerializeToString(&msg);
+      zmq_util::send_string(msg, &cache[monitoring_node.key_hotness_connect_addr_]);
+      
+      hotness_start = std::chrono::system_clock::now();
+    }
+  }
 }

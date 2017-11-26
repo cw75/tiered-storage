@@ -1,6 +1,7 @@
 #ifndef __COMMON_H__
 #define __COMMON_H__
 
+#include <atomic>
 #include <string>
 #include <boost/functional/hash.hpp>
 #include <boost/format.hpp>
@@ -16,15 +17,19 @@ using namespace std;
 // Define global memory replication factor
 #define GLOBAL_MEMORY_REPLICATION 1
 
+// Define the number of proxy worker threads
+#define PROXY_THREAD_NUM 3
+
 // Define port offset
 #define SERVER_PORT 6560
 #define PROXY_CONNECTION_BASE_PORT 6460
-#define PROXY_NOTIFY_PORT 7060
+#define NOTIFY_PORT 7060
 #define PROXY_USER_PORT 7160
 #define PROXY_GOSSIP_PORT 7260
 #define PROXY_PLACEMENT_PORT 7360
-#define PROXY_STORAGE_CONSUMPTION_PORT 7460
-#define NODE_PLACEMENT_PORT 6360
+#define STORAGE_CONSUMPTION_PORT 7460
+#define KEY_HOTNESS_PORT 7560
+#define REPLICATION_FACTOR_PORT 6360
 #define SEED_CONNECTION_PORT 6560
 #define CHANGESET_PORT 6560
 #define LOCAL_GOSSIP_BASE_PORT 6560
@@ -38,7 +43,7 @@ using namespace std;
 #define KEY_EXCHANGE_PORT 6860
 
 #define SEED_BIND_ADDR "tcp://*:6560"
-#define PROXY_NOTIFY_BIND_ADDR "tcp://*:7060"
+#define NOTIFY_BIND_ADDR "tcp://*:7060"
 #define NODE_JOIN_BIND_ADDR "tcp://*:6660"
 #define NODE_DEPART_BIND_ADDR "tcp://*:6760"
 #define KEY_EXCHANGE_BIND_ADDR "tcp://*:6860"
@@ -46,9 +51,10 @@ using namespace std;
 #define PROXY_CONTACT_BIND_ADDR "tcp://*:7160"
 #define PROXY_GOSSIP_BIND_ADDR "tcp://*:7260"
 #define PROXY_PLACEMENT_BIND_ADDR "tcp://*:7360"
-#define PROXY_STORAGE_CONSUMPTION_BIND_ADDR "tcp://*:7460"
+#define STORAGE_CONSUMPTION_BIND_ADDR "tcp://*:7460"
+#define KEY_HOTNESS_BIND_ADDR "tcp://*:7560"
 #define LOCAL_STORAGE_CONSUMPTION_ADDR "inproc://7460"
-#define NODE_PLACEMENT_BIND_ADDR "tcp://*:6360"
+#define REPLICATION_FACTOR_BIND_ADDR "tcp://*:6360"
 #define CHANGESET_ADDR "inproc://6560"
 #define SELF_DEPART_BIND_ADDR "tcp://*:6960"
 
@@ -71,20 +77,18 @@ public:
   master_node_t(string ip, string tier) : node_t(ip, SERVER_PORT) {
     tier_ = tier;
     seed_connection_connect_addr_ = "tcp://" + ip + ":" + to_string(SEED_CONNECTION_PORT);
-    proxy_notify_connect_addr_ = "tcp://" + ip + ":" + to_string(PROXY_NOTIFY_PORT);
     node_join_connect_addr_ = "tcp://" + ip + ":" + to_string(NODE_JOIN_PORT);
     node_depart_connect_addr_ = "tcp://" + ip + ":" + to_string(NODE_DEPART_PORT);
     key_exchange_connect_addr_ = "tcp://" + ip + ":" + to_string(KEY_EXCHANGE_PORT);
-    node_placement_connect_addr_ = "tcp://" + ip + ":" + to_string(NODE_PLACEMENT_PORT);
+    replication_factor_connect_addr_ = "tcp://" + ip + ":" + to_string(REPLICATION_FACTOR_PORT);
   }
 
   string tier_;
   string seed_connection_connect_addr_;
-  string proxy_notify_connect_addr_;
   string node_join_connect_addr_;
   string node_depart_connect_addr_;
   string key_exchange_connect_addr_;
-  string node_placement_connect_addr_;
+  string replication_factor_connect_addr_;
 };
 
 class worker_node_t: public node_t {
@@ -110,6 +114,50 @@ public:
   string local_redistribute_addr_;
   string local_depart_addr_;
   string local_key_remove_addr_;
+};
+
+class proxy_node_t {
+public:
+  proxy_node_t() {}
+  proxy_node_t(string ip): ip_(ip) {
+    notify_connect_addr_ = "tcp://" + ip + ":" + to_string(NOTIFY_PORT);
+    replication_factor_connect_addr_ = "tcp://" + ip + ":" + to_string(REPLICATION_FACTOR_PORT);
+  }
+  string ip_;
+  string notify_connect_addr_;
+  string replication_factor_connect_addr_;
+};
+
+class proxy_worker_thread_t {
+public:
+  proxy_worker_thread_t() {}
+  proxy_worker_thread_t(string ip, int tid): ip_(ip) {
+    user_request_connect_addr_ = "tcp://" + ip + ":" + to_string(tid + PROXY_USER_PORT);
+    user_request_bind_addr_ = "tcp://*:" + to_string(tid + PROXY_USER_PORT);
+    proxy_gossip_connect_addr_ = "tcp://" + ip + ":" + to_string(tid + PROXY_GOSSIP_PORT);
+    proxy_gossip_bind_addr_ = "tcp://*:" + to_string(tid + PROXY_GOSSIP_PORT);
+  }
+  string ip_;
+  string user_request_connect_addr_;
+  string user_request_bind_addr_;
+  string proxy_gossip_connect_addr_;
+  string proxy_gossip_bind_addr_;
+};
+
+class monitoring_node_t {
+public:
+  monitoring_node_t() {}
+  monitoring_node_t(string ip): ip_(ip) {
+    notify_connect_addr_ = "tcp://" + ip + ":" + to_string(NOTIFY_PORT);
+    replication_factor_connect_addr_ = "tcp://" + ip + ":" + to_string(REPLICATION_FACTOR_PORT);
+    storage_consumption_connect_addr_ = "tcp://" + ip + ":" + to_string(STORAGE_CONSUMPTION_PORT);
+    key_hotness_connect_addr_ = "tcp://" + ip + ":" + to_string(KEY_HOTNESS_PORT);
+  }
+  string ip_;
+  string notify_connect_addr_;
+  string replication_factor_connect_addr_;
+  string storage_consumption_connect_addr_;
+  string key_hotness_connect_addr_;
 };
 
 bool operator<(const node_t& l, const node_t& r) {
@@ -141,6 +189,15 @@ struct key_info {
     : global_memory_replication_(gmr), global_ebs_replication_(ger) {}
   int global_memory_replication_;
   int global_ebs_replication_;
+};
+
+// represents the replication state for each key (used in proxy and memory tier)
+struct shared_key_info {
+  shared_key_info() : global_memory_replication_(1), global_ebs_replication_(2) {}
+  shared_key_info(int gmr, int ger)
+    : global_memory_replication_(gmr), global_ebs_replication_(ger) {}
+  atomic<int> global_memory_replication_;
+  atomic<int> global_ebs_replication_;
 };
 
 struct crc32_hasher {

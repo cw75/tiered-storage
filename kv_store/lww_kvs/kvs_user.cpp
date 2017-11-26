@@ -38,13 +38,16 @@ int main(int argc, char* argv[]) {
   }
   address.close();
 
+  zmq::context_t context(1);
+  zmq::socket_t proxy_connector(context, ZMQ_REQ);
+
   // just pick the first proxy to contact for now;
   // this should eventually be round-robin / random
   string proxy_ip = *(proxy_address.begin());
-
-  zmq::context_t context(1);
-  zmq::socket_t proxy_connector(context, ZMQ_REQ);
-  proxy_connector.connect("tcp://" + proxy_ip + ":" + to_string(PROXY_USER_PORT));
+  // randomly choose a proxy thread to connect
+  int tid = 1 + rand() % PROXY_THREAD_NUM;
+  string target_proxy_address = proxy_worker_thread_t(proxy_ip, tid).user_request_connect_addr_;
+  proxy_connector.connect(target_proxy_address);
 
   if (!batch) {
     string input;

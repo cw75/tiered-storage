@@ -17,3 +17,5 @@ ExternalProject_Add(boost
 
 set(BOOST_INCLUDE_DIRS ${CMAKE_CURRENT_BINARY_DIR}/src/boost PARENT_SCOPE)
 set(BOOST_LINK_DIRS ${CMAKE_CURRENT_BINARY_DIR}/src/boost/stage/lib PARENT_SCOPE)
+set(BOOST_THREAD_LIBRARIES ${CMAKE_CURRENT_BINARY_DIR}/src/boost/stage/lib/libboost_thread.so PARENT_SCOPE)
+set(BOOST_SYSTEM_LIBRARIES ${CMAKE_CURRENT_BINARY_DIR}/src/boost/stage/lib/libboost_system.so PARENT_SCOPE)
