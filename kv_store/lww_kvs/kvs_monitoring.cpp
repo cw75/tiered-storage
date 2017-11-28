@@ -131,7 +131,7 @@ int main(int argc, char* argv[]) {
   ifstream address;
 
   // read existing memory servers and populate the memory hash ring
-  address.open("conf/proxy/existing_memory_servers.txt");
+  address.open("conf/monitoring/existing_memory_servers.txt");
 
   while (getline(address, ip_line)) {
     cerr << ip_line << "\n";
@@ -140,7 +140,7 @@ int main(int argc, char* argv[]) {
   address.close();
 
   // read existing ebs servers and populate the ebs hash ring
-  address.open("conf/proxy/existing_ebs_servers.txt");
+  address.open("conf/monitoring/existing_ebs_servers.txt");
 
   while (getline(address, ip_line)) {
     cerr << ip_line << "\n";
@@ -151,7 +151,7 @@ int main(int argc, char* argv[]) {
   // read address of proxies from conf file
   vector<address_t> proxy_address;
 
-  address.open("conf/server/proxy_address.txt");
+  address.open("conf/monitoring/proxy_address.txt");
   while (getline(address, ip_line)) {
     proxy_address.push_back(ip_line);
   }
