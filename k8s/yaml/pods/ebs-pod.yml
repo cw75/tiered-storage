@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ebs-instance-UNIQUE
+  labels: 
+    role: ebs
+spec:
+  containers:
+    - name: kvs-ebs-container
+      image: vsreekanti/kvs
+      env: 
+      - name: SERVER_TYPE
+        value: e
+      - name: PROXY_IPS
+        value: PROXY_IPS_DUMMY
+      volumeMounts:
+        - mountPath: /ebs/ebs1
+          name: ebs1
+        - mountPath: /ebs/ebs2
+          name: ebs2
+        - mountPath: /ebs/ebs3
+          name: ebs3
+  nodeSelector:
+    role: ebs-UNIQUE
+  volumes:
+  - name: ebs1
+    awsElasticBlockStore:
+      volumeID: VOLUME_DUMMY_1
+      fsType: ext4
+  - name: ebs2
+    awsElasticBlockStore:
+      volumeID: VOLUME_DUMMY_2
+      fsType: ext4
+  - name: ebs3
+    awsElasticBlockStore:
+      volumeID: VOLUME_DUMMY_3
+      fsType: ext4
