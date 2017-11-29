@@ -65,7 +65,12 @@ message Payload {
   required int64 timestamp = 2;
 }
 
-message Placement_Request {
+message Replication_Factor {
+  required int64 global_memory_replication = 1;
+  required int64 global_ebs_replication = 2;
+}
+
+message Replication_Factor_Request {
   message Tuple {
     required string key = 1;
     required int64 global_memory_replication = 2;
@@ -83,5 +88,15 @@ message Storage_Update {
   required string node_ip = 1;
   required string node_type = 2;
   optional int64 memory_storage = 3;
-  repeated EBS ebs = 4;
+  optional float thread_occupancy = 4;
+  repeated EBS ebs = 5;
+}
+
+message Key_Hotness_Update {
+  message Tuple {
+    required string key = 1;
+    required int64 access = 2;
+  }
+  required string node_ip = 1;
+  repeated Tuple tuple = 2;
 }

@@ -16,15 +16,12 @@ using namespace std;
 
 int main(int argc, char* argv[]) {
 
-  bool batch;
-  if (argc == 1) {
-    batch = false;
-  } else if (argc == 2) {
-    batch = true;
-  } else {
-    cerr << "invalid argument" << endl;
+  if (argc != 3) {
+    cerr << "usage:" << argv[0] << " <single_key/multiple_key> <value_size>" << endl;
     return 1;
   }
+
+  string alphabet("abcdefghijklmnopqrstuvwxyz");
 
   // read in the proxy addresses
   vector<string> proxy_address;
@@ -38,16 +35,25 @@ int main(int argc, char* argv[]) {
   }
   address.close();
 
-  zmq::context_t context(1);
-  zmq::socket_t proxy_connector(context, ZMQ_REQ);
-
   // just pick the first proxy to contact for now;
   // this should eventually be round-robin / random
   string proxy_ip = *(proxy_address.begin());
-  // randomly choose a proxy thread to connect
-  int tid = 1 + rand() % PROXY_THREAD_NUM;
-  string target_proxy_address = proxy_worker_thread_t(proxy_ip, tid).user_request_connect_addr_;
-  proxy_connector.connect(target_proxy_address);
+
+  zmq::context_t context(1);
+  zmq::socket_t proxy_connector(context, ZMQ_REQ);
+  proxy_connector.connect("tcp://" + proxy_ip + ":" + to_string(PROXY_USER_PORT));
+
+  string val(stoi(string(argv[2])), 'a');
+
+  cout << "value is " + val + "\n";
+
+  if (string(argv[1]) == "S") {
+    while (true) {
+      
+    }
+  } else if (string(argv[1]) == "M") {
+    xxx
+  }
 
   if (!batch) {
     string input;
