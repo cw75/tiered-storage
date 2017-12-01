@@ -12,8 +12,11 @@ kops create cluster --zones us-east-1a ${NAME} > /dev/null 2>&1
 # delete default instance group that we won't use
 kops delete ig nodes --name ${NAME} --yes > /dev/null 2>&1
 
-# create the proxy node first
-./add_server.sh p n
+# add the kops node
+echo "Adding kops management node"
+sed "s|CLUSTER_NAME|$NAME|g" yaml/igs/kops-ig.yml > tmp.yml
+kops create -f tmp.yml > /dev/null 2>&1
+rm tmp.yml
 
 # create the cluster with just the proxy instance group
 echo "Creating cluster on AWS..."
@@ -26,6 +29,11 @@ while [ $? -ne 0 ]
 do
   kops validate cluster > /dev/null 2>&1
 done
+
+# create the kops pod
+sed "s|ACCESS_KEY_ID_DUMMY|$AWS_ACCESS_KEY_ID|g" > tmp.yml
+sed -i "s|SECRET_KEY_DUMMY|$AWS_SECRET_ACCESS_KEY|g" tmp.yml
+kubectl create -f tmp.yml > /dev/null 2>&1
 
 # TODO: eventually, we will want to add multiple proxies, so this should check
 # if we want to create a new server for it; however, the memory and EBS tiers

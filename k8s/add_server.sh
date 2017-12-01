@@ -9,7 +9,8 @@ if [ "$1" = "m" ]; then
   YML_FILE=yaml/igs/memory-ig.yml
 elif [ "$1" = "e" ]; then
   YML_FILE=yaml/igs/ebs-ig.yml
-elif [ "$1" = "p" ]; then
+elif [ "$1" = "p" ]; thena
+  # TODO: fix this for multiple proxies
   sed "s|CLUSTER_NAME|$NAME|g" yaml/igs/proxy-ig.yml > tmp.yml
   kops create -f tmp.yml > /dev/null 2>&1
   rm tmp.yml
