@@ -596,7 +596,7 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  string ip = getIP();
+  string ip = get_ip("server");
   string new_node = argv[1];
   if (string(argv[2]) == "y") {
     enable_ebs = true;

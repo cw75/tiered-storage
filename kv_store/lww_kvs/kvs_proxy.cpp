@@ -62,6 +62,87 @@ vector<master_node_t> get_nodes(string key, global_hash_t* global_memory_hash_ri
   return server_nodes;
 }
 
+void process_benchmark_request(string type,
+    string key,
+    string value,
+    zmq::context_t* context,
+    SocketCache& requesters,
+    global_hash_t* global_memory_hash_ring,
+    global_hash_t* global_ebs_hash_ring,
+    monitoring_node_t& monitoring_node,
+    tbb::concurrent_unordered_map<string, shared_key_info>* placement) {
+
+  // if the replication factor info is missing, query the monitoring node
+  if (placement->find(key) == placement->end()) {
+    zmq_util::send_string(key, &requesters[monitoring_node.replication_factor_connect_addr_]);
+
+    string replication_factor_response = zmq_util::recv_string(&requesters[monitoring_node.replication_factor_connect_addr_]);
+    communication::Replication_Factor replication_factor;
+    replication_factor.ParseFromString(replication_factor_response);
+
+    placement->emplace(std::piecewise_construct,
+                       std::forward_as_tuple(key),
+                       std::forward_as_tuple(replication_factor.global_memory_replication(), replication_factor.global_ebs_replication()));
+  }
+
+  vector<master_node_t> server_nodes = get_nodes(key, global_memory_hash_ring, global_ebs_hash_ring, placement);
+  // get a random node
+  master_node_t server_node = server_nodes[rand() % server_nodes.size()];
+
+  communication::Key_Request key_req;
+  key_req.set_sender("proxy");
+  communication::Key_Request_Tuple* tp = key_req.add_tuple();
+  tp->set_key(key);
+  tp->set_global_memory_replication(placement->find(key)->second.global_memory_replication_.load());
+  tp->set_global_ebs_replication(placement->find(key)->second.global_ebs_replication_.load());
+
+  // serialize request and send
+  string data;
+  key_req.SerializeToString(&data);
+  zmq_util::send_string(data, &requesters[server_node.key_exchange_connect_addr_]);
+
+  auto send_time = std::chrono::system_clock::now();
+  // wait for a response from the server and deserialize
+  data = zmq_util::recv_string(&requesters[server_node.key_exchange_connect_addr_]);
+  auto receive_time = std::chrono::system_clock::now();
+
+  cout << "key request took " + to_string(chrono::duration_cast<std::chrono::milliseconds>(receive_time-send_time).count()) + " milliseconds\n";
+
+  communication::Key_Response key_res;
+  key_res.ParseFromString(data);
+
+  address_t worker_address;
+
+  if (server_node.tier_ == "E") {
+    // randomly choose a worker address for a key
+    worker_address = key_res.tuple(0).address(rand() % key_res.tuple(0).address().size()).addr();
+  } else {
+    // we only have one address for memory tier
+    worker_address = key_res.tuple(0).address(0).addr();
+  }
+
+  communication::Request req;
+
+  if (type == "G") {
+    communication::Request_Get* g = req.add_get();
+    g->set_key(key);
+  } else {
+    communication::Request_Put* p = req.add_put();
+    p->set_key(key);
+    p->set_value(value);
+  }
+
+  req.SerializeToString(&data);
+  zmq_util::send_string(data, &requesters[worker_address]);
+
+  send_time = std::chrono::system_clock::now();
+  // wait for response to actual request
+  data = zmq_util::recv_string(&requesters[worker_address]);
+  receive_time = std::chrono::system_clock::now();
+
+  cout << "request took " + to_string(chrono::duration_cast<std::chrono::milliseconds>(receive_time-send_time).count()) + " milliseconds\n";
+}
+
 void proxy_worker_routine(zmq::context_t* context,
     global_hash_t* global_memory_hash_ring,
     global_hash_t* global_ebs_hash_ring,
@@ -80,12 +161,16 @@ void proxy_worker_routine(zmq::context_t* context,
   // responsible for routing gossip to other tiers
   zmq::socket_t gossip_responder(*context, ZMQ_REP);
   gossip_responder.bind(proxy_thread.proxy_gossip_bind_addr_);
+  // responsible for receiving benchmark request
+  zmq::socket_t benchmark_puller(*context, ZMQ_PULL);
+  benchmark_puller.bind(proxy_thread.banchmark_bind_addr_);
 
   SocketCache requesters(context, ZMQ_REQ);
 
   vector<zmq::pollitem_t> pollitems = {
     { static_cast<void *>(user_responder), 0, ZMQ_POLLIN, 0 },
-    { static_cast<void *>(gossip_responder), 0, ZMQ_POLLIN, 0 }
+    { static_cast<void *>(gossip_responder), 0, ZMQ_POLLIN, 0 },
+    { static_cast<void *>(benchmark_puller), 0, ZMQ_POLLIN, 0 },
   };
 
   while (true) {
@@ -333,6 +418,54 @@ void proxy_worker_routine(zmq::context_t* context,
       res.SerializeToString(&response);
       zmq_util::send_string(response, &gossip_responder);
     }
+
+    if (pollitems[2].revents & ZMQ_POLLIN) {
+      // handle benchmark request
+      vector<string> v;
+      split(zmq_util::recv_string(&benchmark_puller), ':', v);
+      string type = v[0];
+      string contention = v[1];
+      int length = stoi(v[2]);
+      int count = stoi(v[3]);
+
+      unordered_map<string, string> key_value;
+      if (contention == "H") {
+        key_value[to_string(1)] = string(length, 'a');
+      } else if (contention == "L") {
+        for (int i = 1; i < 1000; i++) {
+          key_value[to_string(i)] = string(length, 'a');
+        }
+      } else {
+        cerr << "invalid contention\n";
+      }
+
+      // warm up
+      for (auto it = key_value.begin(); it != key_value.end(); it++) {
+        process_benchmark_request("P", it->first, it->second, context, requesters, global_memory_hash_ring, global_ebs_hash_ring, monitoring_node, placement);
+      }
+
+      if (type == "G") {
+        for (int i = 0; i < count; i++) {
+          string key = to_string(rand() % key_value.size() + 1);
+          process_benchmark_request("G", key, "", context, requesters, global_memory_hash_ring, global_ebs_hash_ring, monitoring_node, placement);
+        }
+      } else if (type == "P") {
+        for (int i = 0; i < count; i++) {
+          string key = to_string(rand() % key_value.size() + 1);
+          process_benchmark_request("P", key, key_value[key], context, requesters, global_memory_hash_ring, global_ebs_hash_ring, monitoring_node, placement);
+        }
+      } else if (type == "M") {
+        for (int i = 0; i < count/2; i++) {
+          string key = to_string(rand() % key_value.size() + 1);
+          process_benchmark_request("P", key, key_value[key], context, requesters, global_memory_hash_ring, global_ebs_hash_ring, monitoring_node, placement);
+          process_benchmark_request("G", key, "", context, requesters, global_memory_hash_ring, global_ebs_hash_ring, monitoring_node, placement);
+        }
+      } else {
+        cerr << "invalid request type\n";
+      }
+
+      cerr << "Finished\n";
+    }
   }
 }
 
@@ -343,7 +476,7 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  string ip = getIP();
+  string ip = get_ip("proxy");
 
   global_hash_t* global_memory_hash_ring = new global_hash_t();
   global_hash_t* global_ebs_hash_ring = new global_hash_t();

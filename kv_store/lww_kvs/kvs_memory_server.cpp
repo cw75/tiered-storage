@@ -289,7 +289,7 @@ int main(int argc, char* argv[]) {
 
   Database* kvs = new Database();
 
-  string ip = getIP();
+  string ip = get_ip("server");
   string new_node = argv[1];
 
   master_node_t mnode = master_node_t(ip, "M");

@@ -27,6 +27,7 @@ using namespace std;
 #define PROXY_USER_PORT 7160
 #define PROXY_GOSSIP_PORT 7260
 #define PROXY_PLACEMENT_PORT 7360
+#define PROXY_BENCHMARK_PORT 7460
 #define STORAGE_CONSUMPTION_PORT 7460
 #define KEY_HOTNESS_PORT 7560
 #define REPLICATION_FACTOR_PORT 6360
@@ -59,6 +60,7 @@ using namespace std;
 #define SELF_DEPART_BIND_ADDR "tcp://*:6960"
 
 #define SERVER_IP_FILE "conf/server/server_ip.txt"
+#define PROXY_IP_FILE "conf/proxy/proxy_ip.txt"
 
 class node_t {
 public:
@@ -136,12 +138,16 @@ public:
     user_request_bind_addr_ = "tcp://*:" + to_string(tid + PROXY_USER_PORT);
     proxy_gossip_connect_addr_ = "tcp://" + ip + ":" + to_string(tid + PROXY_GOSSIP_PORT);
     proxy_gossip_bind_addr_ = "tcp://*:" + to_string(tid + PROXY_GOSSIP_PORT);
+    banchmark_connect_addr_ = "tcp://" + ip + ":" + to_string(tid + PROXY_BENCHMARK_PORT);
+    banchmark_bind_addr_ = "tcp://*:" + to_string(tid + PROXY_BENCHMARK_PORT);
   }
   string ip_;
   string user_request_connect_addr_;
   string user_request_bind_addr_;
   string proxy_gossip_connect_addr_;
   string proxy_gossip_bind_addr_;
+  string banchmark_connect_addr_;
+  string banchmark_bind_addr_;
 };
 
 class monitoring_node_t {
@@ -238,11 +244,15 @@ size_t WriteCallback(void *contents, size_t size, size_t nmemb, void *userp)
   return size * nmemb;
 }
 
-string getIP() {
+string get_ip(string node_type) {
   string server_ip;
   ifstream address;
 
-  address.open(SERVER_IP_FILE);
+  if (node_type == "server") {
+    address.open(SERVER_IP_FILE);
+  } else if (node_type == "proxy") {
+    address.open(PROXY_IP_FILE);
+  }
   std::getline(address, server_ip);
   address.close();
 
