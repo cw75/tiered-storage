@@ -25,13 +25,13 @@
 using namespace std;
 
 // If the total number of updates to the kvs before the last gossip reaches THRESHOLD, then the thread gossips to others.
-#define THRESHOLD 1
+#define THRESHOLD 100
 
 // Define the gossip period (frequency)
 #define PERIOD 5
 
 // Define the number of memory threads
-#define MEMORY_THREAD_NUM 3
+#define MEMORY_THREAD_NUM 1
 
 // TODO: reconsider type names here
 typedef Concurrent_KV_Store<string, RC_KVS_PairLattice<string>> Database;
