@@ -106,7 +106,7 @@ void process_benchmark_request(string type,
   data = zmq_util::recv_string(&requesters[server_node.key_exchange_connect_addr_]);
   auto receive_time = std::chrono::system_clock::now();
 
-  cout << "key request took " + to_string(chrono::duration_cast<std::chrono::milliseconds>(receive_time-send_time).count()) + " milliseconds\n";
+  cout << "key request took " + to_string(chrono::duration_cast<std::chrono::microseconds>(receive_time-send_time).count()) + " microseconds\n";
 
   communication::Key_Response key_res;
   key_res.ParseFromString(data);
@@ -140,7 +140,7 @@ void process_benchmark_request(string type,
   data = zmq_util::recv_string(&requesters[worker_address]);
   receive_time = std::chrono::system_clock::now();
 
-  cout << "request took " + to_string(chrono::duration_cast<std::chrono::milliseconds>(receive_time-send_time).count()) + " milliseconds\n";
+  cout << "request took " + to_string(chrono::duration_cast<std::chrono::microseconds>(receive_time-send_time).count()) + " microseconds\n";
 }
 
 void proxy_worker_routine(zmq::context_t* context,
