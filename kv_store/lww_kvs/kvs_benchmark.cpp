@@ -16,13 +16,6 @@ using namespace std;
 
 int main(int argc, char* argv[]) {
 
-  if (argc != 3) {
-    cerr << "usage:" << argv[0] << " <single_key/multiple_key> <value_size>" << endl;
-    return 1;
-  }
-
-  string alphabet("abcdefghijklmnopqrstuvwxyz");
-
   // read in the proxy addresses
   vector<string> proxy_address;
 
@@ -35,44 +28,19 @@ int main(int argc, char* argv[]) {
   }
   address.close();
 
-  // just pick the first proxy to contact for now;
-  // this should eventually be round-robin / random
-  string proxy_ip = *(proxy_address.begin());
-
   zmq::context_t context(1);
-  zmq::socket_t proxy_connector(context, ZMQ_REQ);
-  proxy_connector.connect("tcp://" + proxy_ip + ":" + to_string(PROXY_USER_PORT));
+  SocketCache pushers(&context, ZMQ_PUSH);
 
-  string val(stoi(string(argv[2])), 'a');
+  string input;
 
-  cout << "value is " + val + "\n";
+  while (true) {
+    cout << "benchmark> ";
+    getline(cin, input);
 
-  if (string(argv[1]) == "S") {
-    while (true) {
-      
-    }
-  } else if (string(argv[1]) == "M") {
-    xxx
-  }
-
-  if (!batch) {
-    string input;
-
-    while (true) {
-      cout << "kvs> ";
-      getline(cin, input);
-      zmq_util::send_string(input, &proxy_connector);
-      cout << zmq_util::recv_string(&proxy_connector);
-    }
-  } else {
-    // read in the request
-    string request;
-    ifstream request_reader;
-    request_reader.open(argv[1]);
-
-    while (getline(request_reader, request)) {
-      zmq_util::send_string(request, &proxy_connector);
-      cout << zmq_util::recv_string(&proxy_connector);
+    for (auto it = proxy_address.begin(); it != proxy_address.end(); it++) {
+      for (int tid = 1; tid <= PROXY_THREAD_NUM; tid++) {
+        zmq_util::send_string(input, &pushers[proxy_worker_thread_t(*it, tid).banchmark_connect_addr_]);
+      }
     }
   }
 }

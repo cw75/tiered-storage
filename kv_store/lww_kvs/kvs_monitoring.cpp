@@ -106,8 +106,6 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  string ip = getIP();
-
   global_hash_t global_memory_hash_ring;
   global_hash_t global_ebs_hash_ring;
 

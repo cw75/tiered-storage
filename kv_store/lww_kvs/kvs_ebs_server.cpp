@@ -24,13 +24,13 @@
 using namespace std;
 
 // If the total number of updates to the kvs before the last gossip reaches THRESHOLD, then the thread gossips to others.
-#define THRESHOLD 1
+#define THRESHOLD 100
 
 // Define the gossip period (frequency)
 #define PERIOD 5
 
 // Define the number of ebs threads
-#define EBS_THREAD_NUM 3
+#define EBS_THREAD_NUM 1
 
 // Define the default local ebs replication factor
 #define DEFAULT_LOCAL_EBS_REPLICATION 1
@@ -596,7 +596,7 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  string ip = getIP();
+  string ip = get_ip("server");
   string new_node = argv[1];
   if (string(argv[2]) == "y") {
     enable_ebs = true;
