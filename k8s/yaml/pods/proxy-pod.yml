@@ -1,7 +1,9 @@
+# template for creating a new proxy pod
+
 apiVersion: v1
 kind: Pod
 metadata:
-  name: proxy-pod
+  name: proxy-pod-UNIQUE
   labels: 
     role: proxy
 spec:
@@ -11,5 +13,11 @@ spec:
     env: 
     - name: SERVER_TYPE
       value: p
+    - name: MEM_IPS
+      value: MEM_SERVERS_DUMMY
+    - name: EBS_IPS
+      value: EBS_SERVERS_DUMMY
+    - name: MON_IP
+      value: MON_IP_DUMMY
   nodeSelector:
-    role: proxy
+    role: proxy-UNIQUE

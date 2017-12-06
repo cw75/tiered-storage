@@ -2,6 +2,7 @@
 
 if [ -z "$1" ] && [ -z "$2"]; then
   echo "Usage: ./create_cluster.sh <min_mem_instances> <min_ebs_instances>"
+  exit 1
 fi
 
 export NAME=kvs.k8s.local
@@ -13,8 +14,8 @@ kops create cluster --zones us-east-1a ${NAME} > /dev/null 2>&1
 kops delete ig nodes --name ${NAME} --yes > /dev/null 2>&1
 
 # add the kops node
-echo "Adding kops management node"
-sed "s|CLUSTER_NAME|$NAME|g" yaml/igs/kops-ig.yml > tmp.yml
+echo "Adding general instance group"
+sed "s|CLUSTER_NAME|$NAME|g" yaml/igs/general-ig.yml > tmp.yml
 kops create -f tmp.yml > /dev/null 2>&1
 rm tmp.yml
 
@@ -31,14 +32,14 @@ do
 done
 
 # create the kops pod
-sed "s|ACCESS_KEY_ID_DUMMY|$AWS_ACCESS_KEY_ID|g" > tmp.yml
+echo "Creating manamgent pods"
+sed "s|ACCESS_KEY_ID_DUMMY|$AWS_ACCESS_KEY_ID|g" yaml/pods/kops-pod.yml > tmp.yml
 sed -i "s|SECRET_KEY_DUMMY|$AWS_SECRET_ACCESS_KEY|g" tmp.yml
 kubectl create -f tmp.yml > /dev/null 2>&1
+rm tmp.yml
 
-# TODO: eventually, we will want to add multiple proxies, so this should check
-# if we want to create a new server for it; however, the memory and EBS tiers
-# will always create their own servers; for now we only have one proxy, so no
-# worries about uniqueness.
+kubectl create -f yaml/pods/monitoring-pod.yml > /dev/null 2>&1
+
 echo "Creating proxy node..."
 ./add_node.sh p
 
@@ -52,6 +53,8 @@ echo "Creating $2 EBS node(s)..."
 for i in $(seq 1 $2); do
   ./add_node.sh e
 done
+
+echo "Cluster is now ready for use!"
 
 # TODO: once we have a yaml config file, we will have to set the values in each
 # of the pod scripts for the replication factors, etc. otherwise, we'll end up

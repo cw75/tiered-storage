@@ -13,6 +13,8 @@ spec:
         value: e
       - name: PROXY_IPS
         value: PROXY_IPS_DUMMY
+      - name: MON_IP
+        value: MON_IP_DUMMY
       volumeMounts:
         - mountPath: /ebs/ebs1
           name: ebs1

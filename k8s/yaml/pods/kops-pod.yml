@@ -12,6 +12,6 @@ spec:
     - name: AWS_ACCESS_KEY_ID
       value: ACCESS_KEY_ID_DUMMY
     - name: AWS_SECRET_ACCESS_KEY
-    value: SECRET_KEY_DUMMY
+      value: SECRET_KEY_DUMMY
   nodeSelector:
-    role: kops
+    role: general
