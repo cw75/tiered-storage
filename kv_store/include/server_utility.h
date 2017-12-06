@@ -5,9 +5,6 @@
 
 #define STORAGE_CONSUMPTION_REPORT_THRESHOLD 10
 
-#define MONITORING_THRESHOLD 30
-#define MONITORING_PERIOD 3
-
 using namespace std;
 
 string alphabet("abcdefghijklmnopqrstuvwxyz");

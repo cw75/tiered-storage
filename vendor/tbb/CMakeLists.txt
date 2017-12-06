@@ -13,5 +13,5 @@ ExternalProject_Add(tbb
 )
 
 set(TBB_INCLUDE_DIRS ${CMAKE_CURRENT_BINARY_DIR}/src/tbb/include PARENT_SCOPE)
-set(TBB_LINK_DIRS ${CMAKE_CURRENT_BINARY_DIR}/src/tbb/build/*_release PARENT_SCOPE)
-set(TBB_LIBRARIES ${CMAKE_CURRENT_BINARY_DIR}/src/tbb/build/*_release/libtbb.so PARENT_SCOPE)
+set(TBB_LINK_DIRS ${CMAKE_CURRENT_BINARY_DIR}/src/tbb/build/linux_intel64_clang_cc4.8_libc2.19_kernel3.13.0_release PARENT_SCOPE)
+set(TBB_LIBRARIES ${CMAKE_CURRENT_BINARY_DIR}/src/tbb/build/linux_intel64_clang_cc4.8_libc2.19_kernel3.13.0_release/libtbb.so PARENT_SCOPE)
