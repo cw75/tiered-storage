@@ -9,6 +9,8 @@ cd tiered-storage
 IP=`ifconfig  | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
 
 if [ "$1" = "mn" ]; then
+  echo $MGMT_IP > conf/monitoring/management_ip.txt 
+
   ./build/kv_store/lww_kvs/kvs_monitoring
 elif [ "$1" = "p" ]; then
   echo $IP > conf/proxy/proxy_ip.txt

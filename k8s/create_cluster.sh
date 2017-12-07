@@ -1,15 +1,23 @@
 #!/bin/bash
 
 if [ -z "$1" ] && [ -z "$2"]; then
-  echo "Usage: ./create_cluster.sh <min_mem_instances> <min_ebs_instances>"
+  echo "Usage: ./create_cluster.sh <min_mem_instances> <min_ebs_instances> {<path-to-ssh-key>}"
+  echo ""
+  echo "If no SSH key is specified, it is assumed that we are using the default SSH key (/home/ubuntu/.ssh/id_rsa). We assume that the corresponding public key has the same name and ends in .pub."
   exit 1
+fi
+
+if [ -z "$3" ]; then
+  SSH_KEY=/home/ubuntu/.ssh/id_rsa
+else 
+  SSH_KEY=$3
 fi
 
 export NAME=kvs.k8s.local
 export KOPS_STATE_STORE=s3://tiered-storage-state-store
 
 echo "Creating cluster object..."
-kops create cluster --zones us-east-1a ${NAME} > /dev/null 2>&1
+kops create cluster --zones us-east-1a --ssh-public-key ${SSH_KEY}.pub ${NAME} > /dev/null 2>&1
 # delete default instance group that we won't use
 kops delete ig nodes --name ${NAME} --yes > /dev/null 2>&1
 
@@ -32,13 +40,17 @@ do
 done
 
 # create the kops pod
-echo "Creating manamgent pods"
+echo "Creating management pods"
 sed "s|ACCESS_KEY_ID_DUMMY|$AWS_ACCESS_KEY_ID|g" yaml/pods/kops-pod.yml > tmp.yml
 sed -i "s|SECRET_KEY_DUMMY|$AWS_SECRET_ACCESS_KEY|g" tmp.yml
+sed -i "s|KOPS_BUCKET_DUMMY|$KOPS_STATE_STORE|g" tmp.yml
+sed -i "s|CLUSTER_NAME|$NAME|g" tmp.yml
 kubectl create -f tmp.yml > /dev/null 2>&1
 rm tmp.yml
 
-kubectl create -f yaml/pods/monitoring-pod.yml > /dev/null 2>&1
+sed "s|MGMT_IP_DUMMY|$MGMT_IP|g" yaml/pods/monitoring-pod.yml > tmp.yml
+kubectl create -f tmp.yml > /dev/null 2>&1
+rm tmp.yml
 
 echo "Creating proxy node..."
 ./add_node.sh p
@@ -53,6 +65,11 @@ echo "Creating $2 EBS node(s)..."
 for i in $(seq 1 $2); do
   ./add_node.sh e
 done
+
+# copy the SSH key into the management node... doing this later because we need
+# to wait for the pod to come up
+kubectl cp $SSH_KEY kops-pod:/root/.ssh/id_rsa
+kubectl cp ${SSH_KEY}.pub kops-pod:/root/.ssh/id_rsa.pub
 
 echo "Cluster is now ready for use!"
 

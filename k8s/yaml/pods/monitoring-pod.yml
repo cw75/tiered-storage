@@ -11,5 +11,7 @@ spec:
     env: 
     - name: SERVER_TYPE
       value: mn
+    - name: MGMT_IP
+      value: MGMT_IP_DUMMY
   nodeSelector:
     role: general

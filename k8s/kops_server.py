@@ -28,7 +28,7 @@ class KopsHandler(BaseHTTPRequestHandler):
 def run():
     print('starting server...')
 
-    server_address = ('127.0.0.1', 80)
+    server_address = ('', 80)
     httpd = HTTPServer(server_address, KopsHandler)
     print('running server...')
     httpd.serve_forever()

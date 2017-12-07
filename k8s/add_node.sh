@@ -4,8 +4,11 @@ if [ -z "$1" ]; then
   echo "Usage: ./add_node.sh <node-type>\n\nExpected usage is calling add_node, which in turn adds a server (using add_server.sh)."
   exit 1
 fi
-  
-UUID=`cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 16 | head -n 1`
+
+# NOTE: This generate a broken pipe error from tr, which we can ignore because
+# we're purposefully terminating the pipe early once we have the characters we
+# want.
+UUID=`tr -dc 'a-z0-9' < /dev/urandom | head -c 16`
 
 if [ "$1" = "m" ]; then
   YML_FILE=yaml/pods/memory-pod.yml
