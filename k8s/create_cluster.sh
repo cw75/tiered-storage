@@ -48,6 +48,7 @@ sed -i "s|CLUSTER_NAME|$NAME|g" tmp.yml
 kubectl create -f tmp.yml > /dev/null 2>&1
 rm tmp.yml
 
+MGMT_IP=`kubectl get pods -l role=kops -o jsonpath='{.items[*].status.podIP}' | tr -d '[:space:]'`
 sed "s|MGMT_IP_DUMMY|$MGMT_IP|g" yaml/pods/monitoring-pod.yml > tmp.yml
 kubectl create -f tmp.yml > /dev/null 2>&1
 rm tmp.yml
