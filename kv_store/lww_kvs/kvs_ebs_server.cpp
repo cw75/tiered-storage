@@ -323,6 +323,7 @@ void ebs_worker_routine (zmq::context_t* context, string ip, int thread_id) {
     zmq_util::poll(0, &pollitems);
 
     if (pollitems[0].revents & ZMQ_POLLIN) { // process a request from the proxy
+      lww_timestamp++;
       string data = zmq_util::recv_string(&responder);
       communication::Request req;
       req.ParseFromString(data);
@@ -616,10 +617,6 @@ int main(int argc, char* argv[]) {
   ebs_hash_t local_ebs_hash_ring;
   unordered_map<string, ebs_key_info> placement;
 
-  // keep track of the keys' hotness
-  unordered_map<string, size_t> key_access_frequency;
-  unordered_map<string, multiset<std::chrono::time_point<std::chrono::system_clock>>> key_access_monitoring;
-
   // keep track of the storage consumption for all ebs volumes
   unordered_map<string, size_t> ebs_storage;
 
@@ -793,8 +790,6 @@ int main(int argc, char* argv[]) {
 
   auto storage_start = std::chrono::system_clock::now();
   auto storage_end = std::chrono::system_clock::now();
-  auto hotness_start = std::chrono::system_clock::now();
-  auto hotness_end = std::chrono::system_clock::now();
 
   // enter event loop
   while (true) {
@@ -894,7 +889,6 @@ int main(int argc, char* argv[]) {
 
     if (pollitems[3].revents & ZMQ_POLLIN) {
       cout << "Received a key address request.\n";
-      lww_timestamp++;
 
       string key_req = zmq_util::recv_string(&key_address_responder);
       communication::Key_Request req;
@@ -919,11 +913,6 @@ int main(int argc, char* argv[]) {
         auto result = responsible<master_node_t, crc32_hasher>(key, placement[key].global_ebs_replication_, global_ebs_hash_ring, mnode.id_);
 
         if (result.first) {
-          if (sender == "proxy") {
-            // update key access monitoring map
-            key_access_monitoring[key].insert(std::chrono::system_clock::now());
-          }
-
           communication::Key_Response_Tuple* tp = res.add_tuple();
           tp->set_key(key);
 
@@ -1297,7 +1286,6 @@ int main(int argc, char* argv[]) {
     }
 
     storage_end = std::chrono::system_clock::now();
-    hotness_end = std::chrono::system_clock::now();
 
     if (chrono::duration_cast<std::chrono::seconds>(storage_end-storage_start).count() >= STORAGE_CONSUMPTION_REPORT_THRESHOLD) {
       communication::Storage_Update su;
@@ -1315,38 +1303,6 @@ int main(int argc, char* argv[]) {
       zmq_util::send_string(msg, &cache[monitoring_node.storage_consumption_connect_addr_]);
 
       storage_start = std::chrono::system_clock::now();
-    }
-
-    if (chrono::duration_cast<std::chrono::seconds>(hotness_end-hotness_start).count() >= MONITORING_PERIOD) {
-      for (auto map_iter = key_access_monitoring.begin(); map_iter != key_access_monitoring.end(); map_iter++) {
-        string key = map_iter->first;
-        auto mset = map_iter->second;
-
-        // garbage collect key_access_monitoring
-        for (auto set_iter = mset.rbegin(); set_iter != mset.rend(); set_iter++) {
-          if (chrono::duration_cast<std::chrono::seconds>(hotness_end-*set_iter).count() >= MONITORING_THRESHOLD) {
-            mset.erase(mset.begin(), set_iter.base());
-            break;
-          }
-        }
-
-        // update key_access_frequency
-        key_access_frequency[key] = mset.size();
-      }
-
-      // send hotness info to the monitoring node
-      communication::Key_Hotness_Update khu;
-      khu.set_node_ip(mnode.ip_);
-      for (auto it = key_access_frequency.begin(); it != key_access_frequency.end(); it++) {
-        communication::Key_Hotness_Update_Tuple* tp = khu.add_tuple();
-        tp->set_key(it->first);
-        tp->set_access(it->second);
-      }
-      string msg;
-      khu.SerializeToString(&msg);
-      zmq_util::send_string(msg, &cache[monitoring_node.key_hotness_connect_addr_]);
-      
-      hotness_start = std::chrono::system_clock::now();
     }
   }
 }

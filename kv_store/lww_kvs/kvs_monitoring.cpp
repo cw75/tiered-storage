@@ -219,7 +219,6 @@ int main(int argc, char* argv[]) {
     }
 
     if (pollitems[1].revents & ZMQ_POLLIN) {
-      // handle a user facing request
       cerr << "received replication factor query\n";
 
       string key = zmq_util::recv_string(&replication_factor_query_responder);

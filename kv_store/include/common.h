@@ -11,14 +11,8 @@
 
 using namespace std;
 
-// Define global ebs replication factor
-#define GLOBAL_EBS_REPLICATION 2
-
-// Define global memory replication factor
-#define GLOBAL_MEMORY_REPLICATION 1
-
 // Define the number of proxy worker threads
-#define PROXY_THREAD_NUM 3
+#define PROXY_THREAD_NUM 16
 
 // Define port offset
 #define SERVER_PORT 6560
@@ -58,6 +52,7 @@ using namespace std;
 #define REPLICATION_FACTOR_BIND_ADDR "tcp://*:6360"
 #define CHANGESET_ADDR "inproc://6560"
 #define SELF_DEPART_BIND_ADDR "tcp://*:6960"
+#define HOTNESS_ADDR "inproc://7560"
 
 #define SERVER_IP_FILE "conf/server/server_ip.txt"
 #define PROXY_IP_FILE "conf/proxy/proxy_ip.txt"
