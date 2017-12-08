@@ -58,14 +58,24 @@ echo "Creating proxy node..."
 
 # TODO: optimize this to create multiple nodes at once
 echo "Creating $1 memory node(s)..."
-for i in $(seq 1 $1); do
-  ./add_node.sh m
-done
+
+if [ $1 -ge 1 ]; then
+  ./add_node.sh m n
+
+  for i in $(seq 2 $1); do
+    ./add_node.sh m y
+  done
+fi
 
 echo "Creating $2 EBS node(s)..."
-for i in $(seq 1 $2); do
-  ./add_node.sh e
-done
+
+if [ $1 -ge 1 ]; then
+  ./add_node.sh e n
+
+  for i in $(seq 2 $2); do
+    ./add_node.sh e y
+  done
+fi
 
 # copy the SSH key into the management node... doing this later because we need
 # to wait for the pod to come up

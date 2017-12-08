@@ -1,7 +1,10 @@
 #!/bin/bash
 
-if [ -z "$1" ]; then
-  echo "Usage: ./add_node.sh <node-type>\n\nExpected usage is calling add_node, which in turn adds a server (using add_server.sh)."
+if [[ -z "$1" ]] || [[ "$1" = "m" && -z "$2" ]] || [[ "$1" = "e" && -z "$2" ]]; then
+  echo "Usage: ./add_node.sh <node-type> {<join-node>}"
+  echo ""
+  echo "Expected usage is calling add_node, which in turn adds a server (using add_server.sh)."
+  echo "If adding a server node, join node determines whether it is the initial node (n) or a node joining an existing server (y)."
   exit 1
 fi
 
@@ -84,6 +87,7 @@ sed -i "s|MON_IP_DUMMY|$MON_IP|g" tmp.yml
 sed -i "s|SEED_SERVER_DUMMY|$SEED_SERVER|g" tmp.yml
 sed -i "s|MEM_SERVERS_DUMMY|$MEM_SERVERS|g" tmp.yml
 sed -i "s|EBS_SERVERS_DUMMY|$EBS_SERVERS|g" tmp.yml
+sed -i "s|NEW_DUMMY|\"$2\"|g" tmp.yml
 
 echo "Creating pod on the new instance..."
 kubectl create -f tmp.yml > /dev/null 2>&1

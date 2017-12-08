@@ -12,6 +12,6 @@ if [ "$1" != "NONE" ]; then
   # bash automatically splits this on space; the variable is set at runtime
   for ip in $1
   do
-    echo $ip >> conf/server/proxy_address.txt
+    echo $ip >> $2
   done
 fi

@@ -7,7 +7,7 @@ class KopsHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path == '/memory':
             print('Adding a new memory node...')
-            if os.system('./add_node.sh m') == 0:
+            if os.system('./add_node.sh m y') == 0:
                 self.send_response(200)
                 self.wfile.write(bytes('Successfully added a memory node.', 'utf-8'))
             else:
@@ -15,7 +15,7 @@ class KopsHandler(BaseHTTPRequestHandler):
                 self.wfile.write(bytes('Unexpected error while adding nodes.', 'utf-8'))
         elif self.path == '/ebs':
             print('Addingta new EBS node...')
-            if os.system('./add_node.sh e') == 0:
+            if os.system('./add_node.sh e y') == 0:
                 self.send_response(200)
                 self.wfile.write(bytes('Successfully added an EBS node.', 'utf-8'))
             else:

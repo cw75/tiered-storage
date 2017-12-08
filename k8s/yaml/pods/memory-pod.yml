@@ -19,5 +19,7 @@ spec:
       value: SEED_SERVER_DUMMY
     - name: MON_IP
       value: MON_IP_DUMMY
+    - name: NEW
+      value: NEW_DUMMY
   nodeSelector:
     role: memory-UNIQUE
