@@ -6,19 +6,28 @@ if [ -z "$1" ]; then
 fi
 
 cd tiered-storage
+IP=`ifconfig  | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
 
-if [ "$1" = "p" ]; then
+if [ "$1" = "mn" ]; then
+  echo $MGMT_IP > conf/monitoring/management_ip.txt 
+
+  ./build/kv_store/lww_kvs/kvs_monitoring
+elif [ "$1" = "p" ]; then
+  echo $IP > conf/proxy/proxy_ip.txt
+  echo $MON_IP > conf/proxy/monitoring_address.txt
+  sh k8s/set_ips.sh $MEM_IPS conf/proxy/memory_servers.txt
+  sh k8s/set_ips.sh $EBS_IPS conf/proxy/ebs_servers.txt
+
   ./build/kv_store/lww_kvs/kvs_proxy
 else 
-  IP=`ifconfig  | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
-  
   echo $IP > conf/server/server_ip.txt
+  sh k8s/set_ips.sh $PROXY_IPS conf/server/proxy_ips.txt
 
-  cd tiered-storage
+  # set the seed server and the monitoring address
+  echo $SEED_SERVER > conf/server/seed_server.txt
+  echo $MON_IP > conf/server/monitoring_address.txt
 
-  sh k8s/set_proxy_ips.sh
-  sh k8s/set_seed_server.sh
-
+  # TODO: remove this; the server should not need to add EBS volumes
   sudo chmod +x scripts/add_volume_dummy.sh
 
   if [ "$1" = "m" ]; then

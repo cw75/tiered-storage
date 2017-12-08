@@ -42,6 +42,7 @@ RUN cd tiered-storage && sh scripts/build_release.sh
 
 COPY start.sh /
 
+RUN rm -rf tiered-storage/k8s
 RUN mkdir tiered-storage/k8s
 COPY ./ /tiered-storage/k8s
 

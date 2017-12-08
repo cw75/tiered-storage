@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kops-pod
+  labels: 
+    role: kops
+spec:
+  containers:
+  - name: kvs-kops-container
+    image: vsreekanti/kvs-kops
+    env: 
+    - name: AWS_ACCESS_KEY_ID
+      value: ACCESS_KEY_ID_DUMMY
+    - name: AWS_SECRET_ACCESS_KEY
+      value: SECRET_KEY_DUMMY
+    - name: KOPS_STATE_STORE
+      value: KOPS_BUCKET_DUMMY
+    - name: NAME
+      value: CLUSTER_NAME
+  nodeSelector:
+    role: general

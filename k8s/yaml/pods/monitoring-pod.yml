@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: monitoring-pod
+  labels: 
+    role: monitoring
+spec:
+  containers:
+  - name: kvs-monitoring-container
+    image: vsreekanti/kvs
+    env: 
+    - name: SERVER_TYPE
+      value: mn
+    - name: MGMT_IP
+      value: MGMT_IP_DUMMY
+  nodeSelector:
+    role: general

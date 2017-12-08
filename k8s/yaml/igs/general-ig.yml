@@ -1,19 +1,18 @@
-# template for creating a new memory tier node
-
 apiVersion: kops/v1alpha2
 kind: InstanceGroup
 metadata:
   labels:
     kops.k8s.io/cluster: CLUSTER_NAME
-  name: memory-instances-UNIQUE
+  name: misc-instances
 spec:
   image: kope.io/k8s-1.6-debian-jessie-amd64-hvm-ebs-2017-05-02
-  machineType: m4.2xlarge
+  machineType: m3.medium
   maxSize: 1
   minSize: 1
-  rootVolumeSize: 32
   role: Node
+  rootVolumeSize: 32
   nodeLabels:
-    role: memory-UNIQUE
+    role: general
   subnets:
     - us-east-1a
+
