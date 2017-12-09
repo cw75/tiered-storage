@@ -18,10 +18,8 @@ if [ "$1" = "mn" ]; then
 elif [ "$1" = "p" ]; then
   echo $IP > conf/proxy/proxy_ip.txt
   echo $MON_IP > conf/proxy/monitoring_address.txt
-  echo $MEM_IPS > conf/proxy/existing_memory_servers.txt
-  echo $EBS_IPS > conf/proxy/existing_ebs_servers.txt
-  #sh k8s/set_ips.sh $MEM_IPS conf/proxy/existing_memory_servers.txt
-  #sh k8s/set_ips.sh $EBS_IPS conf/proxy/existing_ebs_servers.txt
+  sh k8s/set_ips.sh $MEM_IPS conf/proxy/existing_memory_servers.txt
+  sh k8s/set_ips.sh $EBS_IPS conf/proxy/existing_ebs_servers.txt
 
   ./build/kv_store/lww_kvs/kvs_proxy
 else 
