@@ -14,7 +14,7 @@ else
 fi
 
 export NAME=kvs.k8s.local
-export KOPS_STATE_STORE=s3://tiered-storage-state-store
+export KOPS_STATE_STORE=s3://1-tiered-storage-state-store
 
 echo "Creating cluster object..."
 kops create cluster --zones us-east-1a --ssh-public-key ${SSH_KEY}.pub ${NAME} > /dev/null 2>&1
@@ -69,7 +69,7 @@ fi
 
 echo "Creating $2 EBS node(s)..."
 
-if [ $1 -ge 1 ]; then
+if [ $2 -ge 1 ]; then
   ./add_node.sh e n
 
   for i in $(seq 2 $2); do
