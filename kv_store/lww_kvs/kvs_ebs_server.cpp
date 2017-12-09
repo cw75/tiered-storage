@@ -475,6 +475,9 @@ void ebs_worker_routine (zmq::context_t* context, string ip, int thread_id) {
   }
 }
 
+// TODO: add_thread currently not used anywhere. before we use it, we'll have
+// to figure out how to / if we can add an EBS volume to an existing pod... if
+// not, we'll need some sort of workaround.
 void add_thread(map<string, int>& ebs_device_map, 
     unordered_map<int, string>& inverse_ebs_device_map, 
     vector<thread>& ebs_threads,
