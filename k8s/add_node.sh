@@ -42,6 +42,11 @@ fi
  
 # get the ips of all the different kinds of nodes in the system
 PROXY_IPS=`kubectl get pods -l role=proxy -o jsonpath='{.items[*].status.podIP}' | tr -d '[:space:]'`
+if [ "$1" = "m" ] || [ "$1" = "e" ]; then
+  while [ "$PROXY_IPS" = "" ]; do
+    PROXY_IPS=`kubectl get pods -l role=proxy -o jsonpath='{.items[*].status.podIP}' | tr -d '[:space:]'`
+  done
+fi
 MEM_SERVERS=`kubectl get pods -l role=memory -o jsonpath='{.items[*].status.podIP}' | tr -d '[:space:]'`
 EBS_SERVERS=`kubectl get pods -l role=ebs -o jsonpath='{.items[*].status.podIP}' | tr -d '[:space:]'`
 
