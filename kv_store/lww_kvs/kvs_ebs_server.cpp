@@ -24,10 +24,10 @@
 using namespace std;
 
 // If the total number of updates to the kvs before the last gossip reaches THRESHOLD, then the thread gossips to others.
-#define THRESHOLD 100
+#define THRESHOLD 1000
 
 // Define the gossip period (frequency)
-#define PERIOD 5
+#define PERIOD 10
 
 // Define the default local ebs replication factor
 #define DEFAULT_LOCAL_EBS_REPLICATION 1
@@ -1307,8 +1307,7 @@ int main(int argc, char* argv[]) {
       string proxy_ip = *(proxy_address.begin());
       // randomly choose a proxy thread to connect
       int tid = 1 + rand() % PROXY_THREAD_NUM;
-      zmq_util::send_string(serialized_req, &requesters[proxy_worker_thread_t(proxy_ip, tid).request_connect_addr_]);
-      zmq_util::recv_string(&requesters[proxy_worker_thread_t(proxy_ip, tid).request_connect_addr_]);
+      zmq_util::send_string(serialized_req, &pushers[proxy_worker_thread_t(proxy_ip, tid).metadata_connect_addr_]);
 
       storage_start = std::chrono::system_clock::now();
     }

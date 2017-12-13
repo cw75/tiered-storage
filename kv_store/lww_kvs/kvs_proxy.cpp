@@ -153,6 +153,171 @@ void process_benchmark_request(string type,
   //cout << "request took " + to_string(chrono::duration_cast<std::chrono::microseconds>(receive_time-send_time).count()) + " microseconds\n";
 }
 
+string handle_request(string serialized_req,
+    zmq::context_t* context,
+    SocketCache& requesters,
+    global_hash_t* global_memory_hash_ring,
+    global_hash_t* global_ebs_hash_ring,
+    monitoring_node_t& monitoring_node,
+    tbb::concurrent_unordered_map<string, shared_key_info>* placement,
+    address_cache_t* address_cache,
+    unordered_map<string, multiset<std::chrono::time_point<std::chrono::system_clock>>>& key_access_monitoring) {
+  communication::Request req;
+  req.ParseFromString(serialized_req);
+
+  // this data structure is for keeping track of the key value mapping in PUT request
+  unordered_map<string, string> key_value_map;
+  unordered_map<address_t, communication::Request> request_map;
+  unordered_map<master_node_t, communication::Key_Request, node_hash> key_request_map;
+
+  for (int i = 0; i < req.tuple_size(); i++) {
+    string key = req.tuple(i).key();
+
+    if (req.type() == "PUT") {
+      key_value_map[key] = req.tuple(i).value();
+    }
+
+    // if the replication factor info is missing, query the monitoring node
+    if (!req.metadata() && placement->find(key) == placement->end()) {
+      zmq_util::send_string(key, &requesters[monitoring_node.replication_factor_connect_addr_]);
+
+      string replication_factor_response = zmq_util::recv_string(&requesters[monitoring_node.replication_factor_connect_addr_]);
+      communication::Replication_Factor replication_factor;
+      replication_factor.ParseFromString(replication_factor_response);
+
+      placement->emplace(std::piecewise_construct,
+                         std::forward_as_tuple(key),
+                         std::forward_as_tuple(replication_factor.global_memory_replication(), replication_factor.global_ebs_replication()));
+    }
+
+    int gmr;
+    int ger;
+
+    if (!req.metadata()) {
+      // update key access monitoring map
+      key_access_monitoring[key].insert(std::chrono::system_clock::now());
+      gmr = placement->find(key)->second.global_memory_replication_.load();
+      ger = placement->find(key)->second.global_ebs_replication_.load();
+    } else {
+      gmr = METADATA_REPLICATION_FACTOR;
+      ger = 0;
+    }
+
+    vector<master_node_t> server_nodes = get_nodes(key, global_memory_hash_ring, global_ebs_hash_ring, gmr, ger);
+
+    if (server_nodes.size() != 0) {
+      // get a random node
+      master_node_t server_node = server_nodes[rand() % server_nodes.size()];
+
+      if (address_cache->find(server_node.ip_) == address_cache->end() || address_cache->at(server_node.ip_).find(key) == address_cache->at(server_node.ip_).end()) {
+        // TODO: before setting the sender, check if it's already been set
+        key_request_map[server_node].set_sender("proxy");
+        communication::Key_Request_Tuple* tp = key_request_map[server_node].add_tuple();
+        tp->set_key(key);
+        tp->set_global_memory_replication(METADATA_REPLICATION_FACTOR);
+        tp->set_global_ebs_replication(0);
+      } else {
+        address_t worker_address = *(next(begin((*address_cache)[server_node.ip_][key]), rand() % (*address_cache)[server_node.ip_][key].size()));
+        request_map[worker_address].set_type(req.type());
+        communication::Request_Tuple* tp = request_map[worker_address].add_tuple();
+        if (req.type() == "GET") {
+          tp->set_key(key);
+        } else {
+          tp->set_key(key);
+          tp->set_value(key_value_map[key]);
+        }
+      }
+    } else {
+      cerr << "ERROR: No servers available.\n";
+      break;
+    }
+  }
+
+  // loop through key request map, send key request to all nodes
+  // receive key responses, and form the request map
+  for (auto it = key_request_map.begin(); it != key_request_map.end(); it++) {
+    // serialize request and send
+    string key_req;
+    it->second.SerializeToString(&key_req);
+    zmq_util::send_string(key_req, &requesters[it->first.key_exchange_connect_addr_]);
+
+    auto send_time = std::chrono::system_clock::now();
+    // wait for a response from the server and deserialize
+    string key_res = zmq_util::recv_string(&requesters[it->first.key_exchange_connect_addr_]);
+    auto receive_time = std::chrono::system_clock::now();
+
+    cout << "key request took " + to_string(chrono::duration_cast<std::chrono::microseconds>(receive_time-send_time).count()) + " microseconds\n";
+
+    communication::Key_Response server_res;
+    server_res.ParseFromString(key_res);
+
+    string key;
+    address_t worker_address;
+    // get the worker address from the response and sent the serialized
+    // data from up above to the worker thread; the reason that we do
+    // this is to let the metadata thread avoid having to receive a
+    // potentially large request body; since the metadata thread is
+    // serial, this could potentially be a bottleneck; the current way
+    // allows the metadata thread to answer lightweight requests only
+    for (int i = 0; i < server_res.tuple_size(); i++) {
+      key = server_res.tuple(i).key();
+
+      // update address cache
+      for (int j = 0; j < server_res.tuple(i).address_size(); j++) {
+        (*address_cache)[it->first.ip_][key].insert(server_res.tuple(i).address(j).addr());
+      }
+
+      worker_address = *(next(begin((*address_cache)[it->first.ip_][key]), rand() % (*address_cache)[it->first.ip_][key].size()));
+
+      cout << "worker address is " + worker_address + "\n";
+
+      request_map[worker_address].set_type(req.type());
+      communication::Request_Tuple* tp = request_map[worker_address].add_tuple();
+
+      if (req.type() == "GET") {
+        tp->set_key(key);
+      } else {
+        tp->set_key(key);
+        tp->set_value(key_value_map[key]);
+      }
+    }
+  }
+
+  // initialize the respond message
+  communication::Response resp;
+  resp.set_type(req.type());
+
+  for (auto it = request_map.begin(); it != request_map.end(); it++) {
+    string data;
+    it->second.SerializeToString(&data);
+    zmq_util::send_string(data, &requesters[it->first]);
+
+    auto send_time = std::chrono::system_clock::now();
+    // wait for response to actual request
+    data = zmq_util::recv_string(&requesters[it->first]);
+    auto receive_time = std::chrono::system_clock::now();
+
+    cout << "request took " + to_string(chrono::duration_cast<std::chrono::microseconds>(receive_time-send_time).count()) + " microseconds\n";
+
+    communication::Response response;
+    response.ParseFromString(data);
+
+    for (int i = 0; i < response.tuple_size(); i++) {
+      communication::Response_Tuple* tp = resp.add_tuple();
+      tp->set_succeed(response.tuple(i).succeed());
+      tp->set_key(response.tuple(i).key());
+      if (req.type() == "GET") {
+        tp->set_value(response.tuple(i).value());
+      }
+    }
+  }
+
+  string serialized_resp;
+  resp.SerializeToString(&serialized_resp);
+
+  return serialized_resp;
+}
+
 void proxy_worker_routine(zmq::context_t* context,
     global_hash_t* global_memory_hash_ring,
     global_hash_t* global_ebs_hash_ring,
@@ -179,6 +344,9 @@ void proxy_worker_routine(zmq::context_t* context,
   // responsible for receiving benchmark request
   zmq::socket_t benchmark_puller(*context, ZMQ_PULL);
   benchmark_puller.bind(proxy_thread.banchmark_bind_addr_);
+  // responsible for receiving metadata updates
+  zmq::socket_t metadata_puller(*context, ZMQ_PULL);
+  metadata_puller.bind(proxy_thread.metadata_bind_addr_);
 
   SocketCache requesters(context, ZMQ_REQ);
   SocketCache pushers(context, ZMQ_PUSH);
@@ -186,7 +354,8 @@ void proxy_worker_routine(zmq::context_t* context,
   vector<zmq::pollitem_t> pollitems = {
     { static_cast<void *>(request_responder), 0, ZMQ_POLLIN, 0 },
     { static_cast<void *>(gossip_responder), 0, ZMQ_POLLIN, 0 },
-    { static_cast<void *>(benchmark_puller), 0, ZMQ_POLLIN, 0 }
+    { static_cast<void *>(benchmark_puller), 0, ZMQ_POLLIN, 0 },
+    { static_cast<void *>(metadata_puller), 0, ZMQ_POLLIN, 0 }
   };
 
   auto hotness_start = std::chrono::system_clock::now();
@@ -202,159 +371,8 @@ void proxy_worker_routine(zmq::context_t* context,
       // handle a request
       cerr << "received request\n";
 
-      string data = zmq_util::recv_string(&request_responder);
-      communication::Request req;
-      req.ParseFromString(data);
-
-      // this data structure is for keeping track of the key value mapping in PUT request
-      unordered_map<string, string> key_value_map;
-      unordered_map<address_t, communication::Request> request_map;
-      unordered_map<master_node_t, communication::Key_Request, node_hash> key_request_map;
-
-      for (int i = 0; i < req.tuple_size(); i++) {
-        string key = req.tuple(i).key();
-
-        if (req.type() == "PUT") {
-          key_value_map[key] = req.tuple(i).value();
-        }
-
-        // if the replication factor info is missing, query the monitoring node
-        if (!req.metadata() && placement->find(key) == placement->end()) {
-          zmq_util::send_string(key, &requesters[monitoring_node.replication_factor_connect_addr_]);
-
-          string replication_factor_response = zmq_util::recv_string(&requesters[monitoring_node.replication_factor_connect_addr_]);
-          communication::Replication_Factor replication_factor;
-          replication_factor.ParseFromString(replication_factor_response);
-
-          placement->emplace(std::piecewise_construct,
-                             std::forward_as_tuple(key),
-                             std::forward_as_tuple(replication_factor.global_memory_replication(), replication_factor.global_ebs_replication()));
-        }
-
-        int gmr;
-        int ger;
-
-        if (!req.metadata()) {
-          // update key access monitoring map
-          key_access_monitoring[key].insert(std::chrono::system_clock::now());
-          gmr = placement->find(key)->second.global_memory_replication_.load();
-          ger = placement->find(key)->second.global_ebs_replication_.load();
-        } else {
-          gmr = METADATA_REPLICATION_FACTOR;
-          ger = 0;
-        }
-
-        vector<master_node_t> server_nodes = get_nodes(key, global_memory_hash_ring, global_ebs_hash_ring, gmr, ger);
-
-        if (server_nodes.size() != 0) {
-          // get a random node
-          master_node_t server_node = server_nodes[rand() % server_nodes.size()];
-
-          if (address_cache->find(server_node.ip_) == address_cache->end() || address_cache->at(server_node.ip_).find(key) == address_cache->at(server_node.ip_).end()) {
-            // TODO: before setting the sender, check if it's already been set
-            key_request_map[server_node].set_sender("proxy");
-            communication::Key_Request_Tuple* tp = key_request_map[server_node].add_tuple();
-            tp->set_key(key);
-            tp->set_global_memory_replication(METADATA_REPLICATION_FACTOR);
-            tp->set_global_ebs_replication(0);
-          } else {
-            address_t worker_address = *(next(begin((*address_cache)[server_node.ip_][key]), rand() % (*address_cache)[server_node.ip_][key].size()));
-            request_map[worker_address].set_type(req.type());
-            communication::Request_Tuple* tp = request_map[worker_address].add_tuple();
-            if (req.type() == "GET") {
-              tp->set_key(key);
-            } else {
-              tp->set_key(key);
-              tp->set_value(key_value_map[key]);
-            }
-          }
-        } else {
-          cerr << "ERROR: No servers available.\n";
-          break;
-        }
-      }
-
-      // loop through key request map, send key request to all nodes
-      // receive key responses, and form the request map
-      for (auto it = key_request_map.begin(); it != key_request_map.end(); it++) {
-        // serialize request and send
-        string key_req;
-        it->second.SerializeToString(&key_req);
-        zmq_util::send_string(key_req, &requesters[it->first.key_exchange_connect_addr_]);
-
-        auto send_time = std::chrono::system_clock::now();
-        // wait for a response from the server and deserialize
-        string key_res = zmq_util::recv_string(&requesters[it->first.key_exchange_connect_addr_]);
-        auto receive_time = std::chrono::system_clock::now();
-
-        cout << "key request took " + to_string(chrono::duration_cast<std::chrono::microseconds>(receive_time-send_time).count()) + " microseconds\n";
-
-        communication::Key_Response server_res;
-        server_res.ParseFromString(key_res);
-
-        string key;
-        address_t worker_address;
-        // get the worker address from the response and sent the serialized
-        // data from up above to the worker thread; the reason that we do
-        // this is to let the metadata thread avoid having to receive a
-        // potentially large request body; since the metadata thread is
-        // serial, this could potentially be a bottleneck; the current way
-        // allows the metadata thread to answer lightweight requests only
-        for (int i = 0; i < server_res.tuple_size(); i++) {
-          key = server_res.tuple(i).key();
-
-          // update address cache
-          for (int j = 0; j < server_res.tuple(i).address_size(); j++) {
-            (*address_cache)[it->first.ip_][key].insert(server_res.tuple(i).address(j).addr());
-          }
-
-          worker_address = *(next(begin((*address_cache)[it->first.ip_][key]), rand() % (*address_cache)[it->first.ip_][key].size()));
-
-          cout << "worker address is " + worker_address + "\n";
-
-          request_map[worker_address].set_type(req.type());
-          communication::Request_Tuple* tp = request_map[worker_address].add_tuple();
-
-          if (req.type() == "GET") {
-            tp->set_key(key);
-          } else {
-            tp->set_key(key);
-            tp->set_value(key_value_map[key]);
-          }
-        }
-      }
-
-      // initialize the respond message
-      communication::Response resp;
-      resp.set_type(req.type());
-
-      for (auto it = request_map.begin(); it != request_map.end(); it++) {
-        string data;
-        it->second.SerializeToString(&data);
-        zmq_util::send_string(data, &requesters[it->first]);
-
-        auto send_time = std::chrono::system_clock::now();
-        // wait for response to actual request
-        data = zmq_util::recv_string(&requesters[it->first]);
-        auto receive_time = std::chrono::system_clock::now();
-
-        cout << "request took " + to_string(chrono::duration_cast<std::chrono::microseconds>(receive_time-send_time).count()) + " microseconds\n";
-
-        communication::Response response;
-        response.ParseFromString(data);
-
-        for (int i = 0; i < response.tuple_size(); i++) {
-          communication::Response_Tuple* tp = resp.add_tuple();
-          tp->set_succeed(response.tuple(i).succeed());
-          tp->set_key(response.tuple(i).key());
-          if (req.type() == "GET") {
-            tp->set_value(response.tuple(i).value());
-          }
-        }
-      }
-
-      string serialized_resp;
-      resp.SerializeToString(&serialized_resp);
+      string serialized_req = zmq_util::recv_string(&request_responder);
+      string serialized_resp = handle_request(serialized_req, context, requesters, global_memory_hash_ring, global_ebs_hash_ring, monitoring_node, placement, address_cache, key_access_monitoring);
       zmq_util::send_string(serialized_resp, &request_responder);
     }
 
@@ -509,6 +527,14 @@ void proxy_worker_routine(zmq::context_t* context,
       cout << "Throughput is " + to_string((double)count / (double)total_time * 1000000) + " ops/seconds\n";
 
       cerr << "Finished\n";
+    }
+
+    if (pollitems[3].revents & ZMQ_POLLIN) {
+      // handle a request
+      cerr << "received metadata updates\n";
+
+      string serialized_req = zmq_util::recv_string(&metadata_puller);
+      string serialized_resp = handle_request(serialized_req, context, requesters, global_memory_hash_ring, global_ebs_hash_ring, monitoring_node, placement, address_cache, key_access_monitoring);
     }
 
     hotness_end = std::chrono::system_clock::now();
@@ -736,8 +762,7 @@ int main(int argc, char* argv[]) {
 
           // randomly choose a local proxy worker thread to connect
           int tid = 1 + rand() % PROXY_THREAD_NUM;
-          zmq_util::send_string(serialized_req, &requesters[proxy_worker_thread_t(ip, tid).request_connect_addr_]);
-          zmq_util::recv_string(&requesters[proxy_worker_thread_t(ip, tid).request_connect_addr_]);
+          zmq_util::send_string(serialized_req, &pushers[proxy_worker_thread_t(ip, tid).metadata_connect_addr_]);
         }
       }
 

@@ -153,12 +153,12 @@ int main(int argc, char* argv[]) {
   address.close();
 
   // read address of management node from conf file
-  address_t management_address;
+  /*address_t management_address;
 
   address.open("conf/monitoring/management_ip.txt");
   getline(address, ip_line);
   management_address = ip_line;
-  address.close();
+  address.close();*/
 
 
   zmq::context_t context(1);
@@ -336,7 +336,7 @@ int main(int argc, char* argv[]) {
         }
       }
 
-      size_t total_memory_consumption = 0;
+      /*size_t total_memory_consumption = 0;
       size_t total_ebs_consumption = 0;
       int memory_node_count = 0;
       int ebs_volume_count = 0;
@@ -363,72 +363,10 @@ int main(int argc, char* argv[]) {
         cerr << "trigger add ebs node\n";
         string shell_command = "curl -X POST https://" + management_address + "/ebs";
         system(shell_command.c_str());
-      }
+      }*/
 
       storage_start = std::chrono::system_clock::now();
     }
-
-    /*if (pollitems[2].revents & ZMQ_POLLIN) {
-      cerr << "received storage update\n";
-      string storage_msg = zmq_util::recv_string(&storage_consumption_puller);
-      communication::Storage_Update su;
-      su.ParseFromString(storage_msg);
-      if (su.node_type() == "M") {
-        memory_tier_storage[master_node_t(su.node_ip(), "M")] = su.memory_storage();
-      } else {
-        ebs_tier_storage[master_node_t(su.node_ip(), "E")].clear();
-
-        for (int i = 0; i < su.ebs_size(); i++) {
-          ebs_tier_storage[master_node_t(su.node_ip(), "E")][su.ebs(i).id()] = su.ebs(i).storage();
-        }
-      }
-
-      size_t total_memory_consumption = 0;
-      size_t total_ebs_consumption = 0;
-      int memory_node_count = 0;
-      int ebs_volume_count = 0;
-
-      for (auto it = memory_tier_storage.begin(); it != memory_tier_storage.end(); it++) {
-        total_memory_consumption += it->second;
-        memory_node_count += 1;
-      }
-
-      for (auto it1 = ebs_tier_storage.begin(); it1 != ebs_tier_storage.end(); it1++) {
-        for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
-          total_ebs_consumption += it2->second;
-          ebs_volume_count += 1;
-        }
-      }
-
-      if ((double)total_memory_consumption / (double)memory_node_count > 0) {
-        cerr << "trigger add memory node\n";
-        string shell_command = "curl -X POST https://" + management_address + "/memory";
-        system(shell_command.c_str());
-      }
-
-      if ((double)total_ebs_consumption / (double)ebs_volume_count > 0) {
-        cerr << "trigger add ebs node\n";
-        string shell_command = "curl -X POST https://" + management_address + "/ebs";
-        system(shell_command.c_str());
-      }
-    }
-
-    if (pollitems[3].revents & ZMQ_POLLIN) {
-      cerr << "received key hotness update\n";
-      string hotness_msg = zmq_util::recv_string(&key_hotness_puller);
-      communication::Key_Hotness_Update khu;
-      khu.ParseFromString(hotness_msg);
-
-      string node_ip = khu.node_ip();
-
-      for (int i = 0; i < khu.tuple_size(); i++) {
-        string key = khu.tuple(i).key();
-        size_t access = khu.tuple(i).access();
-        key_access_frequency[key][node_ip] = access;
-      }
-    }*/
-
-
 
     // TODO: Add policy that triggers node join/removal and key replication factor change
 

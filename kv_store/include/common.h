@@ -17,13 +17,13 @@ using namespace std;
 #define HOTNESS_MONITORING_PERIOD 10
 
 // Define the replication factor for the metadata
-#define METADATA_REPLICATION_FACTOR 2
+#define METADATA_REPLICATION_FACTOR 1
 
 // Define the number of ebs threads
 #define EBS_THREAD_NUM 3
 
 // Define the number of proxy worker threads
-#define PROXY_THREAD_NUM 16
+#define PROXY_THREAD_NUM 1
 
 // Define port offset
 #define SERVER_PORT 6560
@@ -33,6 +33,7 @@ using namespace std;
 #define PROXY_GOSSIP_PORT 7260
 #define PROXY_PLACEMENT_PORT 7360
 #define PROXY_BENCHMARK_PORT 7460
+#define PROXY_METADATA_PORT 7560
 #define STORAGE_CONSUMPTION_PORT 7460
 #define KEY_HOTNESS_PORT 7560
 #define REPLICATION_FACTOR_PORT 6360
@@ -146,6 +147,8 @@ public:
     proxy_gossip_bind_addr_ = "tcp://*:" + to_string(tid + PROXY_GOSSIP_PORT);
     banchmark_connect_addr_ = "tcp://" + ip + ":" + to_string(tid + PROXY_BENCHMARK_PORT);
     banchmark_bind_addr_ = "tcp://*:" + to_string(tid + PROXY_BENCHMARK_PORT);
+    metadata_connect_addr_ = "tcp://" + ip + ":" + to_string(tid + PROXY_METADATA_PORT);
+    metadata_bind_addr_ = "tcp://*:" + to_string(tid + PROXY_METADATA_PORT);
   }
   string ip_;
   string request_connect_addr_;
@@ -154,6 +157,8 @@ public:
   string proxy_gossip_bind_addr_;
   string banchmark_connect_addr_;
   string banchmark_bind_addr_;
+  string metadata_connect_addr_;
+  string metadata_bind_addr_;
 };
 
 class monitoring_node_t {
