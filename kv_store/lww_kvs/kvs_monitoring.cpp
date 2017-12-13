@@ -153,12 +153,12 @@ int main(int argc, char* argv[]) {
   address.close();
 
   // read address of management node from conf file
-  /*address_t management_address;
+  address_t management_address;
 
   address.open("conf/monitoring/management_ip.txt");
   getline(address, ip_line);
   management_address = ip_line;
-  address.close();*/
+  address.close();
 
 
   zmq::context_t context(1);
@@ -336,7 +336,7 @@ int main(int argc, char* argv[]) {
         }
       }
 
-      /*size_t total_memory_consumption = 0;
+      size_t total_memory_consumption = 0;
       size_t total_ebs_consumption = 0;
       int memory_node_count = 0;
       int ebs_volume_count = 0;
@@ -363,7 +363,7 @@ int main(int argc, char* argv[]) {
         cerr << "trigger add ebs node\n";
         string shell_command = "curl -X POST https://" + management_address + "/ebs";
         system(shell_command.c_str());
-      }*/
+      }
 
       storage_start = std::chrono::system_clock::now();
     }
