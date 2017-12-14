@@ -11,17 +11,29 @@
 
 using namespace std;
 
+// Define monitoring constant
+#define STORAGE_CONSUMPTION_REPORT_THRESHOLD 10
+#define HOTNESS_MONITORING_THRESHOLD 30
+#define HOTNESS_MONITORING_PERIOD 10
+
+// Define the replication factor for the metadata
+#define METADATA_REPLICATION_FACTOR 1
+
+// Define the number of ebs threads
+#define EBS_THREAD_NUM 3
+
 // Define the number of proxy worker threads
-#define PROXY_THREAD_NUM 16
+#define PROXY_THREAD_NUM 1
 
 // Define port offset
 #define SERVER_PORT 6560
 #define PROXY_CONNECTION_BASE_PORT 6460
 #define NOTIFY_PORT 7060
-#define PROXY_USER_PORT 7160
+#define PROXY_REQUEST_PORT 7160
 #define PROXY_GOSSIP_PORT 7260
 #define PROXY_PLACEMENT_PORT 7360
 #define PROXY_BENCHMARK_PORT 7460
+#define PROXY_METADATA_PORT 7560
 #define STORAGE_CONSUMPTION_PORT 7460
 #define KEY_HOTNESS_PORT 7560
 #define REPLICATION_FACTOR_PORT 6360
@@ -129,20 +141,24 @@ class proxy_worker_thread_t {
 public:
   proxy_worker_thread_t() {}
   proxy_worker_thread_t(string ip, int tid): ip_(ip) {
-    user_request_connect_addr_ = "tcp://" + ip + ":" + to_string(tid + PROXY_USER_PORT);
-    user_request_bind_addr_ = "tcp://*:" + to_string(tid + PROXY_USER_PORT);
+    request_connect_addr_ = "tcp://" + ip + ":" + to_string(tid + PROXY_REQUEST_PORT);
+    request_bind_addr_ = "tcp://*:" + to_string(tid + PROXY_REQUEST_PORT);
     proxy_gossip_connect_addr_ = "tcp://" + ip + ":" + to_string(tid + PROXY_GOSSIP_PORT);
     proxy_gossip_bind_addr_ = "tcp://*:" + to_string(tid + PROXY_GOSSIP_PORT);
     banchmark_connect_addr_ = "tcp://" + ip + ":" + to_string(tid + PROXY_BENCHMARK_PORT);
     banchmark_bind_addr_ = "tcp://*:" + to_string(tid + PROXY_BENCHMARK_PORT);
+    metadata_connect_addr_ = "tcp://" + ip + ":" + to_string(tid + PROXY_METADATA_PORT);
+    metadata_bind_addr_ = "tcp://*:" + to_string(tid + PROXY_METADATA_PORT);
   }
   string ip_;
-  string user_request_connect_addr_;
-  string user_request_bind_addr_;
+  string request_connect_addr_;
+  string request_bind_addr_;
   string proxy_gossip_connect_addr_;
   string proxy_gossip_bind_addr_;
   string banchmark_connect_addr_;
   string banchmark_bind_addr_;
+  string metadata_connect_addr_;
+  string metadata_bind_addr_;
 };
 
 class monitoring_node_t {

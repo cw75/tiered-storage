@@ -3,8 +3,6 @@
 
 #include <string>
 
-#define STORAGE_CONSUMPTION_REPORT_THRESHOLD 10
-
 using namespace std;
 
 string alphabet("abcdefghijklmnopqrstuvwxyz");
@@ -67,7 +65,7 @@ pair<bool, N*> responsible(string key, int rep, consistent_hash_map<N,H>& hash_r
 }
 
 template<typename T>
-communication::Key_Response get_key_address(string target_node_address, string target_tier, unordered_set<string> keys, SocketCache& key_address_requesters, unordered_map<string, T> placement) {
+communication::Key_Response get_key_address(string target_node_address, string target_tier, unordered_set<string> keys, SocketCache& requesters, unordered_map<string, T> placement) {
   // form key address request
   communication::Key_Request req;
   req.set_sender("server");
@@ -85,9 +83,9 @@ communication::Key_Response get_key_address(string target_node_address, string t
   string key_req;
   req.SerializeToString(&key_req);
   // send key address request
-  zmq_util::send_string(key_req, &key_address_requesters[target_node_address]);
+  zmq_util::send_string(key_req, &requesters[target_node_address]);
   // receive key address response
-  string key_res = zmq_util::recv_string(&key_address_requesters[target_node_address]);
+  string key_res = zmq_util::recv_string(&requesters[target_node_address]);
 
   communication::Key_Response resp;
   resp.ParseFromString(key_res);
