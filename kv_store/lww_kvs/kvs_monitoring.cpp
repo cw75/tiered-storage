@@ -260,7 +260,6 @@ int main(int argc, char* argv[]) {
 
       string serialized_req;
       req.SerializeToString(&serialized_req);
-      // send the storage consumption update to a random proxy worker
       // just pick the first proxy to contact for now;
       // this should eventually be round-robin / random
       string proxy_ip = *(proxy_address.begin());
@@ -308,7 +307,6 @@ int main(int argc, char* argv[]) {
 
       string serialized_req;
       req.SerializeToString(&serialized_req);
-      // send the storage consumption update to a random proxy worker
       // just pick the first proxy to contact for now;
       // this should eventually be round-robin / random
       string proxy_ip = *(proxy_address.begin());
