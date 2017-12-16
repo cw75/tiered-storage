@@ -18,9 +18,6 @@
 using namespace std;
 using address_t = string;
 
-#define DEFAULT_GLOBAL_MEMORY_REPLICATION 1
-#define DEFAULT_GLOBAL_EBS_REPLICATION 0
-
 struct replication_factor_request {
   replication_factor_request() : key_(""), global_memory_replication_(1), global_ebs_replication_(2) {}
   replication_factor_request(string k, int gmr, int ger)
@@ -30,7 +27,7 @@ struct replication_factor_request {
   int global_ebs_replication_;
 };
 
-void change_replication_factor(vector<replication_factor_request> req,
+void change_replication_factor(vector<replication_factor_request> requests,
     global_hash_t& global_memory_hash_ring,
     global_hash_t& global_ebs_hash_ring,
     vector<address_t>& proxy_address,
@@ -42,7 +39,7 @@ void change_replication_factor(vector<replication_factor_request> req,
   // form the placement request map
   unordered_map<address_t, communication::Replication_Factor_Request> replication_factor_request_map;
 
-  for (auto key_iter = req.begin(); key_iter != req.end(); key_iter++) {
+  for (auto key_iter = requests.begin(); key_iter != requests.end(); key_iter++) {
     string key = key_iter->key_;
     orig_placement_info[key] = pair<int, int>(placement[key].global_memory_replication_, placement[key].global_ebs_replication_);
     // update the placement map
@@ -97,6 +94,25 @@ void change_replication_factor(vector<replication_factor_request> req,
     it->second.SerializeToString(&data);
     zmq_util::send_string(data, &pushers[it->first]);
   }
+
+  // update the replication factor in storage servers
+  communication::Request req;
+  req.set_type("PUT");
+  req.set_metadata(true);
+
+  for (auto key_iter = requests.begin(); key_iter != requests.end(); key_iter++) {
+    communication::Request_Tuple* tp = req.add_tuple();
+    tp->set_key(key_iter->key_ + "_replication");
+    tp->set_value(to_string(key_iter->global_memory_replication_) + ":" + to_string(key_iter->global_ebs_replication_));
+  }
+  string serialized_req;
+  req.SerializeToString(&serialized_req);
+  // just pick the first proxy to contact for now;
+  // this should eventually be round-robin / random
+  string proxy_ip = *(proxy_address.begin());
+  // randomly choose a proxy thread to connect
+  int tid = 1 + rand() % PROXY_THREAD_NUM;
+  zmq_util::send_string(serialized_req, &pushers[proxy_worker_thread_t(proxy_ip, tid).metadata_connect_addr_]);
 }
 
 // TODO: instead of cout or cerr, everything should be written to a log file.
@@ -170,13 +186,8 @@ int main(int argc, char* argv[]) {
   zmq::socket_t join_puller(context, ZMQ_PULL);
   join_puller.bind(NOTIFY_BIND_ADDR);
 
-  // responsible for responding key replication factor queries from the proxy worker threads
-  zmq::socket_t replication_factor_query_responder(context, ZMQ_REP);
-  replication_factor_query_responder.bind(REPLICATION_FACTOR_BIND_ADDR);
-
   vector<zmq::pollitem_t> pollitems = {
     { static_cast<void *>(join_puller), 0, ZMQ_POLLIN, 0 },
-    { static_cast<void *>(replication_factor_query_responder), 0, ZMQ_POLLIN, 0 }
   };
 
   auto hotness_start = std::chrono::system_clock::now();
@@ -224,7 +235,7 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    if (pollitems[1].revents & ZMQ_POLLIN) {
+    /*if (pollitems[1].revents & ZMQ_POLLIN) {
       cerr << "received replication factor query\n";
 
       string key = zmq_util::recv_string(&replication_factor_query_responder);
@@ -241,7 +252,7 @@ int main(int argc, char* argv[]) {
 
       replication_factor.SerializeToString(&response);
       zmq_util::send_string(response, &replication_factor_query_responder);
-    }
+    }*/
 
     hotness_end = std::chrono::system_clock::now();
 

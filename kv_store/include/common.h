@@ -19,6 +19,10 @@ using namespace std;
 // Define the replication factor for the metadata
 #define METADATA_REPLICATION_FACTOR 1
 
+// Define the default replication factor for the data
+#define DEFAULT_GLOBAL_MEMORY_REPLICATION 1
+#define DEFAULT_GLOBAL_EBS_REPLICATION 0
+
 // Define the number of ebs threads
 #define EBS_THREAD_NUM 3
 

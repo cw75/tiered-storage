@@ -67,31 +67,55 @@ vector<master_node_t> get_nodes(string key, global_hash_t* global_memory_hash_ri
   return server_nodes;
 }
 
-void process_benchmark_request(string type,
+string process_request(string type,
+    bool metadata,
     string key,
     string value,
     zmq::context_t* context,
     SocketCache& requesters,
     global_hash_t* global_memory_hash_ring,
     global_hash_t* global_ebs_hash_ring,
-    monitoring_node_t& monitoring_node,
     tbb::concurrent_unordered_map<string, shared_key_info>* placement,
-    address_cache_t* address_cache) {
+    address_cache_t* address_cache,
+    unordered_map<string, multiset<std::chrono::time_point<std::chrono::system_clock>>>& key_access_monitoring) {
 
-  // if the replication factor info is missing, query the monitoring node
-  if (placement->find(key) == placement->end()) {
-    /*zmq_util::send_string(key, &requesters[monitoring_node.replication_factor_connect_addr_]);
+  // if the replication factor info is missing, query the storage servers
+  if (!metadata && placement->find(key) == placement->end()) {
+    string serialized_resp = process_request("GET", true, key + "_replication", "", context, requesters, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
+    communication::Response resp;
+    resp.ParseFromString(serialized_resp);
 
-    string replication_factor_response = zmq_util::recv_string(&requesters[monitoring_node.replication_factor_connect_addr_]);
-    communication::Replication_Factor replication_factor;
-    replication_factor.ParseFromString(replication_factor_response);*/
+    int gmr;
+    int ger;
 
+    if (resp.tuple(0).succeed()) {
+      vector<string> factors;
+      split(resp.tuple(0).value(), ':', factors);
+      gmr = stoi(factors[0]);
+      ger = stoi(factors[1]);
+    } else {
+      gmr = DEFAULT_GLOBAL_MEMORY_REPLICATION;
+      ger = DEFAULT_GLOBAL_EBS_REPLICATION;
+    }
     placement->emplace(std::piecewise_construct,
                        std::forward_as_tuple(key),
-                       std::forward_as_tuple(1, 0));
+                       std::forward_as_tuple(gmr, ger));
   }
 
-  vector<master_node_t> server_nodes = get_nodes(key, global_memory_hash_ring, global_ebs_hash_ring, placement->find(key)->second.global_memory_replication_.load(), placement->find(key)->second.global_ebs_replication_.load());
+  int gmr;
+  int ger;
+
+  if (!metadata) {
+    // update key access monitoring map
+    key_access_monitoring[key].insert(std::chrono::system_clock::now());
+    gmr = placement->find(key)->second.global_memory_replication_.load();
+    ger = placement->find(key)->second.global_ebs_replication_.load();
+  } else {
+    gmr = METADATA_REPLICATION_FACTOR;
+    ger = 0;
+  }
+
+  vector<master_node_t> server_nodes = get_nodes(key, global_memory_hash_ring, global_ebs_hash_ring, gmr, ger);
   // get a random node
   master_node_t server_node = server_nodes[rand() % server_nodes.size()];
 
@@ -100,8 +124,8 @@ void process_benchmark_request(string type,
     key_req.set_sender("proxy");
     communication::Key_Request_Tuple* tp = key_req.add_tuple();
     tp->set_key(key);
-    tp->set_global_memory_replication(placement->find(key)->second.global_memory_replication_.load());
-    tp->set_global_ebs_replication(placement->find(key)->second.global_ebs_replication_.load());
+    tp->set_global_memory_replication(gmr);
+    tp->set_global_ebs_replication(ger);
 
     // serialize request and send
     string data;
@@ -113,7 +137,7 @@ void process_benchmark_request(string type,
     data = zmq_util::recv_string(&requesters[server_node.key_exchange_connect_addr_]);
     auto receive_time = std::chrono::system_clock::now();
 
-    //cout << "key request took " + to_string(chrono::duration_cast<std::chrono::microseconds>(receive_time-send_time).count()) + " microseconds\n";
+    cout << "key request took " + to_string(chrono::duration_cast<std::chrono::microseconds>(receive_time-send_time).count()) + " microseconds\n";
 
     communication::Key_Response key_res;
     key_res.ParseFromString(data);
@@ -127,17 +151,16 @@ void process_benchmark_request(string type,
   address_t worker_address = *(next(begin((*address_cache)[server_node.ip_][key]), rand() % (*address_cache)[server_node.ip_][key].size()));
 
   communication::Request req;
-  if (type == "G") {
+  if (type == "GET") {
     req.set_type("GET");
   } else {
     req.set_type("PUT");
   }
-  req.set_metadata(false);
 
   communication::Request_Tuple* tp = req.add_tuple();
   tp->set_key(key);
 
-  if (type == "P") {
+  if (type == "PUT") {
     tp->set_value(value);
   }
 
@@ -150,15 +173,15 @@ void process_benchmark_request(string type,
   string serialized_resp = zmq_util::recv_string(&requesters[worker_address]);
   auto receive_time = std::chrono::system_clock::now();
 
-  //cout << "request took " + to_string(chrono::duration_cast<std::chrono::microseconds>(receive_time-send_time).count()) + " microseconds\n";
+  cout << "request took " + to_string(chrono::duration_cast<std::chrono::microseconds>(receive_time-send_time).count()) + " microseconds\n";
+  return serialized_resp;
 }
 
-string handle_request(string serialized_req,
+string process_batch_request(string serialized_req,
     zmq::context_t* context,
     SocketCache& requesters,
     global_hash_t* global_memory_hash_ring,
     global_hash_t* global_ebs_hash_ring,
-    monitoring_node_t& monitoring_node,
     tbb::concurrent_unordered_map<string, shared_key_info>* placement,
     address_cache_t* address_cache,
     unordered_map<string, multiset<std::chrono::time_point<std::chrono::system_clock>>>& key_access_monitoring) {
@@ -177,17 +200,27 @@ string handle_request(string serialized_req,
       key_value_map[key] = req.tuple(i).value();
     }
 
-    // if the replication factor info is missing, query the monitoring node
+    // if the replication factor info is missing, query the storage servers
     if (!req.metadata() && placement->find(key) == placement->end()) {
-      zmq_util::send_string(key, &requesters[monitoring_node.replication_factor_connect_addr_]);
+      string serialized_resp = process_request("GET", true, key + "_replication", "", context, requesters, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
+      communication::Response resp;
+      resp.ParseFromString(serialized_resp);
 
-      string replication_factor_response = zmq_util::recv_string(&requesters[monitoring_node.replication_factor_connect_addr_]);
-      communication::Replication_Factor replication_factor;
-      replication_factor.ParseFromString(replication_factor_response);
+      int gmr;
+      int ger;
 
+      if (resp.tuple(0).succeed()) {
+        vector<string> factors;
+        split(resp.tuple(0).value(), ':', factors);
+        gmr = stoi(factors[0]);
+        ger = stoi(factors[1]);
+      } else {
+        gmr = DEFAULT_GLOBAL_MEMORY_REPLICATION;
+        ger = DEFAULT_GLOBAL_EBS_REPLICATION;
+      }
       placement->emplace(std::piecewise_construct,
                          std::forward_as_tuple(key),
-                         std::forward_as_tuple(replication_factor.global_memory_replication(), replication_factor.global_ebs_replication()));
+                         std::forward_as_tuple(gmr, ger));
     }
 
     int gmr;
@@ -214,8 +247,8 @@ string handle_request(string serialized_req,
         key_request_map[server_node].set_sender("proxy");
         communication::Key_Request_Tuple* tp = key_request_map[server_node].add_tuple();
         tp->set_key(key);
-        tp->set_global_memory_replication(METADATA_REPLICATION_FACTOR);
-        tp->set_global_ebs_replication(0);
+        tp->set_global_memory_replication(gmr);
+        tp->set_global_ebs_replication(ger);
       } else {
         address_t worker_address = *(next(begin((*address_cache)[server_node.ip_][key]), rand() % (*address_cache)[server_node.ip_][key].size()));
         request_map[worker_address].set_type(req.type());
@@ -372,7 +405,7 @@ void proxy_worker_routine(zmq::context_t* context,
       cerr << "received request\n";
 
       string serialized_req = zmq_util::recv_string(&request_responder);
-      string serialized_resp = handle_request(serialized_req, context, requesters, global_memory_hash_ring, global_ebs_hash_ring, monitoring_node, placement, address_cache, key_access_monitoring);
+      string serialized_resp = process_batch_request(serialized_req, context, requesters, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
       zmq_util::send_string(serialized_resp, &request_responder);
     }
 
@@ -488,7 +521,7 @@ void proxy_worker_routine(zmq::context_t* context,
 
       // warm up
       /*for (auto it = key_value.begin(); it != key_value.end(); it++) {
-        process_benchmark_request("P", it->first, it->second, context, requesters, global_memory_hash_ring, global_ebs_hash_ring, monitoring_node, placement, address_cache);
+        process_request("PUT", false, it->first, it->second, context, requesters, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
       }*/
 
       auto benchmark_start = std::chrono::system_clock::now();
@@ -499,7 +532,7 @@ void proxy_worker_routine(zmq::context_t* context,
             cout << "processing request number " + to_string(i) + "\n";
           }
           string key = to_string(rand() % key_value.size() + 1);
-          process_benchmark_request("G", key, "", context, requesters, global_memory_hash_ring, global_ebs_hash_ring, monitoring_node, placement, address_cache);
+          process_request("GET", false, key, "", context, requesters, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
         }
       } else if (type == "P") {
         for (int i = 0; i < count; i++) {
@@ -507,13 +540,13 @@ void proxy_worker_routine(zmq::context_t* context,
             cout << "processing request number " + to_string(i) + "\n";
           }
           string key = to_string(rand() % key_value.size() + 1);
-          process_benchmark_request("P", key, key_value[key], context, requesters, global_memory_hash_ring, global_ebs_hash_ring, monitoring_node, placement, address_cache);
+          process_request("PUT", false, key, key_value[key], context, requesters, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
         }
       } else if (type == "M") {
         for (int i = 0; i < count/2; i++) {
           string key = to_string(rand() % key_value.size() + 1);
-          process_benchmark_request("P", key, key_value[key], context, requesters, global_memory_hash_ring, global_ebs_hash_ring, monitoring_node, placement, address_cache);
-          process_benchmark_request("G", key, "", context, requesters, global_memory_hash_ring, global_ebs_hash_ring, monitoring_node, placement, address_cache);
+          process_request("PUT", false, key, key_value[key], context, requesters, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
+          process_request("GET", false, key, "", context, requesters, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
         }
       } else {
         cerr << "invalid request type\n";
@@ -534,7 +567,7 @@ void proxy_worker_routine(zmq::context_t* context,
       cerr << "received metadata updates\n";
 
       string serialized_req = zmq_util::recv_string(&metadata_puller);
-      string serialized_resp = handle_request(serialized_req, context, requesters, global_memory_hash_ring, global_ebs_hash_ring, monitoring_node, placement, address_cache, key_access_monitoring);
+      string serialized_resp = process_batch_request(serialized_req, context, requesters, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
     }
 
     hotness_end = std::chrono::system_clock::now();
@@ -722,9 +755,18 @@ int main(int argc, char* argv[]) {
       // update the placement info
       for (int i = 0; i < req.tuple_size(); i++) {
         string key = req.tuple(i).key();
+        int gmr = req.tuple(i).global_memory_replication();
+        int ger = req.tuple(i).global_ebs_replication();
+
         // update the placement map
-        placement->find(key)->second.global_memory_replication_.store(req.tuple(i).global_memory_replication());
-        placement->find(key)->second.global_ebs_replication_.store(req.tuple(i).global_ebs_replication());
+        if (placement->find(key) == placement->end()) {
+          placement->emplace(std::piecewise_construct,
+                             std::forward_as_tuple(key),
+                             std::forward_as_tuple(gmr, ger));
+        } else {
+          placement->find(key)->second.global_memory_replication_.store(gmr);
+          placement->find(key)->second.global_ebs_replication_.store(ger);
+        }
       }
     }
 
