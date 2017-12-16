@@ -132,7 +132,7 @@ int main(int argc, char* argv[]) {
   unordered_map<string, unordered_map<address_t, size_t>> key_access_frequency;
 
   // keep track of memory tier storage consumption
-  unordered_map<address_t, size_t> memory_tier_storage;
+  unordered_map<address_t, unordered_map<string, size_t>> memory_tier_storage;
 
   // keep track of ebs tier storage consumption
   unordered_map<address_t, unordered_map<string, size_t>> ebs_tier_storage;
@@ -305,14 +305,16 @@ int main(int argc, char* argv[]) {
       req.set_metadata(true);
 
       for (auto it = global_memory_hash_ring.begin(); it != global_memory_hash_ring.end(); it++) {
-        communication::Request_Tuple* tp = req.add_tuple();
-        tp->set_key(it->second.ip_ + "_storage");
+        for (int tid = 1; tid <= MEMORY_THREAD_NUM; tid++) {
+          communication::Request_Tuple* tp = req.add_tuple();
+          tp->set_key(it->second.ip_ + "_M_" + to_string(tid) + "_storage");
+        }
       }
 
       for (auto it = global_ebs_hash_ring.begin(); it != global_ebs_hash_ring.end(); it++) {
         for (int tid = 1; tid <= EBS_THREAD_NUM; tid++) {
           communication::Request_Tuple* tp = req.add_tuple();
-          tp->set_key(it->second.ip_ + "_" + to_string(tid) + "_storage");
+          tp->set_key(it->second.ip_ + "_E_" + to_string(tid) + "_storage");
         }
       }
 
@@ -334,13 +336,12 @@ int main(int argc, char* argv[]) {
           vector<string> tokens;
           split(resp.tuple(i).key(), '_', tokens);
           string ip = tokens[0];
+          string type = tokens[1];
 
-          if (tokens.size() == 2) {
-            // memory
-            memory_tier_storage[tokens[0]] = stoi(resp.tuple(i).value());
-          } else if (tokens.size() == 3) {
-            // ebs
-            ebs_tier_storage[tokens[0]][tokens[1]] = stoi(resp.tuple(i).value());
+          if (type == "M") {
+            memory_tier_storage[tokens[0]][tokens[2]] = stoi(resp.tuple(i).value());
+          } else {
+            ebs_tier_storage[tokens[0]][tokens[2]] = stoi(resp.tuple(i).value());
           }
         }
       }
@@ -350,8 +351,10 @@ int main(int argc, char* argv[]) {
       int memory_node_count = 0;
       int ebs_volume_count = 0;
 
-      for (auto it = memory_tier_storage.begin(); it != memory_tier_storage.end(); it++) {
-        total_memory_consumption += it->second;
+      for (auto it1 = memory_tier_storage.begin(); it1 != memory_tier_storage.end(); it1++) {
+        for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
+          total_memory_consumption += it2->second;
+        }
         memory_node_count += 1;
       }
 

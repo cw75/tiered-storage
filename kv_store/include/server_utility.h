@@ -5,6 +5,9 @@
 
 using namespace std;
 
+// Define the default local replication factor
+#define DEFAULT_LOCAL_REPLICATION 1
+
 string alphabet("abcdefghijklmnopqrstuvwxyz");
 
 string getNextDeviceID(string currentID) {
@@ -19,6 +22,17 @@ string getNextDeviceID(string currentID) {
 			return "error: name out of bound\n";
 	}
 }
+
+struct storage_key_info {
+  storage_key_info() : global_memory_replication_(1), global_ebs_replication_(2), local_replication_(1) {}
+  storage_key_info(int gmr, int ger, int lr)
+    : global_memory_replication_(gmr), global_ebs_replication_(ger), local_replication_(lr) {}
+  storage_key_info(int gmr, int ger)
+    : global_memory_replication_(gmr), global_ebs_replication_(ger), local_replication_(DEFAULT_LOCAL_REPLICATION) {}
+  int global_memory_replication_;
+  int global_ebs_replication_;
+  int local_replication_;
+};
 
 struct pair_hash {
   template <class T1, class T2>
@@ -64,6 +78,7 @@ pair<bool, N*> responsible(string key, int rep, consistent_hash_map<N,H>& hash_r
   }
 }
 
+// contact target_node_address to get the worker address that's responsible for the keys
 template<typename T>
 communication::Key_Response get_key_address(string target_node_address, string target_tier, unordered_set<string> keys, SocketCache& requesters, unordered_map<string, T> placement) {
   // form key address request

@@ -471,13 +471,8 @@ void proxy_worker_routine(zmq::context_t* context,
         // allows the metadata thread to answer lightweight requests only
         for (int i = 0; i < server_res.tuple_size(); i++) {
           key = server_res.tuple(i).key();
-          if (it->first.tier_ == "E") {
-            for (int j = 0; j < server_res.tuple(i).address_size(); j++) {
-              key_worker_map[key].insert(server_res.tuple(i).address(j).addr());
-            }
-          } else {
-            // we only have one address for memory tier
-            key_worker_map[key].insert(server_res.tuple(i).address(0).addr());
+          for (int j = 0; j < server_res.tuple(i).address_size(); j++) {
+            key_worker_map[key].insert(server_res.tuple(i).address(j).addr());
           }
         }
       }
