@@ -29,6 +29,9 @@ using namespace std;
 // Define the gossip period (frequency)
 #define PERIOD 10
 
+// Define node type
+#define NODE_TYPE "M"
+
 // TODO: reconsider type names here
 typedef KV_Store<string, RC_KVS_PairLattice<string>> Database;
 
@@ -355,7 +358,7 @@ int main(int argc, char* argv[]) {
   string ip = get_ip("server");
   string new_node = argv[1];
 
-  master_node_t mnode = master_node_t(ip, "M");
+  master_node_t mnode = master_node_t(ip, NODE_TYPE);
 
   // prepare the zmq context
   zmq::context_t context(1);
@@ -363,7 +366,7 @@ int main(int argc, char* argv[]) {
   SocketCache requesters(&context, ZMQ_REQ);
 
   // create our hash rings
-  global_hash_t global_memory_hash_ring;
+  global_hash_t global_hash_ring;
   local_hash_t local_hash_ring;
   unordered_map<string, storage_key_info> placement;
 
@@ -397,11 +400,11 @@ int main(int argc, char* argv[]) {
   if (new_node == "n") {
     address.open("conf/server/start_servers.txt");
     // add itself to the ring
-    global_memory_hash_ring.insert(mnode);
+    global_hash_ring.insert(mnode);
 
     // add all other servers
     while (getline(address, ip_line)) {
-      global_memory_hash_ring.insert(master_node_t(ip_line, "M"));
+      global_hash_ring.insert(master_node_t(ip_line, NODE_TYPE));
     }
     address.close();
   } else { // get server address from the seed node
@@ -411,18 +414,18 @@ int main(int argc, char* argv[]) {
 
     // tell the seed node that you are joining
     zmq::socket_t addr_requester(context, ZMQ_REQ);
-    addr_requester.connect(master_node_t(ip_line, "M").seed_connection_connect_addr_);
+    addr_requester.connect(master_node_t(ip_line, NODE_TYPE).seed_connection_connect_addr_);
     zmq_util::send_string("join", &addr_requester);
 
     // receive and add all the addresses that seed node sent
     vector<string> addresses;
     split(zmq_util::recv_string(&addr_requester), '|', addresses);
     for (auto it = addresses.begin(); it != addresses.end(); it++) {
-      global_memory_hash_ring.insert(master_node_t(*it, "M"));
+      global_hash_ring.insert(master_node_t(*it, NODE_TYPE));
     }
 
     // add itself to global hash ring
-    global_memory_hash_ring.insert(mnode);
+    global_hash_ring.insert(mnode);
   }
 
   vector<thread> worker_threads;
@@ -434,28 +437,24 @@ int main(int argc, char* argv[]) {
     local_hash_ring.insert(worker_node_t(ip, thread_id));
   }
 
-  set<int> active_thread_id = set<int>();
-  for (int i = 1; i <= MEMORY_THREAD_NUM; i++) {
-    active_thread_id.insert(i);
-  }
-
   if (new_node == "y") {
     // notify other servers that there is a new node
-    for (auto it = global_memory_hash_ring.begin(); it != global_memory_hash_ring.end(); it++) {
+    for (auto it = global_hash_ring.begin(); it != global_hash_ring.end(); it++) {
       if (it->second.ip_.compare(ip) != 0) {
         zmq_util::send_string(ip, &pushers[(it->second).node_join_connect_addr_]);
       }
     }
   }
 
+  string msg = "join:" + string(NODE_TYPE) + ":" + ip;
   // notify proxies that this node has joined the service
   for (auto it = proxy_address.begin(); it != proxy_address.end(); it++) {
-    zmq_util::send_string("join:E:" + ip, &pushers[proxy_node_t(*it).notify_connect_addr_]);
+    zmq_util::send_string(msg, &pushers[proxy_node_t(*it).notify_connect_addr_]);
   }
 
   // notify monitoring nodes that this node has joined the service
   for (auto it = monitoring_address.begin(); it != monitoring_address.end(); it++) {
-    zmq_util::send_string("join:E:" + ip, &pushers[monitoring_node_t(*it).notify_connect_addr_]);
+    zmq_util::send_string(msg, &pushers[monitoring_node_t(*it).notify_connect_addr_]);
   }
 
   // responsible for sending the server address to a new node
@@ -513,7 +512,7 @@ int main(int argc, char* argv[]) {
       string request = zmq_util::recv_string(&addr_responder);
 
       string addresses;
-      for (auto it = global_memory_hash_ring.begin(); it != global_memory_hash_ring.end(); it++) {
+      for (auto it = global_hash_ring.begin(); it != global_hash_ring.end(); it++) {
         addresses += (it->second.ip_ + "|");
       }
 
@@ -525,10 +524,10 @@ int main(int argc, char* argv[]) {
     if (pollitems[1].revents & ZMQ_POLLIN) {
       string new_server_ip = zmq_util::recv_string(&join_puller);
       cout << "Received a node join. New node is " << new_server_ip << ".\n";
-      master_node_t new_node = master_node_t(new_server_ip, "M");
+      master_node_t new_node = master_node_t(new_server_ip, NODE_TYPE);
 
       // update global hash ring
-      global_memory_hash_ring.insert(new_node);
+      global_hash_ring.insert(new_node);
 
       // a map for each local worker that has to redistribute to the remote
       // node
@@ -544,7 +543,7 @@ int main(int argc, char* argv[]) {
         string key = it->first;
         storage_key_info info = it->second;
 
-        auto result = responsible<master_node_t, global_hasher>(key, info.global_memory_replication_, global_memory_hash_ring, new_node.id_);
+        auto result = responsible<master_node_t, global_hasher>(key, info.global_memory_replication_, global_hash_ring, new_node.id_);
 
         if (result.first && (result.second->ip_.compare(ip) == 0)) {
           key_to_query.insert(it->first);
@@ -597,24 +596,24 @@ int main(int argc, char* argv[]) {
       cout << "Received departure for node " << departing_server_ip << ".\n";
 
       // update hash ring
-      global_memory_hash_ring.erase(master_node_t(departing_server_ip, "M"));
+      global_hash_ring.erase(master_node_t(departing_server_ip, NODE_TYPE));
     }
 
     if (pollitems[3].revents & ZMQ_POLLIN) {
       cout << "Received a key address request.\n";
 
-      string key_req = zmq_util::recv_string(&key_address_responder);
-      communication::Key_Request req;
-      req.ParseFromString(key_req);
+      string serialized_key_req = zmq_util::recv_string(&key_address_responder);
+      communication::Key_Request key_req;
+      key_req.ParseFromString(serialized_key_req);
 
-      string sender = req.sender();
-      communication::Key_Response res;
+      string sender = key_req.sender();
+      communication::Key_Response key_resp;
 
       // for every requested key
-      for (int i = 0; i < req.tuple_size(); i++) {
-        string key = req.tuple(i).key();
-        int gmr = req.tuple(i).global_memory_replication();
-        int ger = req.tuple(i).global_ebs_replication();
+      for (int i = 0; i < key_req.tuple_size(); i++) {
+        string key = key_req.tuple(i).key();
+        int gmr = key_req.tuple(i).global_memory_replication();
+        int ger = key_req.tuple(i).global_ebs_replication();
         cout << "Received a key request for key " + key + ".\n";
 
         // fill in placement metadata only if not already exist
@@ -623,10 +622,10 @@ int main(int argc, char* argv[]) {
         }
 
         // check if the node is responsible for this key
-        auto result = responsible<master_node_t, global_hasher>(key, placement[key].global_memory_replication_, global_memory_hash_ring, mnode.id_);
+        auto result = responsible<master_node_t, global_hasher>(key, placement[key].global_memory_replication_, global_hash_ring, mnode.id_);
 
         if (result.first) {
-          communication::Key_Response_Tuple* tp = res.add_tuple();
+          communication::Key_Response_Tuple* tp = key_resp.add_tuple();
           tp->set_key(key);
 
           // find all the local worker threads that are assigned to this key
@@ -645,11 +644,11 @@ int main(int argc, char* argv[]) {
             }
           }
         }
+      }
 
-        string response;
-        res.SerializeToString(&response);
-        zmq_util::send_string(response, &key_address_responder);
-      } 
+      string serialized_key_resp;
+      key_resp.SerializeToString(&serialized_key_resp);
+      zmq_util::send_string(serialized_key_resp, &key_address_responder);
     }
 
     if (pollitems[4].revents & ZMQ_POLLIN) {
@@ -686,19 +685,19 @@ int main(int argc, char* argv[]) {
 
         // second, check the global memory ring for any nodes that might also be
         // responsible for this key
-        auto pos = global_memory_hash_ring.find(key);
+        auto pos = global_hash_ring.find(key);
         for (int i = 0; i < placement[key].global_memory_replication_; i++) {
           if (pos->second.ip_.compare(ip) != 0) {
             node_map[pos->second].insert(key);
           }
 
-          if (++pos == global_memory_hash_ring.end()) {
-            pos = global_memory_hash_ring.begin();
+          if (++pos == global_hash_ring.end()) {
+            pos = global_hash_ring.begin();
           }
         }
 
-        // finally, check if the key has replica on the memory tier
-        if (placement[key].global_memory_replication_ != 0) {
+        // finally, check if the key has replica on the other tier
+        if (placement[key].global_ebs_replication_ != 0) {
           key_to_proxy.insert(key);
         }
       }
@@ -724,7 +723,7 @@ int main(int argc, char* argv[]) {
         int tid = 1 + rand() % PROXY_THREAD_NUM;
         string target_proxy_address = proxy_worker_thread_t(proxy_address[rand() % proxy_address.size()], tid).proxy_gossip_connect_addr_;
         // get key address
-        communication::Key_Response resp = get_key_address<storage_key_info>(target_proxy_address, "E", key_to_proxy, requesters, placement);
+        communication::Key_Response resp = get_key_address<storage_key_info>(target_proxy_address, NODE_TYPE, key_to_proxy, requesters, placement);
 
         // for each key, add the address of *every* (there can be multiple)
         // worker thread on the other node that should receive this key
@@ -743,21 +742,22 @@ int main(int argc, char* argv[]) {
     if (pollitems[5].revents & ZMQ_POLLIN) {
       cout << "Node is departing.\n";
 
-      global_memory_hash_ring.erase(mnode);
-      for (auto it = global_memory_hash_ring.begin(); it != global_memory_hash_ring.end(); it++) {
+      global_hash_ring.erase(mnode);
+      for (auto it = global_hash_ring.begin(); it != global_hash_ring.end(); it++) {
         zmq_util::send_string(ip, &pushers[it->second.node_depart_connect_addr_]);
       }
       
+      string msg = "depart:" + string(NODE_TYPE) + ":" + ip;
       // notify proxies
       for (auto it = proxy_address.begin(); it != proxy_address.end(); it++) {
-        zmq_util::send_string("depart:E:" + ip, &pushers[proxy_node_t(*it).notify_connect_addr_]);
+        zmq_util::send_string(msg, &pushers[proxy_node_t(*it).notify_connect_addr_]);
       }
 
       // form the key_request map
       unordered_map<string, communication::Key_Request> key_request_map;
       for (auto it = placement.begin(); it != placement.end(); it++) {
         string key = it->first;
-        auto pos = global_memory_hash_ring.find(key);
+        auto pos = global_hash_ring.find(key);
 
         for (int i = 0; i < placement[key].global_memory_replication_; i++) {
           key_request_map[pos->second.key_exchange_connect_addr_].set_sender("server");
@@ -766,8 +766,8 @@ int main(int argc, char* argv[]) {
           tp->set_global_memory_replication(placement[key].global_memory_replication_);
           tp->set_global_ebs_replication(placement[key].global_ebs_replication_);
 
-          if (++pos == global_memory_hash_ring.end()) {
-            pos = global_memory_hash_ring.begin();
+          if (++pos == global_hash_ring.end()) {
+            pos = global_hash_ring.begin();
           }
         }
       }
@@ -841,30 +841,30 @@ int main(int argc, char* argv[]) {
         }
 
         // first, check whether the node is responsible for the key before the replication factor change
-        auto result = responsible<master_node_t, global_hasher>(key, placement[key].global_memory_replication_, global_memory_hash_ring, mnode.id_);
+        auto result = responsible<master_node_t, global_hasher>(key, placement[key].global_memory_replication_, global_hash_ring, mnode.id_);
         // update placement info
         placement[key].global_memory_replication_ = gmr;
         placement[key].global_ebs_replication_ = ger;
         // proceed only if the node is responsible for the key before the replication factor change
         if (result.first) {
           // check the global ring and request worker addresses from other node's master thread
-          auto pos = global_memory_hash_ring.find(key);
+          auto pos = global_hash_ring.find(key);
           for (int i = 0; i < placement[key].global_memory_replication_; i++) {
             if (pos->second.ip_.compare(ip) != 0) {
               node_map[pos->second].insert(key);
             }
-            if (++pos == global_memory_hash_ring.end()) {
-              pos = global_memory_hash_ring.begin();
+            if (++pos == global_hash_ring.end()) {
+              pos = global_hash_ring.begin();
             }
           }
 
-          // check if the key has replica on the memory tier
-          if (placement[key].global_memory_replication_ != 0) {
+          // check if the key has replica on the other tier
+          if (placement[key].global_ebs_replication_ != 0) {
             key_to_proxy.insert(key);
           }
 
           // check if the key has to be removed under the new replication factor
-          result = responsible<master_node_t, global_hasher>(key, placement[key].global_memory_replication_, global_memory_hash_ring, mnode.id_);
+          result = responsible<master_node_t, global_hasher>(key, placement[key].global_memory_replication_, global_hash_ring, mnode.id_);
           if (result.first) {
             key_remove_map[key] = false;
           } else {
@@ -918,7 +918,7 @@ int main(int argc, char* argv[]) {
         int tid = 1 + rand() % PROXY_THREAD_NUM;
         string target_proxy_address = proxy_worker_thread_t(proxy_address[rand() % proxy_address.size()], tid).proxy_gossip_connect_addr_;
         // get key address
-        communication::Key_Response resp = get_key_address<storage_key_info>(target_proxy_address, "E", key_to_proxy, requesters, placement);
+        communication::Key_Response resp = get_key_address<storage_key_info>(target_proxy_address, NODE_TYPE, key_to_proxy, requesters, placement);
 
         // for each key in the response
         for (int i = 0; i < resp.tuple_size(); i++) {
@@ -980,7 +980,7 @@ int main(int argc, char* argv[]) {
 
       for (auto it = worker_thread_storage.begin(); it != worker_thread_storage.end(); it++) {
         communication::Request_Tuple* tp = req.add_tuple();
-        tp->set_key(mnode.ip_ + "_M_" + it->first + "_storage");
+        tp->set_key(mnode.ip_ + "_" + NODE_TYPE + "_" + it->first + "_storage");
         tp->set_value(to_string(it->second));
       }
       string serialized_req;

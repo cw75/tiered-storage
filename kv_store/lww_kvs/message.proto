@@ -42,7 +42,7 @@ message Key_Request {
   }
   required string sender = 1;
   repeated Tuple tuple = 2;
-  optional string target_tier = 3;
+  optional string source_tier = 3;
 }
 
 message Key_Response {

@@ -20,8 +20,8 @@ using namespace std;
 #define METADATA_REPLICATION_FACTOR 1
 
 // Define the default replication factor for the data
-#define DEFAULT_GLOBAL_MEMORY_REPLICATION 1
-#define DEFAULT_GLOBAL_EBS_REPLICATION 0
+#define DEFAULT_GLOBAL_MEMORY_REPLICATION 2
+#define DEFAULT_GLOBAL_EBS_REPLICATION 1
 
 // Define the number of memory threads
 #define MEMORY_THREAD_NUM 1

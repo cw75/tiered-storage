@@ -36,7 +36,7 @@ else
   if [ "$1" = "m" ]; then
     ./build/kv_store/lww_kvs/kvs_memory_server $NEW
   elif [ "$1" = "e" ]; then
-    ./build/kv_store/lww_kvs/kvs_ebs_server $NEW n
+    ./build/kv_store/lww_kvs/kvs_ebs_server $NEW
   else
     echo "Unrecognized server type: $1. Exiting."
     exit 1

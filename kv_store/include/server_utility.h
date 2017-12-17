@@ -80,14 +80,14 @@ pair<bool, N*> responsible(string key, int rep, consistent_hash_map<N,H>& hash_r
 
 // contact target_node_address to get the worker address that's responsible for the keys
 template<typename T>
-communication::Key_Response get_key_address(string target_node_address, string target_tier, unordered_set<string> keys, SocketCache& requesters, unordered_map<string, T> placement) {
+communication::Key_Response get_key_address(string target_node_address, string source_tier, unordered_set<string> keys, SocketCache& requesters, unordered_map<string, T> placement) {
   // form key address request
   communication::Key_Request req;
   req.set_sender("server");
-  if (target_tier == "M") {
-    req.set_target_tier("M");
-  } else if (target_tier == "E") {
-    req.set_target_tier("E");
+  if (source_tier == "M") {
+    req.set_source_tier("M");
+  } else if (source_tier == "E") {
+    req.set_source_tier("E");
   }
   for (auto it = keys.begin(); it != keys.end(); it++) {
     communication::Key_Request_Tuple* tp = req.add_tuple();
