@@ -20,8 +20,11 @@ using namespace std;
 #define METADATA_REPLICATION_FACTOR 1
 
 // Define the default replication factor for the data
-#define DEFAULT_GLOBAL_MEMORY_REPLICATION 1
-#define DEFAULT_GLOBAL_EBS_REPLICATION 0
+#define DEFAULT_GLOBAL_MEMORY_REPLICATION 2
+#define DEFAULT_GLOBAL_EBS_REPLICATION 1
+
+// Define the number of memory threads
+#define MEMORY_THREAD_NUM 1
 
 // Define the number of ebs threads
 #define EBS_THREAD_NUM 3
@@ -221,7 +224,7 @@ struct shared_key_info {
   atomic<int> global_ebs_replication_;
 };
 
-struct crc32_hasher {
+struct global_hasher {
   uint32_t operator()(const node_t& node) {
     boost::crc_32_type ret;
     ret.process_bytes(node.id_.c_str(), node.id_.size());
@@ -235,7 +238,7 @@ struct crc32_hasher {
   typedef uint32_t result_type;
 };
 
-struct ebs_hasher {
+struct local_hasher {
   hash<string>::result_type operator()(const node_t& node) {
     return hash<string>{}(node.id_);
   }
@@ -274,6 +277,6 @@ string get_ip(string node_type) {
   return server_ip;
 }
 
-typedef consistent_hash_map<master_node_t,crc32_hasher> global_hash_t;
+typedef consistent_hash_map<master_node_t,global_hasher> global_hash_t;
 
 #endif

@@ -416,7 +416,7 @@ void proxy_worker_routine(zmq::context_t* context,
       string key_req = zmq_util::recv_string(&gossip_responder);
       communication::Key_Request req;
       req.ParseFromString(key_req);
-      string target_tier = req.target_tier();
+      string source_tier = req.source_tier();
       // this data structure is for keeping track of the mapping between each key and the workers responsible for the key
       unordered_map<string, unordered_set<address_t>> key_worker_map;
       vector<master_node_t> server_nodes;
@@ -426,10 +426,16 @@ void proxy_worker_routine(zmq::context_t* context,
       // loop through "req" to create the key request map for sending key address requests
       for (int i = 0; i < req.tuple_size(); i++) {
         string key = req.tuple(i).key();
-        if (target_tier == "M") {
-          server_nodes = get_nodes(key, global_memory_hash_ring, nullptr, placement->find(key)->second.global_memory_replication_.load(), placement->find(key)->second.global_ebs_replication_.load());
-        } else {
+        // update the placement map
+        if (placement->find(key) == placement->end()) {
+          placement->emplace(std::piecewise_construct,
+                             std::forward_as_tuple(key),
+                             std::forward_as_tuple(req.tuple(i).global_memory_replication(), req.tuple(i).global_ebs_replication()));
+        }
+        if (source_tier == "M") {
           server_nodes = get_nodes(key, nullptr, global_ebs_hash_ring, placement->find(key)->second.global_memory_replication_.load(), placement->find(key)->second.global_ebs_replication_.load());
+        } else {
+          server_nodes = get_nodes(key, global_memory_hash_ring, nullptr, placement->find(key)->second.global_memory_replication_.load(), placement->find(key)->second.global_ebs_replication_.load());
         }
 
         if (server_nodes.size() == 0) {
@@ -471,13 +477,8 @@ void proxy_worker_routine(zmq::context_t* context,
         // allows the metadata thread to answer lightweight requests only
         for (int i = 0; i < server_res.tuple_size(); i++) {
           key = server_res.tuple(i).key();
-          if (it->first.tier_ == "E") {
-            for (int j = 0; j < server_res.tuple(i).address_size(); j++) {
-              key_worker_map[key].insert(server_res.tuple(i).address(j).addr());
-            }
-          } else {
-            // we only have one address for memory tier
-            key_worker_map[key].insert(server_res.tuple(i).address(0).addr());
+          for (int j = 0; j < server_res.tuple(i).address_size(); j++) {
+            key_worker_map[key].insert(server_res.tuple(i).address(j).addr());
           }
         }
       }
