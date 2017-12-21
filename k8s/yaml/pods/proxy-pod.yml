@@ -3,7 +3,7 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: proxy-pod-UNIQUE
+  name: proxy-instance-UNIQUE
   labels: 
     role: proxy
 spec:
