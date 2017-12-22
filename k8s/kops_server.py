@@ -21,7 +21,7 @@ class KopsHandler(BaseHTTPRequestHandler):
             else:
                 self.send_response(500)
                 self.wfile.write(bytes('Unexpected error while adding a node.', 'utf-8'))
-        elif '/remove/ebs' in self.path;
+        elif '/remove/ebs' in self.path:
             nid = list(filter(lambda a: a != '', self.path.split('/')))[-1]
             if os.system('./remove_node.sh e ' + nid) == 0:
                 self.send_response(200)
@@ -29,7 +29,7 @@ class KopsHandler(BaseHTTPRequestHandler):
             else:
                 self.send_response(500)
                 self.wfile.write(bytes('Unexpected error while removing a node.', 'utf-8'))
-        elif '/remove/memory' in self.path;
+        elif '/remove/memory' in self.path:
             nid = list(filter(lambda a: a != '', self.path.split('/')))[-1]
             if os.system('./remove_node.sh m ' + nid) == 0:
                 self.send_response(200)

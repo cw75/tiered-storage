@@ -30,9 +30,6 @@ else
   echo $SEED_SERVER > conf/server/seed_server.txt
   echo $MON_IP > conf/server/monitoring_address.txt
 
-  # TODO: remove this; the server should not need to add EBS volumes
-  sudo chmod +x scripts/add_volume_dummy.sh
-
   if [ "$1" = "m" ]; then
     ./build/kv_store/lww_kvs/kvs_memory_server $NEW
   elif [ "$1" = "e" ]; then

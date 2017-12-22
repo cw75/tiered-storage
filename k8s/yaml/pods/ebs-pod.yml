@@ -18,12 +18,12 @@ spec:
       - name: NEW
         value: NEW_DUMMY
       volumeMounts:
-        - mountPath: /ebs/ebs1
-          name: ebs1
-        - mountPath: /ebs/ebs2
-          name: ebs2
-        - mountPath: /ebs/ebs3
-          name: ebs3
+      - mountPath: /ebs/ebs_1
+        name: ebs1
+      - mountPath: /ebs/ebs_2
+        name: ebs2
+      - mountPath: /ebs/ebs_3
+        name: ebs3
   nodeSelector:
     role: ebs-UNIQUE
   volumes:
