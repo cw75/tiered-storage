@@ -122,8 +122,7 @@ int main(int argc, char* argv[]) {
   logger->flush_on(spdlog::level::info); 
 
   if (argc != 1) {
-    logger->info("usage:{}", argv[0]);
-    //cerr << "usage:" << argv[0] << endl;
+    cerr << "usage:" << argv[0] << endl;
     return 1;
   }
 

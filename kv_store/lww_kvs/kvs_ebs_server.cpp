@@ -428,6 +428,10 @@ void worker_routine (zmq::context_t* context, string ip, int thread_id) {
 }
 
 int main(int argc, char* argv[]) {
+
+  auto logger = spdlog::basic_logger_mt("basic_logger", "log.txt", true);
+  logger->flush_on(spdlog::level::info); 
+  
   if (argc != 2) {
     cerr << "usage:" << argv[0] << " <new_node>" << endl;
     return 1;
@@ -515,7 +519,7 @@ int main(int argc, char* argv[]) {
 
   // start the initial threads based on EBS_THREAD_NUM
   for (int thread_id = 1; thread_id <= EBS_THREAD_NUM; thread_id++) {
-    cout << "thread id is " + to_string(thread_id) + "\n";
+    //cout << "thread id is " + to_string(thread_id) + "\n";
     worker_threads.push_back(thread(worker_routine, &context, ip, thread_id));
     local_hash_ring.insert(worker_node_t(ip, thread_id));
   }
@@ -591,7 +595,7 @@ int main(int argc, char* argv[]) {
     zmq_util::poll(0, &pollitems);
 
     if (pollitems[0].revents & ZMQ_POLLIN) {
-      cout << "Received an address request.\n";
+      logger->info("Received an address request");
       string request = zmq_util::recv_string(&addr_responder);
 
       string addresses;
@@ -606,84 +610,95 @@ int main(int argc, char* argv[]) {
 
     if (pollitems[1].revents & ZMQ_POLLIN) {
       string new_server_ip = zmq_util::recv_string(&join_puller);
-      cout << "Received a node join. New node is " << new_server_ip << ".\n";
       master_node_t new_node = master_node_t(new_server_ip, NODE_TYPE);
 
       // update global hash ring
-      global_hash_ring.insert(new_node);
+      bool inserted = global_hash_ring.insert(new_node).second;
 
-      // a map for each local worker that has to redistribute to the remote
-      // node
-      unordered_map<string, redistribution_address*> redistribution_map;
-
-      // for each key in this set, we will ask the new node which worker the
-      // key should be sent to
-      unordered_set<string> key_to_query;
-
-      // iterate through all of my keys
-      for (auto it = placement.begin(); it != placement.end(); it++) {
-
-        string key = it->first;
-        storage_key_info info = it->second;
-
-        auto result = responsible<master_node_t, global_hasher>(key, info.global_ebs_replication_, global_hash_ring, new_node.id_);
-
-        if (result.first && (result.second->ip_.compare(ip) == 0)) {
-          key_to_query.insert(it->first);
+      if (inserted) {
+        logger->info("Received a node join. New node is {}", new_server_ip);
+        for (auto it = global_hash_ring.begin(); it != global_hash_ring.end(); it++) {
+          if (it->second.ip_.compare(ip) != 0 && it->second.ip_.compare(new_server_ip) != 0) {
+            // if the node is not myself and not the newly joined node, send the ip of the newly joined node
+            zmq_util::send_string(new_server_ip, &pushers[(it->second).node_join_connect_addr_]);
+          } else if (it->second.ip_.compare(new_server_ip) == 0) {
+            // if the node is the newly joined node, send my ip
+            zmq_util::send_string(ip, &pushers[(it->second).node_join_connect_addr_]);
+          }
         }
-      }
+        // a map for each local worker that has to redistribute to the remote
+        // node
+        unordered_map<string, redistribution_address*> redistribution_map;
 
-      communication::Key_Response resp = get_key_address<storage_key_info>(new_node.key_exchange_connect_addr_, "", key_to_query, requesters, placement);
+        // for each key in this set, we will ask the new node which worker the
+        // key should be sent to
+        unordered_set<string> key_to_query;
 
-      // for each key in the response
-      for (int i = 0; i < resp.tuple_size(); i++) {
-        // for each of the workers we are sending the key to (if the local
-        // replication factor is > 1)
-        for (int j = 0; j < resp.tuple(i).address_size(); j++) {
-          string key = resp.tuple(i).key();
-          string target_address = resp.tuple(i).address(j).addr();
+        // iterate through all of my keys
+        for (auto it = placement.begin(); it != placement.end(); it++) {
 
-          // TODO; only send from *one* local replica not from many...
-          // figure out how to tell local replica to *remove* but not gossip
-          // for each replica of the key on this machine
-          auto pos = local_hash_ring.find(key);
-          for (int k = 0; k < placement[key].local_replication_; k++) {
-            // create a redistribution_address object for each of the local
-            // workers
-            string worker_address = pos->second.local_redistribute_addr_;
-            if (redistribution_map.find(worker_address) == redistribution_map.end()) {
-              redistribution_map[worker_address] = new redistribution_address();
-            }
+          string key = it->first;
+          storage_key_info info = it->second;
 
-            // insert this key into the redistrution address for each of the
-            // local workers based on the destination
-            (*redistribution_map[worker_address])[target_address].insert(pair<string, bool>(key, true));
+          auto result = responsible<master_node_t, global_hasher>(key, info.global_ebs_replication_, global_hash_ring, new_node.id_);
 
-            // go to the next position on the ring
-            if (++pos == local_hash_ring.end()) {
-              pos = local_hash_ring.begin();
+          if (result.first && (result.second->ip_.compare(ip) == 0)) {
+            key_to_query.insert(it->first);
+          }
+        }
+
+        communication::Key_Response resp = get_key_address<storage_key_info>(new_node.key_exchange_connect_addr_, "", key_to_query, requesters, placement);
+
+        // for each key in the response
+        for (int i = 0; i < resp.tuple_size(); i++) {
+          // for each of the workers we are sending the key to (if the local
+          // replication factor is > 1)
+          for (int j = 0; j < resp.tuple(i).address_size(); j++) {
+            string key = resp.tuple(i).key();
+            string target_address = resp.tuple(i).address(j).addr();
+
+            // TODO; only send from *one* local replica not from many...
+            // figure out how to tell local replica to *remove* but not gossip
+            // for each replica of the key on this machine
+            auto pos = local_hash_ring.find(key);
+            for (int k = 0; k < placement[key].local_replication_; k++) {
+              // create a redistribution_address object for each of the local
+              // workers
+              string worker_address = pos->second.local_redistribute_addr_;
+              if (redistribution_map.find(worker_address) == redistribution_map.end()) {
+                redistribution_map[worker_address] = new redistribution_address();
+              }
+
+              // insert this key into the redistrution address for each of the
+              // local workers based on the destination
+              (*redistribution_map[worker_address])[target_address].insert(pair<string, bool>(key, true));
+
+              // go to the next position on the ring
+              if (++pos == local_hash_ring.end()) {
+                pos = local_hash_ring.begin();
+              }
             }
           }
         }
-      }
 
-      // send a local message for each local worker that has to redistribute
-      // data to a remote node
-      for (auto it = redistribution_map.begin(); it != redistribution_map.end(); it++) {
-        zmq_util::send_msg((void*)it->second, &pushers[it->first]);
+        // send a local message for each local worker that has to redistribute
+        // data to a remote node
+        for (auto it = redistribution_map.begin(); it != redistribution_map.end(); it++) {
+          zmq_util::send_msg((void*)it->second, &pushers[it->first]);
+        }
       }
     }
 
     if (pollitems[2].revents & ZMQ_POLLIN) {
       string departing_server_ip = zmq_util::recv_string(&depart_puller);
-      cout << "Received departure for node " << departing_server_ip << ".\n";
+      logger->info("Received departure for node {}", departing_server_ip);
 
       // update hash ring
       global_hash_ring.erase(master_node_t(departing_server_ip, NODE_TYPE));
     }
 
     if (pollitems[3].revents & ZMQ_POLLIN) {
-      cout << "Received a key address request.\n";
+      //cout << "Received a key address request.\n";
 
       string serialized_key_req = zmq_util::recv_string(&key_address_responder);
       communication::Key_Request key_req;
@@ -697,7 +712,7 @@ int main(int argc, char* argv[]) {
         string key = key_req.tuple(i).key();
         int gmr = key_req.tuple(i).global_memory_replication();
         int ger = key_req.tuple(i).global_ebs_replication();
-        cout << "Received a key request for key " + key + ".\n";
+        //cout << "Received a key request for key " + key + ".\n";
 
         // fill in placement metadata only if not already exist
         if (placement.find(key) == placement.end()) {
@@ -735,7 +750,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (pollitems[4].revents & ZMQ_POLLIN) {
-      cout << "Received a changeset address request from a worker thread.\n";
+      //cout << "Received a changeset address request from a worker thread.\n";
 
       zmq::message_t msg;
       zmq_util::recv_msg(&changeset_address_responder, msg);
@@ -823,7 +838,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (pollitems[5].revents & ZMQ_POLLIN) {
-      cout << "Node is departing.\n";
+      logger->info("Node is departing");
 
       global_hash_ring.erase(mnode);
       for (auto it = global_hash_ring.begin(); it != global_hash_ring.end(); it++) {
@@ -898,7 +913,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (pollitems[6].revents & ZMQ_POLLIN) {
-      cout << "Received replication factor change request\n";
+      logger->info("Received replication factor change request");
 
       string placement_req = zmq_util::recv_string(&replication_factor_change_puller);
       communication::Replication_Factor_Request req;
@@ -1044,7 +1059,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (pollitems[7].revents & ZMQ_POLLIN) {
-      cerr << "received storage update from worker thread\n";
+      //cerr << "received storage update from worker thread\n";
       zmq::message_t msg;
       zmq_util::recv_msg(&storage_consumption_puller, msg);
       storage_data* data = *(storage_data **)(msg.data());

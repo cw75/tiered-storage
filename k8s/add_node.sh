@@ -47,8 +47,20 @@ if [ "$1" = "m" ] || [ "$1" = "e" ]; then
     PROXY_IPS=`kubectl get pods -l role=proxy -o jsonpath='{.items[*].status.podIP}' | tr -d '[:space:]'`
   done
 fi
+
 MEM_SERVERS=`kubectl get pods -l role=memory -o jsonpath='{.items[*].status.podIP}' | tr -d '[:space:]'`
+if [ "$1" = "m" ] && [ "$2" = "y" ]; then
+  while [ "$MEM_SERVERS" = "" ]; do
+    MEM_SERVERS=`kubectl get pods -l role=memory -o jsonpath='{.items[*].status.podIP}' | tr -d '[:space:]'`
+  done
+fi
+
 EBS_SERVERS=`kubectl get pods -l role=ebs -o jsonpath='{.items[*].status.podIP}' | tr -d '[:space:]'`
+if [ "$1" = "e" ] && [ "$2" = "y" ]; then
+  while [ "$EBS_SERVERS" = "" ]; do
+    EBS_SERVERS=`kubectl get pods -l role=ebs -o jsonpath='{.items[*].status.podIP}' | tr -d '[:space:]'`
+  done
+fi
 
 # this one should never be empty
 MON_IP=`kubectl get pods -l role=monitoring -o jsonpath='{.items[*].status.podIP}' | tr -d '[:space:]'`
