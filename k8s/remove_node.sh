@@ -1,16 +1,24 @@
-#!/bin/bash
+!/bin/bash
 
 if [[ -z "$1" ]] || [[ -z "$2" ]]; then
   echo "Usage ./remove_node.sh <node-type> <node-id>"
   exit 1
 fi
 
-if [ "$1" = "m"]; then
-  INST_NAME="memory-instance-$2"
-elif [ "$1" = "e"]; then
-  EBS_VOLS=`kc get pod ebs-instance-$2 -o jsonpath='{.spec.volumes[*].awsElasticBlockStore.volumeID}'`
+# convert from IP to a hostname
+IP=`echo $2 | sed "s|\.|-|g"`
+HOSTNAME=ip-$IP.ec2.internal
 
-  INST_NAME="ebs-instance-$2"
+
+# retrieve by host name and get the unique id
+LABEL=`kc get node -l kubernetes.io/hostname=$HOSTNAME -o jsonpath='{.items[*].metadata.labels.role}' | cut -d- -f2`
+
+if [ "$1" = "m"]; then
+  INST_NAME="memory-instance-$LABEL"
+elif [ "$1" = "e"]; then
+  EBS_VOLS=`kc get pod ebs-instance-$LABEL -o jsonpath='{.spec.volumes[*].awsElasticBlockStore.volumeID}'`
+
+  INST_NAME="ebs-instance-$LABEL"
 else 
   echo "Unrecognized node type: $1."
   exit 1
