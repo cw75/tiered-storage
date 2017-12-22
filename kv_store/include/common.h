@@ -9,6 +9,8 @@
 #include <functional>
 #include "consistent_hash_map.hpp"
 
+#include "spdlog/spdlog.h"
+
 using namespace std;
 
 // Define monitoring constant

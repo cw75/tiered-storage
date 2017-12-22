@@ -117,8 +117,13 @@ void change_replication_factor(vector<replication_factor_request> requests,
 
 // TODO: instead of cout or cerr, everything should be written to a log file.
 int main(int argc, char* argv[]) {
+
+  auto logger = spdlog::basic_logger_mt("basic_logger", "log.txt", true);
+  logger->flush_on(spdlog::level::info); 
+
   if (argc != 1) {
-    cerr << "usage:" << argv[0] << endl;
+    logger->info("usage:{}", argv[0]);
+    //cerr << "usage:" << argv[0] << endl;
     return 1;
   }
 
@@ -145,7 +150,8 @@ int main(int argc, char* argv[]) {
   address.open("conf/monitoring/existing_memory_servers.txt");
 
   while (getline(address, ip_line)) {
-    cerr << ip_line << "\n";
+    logger->info("{}", ip_line);
+    //cerr << ip_line << "\n";
     global_memory_hash_ring.insert(master_node_t(ip_line, "M"));
   }
   address.close();
@@ -154,7 +160,8 @@ int main(int argc, char* argv[]) {
   address.open("conf/monitoring/existing_ebs_servers.txt");
 
   while (getline(address, ip_line)) {
-    cerr << ip_line << "\n";
+    logger->info("{}", ip_line);
+    //cerr << ip_line << "\n";
     global_ebs_hash_ring.insert(master_node_t(ip_line, "E"));
   }
   address.close();
@@ -205,7 +212,8 @@ int main(int argc, char* argv[]) {
       vector<string> v;
       split(zmq_util::recv_string(&join_puller), ':', v);
       if (v[0] == "join") {
-        cerr << "received join\n";
+        logger->info("received join");
+        //cerr << "received join\n";
         // update hash ring
         if (v[1] == "M") {
           global_memory_hash_ring.insert(master_node_t(v[2], "M"));
@@ -214,12 +222,16 @@ int main(int argc, char* argv[]) {
         } else if (v[1] == "P") {
           proxy_address.push_back(v[2]);
         } else {
-          cerr << "Invalid Tier info\n";
+          logger->info("Invalid Tier info");
+          //cerr << "Invalid Tier info\n";
         }
-        cerr << "memory hash ring size is " + to_string(global_memory_hash_ring.size()) + "\n";
-        cerr << "ebs hash ring size is " + to_string(global_ebs_hash_ring.size()) + "\n";
+        logger->info("memory hash ring size is {}", to_string(global_memory_hash_ring.size()));
+        logger->info("ebs hash ring size is {}", to_string(global_ebs_hash_ring.size()));
+        //cerr << "memory hash ring size is " + to_string(global_memory_hash_ring.size()) + "\n";
+        //cerr << "ebs hash ring size is " + to_string(global_ebs_hash_ring.size()) + "\n";
       } else if (v[0] == "depart") {
-        cerr << "received depart\n";
+        logger->info("received depart");
+        //cerr << "received depart\n";
         // update hash ring
         if (v[1] == "M") {
           global_memory_hash_ring.erase(master_node_t(v[2], "M"));
@@ -228,10 +240,13 @@ int main(int argc, char* argv[]) {
           global_ebs_hash_ring.erase(master_node_t(v[2], "E"));
           ebs_tier_storage.erase(v[2]);
         } else {
-          cerr << "Invalid Tier info\n";
+          logger->info("Invalid Tier info");
+          //cerr << "Invalid Tier info\n";
         }
-        cerr << "memory hash ring size is " + to_string(global_memory_hash_ring.size()) + "\n";
-        cerr << "ebs hash ring size is " + to_string(global_ebs_hash_ring.size()) + "\n";
+        logger->info("memory hash ring size is {}", to_string(global_memory_hash_ring.size()));
+        logger->info("ebs hash ring size is {}", to_string(global_ebs_hash_ring.size()));
+        //cerr << "memory hash ring size is " + to_string(global_memory_hash_ring.size()) + "\n";
+        //cerr << "ebs hash ring size is " + to_string(global_ebs_hash_ring.size()) + "\n";
       }
     }
 
@@ -347,13 +362,15 @@ int main(int argc, char* argv[]) {
       }
 
       if ((double)total_memory_consumption / (double)memory_node_count > 0) {
-        cerr << "trigger add memory node\n";
+        logger->info("trigger add memory node");
+        //cerr << "trigger add memory node\n";
         string shell_command = "curl -X POST https://" + management_address + "/memory";
         system(shell_command.c_str());
       }
 
       if ((double)total_ebs_consumption / (double)ebs_volume_count > 0) {
-        cerr << "trigger add ebs node\n";
+        logger->info("trigger add ebs node");
+        //cerr << "trigger add ebs node\n";
         string shell_command = "curl -X POST https://" + management_address + "/ebs";
         system(shell_command.c_str());
       }
