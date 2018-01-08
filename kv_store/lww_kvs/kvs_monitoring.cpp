@@ -202,6 +202,9 @@ int main(int argc, char* argv[]) {
   auto storage_start = std::chrono::system_clock::now();
   auto storage_end = std::chrono::system_clock::now();
 
+  bool adding_memory_node = false;
+  bool adding_ebs_node = false;
+
   while (true) {
     // listen for ZMQ events
     zmq_util::poll(0, &pollitems);
@@ -216,8 +219,10 @@ int main(int argc, char* argv[]) {
         // update hash ring
         if (v[1] == "M") {
           global_memory_hash_ring.insert(master_node_t(v[2], "M"));
+          adding_memory_node = false;
         } else if (v[1] == "E") {
           global_ebs_hash_ring.insert(master_node_t(v[2], "E"));
+          adding_ebs_node = false;
         } else if (v[1] == "P") {
           proxy_address.push_back(v[2]);
         } else {
@@ -360,18 +365,20 @@ int main(int argc, char* argv[]) {
         }
       }
 
-      if ((double)total_memory_consumption / (double)memory_node_count > 0) {
+      if ((double)total_memory_consumption / (double)memory_node_count >= 10 && !adding_memory_node) {
         logger->info("trigger add memory node");
         //cerr << "trigger add memory node\n";
         string shell_command = "curl -X POST https://" + management_address + "/memory";
         system(shell_command.c_str());
+        adding_memory_node = true;
       }
 
-      if ((double)total_ebs_consumption / (double)ebs_volume_count > 0) {
+      if ((double)total_ebs_consumption / (double)ebs_volume_count >= 100 && !adding_ebs_node) {
         logger->info("trigger add ebs node");
         //cerr << "trigger add ebs node\n";
         string shell_command = "curl -X POST https://" + management_address + "/ebs";
         system(shell_command.c_str());
+        adding_ebs_node = true;
       }
 
       storage_start = std::chrono::system_clock::now();
