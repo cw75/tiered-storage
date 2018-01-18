@@ -207,6 +207,11 @@ int main(int argc, char* argv[]) {
 
   size_t storage_monitoring_epoch = 0;
 
+  double average_memory_consumption = 0;
+  double average_ebs_consumption = 0;
+  double average_memory_consumption_new = 0;
+  double average_ebs_consumption_new = 0;
+
   while (true) {
     // listen for ZMQ events
     zmq_util::poll(0, &pollitems);
@@ -374,11 +379,21 @@ int main(int argc, char* argv[]) {
         }
       }
 
-      auto average_memory_consumption = (double)total_memory_consumption / (double)memory_node_count;
-      auto average_ebs_consumption = (double)total_ebs_consumption / (double)ebs_volume_count;
+      if (memory_node_count != 0) {
+        average_memory_consumption_new = (double)total_memory_consumption / (double)memory_node_count;
+        if (average_memory_consumption != average_memory_consumption_new) {
+          logger->info("avg memory consumption for epoch {} is {:03.3f}", storage_monitoring_epoch, average_memory_consumption_new);
+          average_memory_consumption = average_memory_consumption_new;
+        }
+      }
 
-      logger->info("avg memory consumption for epoch {} is {:03.3f}", storage_monitoring_epoch, average_memory_consumption);
-      logger->info("avg ebs consumption for epoch {} is {:03.3f}", storage_monitoring_epoch, average_ebs_consumption);
+      if (ebs_volume_count != 0) {
+        average_ebs_consumption_new = (double)total_ebs_consumption / (double)ebs_volume_count;
+        if (average_ebs_consumption != average_ebs_consumption_new) {
+          logger->info("avg ebs consumption for epoch {} is {:03.3f}", storage_monitoring_epoch, average_ebs_consumption_new);
+          average_ebs_consumption = average_ebs_consumption_new;
+        }
+      }
 
       if (average_memory_consumption >= 10 && !adding_memory_node) {
         logger->info("trigger add memory node");
