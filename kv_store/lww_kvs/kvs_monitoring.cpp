@@ -205,6 +205,8 @@ int main(int argc, char* argv[]) {
   bool adding_memory_node = false;
   bool adding_ebs_node = false;
 
+  size_t storage_monitoring_epoch = 0;
+
   while (true) {
     // listen for ZMQ events
     zmq_util::poll(0, &pollitems);
@@ -220,9 +222,15 @@ int main(int argc, char* argv[]) {
         if (v[1] == "M") {
           global_memory_hash_ring.insert(master_node_t(v[2], "M"));
           adding_memory_node = false;
+          // reset storage timer
+          storage_start = std::chrono::system_clock::now();
+          storage_end = std::chrono::system_clock::now();
         } else if (v[1] == "E") {
           global_ebs_hash_ring.insert(master_node_t(v[2], "E"));
           adding_ebs_node = false;
+          // reset storage timer
+          storage_start = std::chrono::system_clock::now();
+          storage_end = std::chrono::system_clock::now();
         } else if (v[1] == "P") {
           proxy_address.push_back(v[2]);
         } else {
@@ -299,6 +307,7 @@ int main(int argc, char* argv[]) {
     storage_end = std::chrono::system_clock::now();
 
     if (chrono::duration_cast<std::chrono::seconds>(storage_end-storage_start).count() >= STORAGE_CONSUMPTION_REPORT_THRESHOLD) {
+      storage_monitoring_epoch += 1;
       // fetch storage consumption data from the storage tier
       communication::Request req;
       req.set_type("GET");
@@ -365,7 +374,13 @@ int main(int argc, char* argv[]) {
         }
       }
 
-      if ((double)total_memory_consumption / (double)memory_node_count >= 10 && !adding_memory_node) {
+      auto average_memory_consumption = (double)total_memory_consumption / (double)memory_node_count;
+      auto average_ebs_consumption = (double)total_ebs_consumption / (double)ebs_volume_count;
+
+      logger->info("avg memory consumption for epoch {} is {:03.3f}", storage_monitoring_epoch, average_memory_consumption);
+      logger->info("avg ebs consumption for epoch {} is {:03.3f}", storage_monitoring_epoch, average_ebs_consumption);
+
+      if (average_memory_consumption >= 10 && !adding_memory_node) {
         logger->info("trigger add memory node");
         //cerr << "trigger add memory node\n";
         string shell_command = "curl -X POST https://" + management_address + "/memory";
@@ -373,7 +388,7 @@ int main(int argc, char* argv[]) {
         adding_memory_node = true;
       }
 
-      if ((double)total_ebs_consumption / (double)ebs_volume_count >= 100 && !adding_ebs_node) {
+      if (average_ebs_consumption >= 100 && !adding_ebs_node) {
         logger->info("trigger add ebs node");
         //cerr << "trigger add ebs node\n";
         string shell_command = "curl -X POST https://" + management_address + "/ebs";
