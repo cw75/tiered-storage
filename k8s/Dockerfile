@@ -22,7 +22,7 @@ RUN rm cmake-3.9.4-Linux-x86_64.tar.gz
 RUN apt-get install -y git
 
 # install vim
-RUN apt-get install vim
+RUN apt-get install -y vim
 
 # install protobuf
 RUN git clone https://github.com/google/protobuf /protobuf/
