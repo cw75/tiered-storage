@@ -269,7 +269,7 @@ int main(int argc, char* argv[]) {
 
     hotness_end = std::chrono::system_clock::now();
 
-    if (chrono::duration_cast<std::chrono::seconds>(hotness_end-hotness_start).count() >= HOTNESS_MONITORING_PERIOD) {
+    if (chrono::duration_cast<std::chrono::seconds>(hotness_end-hotness_start).count() >= HOTNESS_MONITORING_PERIOD && proxy_address.size() != 0) {
       // fetch key hotness data from the storage tier
       communication::Request req;
       req.set_type("GET");
@@ -311,7 +311,7 @@ int main(int argc, char* argv[]) {
 
     storage_end = std::chrono::system_clock::now();
 
-    if (chrono::duration_cast<std::chrono::seconds>(storage_end-storage_start).count() >= STORAGE_CONSUMPTION_REPORT_THRESHOLD) {
+    if (chrono::duration_cast<std::chrono::seconds>(storage_end-storage_start).count() >= STORAGE_CONSUMPTION_REPORT_THRESHOLD && proxy_address.size() != 0) {
       storage_monitoring_epoch += 1;
       // fetch storage consumption data from the storage tier
       communication::Request req;
