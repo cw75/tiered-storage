@@ -483,6 +483,8 @@ int main(int argc, char* argv[]) {
   // use the first address for now
   monitoring_node_t monitoring_node = monitoring_node_t(*monitoring_address.begin());
 
+  cerr << "getting info from seed\n";
+
   // read server address from the file
   if (new_node == "n") {
     address.open("conf/server/start_servers.txt");
@@ -515,6 +517,8 @@ int main(int argc, char* argv[]) {
     global_hash_ring.insert(mnode);
   }
 
+  cerr << "finished getting info from seed\n";
+
   vector<thread> worker_threads;
 
   // start the initial threads based on EBS_THREAD_NUM
@@ -523,6 +527,8 @@ int main(int argc, char* argv[]) {
     worker_threads.push_back(thread(worker_routine, &context, ip, thread_id));
     local_hash_ring.insert(worker_node_t(ip, thread_id));
   }
+
+  cerr << "notifying other server nodes\n";
 
   if (new_node == "y") {
     // notify other servers that there is a new node
@@ -533,16 +539,21 @@ int main(int argc, char* argv[]) {
     }
   }
 
+  cerr << "finished notifying other server nodes\n";
+  cerr << "notifying proxy\n";
+
   string msg = "join:" + string(NODE_TYPE) + ":" + ip;
   // notify proxies that this node has joined the service
   for (auto it = proxy_address.begin(); it != proxy_address.end(); it++) {
     zmq_util::send_string(msg, &pushers[proxy_node_t(*it).notify_connect_addr_]);
   }
+  cerr << "notifying monitoring\n";
 
   // notify monitoring nodes that this node has joined the service
   for (auto it = monitoring_address.begin(); it != monitoring_address.end(); it++) {
     zmq_util::send_string(msg, &pushers[monitoring_node_t(*it).notify_connect_addr_]);
   }
+  cerr << "finished notifying monitoring\n";
 
   // responsible for sending the server address to a new node
   zmq::socket_t addr_responder(context, ZMQ_REP);
@@ -589,6 +600,8 @@ int main(int argc, char* argv[]) {
 
   auto storage_start = std::chrono::system_clock::now();
   auto storage_end = std::chrono::system_clock::now();
+
+  cerr << "entering event loop\n";
 
   // enter event loop
   while (true) {
