@@ -13,6 +13,8 @@ spec:
         value: e
       - name: PROXY_IPS
         value: PROXY_IPS_DUMMY
+      - name: SEED_SERVER
+        value: SEED_SERVER_DUMMY
       - name: MON_IP
         value: MON_IP_DUMMY
       - name: NEW
