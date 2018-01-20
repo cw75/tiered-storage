@@ -99,6 +99,9 @@ else
   SEED_SERVER=${ARR[$RANDOM % ${#ARR[@]}]}
 fi
 
+echo "SEED address is..."
+echo "$SEED_SERVER"
+
 sed -i "s|PROXY_IPS_DUMMY|$PROXY_IPS|g" tmp.yml
 sed -i "s|MON_IP_DUMMY|$MON_IP|g" tmp.yml
 sed -i "s|SEED_SERVER_DUMMY|$SEED_SERVER|g" tmp.yml

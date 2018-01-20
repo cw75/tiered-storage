@@ -501,6 +501,8 @@ int main(int argc, char* argv[]) {
     getline(address, ip_line);
     address.close();
 
+    cerr << "seed address is " + ip_line + "\n";
+
     // tell the seed node that you are joining
     zmq::socket_t addr_requester(context, ZMQ_REQ);
     addr_requester.connect(master_node_t(ip_line, NODE_TYPE).seed_connection_connect_addr_);
