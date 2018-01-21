@@ -14,7 +14,7 @@
 using namespace std;
 
 // Define monitoring constant
-#define STORAGE_CONSUMPTION_REPORT_THRESHOLD 10
+#define SERVER_REPORT_THRESHOLD 10
 #define HOTNESS_MONITORING_THRESHOLD 30
 #define HOTNESS_MONITORING_PERIOD 10
 

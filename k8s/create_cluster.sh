@@ -1,16 +1,16 @@
 #!/bin/bash
 
-if [ -z "$1" ] && [ -z "$2"]; then
-  echo "Usage: ./create_cluster.sh <min_mem_instances> <min_ebs_instances> {<path-to-ssh-key>}"
+if [ -z "$1" ] && [ -z "$2"] && [ -z "$3"]; then
+  echo "Usage: ./create_cluster.sh <min_mem_instances> <min_ebs_instances> <proxy_instances> {<path-to-ssh-key>}"
   echo ""
   echo "If no SSH key is specified, it is assumed that we are using the default SSH key (/home/ubuntu/.ssh/id_rsa). We assume that the corresponding public key has the same name and ends in .pub."
   exit 1
 fi
 
-if [ -z "$3" ]; then
+if [ -z "$4" ]; then
   SSH_KEY=/home/ubuntu/.ssh/id_rsa
 else 
-  SSH_KEY=$3
+  SSH_KEY=$4
 fi
 
 export NAME=kvs.k8s.local
@@ -56,8 +56,10 @@ sed "s|MGMT_IP_DUMMY|$MGMT_IP|g" yaml/pods/monitoring-pod.yml > tmp.yml
 kubectl create -f tmp.yml > /dev/null 2>&1
 rm tmp.yml
 
-echo "Creating proxy node..."
-./add_node.sh p
+echo "Creating $3 proxy node(s)..."
+for i in $(seq 1 $3); do
+  ./add_node.sh p
+done
 
 # TODO: optimize this to create multiple nodes at once
 echo "Creating $1 memory node(s)..."

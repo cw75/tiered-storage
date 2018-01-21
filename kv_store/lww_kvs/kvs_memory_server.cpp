@@ -56,6 +56,8 @@ typedef unordered_map<string, unordered_set<pair<string, bool>, pair_hash>> redi
 // TODO:  this should be changed to something more globally robust
 atomic<int> lww_timestamp(0);
 
+atomic<int> worker_thread_status[MEMORY_THREAD_NUM] = {};
+
 // TODO: more intelligent error mesages throughout
 pair<RC_KVS_PairLattice<string>, bool> process_get(string key, int thread_id, Database* kvs) {
   bool succeed;
@@ -220,14 +222,15 @@ void worker_routine (zmq::context_t* context, string ip, int thread_id) {
 
   auto gossip_start = std::chrono::system_clock::now();
   auto gossip_end = std::chrono::system_clock::now();
-  auto storage_start = std::chrono::system_clock::now();
-  auto storage_end = std::chrono::system_clock::now();
+  auto report_start = std::chrono::system_clock::now();
+  auto report_end = std::chrono::system_clock::now();
 
   // Enter the event loop
   while (true) {
     zmq_util::poll(0, &pollitems);
 
     if (pollitems[0].revents & ZMQ_POLLIN) { // process a request from the proxy
+      worker_thread_status[thread_id - 1].store(1);
       lww_timestamp++;
       string data = zmq_util::recv_string(&responder);
       communication::Request req;
@@ -238,9 +241,11 @@ void worker_routine (zmq::context_t* context, string ip, int thread_id) {
 
       //  Send reply back to proxy
       zmq_util::send_string(result, &responder);
+      worker_thread_status[thread_id - 1].store(0);
     }
 
     if (pollitems[1].revents & ZMQ_POLLIN) { // process distributed gossip
+      worker_thread_status[thread_id - 1].store(1);
       cout << "Received distributed gossip on thread " + to_string(thread_id) + ".\n";
 
       string data = zmq_util::recv_string(&dgossip_puller);
@@ -249,9 +254,11 @@ void worker_routine (zmq::context_t* context, string ip, int thread_id) {
 
       //  Process distributed gossip
       process_distributed_gossip(gossip, thread_id, kvs, size_map);
+      worker_thread_status[thread_id - 1].store(0);
     }
 
     if (pollitems[2].revents & ZMQ_POLLIN) { // process local gossip
+      worker_thread_status[thread_id - 1].store(1);
       cout << "Received local gossip on thread " + to_string(thread_id) + ".\n";
 
       zmq::message_t msg;
@@ -260,9 +267,11 @@ void worker_routine (zmq::context_t* context, string ip, int thread_id) {
 
       //  Process local gossip
       process_local_gossip(g_data, thread_id, kvs, size_map);
+      worker_thread_status[thread_id - 1].store(0);
     }
 
     if (pollitems[3].revents & ZMQ_POLLIN) { // process a local redistribute request
+      worker_thread_status[thread_id - 1].store(1);
       cout << "Received local redistribute request on thread " + to_string(thread_id) + ".\n";
 
       zmq::message_t msg;
@@ -292,6 +301,7 @@ void worker_routine (zmq::context_t* context, string ip, int thread_id) {
         // remove key from kvs
         kvs->remove(*it);
       }
+      worker_thread_status[thread_id - 1].store(0);
     }
 
     gossip_end = std::chrono::system_clock::now();
@@ -323,9 +333,9 @@ void worker_routine (zmq::context_t* context, string ip, int thread_id) {
       gossip_start = std::chrono::system_clock::now();
     }
 
-    storage_end = std::chrono::system_clock::now();
+    report_end = std::chrono::system_clock::now();
     // check whether we should send storage consumption update
-    if (chrono::duration_cast<std::chrono::seconds>(storage_end-storage_start).count() >= STORAGE_CONSUMPTION_REPORT_THRESHOLD) {
+    if (chrono::duration_cast<std::chrono::seconds>(report_end-report_start).count() >= SERVER_REPORT_THRESHOLD) {
       storage_data* data = new storage_data();
 
       data->first = to_string(thread_id);
@@ -339,7 +349,7 @@ void worker_routine (zmq::context_t* context, string ip, int thread_id) {
 
       zmq_util::send_msg((void*)data, &pushers[LOCAL_STORAGE_CONSUMPTION_ADDR]);
 
-      storage_start = std::chrono::system_clock::now();
+      report_start = std::chrono::system_clock::now();
     }
   }
 }
@@ -506,8 +516,8 @@ int main(int argc, char* argv[]) {
                                        {static_cast<void*>(storage_consumption_puller), 0, ZMQ_POLLIN, 0}
                                      };
 
-  auto storage_start = std::chrono::system_clock::now();
-  auto storage_end = std::chrono::system_clock::now();
+  auto report_start = std::chrono::system_clock::now();
+  auto report_end = std::chrono::system_clock::now();
 
   // enter event loop
   while (true) {
@@ -988,18 +998,38 @@ int main(int argc, char* argv[]) {
       delete data;
     }
 
-    storage_end = std::chrono::system_clock::now();
+    report_end = std::chrono::system_clock::now();
 
-    if (chrono::duration_cast<std::chrono::seconds>(storage_end-storage_start).count() >= STORAGE_CONSUMPTION_REPORT_THRESHOLD) {
+    if (chrono::duration_cast<std::chrono::seconds>(report_end-report_start).count() >= SERVER_REPORT_THRESHOLD) {
       communication::Request req;
+      // report storage consumption
       req.set_type("PUT");
       req.set_metadata(true);
 
+      communication::Request_Tuple* tp = req.add_tuple();
+      tp->set_key(mnode.ip_ + "_" + NODE_TYPE + "_storage");
+
+      string storage_val = "";
+
       for (auto it = worker_thread_storage.begin(); it != worker_thread_storage.end(); it++) {
-        communication::Request_Tuple* tp = req.add_tuple();
-        tp->set_key(mnode.ip_ + "_" + NODE_TYPE + "_" + it->first + "_storage");
-        tp->set_value(to_string(it->second));
+        storage_val += (it->first + ":" + to_string(it->second) + "|");
       }
+      storage_val.pop_back();
+
+      tp->set_value(storage_val);
+
+      // report worker thread occupancy
+      tp = req.add_tuple();
+      tp->set_key(mnode.ip_ + "_" + NODE_TYPE + "_occupancy");
+
+      string occupancy_val = "";
+
+      for (int i = 0; i < MEMORY_THREAD_NUM; i++) {
+        occupancy_val += (to_string(i+1) + ":" + to_string(worker_thread_status[i].load()) + "|");
+      }
+      occupancy_val.pop_back();
+
+      tp->set_value(occupancy_val);
       string serialized_req;
       req.SerializeToString(&serialized_req);
       // send the storage consumption update to a random proxy worker
@@ -1010,7 +1040,7 @@ int main(int argc, char* argv[]) {
       int tid = 1 + rand() % PROXY_THREAD_NUM;
       zmq_util::send_string(serialized_req, &pushers[proxy_worker_thread_t(proxy_ip, tid).metadata_connect_addr_]);
 
-      storage_start = std::chrono::system_clock::now();
+      report_start = std::chrono::system_clock::now();
     }
   }
 }

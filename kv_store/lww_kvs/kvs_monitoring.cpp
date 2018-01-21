@@ -140,6 +140,12 @@ int main(int argc, char* argv[]) {
 
   // keep track of ebs tier storage consumption
   unordered_map<address_t, unordered_map<string, size_t>> ebs_tier_storage;
+
+  // keep track of memory tier thread occupancy
+  unordered_map<address_t, unordered_map<string, size_t>> memory_tier_occupancy;
+
+  // keep track of ebs tier thread occupancy
+  unordered_map<address_t, unordered_map<string, size_t>> ebs_tier_occupancy;
  
   // read in the initial server addresses and build the hash ring
   string ip_line;
@@ -199,13 +205,13 @@ int main(int argc, char* argv[]) {
   auto hotness_start = std::chrono::system_clock::now();
   auto hotness_end = std::chrono::system_clock::now();
 
-  auto storage_start = std::chrono::system_clock::now();
-  auto storage_end = std::chrono::system_clock::now();
+  auto report_start = std::chrono::system_clock::now();
+  auto report_end = std::chrono::system_clock::now();
 
   bool adding_memory_node = false;
   bool adding_ebs_node = false;
 
-  size_t storage_monitoring_epoch = 0;
+  size_t epoch = 0;
 
   double average_memory_consumption = 0;
   double average_ebs_consumption = 0;
@@ -228,14 +234,14 @@ int main(int argc, char* argv[]) {
           global_memory_hash_ring.insert(master_node_t(v[2], "M"));
           adding_memory_node = false;
           // reset storage timer
-          storage_start = std::chrono::system_clock::now();
-          storage_end = std::chrono::system_clock::now();
+          report_start = std::chrono::system_clock::now();
+          report_end = std::chrono::system_clock::now();
         } else if (v[1] == "E") {
           global_ebs_hash_ring.insert(master_node_t(v[2], "E"));
           adding_ebs_node = false;
           // reset storage timer
-          storage_start = std::chrono::system_clock::now();
-          storage_end = std::chrono::system_clock::now();
+          report_start = std::chrono::system_clock::now();
+          report_end = std::chrono::system_clock::now();
         } else if (v[1] == "P") {
           proxy_address.push_back(v[2]);
         } else {
@@ -309,27 +315,27 @@ int main(int argc, char* argv[]) {
       hotness_start = std::chrono::system_clock::now();
     }
 
-    storage_end = std::chrono::system_clock::now();
+    report_end = std::chrono::system_clock::now();
 
-    if (chrono::duration_cast<std::chrono::seconds>(storage_end-storage_start).count() >= STORAGE_CONSUMPTION_REPORT_THRESHOLD && proxy_address.size() != 0) {
-      storage_monitoring_epoch += 1;
+    if (chrono::duration_cast<std::chrono::seconds>(report_end-report_start).count() >= SERVER_REPORT_THRESHOLD && proxy_address.size() != 0) {
+      epoch += 1;
       // fetch storage consumption data from the storage tier
       communication::Request req;
       req.set_type("GET");
       req.set_metadata(true);
 
       for (auto it = global_memory_hash_ring.begin(); it != global_memory_hash_ring.end(); it++) {
-        for (int tid = 1; tid <= MEMORY_THREAD_NUM; tid++) {
-          communication::Request_Tuple* tp = req.add_tuple();
-          tp->set_key(it->second.ip_ + "_M_" + to_string(tid) + "_storage");
-        }
+        communication::Request_Tuple* tp = req.add_tuple();
+        tp->set_key(it->second.ip_ + "_M_storage");
+        tp = req.add_tuple();
+        tp->set_key(it->second.ip_ + "_M_occupancy");
       }
 
       for (auto it = global_ebs_hash_ring.begin(); it != global_ebs_hash_ring.end(); it++) {
-        for (int tid = 1; tid <= EBS_THREAD_NUM; tid++) {
-          communication::Request_Tuple* tp = req.add_tuple();
-          tp->set_key(it->second.ip_ + "_E_" + to_string(tid) + "_storage");
-        }
+        communication::Request_Tuple* tp = req.add_tuple();
+        tp->set_key(it->second.ip_ + "_E_storage");
+        tp = req.add_tuple();
+        tp->set_key(it->second.ip_ + "_E_occupancy");
       }
 
       string serialized_req;
@@ -351,11 +357,32 @@ int main(int argc, char* argv[]) {
           split(resp.tuple(i).key(), '_', tokens);
           string ip = tokens[0];
           string type = tokens[1];
+          string stat = tokens[2];
 
-          if (type == "M") {
-            memory_tier_storage[tokens[0]][tokens[2]] = stoi(resp.tuple(i).value());
-          } else {
-            ebs_tier_storage[tokens[0]][tokens[2]] = stoi(resp.tuple(i).value());
+          if (stat == "storage") {
+            vector<string> storages;
+            split(resp.tuple(i).value(), '|', storages);
+            for (auto it = storages.begin(); it != storages.end(); it++) {
+              vector<string> thread_storage;
+              split(*it, ':', thread_storage);
+              if (type == "M") {
+                memory_tier_storage[ip][thread_storage[0]] = stoi(thread_storage[1]);
+              } else {
+                ebs_tier_storage[ip][thread_storage[0]] = stoi(thread_storage[1]);
+              }
+            }
+          } else if (stat == "occupancy") {
+            vector<string> occupancies;
+            split(resp.tuple(i).value(), '|', occupancies);
+            for (auto it = occupancies.begin(); it != occupancies.end(); it++) {
+              vector<string> thread_occupancy;
+              split(*it, ':', thread_occupancy);
+              if (type == "M") {
+                memory_tier_occupancy[ip][thread_occupancy[0]] = stoi(thread_occupancy[1]);
+              } else {
+                ebs_tier_occupancy[ip][thread_occupancy[0]] = stoi(thread_occupancy[1]);
+              }
+            }
           }
         }
       }
@@ -382,7 +409,7 @@ int main(int argc, char* argv[]) {
       if (memory_node_count != 0) {
         average_memory_consumption_new = (double)total_memory_consumption / (double)memory_node_count;
         if (average_memory_consumption != average_memory_consumption_new) {
-          logger->info("avg memory consumption for epoch {} is {:03.3f}", storage_monitoring_epoch, average_memory_consumption_new);
+          logger->info("avg memory consumption for epoch {} is {:03.3f}", epoch, average_memory_consumption_new);
           average_memory_consumption = average_memory_consumption_new;
         }
       }
@@ -390,7 +417,7 @@ int main(int argc, char* argv[]) {
       if (ebs_volume_count != 0) {
         average_ebs_consumption_new = (double)total_ebs_consumption / (double)ebs_volume_count;
         if (average_ebs_consumption != average_ebs_consumption_new) {
-          logger->info("avg ebs consumption for epoch {} is {:03.3f}", storage_monitoring_epoch, average_ebs_consumption_new);
+          logger->info("avg ebs consumption for epoch {} is {:03.3f}", epoch, average_ebs_consumption_new);
           average_ebs_consumption = average_ebs_consumption_new;
         }
       }
@@ -411,7 +438,21 @@ int main(int argc, char* argv[]) {
         adding_ebs_node = true;
       }
 
-      storage_start = std::chrono::system_clock::now();
+      if (epoch % 50 == 1) {
+        for (auto it1 = memory_tier_occupancy.begin(); it1 != memory_tier_occupancy.end(); it1++) {
+          for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
+            logger->info("memory node ip {} thread {} occupancy is {} for epoch {}", it1->first, it2->first, it2->second, epoch);
+          }
+        }
+
+        for (auto it1 = ebs_tier_occupancy.begin(); it1 != ebs_tier_occupancy.end(); it1++) {
+          for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
+            logger->info("ebs node ip {} thread {} occupancy is {} for epoch {}", it1->first, it2->first, it2->second, epoch);
+          }
+        }
+      }
+
+      report_start = std::chrono::system_clock::now();
     }
 
     // TODO: Add policy that triggers node join/removal and key replication factor change
