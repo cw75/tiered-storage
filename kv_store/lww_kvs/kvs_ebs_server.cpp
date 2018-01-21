@@ -1097,6 +1097,8 @@ int main(int argc, char* argv[]) {
     report_end = std::chrono::system_clock::now();
 
     if (chrono::duration_cast<std::chrono::seconds>(report_end-report_start).count() >= SERVER_REPORT_THRESHOLD) {
+      cerr << "reporting\n";
+      cerr << "proxy address size is " + to_string(proxy_address.size()) + "\n";
       communication::Request req;
       // report storage consumption
       req.set_type("PUT");
@@ -1120,7 +1122,7 @@ int main(int argc, char* argv[]) {
 
       string occupancy_val = "";
 
-      for (int i = 0; i < MEMORY_THREAD_NUM; i++) {
+      for (int i = 0; i < EBS_THREAD_NUM; i++) {
         occupancy_val += (to_string(i+1) + ":" + to_string(worker_thread_status[i].load()) + "|");
       }
       occupancy_val.pop_back();
