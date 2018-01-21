@@ -422,7 +422,7 @@ int main(int argc, char* argv[]) {
         }
       }
 
-      if (average_memory_consumption >= 10 && !adding_memory_node) {
+      if (average_memory_consumption >= 100 && !adding_memory_node) {
         logger->info("trigger add memory node");
         //cerr << "trigger add memory node\n";
         string shell_command = "curl -X POST http://" + management_address + "/memory";
@@ -430,7 +430,7 @@ int main(int argc, char* argv[]) {
         adding_memory_node = true;
       }
 
-      if (average_ebs_consumption >= 100 && !adding_ebs_node) {
+      if (average_ebs_consumption >= 500 && !adding_ebs_node) {
         logger->info("trigger add ebs node");
         //cerr << "trigger add ebs node\n";
         string shell_command = "curl -X POST http://" + management_address + "/ebs";
