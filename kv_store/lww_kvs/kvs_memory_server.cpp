@@ -1010,6 +1010,8 @@ int main(int argc, char* argv[]) {
     report_end = std::chrono::system_clock::now();
 
     if (chrono::duration_cast<std::chrono::seconds>(report_end-report_start).count() >= SERVER_REPORT_THRESHOLD) {
+      cerr << "reporting\n";
+      cerr << "proxy address size is " + to_string(proxy_address.size()) + "\n";
       communication::Request req;
       // report storage consumption
       req.set_type("PUT");

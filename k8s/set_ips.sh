@@ -11,6 +11,7 @@ echo -n "" > $2
 if [ "$1" != "NONE" ]; then
   # bash automatically splits this on space; the variable is set at runtime
   for ip in $1
+  echo $ip
   do
     echo $ip >> $2
   done

@@ -48,6 +48,9 @@ if [ "$1" = "m" ] || [ "$1" = "e" ]; then
   done
 fi
 
+echo "PROXY IPS ARE..."
+echo "$PROXY_IPS"
+
 MEM_SERVERS=`kubectl get pods -l role=memory -o jsonpath='{.items[*].status.podIP}'`
 if [ "$1" = "m" ] && [ "$2" = "y" ]; then
   while [ "$MEM_SERVERS" = "" ]; do
