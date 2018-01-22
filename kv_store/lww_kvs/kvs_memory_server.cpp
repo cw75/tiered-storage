@@ -32,27 +32,6 @@ using namespace std;
 // Define node type
 #define NODE_TYPE "M"
 
-// TODO: reconsider type names here
-typedef KV_Store<string, RC_KVS_PairLattice<string>> Database;
-
-typedef consistent_hash_map<worker_node_t,local_hasher> local_hash_t;
-
-// an unordered map to represent the gossip we are sending
-typedef unordered_map<string, RC_KVS_PairLattice<string>> gossip_data;
-
-// a pair to keep track of where each key in the changeset should be sent
-typedef pair<size_t, unordered_set<string>> changeset_data;
-
-typedef pair<string, size_t> storage_data;
-
-// a map that represents which keys should be sent to which IP-port
-// combinations
-typedef unordered_map<string, unordered_set<string>> changeset_address;
-
-// similar to the above but also tells each worker node whether or not it
-// should delete the key
-typedef unordered_map<string, unordered_set<pair<string, bool>, pair_hash>> redistribution_address;
-
 // TODO:  this should be changed to something more globally robust
 atomic<int> lww_timestamp(0);
 
@@ -69,7 +48,7 @@ pair<RC_KVS_PairLattice<string>, bool> process_get(string key, int thread_id, Da
   return pair<RC_KVS_PairLattice<string>, bool>(res, succeed);
 }
 
-bool process_put(string key, int timestamp, string value, int thread_id, Database* kvs, unordered_map<string, size_t>& size_map) {
+bool process_put(string key, int timestamp, string value, int thread_id, Database* kvs, unordered_set<string>& key_set, unordered_map<string, size_t>& size_map) {
   timestamp_value_pair<string> p = timestamp_value_pair<string>(timestamp, value);
   bool succeed;
   bool replaced = kvs->put(key, RC_KVS_PairLattice<string>(p), succeed);
@@ -77,14 +56,19 @@ bool process_put(string key, int timestamp, string value, int thread_id, Databas
     // update value size
     size_map[key] = value.length();
   }
+
+  if (succeed) {
+    key_set.insert(key);
+  }
+
   return succeed;
 }
 
-string process_proxy_request(communication::Request& req, int thread_id, unordered_set<string>& local_changeset, Database* kvs, unordered_map<string, size_t>& size_map) {
+string process_proxy_request(communication::Request& req, int thread_id, unordered_set<string>& local_changeset, Database* kvs, unordered_set<string>& key_set, unordered_map<string, size_t>& size_map) {
   communication::Response response;
 
   if (req.type() == "GET") {
-    cout << "received get by thread " << thread_id << "\n";
+    //cout << "received get by thread " << thread_id << "\n";
     response.set_type("GET");
     for (int i = 0; i < req.tuple_size(); i++) {
       auto res = process_get(req.tuple(i).key(), thread_id, kvs);
@@ -95,10 +79,10 @@ string process_proxy_request(communication::Request& req, int thread_id, unorder
       tp->set_succeed(res.second);
     }
   } else if (req.type() == "PUT") {
-    cout << "received put by thread " << thread_id << "\n";
+    //cout << "received put by thread " << thread_id << "\n";
     response.set_type("PUT");
     for (int i = 0; i < req.tuple_size(); i++) {
-      bool succeed = process_put(req.tuple(i).key(), lww_timestamp.load(), req.tuple(i).value(), thread_id, kvs, size_map);
+      bool succeed = process_put(req.tuple(i).key(), lww_timestamp.load(), req.tuple(i).value(), thread_id, kvs, key_set, size_map);
       communication::Response_Tuple* tp = response.add_tuple();
       tp->set_key(req.tuple(i).key());
       tp->set_succeed(succeed);
@@ -111,16 +95,16 @@ string process_proxy_request(communication::Request& req, int thread_id, unorder
   return data;
 }
 
-void process_distributed_gossip(communication::Gossip& gossip, int thread_id, Database* kvs, unordered_map<string, size_t>& size_map) {
+void process_distributed_gossip(communication::Gossip& gossip, int thread_id, Database* kvs, unordered_set<string>& key_set, unordered_map<string, size_t>& size_map) {
   for (int i = 0; i < gossip.tuple_size(); i++) {
-    process_put(gossip.tuple(i).key(), gossip.tuple(i).timestamp(), gossip.tuple(i).value(), thread_id, kvs, size_map);
+    process_put(gossip.tuple(i).key(), gossip.tuple(i).timestamp(), gossip.tuple(i).value(), thread_id, kvs, key_set, size_map);
   }
 }
 
 // This is not serialized into protobuf and using the method above for serializiation overhead
-void process_local_gossip(gossip_data* g_data, int thread_id, Database* kvs, unordered_map<string, size_t>& size_map) {
+void process_local_gossip(gossip_data* g_data, int thread_id, Database* kvs, unordered_set<string>& key_set, unordered_map<string, size_t>& size_map) {
   for (auto it = g_data->begin(); it != g_data->end(); it++) {
-    process_put(it->first, it->second.reveal().timestamp, it->second.reveal().value, thread_id, kvs, size_map);
+    process_put(it->first, it->second.reveal().timestamp, it->second.reveal().value, thread_id, kvs, key_set, size_map);
   }
   delete g_data;
 }
@@ -182,6 +166,9 @@ void worker_routine (zmq::context_t* context, string ip, int thread_id) {
 
   size_t port = SERVER_PORT + thread_id;
 
+  // the set of all the keys that this particular thread is storing
+  unordered_set<string> key_set;
+
   // the set of changes made on this thread since the last round of gossip
   unordered_set<string> local_changeset;
   worker_node_t wnode = worker_node_t(ip, thread_id);
@@ -209,6 +196,10 @@ void worker_routine (zmq::context_t* context, string ip, int thread_id) {
   zmq::socket_t changeset_address_requester(*context, ZMQ_REQ);
   changeset_address_requester.connect(CHANGESET_ADDR);
 
+  // used to communicate with master thread for garbage collection
+  zmq::socket_t garbage_collection_requester(*context, ZMQ_REQ);
+  garbage_collection_requester.connect(GARBAGE_COLLECTION_ADDR);
+
   // used to send gossip
   SocketCache pushers(context, ZMQ_PUSH);
 
@@ -224,6 +215,8 @@ void worker_routine (zmq::context_t* context, string ip, int thread_id) {
   auto gossip_end = std::chrono::system_clock::now();
   auto report_start = std::chrono::system_clock::now();
   auto report_end = std::chrono::system_clock::now();
+  auto garbage_start = std::chrono::system_clock::now();
+  auto garbage_end = std::chrono::system_clock::now();
 
   size_t epoch = 0;
 
@@ -239,7 +232,7 @@ void worker_routine (zmq::context_t* context, string ip, int thread_id) {
       req.ParseFromString(data);
 
       //  Process request
-      string result = process_proxy_request(req, thread_id, local_changeset, kvs, size_map);
+      string result = process_proxy_request(req, thread_id, local_changeset, kvs, key_set, size_map);
 
       //  Send reply back to proxy
       zmq_util::send_string(result, &responder);
@@ -255,7 +248,7 @@ void worker_routine (zmq::context_t* context, string ip, int thread_id) {
       gossip.ParseFromString(data);
 
       //  Process distributed gossip
-      process_distributed_gossip(gossip, thread_id, kvs, size_map);
+      process_distributed_gossip(gossip, thread_id, kvs, key_set, size_map);
       worker_thread_status[thread_id - 1].store(0);
     }
 
@@ -268,7 +261,7 @@ void worker_routine (zmq::context_t* context, string ip, int thread_id) {
       gossip_data* g_data = *(gossip_data **)(msg.data());
 
       //  Process local gossip
-      process_local_gossip(g_data, thread_id, kvs, size_map);
+      process_local_gossip(g_data, thread_id, kvs, key_set, size_map);
       worker_thread_status[thread_id - 1].store(0);
     }
 
@@ -298,6 +291,7 @@ void worker_routine (zmq::context_t* context, string ip, int thread_id) {
 
       // remove keys in the remove set
       for (auto it = remove_set.begin(); it != remove_set.end(); it++) {
+        key_set.erase(*it);
         // update value size
         size_map.erase(*it);
         // remove key from kvs
@@ -359,6 +353,27 @@ void worker_routine (zmq::context_t* context, string ip, int thread_id) {
       }
 
       report_start = std::chrono::system_clock::now();
+    }
+
+    garbage_end = std::chrono::system_clock::now();
+    // check if garbage collect should be triggered
+    if (chrono::duration_cast<std::chrono::seconds>(garbage_end-garbage_start).count() >= GARBAGE_COLLECT_THRESHOLD) {
+      garbage_collect_info* info = new garbage_collect_info(key_set, wnode.id_);
+
+      zmq_util::send_msg((void*)info, &garbage_collection_requester);
+      zmq::message_t msg;
+      zmq_util::recv_msg(&garbage_collection_requester, msg);
+
+      // send the gossip
+      unordered_set<string>* res = *(unordered_set<string> **)(msg.data());
+      for (auto it = res->begin(); it != res->end(); it++) {
+        key_set.erase(*it);
+        size_map.erase(*it);
+        kvs->remove(*it);
+      }
+      delete res;
+
+      garbage_start = std::chrono::system_clock::now();
     }
   }
 }
@@ -514,6 +529,10 @@ int main(int argc, char* argv[]) {
   zmq::socket_t storage_consumption_puller(context, ZMQ_PULL);
   storage_consumption_puller.bind(LOCAL_STORAGE_CONSUMPTION_ADDR);
 
+  // responsible for responding to garbage collection requests from workers
+  zmq::socket_t garbage_collection_responder(context, ZMQ_REP);
+  garbage_collection_responder.bind(GARBAGE_COLLECTION_ADDR);
+
   // set up zmq receivers
   vector<zmq::pollitem_t> pollitems = {{static_cast<void*>(addr_responder), 0, ZMQ_POLLIN, 0},
                                        {static_cast<void*>(join_puller), 0, ZMQ_POLLIN, 0},
@@ -522,7 +541,8 @@ int main(int argc, char* argv[]) {
                                        {static_cast<void*>(changeset_address_responder), 0, ZMQ_POLLIN, 0},
                                        {static_cast<void*>(self_depart_responder), 0, ZMQ_POLLIN, 0},
                                        {static_cast<void*>(replication_factor_change_puller), 0, ZMQ_POLLIN, 0},
-                                       {static_cast<void*>(storage_consumption_puller), 0, ZMQ_POLLIN, 0}
+                                       {static_cast<void*>(storage_consumption_puller), 0, ZMQ_POLLIN, 0},
+                                       {static_cast<void*>(garbage_collection_responder), 0, ZMQ_POLLIN, 0}
                                      };
 
   auto report_start = std::chrono::system_clock::now();
@@ -1005,6 +1025,27 @@ int main(int argc, char* argv[]) {
       worker_thread_storage[data->first] = data->second;
 
       delete data;
+    }
+
+    if (pollitems[8].revents & ZMQ_POLLIN) {
+      zmq::message_t msg;
+      zmq_util::recv_msg(&garbage_collection_responder, msg);
+      garbage_collect_info* info = *(garbage_collect_info **)(msg.data());
+
+      cerr << "received garbage collection request from worker thread" + info->id_ + "\n";
+
+      unordered_set<string>* res = new unordered_set<string>();
+
+      for (auto it = info->keys_.begin(); it != info->keys_.end(); it++) {
+        auto key = *it;
+        if (!(responsible<master_node_t, global_hasher>(key, placement[key].global_memory_replication_, global_hash_ring, mnode.id_).first
+          && responsible<worker_node_t, local_hasher>(key, placement[key].local_replication_, local_hash_ring, info->id_).first)) {
+          res->insert(*it);
+        }
+      }
+
+      zmq_util::send_msg((void*)res, &garbage_collection_responder);
+      delete info;
     }
 
     report_end = std::chrono::system_clock::now();

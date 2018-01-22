@@ -72,6 +72,7 @@ using namespace std;
 #define LOCAL_STORAGE_CONSUMPTION_ADDR "inproc://7460"
 #define REPLICATION_FACTOR_BIND_ADDR "tcp://*:6360"
 #define CHANGESET_ADDR "inproc://6560"
+#define GARBAGE_COLLECTION_ADDR "inproc://6660"
 #define SELF_DEPART_BIND_ADDR "tcp://*:6960"
 #define HOTNESS_ADDR "inproc://7560"
 

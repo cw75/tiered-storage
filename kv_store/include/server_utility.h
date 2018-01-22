@@ -8,20 +8,47 @@ using namespace std;
 // Define the default local replication factor
 #define DEFAULT_LOCAL_REPLICATION 1
 
-string alphabet("abcdefghijklmnopqrstuvwxyz");
+// Define the garbage collect threshold
+#define GARBAGE_COLLECT_THRESHOLD 10
 
-string getNextDeviceID(string currentID) {
-	char first = currentID.at(0);
-	char second = currentID.at(1);
-	if (second != 'z')
-		return string(1, first) + string(1, alphabet.at(alphabet.find(second) + 1));
-	else {
-		if (first == 'b')
-			return "ca";
-		else
-			return "error: name out of bound\n";
-	}
-}
+// TODO: reconsider type names here
+typedef KV_Store<string, RC_KVS_PairLattice<string>> Database;
+
+struct pair_hash {
+  template <class T1, class T2>
+    std::size_t operator () (const std::pair<T1,T2> &p) const {
+      auto h1 = std::hash<T1>{}(p.first);
+      auto h2 = std::hash<T2>{}(p.second);
+
+      return h1 ^ h2;
+    }
+};
+
+typedef consistent_hash_map<worker_node_t,local_hasher> local_hash_t;
+
+// an unordered map to represent the gossip we are sending
+typedef unordered_map<string, RC_KVS_PairLattice<string>> gossip_data;
+
+// a pair to keep track of where each key in the changeset should be sent
+typedef pair<size_t, unordered_set<string>> changeset_data;
+
+typedef pair<string, size_t> storage_data;
+
+// a map that represents which keys should be sent to which IP-port
+// combinations
+typedef unordered_map<string, unordered_set<string>> changeset_address;
+
+// similar to the above but also tells each worker node whether or not it
+// should delete the key
+typedef unordered_map<string, unordered_set<pair<string, bool>, pair_hash>> redistribution_address;
+
+struct garbage_collect_info {
+  garbage_collect_info() {}
+  garbage_collect_info(unordered_set<string> keys, string id)
+    : keys_(keys), id_(id) {}
+  unordered_set<string> keys_;
+  string id_;
+};
 
 struct storage_key_info {
   storage_key_info() : global_memory_replication_(1), global_ebs_replication_(2), local_replication_(1) {}
@@ -32,16 +59,6 @@ struct storage_key_info {
   int global_memory_replication_;
   int global_ebs_replication_;
   int local_replication_;
-};
-
-struct pair_hash {
-  template <class T1, class T2>
-    std::size_t operator () (const std::pair<T1,T2> &p) const {
-      auto h1 = std::hash<T1>{}(p.first);
-      auto h2 = std::hash<T2>{}(p.second);
-
-      return h1 ^ h2;
-    }
 };
 
 // we have this template because we use responsible for with different hash
