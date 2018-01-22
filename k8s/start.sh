@@ -24,6 +24,7 @@ elif [ "$1" = "p" ]; then
   ./build/kv_store/lww_kvs/kvs_proxy
 else 
   echo $IP > conf/server/server_ip.txt
+  echo "$PROXY_IPS"
   sh k8s/set_ips.sh $PROXY_IPS conf/server/proxy_address.txt
 
   # set the seed server and the monitoring address
