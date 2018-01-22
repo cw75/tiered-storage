@@ -61,6 +61,14 @@ for i in $(seq 1 $3); do
   ./add_node.sh p
 done
 
+# wait for all proxies to be ready
+PROXY_IPS=`kubectl get pods -l role=proxy -o jsonpath='{.items[*].status.podIP}'`
+PROXY_IP_ARR=($PROXY_IPS)
+while [ ${#PROXY_IP_ARR[@]} -ne $3 ]; do
+  PROXY_IPS=`kubectl get pods -l role=proxy -o jsonpath='{.items[*].status.podIP}'`
+  PROXY_IP_ARR=($PROXY_IPS)
+done
+
 # TODO: optimize this to create multiple nodes at once
 echo "Creating $1 memory node(s)..."
 

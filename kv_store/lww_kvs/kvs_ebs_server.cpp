@@ -302,6 +302,8 @@ void worker_routine (zmq::context_t* context, string ip, int thread_id) {
   auto report_start = std::chrono::system_clock::now();
   auto report_end = std::chrono::system_clock::now();
 
+  size_t epoch = 0;
+
   // Enter the event loop
   while (true) {
     zmq_util::poll(0, &pollitems);
@@ -419,6 +421,7 @@ void worker_routine (zmq::context_t* context, string ip, int thread_id) {
     report_end = std::chrono::system_clock::now();
     // check whether we should send storage consumption update
     if (chrono::duration_cast<std::chrono::seconds>(report_end-report_start).count() >= SERVER_REPORT_THRESHOLD) {
+      epoch += 1;
       storage_data* data = new storage_data();
 
       data->first = to_string(thread_id);
@@ -431,6 +434,12 @@ void worker_routine (zmq::context_t* context, string ip, int thread_id) {
       data->second = consumption;
 
       zmq_util::send_msg((void*)data, &pushers[LOCAL_STORAGE_CONSUMPTION_ADDR]);
+
+      if (epoch % 50 == 1) {
+        for (auto it = size_map.begin(); it != size_map.end(); it++) {
+          cerr << "thread " + to_string(thread_id) + " epoch " + to_string(epoch) + " key " + it->first + " has length " + to_string(it->second) + "\n";
+        }
+      }
 
       report_start = std::chrono::system_clock::now();
     }
