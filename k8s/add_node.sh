@@ -48,9 +48,6 @@ if [ "$1" = "m" ] || [ "$1" = "e" ]; then
   done
 fi
 
-echo "PROXY IPS ARE..."
-echo "$PROXY_IPS"
-
 MEM_SERVERS=`kubectl get pods -l role=memory -o jsonpath='{.items[*].status.podIP}'`
 if [ "$1" = "m" ] && [ "$2" = "y" ]; then
   while [ "$MEM_SERVERS" = "" ]; do
@@ -102,10 +99,13 @@ else
   SEED_SERVER=${ARR[$RANDOM % ${#ARR[@]}]}
 fi
 
+echo "PROXY IPS ARE..."
+echo "$PROXY_IPS"
+
 echo "SEED address is..."
 echo "$SEED_SERVER"
 
-sed -i "s|PROXY_IPS_DUMMY|$PROXY_IPS|g" tmp.yml
+sed -i "s|PROXY_IPS_DUMMY|\"$PROXY_IPS\"|g" tmp.yml
 sed -i "s|MON_IP_DUMMY|$MON_IP|g" tmp.yml
 sed -i "s|SEED_SERVER_DUMMY|$SEED_SERVER|g" tmp.yml
 sed -i "s|MEM_SERVERS_DUMMY|$MEM_SERVERS|g" tmp.yml
