@@ -284,6 +284,8 @@ void worker_routine (zmq::context_t* context, string ip, int thread_id) {
   auto gossip_end = std::chrono::system_clock::now();
   auto report_start = std::chrono::system_clock::now();
   auto report_end = std::chrono::system_clock::now();
+  auto garbage_start = std::chrono::system_clock::now();
+  auto garbage_end = std::chrono::system_clock::now();
 
   size_t epoch = 0;
 
