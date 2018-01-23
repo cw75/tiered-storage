@@ -75,6 +75,8 @@ string process_request(string type,
     string value,
     zmq::context_t* context,
     SocketCache& requesters,
+    SocketCache& pushers,
+    monitoring_node_t monitoring_node,
     global_hash_t* global_memory_hash_ring,
     global_hash_t* global_ebs_hash_ring,
     tbb::concurrent_unordered_map<string, shared_key_info>* placement,
@@ -83,7 +85,7 @@ string process_request(string type,
 
   // if the replication factor info is missing, query the storage servers
   if (!metadata && placement->find(key) == placement->end()) {
-    string serialized_resp = process_request("GET", true, key + "_replication", "", context, requesters, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
+    string serialized_resp = process_request("GET", true, key + "_replication", "", context, requesters, pushers, monitoring_node, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
     communication::Response resp;
     resp.ParseFromString(serialized_resp);
 
@@ -102,6 +104,8 @@ string process_request(string type,
     placement->emplace(std::piecewise_construct,
                        std::forward_as_tuple(key),
                        std::forward_as_tuple(gmr, ger));
+    // notify the monitoring node that there is a (possibly) new key
+    zmq_util::send_string(key, &pushers[monitoring_node.new_key_connect_addr_]);
   }
 
   int gmr;
@@ -182,6 +186,8 @@ string process_request(string type,
 string process_batch_request(string serialized_req,
     zmq::context_t* context,
     SocketCache& requesters,
+    SocketCache& pushers,
+    monitoring_node_t monitoring_node,
     global_hash_t* global_memory_hash_ring,
     global_hash_t* global_ebs_hash_ring,
     tbb::concurrent_unordered_map<string, shared_key_info>* placement,
@@ -204,7 +210,7 @@ string process_batch_request(string serialized_req,
 
     // if the replication factor info is missing, query the storage servers
     if (!req.metadata() && placement->find(key) == placement->end()) {
-      string serialized_resp = process_request("GET", true, key + "_replication", "", context, requesters, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
+      string serialized_resp = process_request("GET", true, key + "_replication", "", context, requesters, pushers, monitoring_node, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
       communication::Response resp;
       resp.ParseFromString(serialized_resp);
 
@@ -223,6 +229,8 @@ string process_batch_request(string serialized_req,
       placement->emplace(std::piecewise_construct,
                          std::forward_as_tuple(key),
                          std::forward_as_tuple(gmr, ger));
+      // notify the monitoring node that there is a (possibly) new key
+      zmq_util::send_string(key, &pushers[monitoring_node.new_key_connect_addr_]);
     }
 
     int gmr;
@@ -407,7 +415,7 @@ void proxy_worker_routine(zmq::context_t* context,
       cerr << "received request\n";
 
       string serialized_req = zmq_util::recv_string(&request_responder);
-      string serialized_resp = process_batch_request(serialized_req, context, requesters, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
+      string serialized_resp = process_batch_request(serialized_req, context, requesters, pushers, monitoring_node, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
       zmq_util::send_string(serialized_resp, &request_responder);
     }
 
@@ -519,7 +527,7 @@ void proxy_worker_routine(zmq::context_t* context,
 
       // warm up
       for (auto it = key_value.begin(); it != key_value.end(); it++) {
-        process_request("PUT", false, it->first, it->second, context, requesters, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
+        process_request("PUT", false, it->first, it->second, context, requesters, pushers, monitoring_node, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
       }
 
       size_t count = 0;
@@ -532,14 +540,14 @@ void proxy_worker_routine(zmq::context_t* context,
       while (true) {
         string key = to_string(rand() % key_value.size() + 1);
         if (type == "G") {
-          process_request("GET", false, key, "", context, requesters, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
+          process_request("GET", false, key, "", context, requesters, pushers, monitoring_node, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
           count += 1;
         } else if (type == "P") {
-          process_request("PUT", false, key, key_value[key], context, requesters, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
+          process_request("PUT", false, key, key_value[key], context, requesters, pushers, monitoring_node, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
           count += 1;
         } else if (type == "M") {
-          process_request("PUT", false, key, key_value[key], context, requesters, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
-          process_request("GET", false, key, "", context, requesters, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
+          process_request("PUT", false, key, key_value[key], context, requesters, pushers, monitoring_node, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
+          process_request("GET", false, key, "", context, requesters, pushers, monitoring_node, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
           count += 2;
         } else {
           cerr << "invalid request type\n";
@@ -570,7 +578,7 @@ void proxy_worker_routine(zmq::context_t* context,
       cerr << "received metadata updates\n";
 
       string serialized_req = zmq_util::recv_string(&metadata_puller);
-      string serialized_resp = process_batch_request(serialized_req, context, requesters, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
+      string serialized_resp = process_batch_request(serialized_req, context, requesters, pushers, monitoring_node, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
     }
 
     hotness_end = std::chrono::system_clock::now();

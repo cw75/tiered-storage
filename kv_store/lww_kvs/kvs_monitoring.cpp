@@ -201,8 +201,13 @@ int main(int argc, char* argv[]) {
   zmq::socket_t join_puller(context, ZMQ_PULL);
   join_puller.bind(NOTIFY_BIND_ADDR);
 
+  // responsible for accepting new keys and updating the placement info
+  zmq::socket_t new_key_puller(context, ZMQ_PULL);
+  new_key_puller.bind(NEW_KEY_ADDR);
+
   vector<zmq::pollitem_t> pollitems = {
     { static_cast<void *>(join_puller), 0, ZMQ_POLLIN, 0 },
+    { static_cast<void *>(new_key_puller), 0, ZMQ_POLLIN, 0 }
   };
 
   auto hotness_start = std::chrono::system_clock::now();
@@ -274,6 +279,17 @@ int main(int argc, char* argv[]) {
         logger->info("ebs hash ring size is {}", to_string(global_ebs_hash_ring.size()));
         //cerr << "memory hash ring size is " + to_string(global_memory_hash_ring.size()) + "\n";
         //cerr << "ebs hash ring size is " + to_string(global_ebs_hash_ring.size()) + "\n";
+      }
+    }
+
+    // received a new key notice from the proxy
+    if (pollitems[1].revents & ZMQ_POLLIN) {
+      string key = zmq_util::recv_string(&new_key_puller);
+      // update the placement info only if key not already exist
+      if (placement.find(key) == placement.end()) {
+        placement.emplace(std::piecewise_construct,
+                   std::forward_as_tuple(key),
+                   std::forward_as_tuple(DEFAULT_GLOBAL_MEMORY_REPLICATION, DEFAULT_GLOBAL_EBS_REPLICATION));
       }
     }
 

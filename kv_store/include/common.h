@@ -43,8 +43,6 @@ using namespace std;
 #define PROXY_PLACEMENT_PORT 7360
 #define PROXY_BENCHMARK_PORT 7460
 #define PROXY_METADATA_PORT 7560
-#define STORAGE_CONSUMPTION_PORT 7460
-#define KEY_HOTNESS_PORT 7560
 #define REPLICATION_FACTOR_PORT 6360
 #define SEED_CONNECTION_PORT 6560
 #define CHANGESET_PORT 6560
@@ -57,6 +55,7 @@ using namespace std;
 #define NODE_JOIN_PORT 6660
 #define NODE_DEPART_PORT 6760
 #define KEY_EXCHANGE_PORT 6860
+#define NEW_KEY_PORT 7660
 
 #define SEED_BIND_ADDR "tcp://*:6560"
 #define NOTIFY_BIND_ADDR "tcp://*:7060"
@@ -67,14 +66,13 @@ using namespace std;
 #define PROXY_CONTACT_BIND_ADDR "tcp://*:7160"
 #define PROXY_GOSSIP_BIND_ADDR "tcp://*:7260"
 #define PROXY_PLACEMENT_BIND_ADDR "tcp://*:7360"
-#define STORAGE_CONSUMPTION_BIND_ADDR "tcp://*:7460"
-#define KEY_HOTNESS_BIND_ADDR "tcp://*:7560"
 #define LOCAL_STORAGE_CONSUMPTION_ADDR "inproc://7460"
 #define REPLICATION_FACTOR_BIND_ADDR "tcp://*:6360"
 #define CHANGESET_ADDR "inproc://6560"
 #define GARBAGE_COLLECTION_ADDR "inproc://6660"
 #define SELF_DEPART_BIND_ADDR "tcp://*:6960"
 #define HOTNESS_ADDR "inproc://7560"
+#define NEW_KEY_ADDR "tcp://*:7660"
 
 #define SERVER_IP_FILE "conf/server/server_ip.txt"
 #define PROXY_IP_FILE "conf/proxy/proxy_ip.txt"
@@ -176,15 +174,11 @@ public:
   monitoring_node_t() {}
   monitoring_node_t(string ip): ip_(ip) {
     notify_connect_addr_ = "tcp://" + ip + ":" + to_string(NOTIFY_PORT);
-    replication_factor_connect_addr_ = "tcp://" + ip + ":" + to_string(REPLICATION_FACTOR_PORT);
-    storage_consumption_connect_addr_ = "tcp://" + ip + ":" + to_string(STORAGE_CONSUMPTION_PORT);
-    key_hotness_connect_addr_ = "tcp://" + ip + ":" + to_string(KEY_HOTNESS_PORT);
+    new_key_connect_addr_ = "tcp://" + ip + ":" + to_string(NEW_KEY_PORT);
   }
   string ip_;
   string notify_connect_addr_;
-  string replication_factor_connect_addr_;
-  string storage_consumption_connect_addr_;
-  string key_hotness_connect_addr_;
+  string new_key_connect_addr_;
 };
 
 bool operator<(const node_t& l, const node_t& r) {
