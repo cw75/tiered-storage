@@ -25,6 +25,8 @@ using address_cache_t = unordered_map<address_t, unordered_map<string, unordered
 boost::shared_mutex memory_lock;
 boost::shared_mutex ebs_lock;
 
+auto logger = spdlog::basic_logger_mt("basic_logger", "log.txt", true);
+
 struct key_access_info {
   int thread_id;
   int timestamp;
@@ -505,61 +507,61 @@ void proxy_worker_routine(zmq::context_t* context,
       vector<string> v;
       split(zmq_util::recv_string(&benchmark_puller), ':', v);
       string type = v[0];
-      string contention = v[1];
-      int length = stoi(v[2]);
-      int count = stoi(v[3]);
+      size_t contention = stoi(v[1]);
+      size_t length = stoi(v[2]);
+      size_t report_period = stoi(v[3]);
+      size_t time = stoi(v[4]);
 
       unordered_map<string, string> key_value;
-      if (contention == "H") {
-        key_value[to_string(1)] = string(length, 'a');
-      } else if (contention == "L") {
-        for (int i = 1; i < 1000; i++) {
-          key_value[to_string(i)] = string(length, 'a');
-        }
-      } else {
-        cerr << "invalid contention\n";
+      for (size_t i = 1; i <= contention; i++) {
+        key_value[to_string(i)] = string(length, 'a');
       }
 
       // warm up
-      /*for (auto it = key_value.begin(); it != key_value.end(); it++) {
+      for (auto it = key_value.begin(); it != key_value.end(); it++) {
         process_request("PUT", false, it->first, it->second, context, requesters, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
-      }*/
-
-      auto benchmark_start = std::chrono::system_clock::now();
-
-      if (type == "G") {
-        for (int i = 0; i < count; i++) {
-          if (thread_id == 1) {
-            cout << "processing request number " + to_string(i) + "\n";
-          }
-          string key = to_string(rand() % key_value.size() + 1);
-          process_request("GET", false, key, "", context, requesters, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
-        }
-      } else if (type == "P") {
-        for (int i = 0; i < count; i++) {
-          if (thread_id == 1) {
-            cout << "processing request number " + to_string(i) + "\n";
-          }
-          string key = to_string(rand() % key_value.size() + 1);
-          process_request("PUT", false, key, key_value[key], context, requesters, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
-        }
-      } else if (type == "M") {
-        for (int i = 0; i < count/2; i++) {
-          string key = to_string(rand() % key_value.size() + 1);
-          process_request("PUT", false, key, key_value[key], context, requesters, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
-          process_request("GET", false, key, "", context, requesters, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
-        }
-      } else {
-        cerr << "invalid request type\n";
       }
 
+      size_t count = 0;
+      auto benchmark_start = std::chrono::system_clock::now();
       auto benchmark_end = std::chrono::system_clock::now();
+      auto epoch_start = std::chrono::system_clock::now();
+      auto epoch_end = std::chrono::system_clock::now();
+      auto total_time = chrono::duration_cast<std::chrono::seconds>(benchmark_end-benchmark_start).count();
 
-      auto total_time = chrono::duration_cast<std::chrono::microseconds>(benchmark_end-benchmark_start).count();
+      while (true) {
+        string key = to_string(rand() % key_value.size() + 1);
+        if (type == "G") {
+          process_request("GET", false, key, "", context, requesters, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
+          count += 1;
+        } else if (type == "P") {
+          process_request("PUT", false, key, key_value[key], context, requesters, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
+          count += 1;
+        } else if (type == "M") {
+          process_request("PUT", false, key, key_value[key], context, requesters, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
+          process_request("GET", false, key, "", context, requesters, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
+          count += 2;
+        } else {
+          cerr << "invalid request type\n";
+        }
 
-      cout << "benchamrk took " + to_string(total_time) + " microseconds\n";
-      cout << "Throughput is " + to_string((double)count / (double)total_time * 1000000) + " ops/seconds\n";
+        epoch_end = std::chrono::system_clock::now();
+        auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(epoch_end-epoch_start).count();
+        // report throughput every report_period seconds
+        if (time_elapsed >= report_period) {
+          cout << "Throughput is " + to_string((double)count / (double)time_elapsed) + " ops/seconds\n";
+          count = 0;
+          epoch_start = std::chrono::system_clock::now();
+        }
 
+        benchmark_end = std::chrono::system_clock::now();
+        total_time = chrono::duration_cast<std::chrono::seconds>(benchmark_end-benchmark_start).count();
+        if (total_time > time) {
+          break;
+        }
+      }
+
+      cout << "benchamrk took " + to_string(total_time) + " seconds\n";
       cerr << "Finished\n";
     }
 
@@ -605,6 +607,7 @@ void proxy_worker_routine(zmq::context_t* context,
 
 // TODO: instead of cout or cerr, everything should be written to a log file.
 int main(int argc, char* argv[]) {
+  logger->flush_on(spdlog::level::info);
   if (argc != 1) {
     cerr << "usage:" << argv[0] << endl;
     return 1;

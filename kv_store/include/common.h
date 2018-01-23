@@ -15,14 +15,14 @@ using namespace std;
 
 // Define monitoring constant
 #define SERVER_REPORT_THRESHOLD 10
-#define HOTNESS_MONITORING_THRESHOLD 30
+#define HOTNESS_MONITORING_THRESHOLD 20
 #define HOTNESS_MONITORING_PERIOD 10
 
 // Define the replication factor for the metadata
 #define METADATA_REPLICATION_FACTOR 1
 
 // Define the default replication factor for the data
-#define DEFAULT_GLOBAL_MEMORY_REPLICATION 2
+#define DEFAULT_GLOBAL_MEMORY_REPLICATION 0
 #define DEFAULT_GLOBAL_EBS_REPLICATION 1
 
 // Define the number of memory threads
