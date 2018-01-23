@@ -334,6 +334,8 @@ int main(int argc, char* argv[]) {
         }
       }
 
+      vector<replication_factor_request> requests;
+
       // update key access summary map
       for (auto it = key_access_frequency.begin(); it != key_access_frequency.end(); it++) {
         size_t total = 0;
@@ -342,10 +344,25 @@ int main(int argc, char* argv[]) {
           total += iter->second;
         }
         key_access_summary[key] = total;
+        // trigger replication factor change with a simple policy (assuming mem_rep + ebs_rep = 1)
+        if (total > 10) {
+          if (placement[key].global_memory_replication_ == 0) {
+            logger->info("moving key {} to memory tier", key);
+            requests.push_back(replication_factor_request(key, 1, 0));
+          }
+        } else {
+          if (placement[key].global_ebs_replication_ == 0) {
+            logger->info("moving key {} to ebs tier", key);
+            requests.push_back(replication_factor_request(key, 0, 1));
+          }
+        }
+
         if (key_hotness_epoch % 50 == 1) {
           logger->info("key {} access frequency is {} for epoch {}", key, total, key_hotness_epoch);
         }
       }
+
+      change_replication_factor(requests, global_memory_hash_ring, global_ebs_hash_ring, proxy_address, placement, pushers);
 
       hotness_start = std::chrono::system_clock::now();
     }
@@ -457,7 +474,7 @@ int main(int argc, char* argv[]) {
         }
       }
 
-      if (average_memory_consumption >= 100 && !adding_memory_node) {
+      /*if (average_memory_consumption >= 100 && !adding_memory_node) {
         logger->info("trigger add memory node");
         //cerr << "trigger add memory node\n";
         string shell_command = "curl -X POST http://" + management_address + "/memory";
@@ -471,7 +488,7 @@ int main(int argc, char* argv[]) {
         string shell_command = "curl -X POST http://" + management_address + "/ebs";
         system(shell_command.c_str());
         adding_ebs_node = true;
-      }
+      }*/
 
       if (server_monitoring_epoch % 50 == 1) {
         for (auto it1 = memory_tier_occupancy.begin(); it1 != memory_tier_occupancy.end(); it1++) {

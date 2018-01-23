@@ -520,6 +520,8 @@ void proxy_worker_routine(zmq::context_t* context,
       size_t report_period = stoi(v[3]);
       size_t time = stoi(v[4]);
 
+      unsigned int seed = thread_id;
+
       unordered_map<string, string> key_value;
       for (size_t i = 1; i <= contention; i++) {
         key_value[to_string(i)] = string(length, 'a');
@@ -530,47 +532,56 @@ void proxy_worker_routine(zmq::context_t* context,
         process_request("PUT", false, it->first, it->second, context, requesters, pushers, monitoring_node, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
       }
 
-      size_t count = 0;
-      auto benchmark_start = std::chrono::system_clock::now();
-      auto benchmark_end = std::chrono::system_clock::now();
-      auto epoch_start = std::chrono::system_clock::now();
-      auto epoch_end = std::chrono::system_clock::now();
-      auto total_time = chrono::duration_cast<std::chrono::seconds>(benchmark_end-benchmark_start).count();
+      int run = 0;
 
-      while (true) {
-        string key = to_string(rand() % key_value.size() + 1);
-        if (type == "G") {
-          process_request("GET", false, key, "", context, requesters, pushers, monitoring_node, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
-          count += 1;
-        } else if (type == "P") {
-          process_request("PUT", false, key, key_value[key], context, requesters, pushers, monitoring_node, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
-          count += 1;
-        } else if (type == "M") {
-          process_request("PUT", false, key, key_value[key], context, requesters, pushers, monitoring_node, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
-          process_request("GET", false, key, "", context, requesters, pushers, monitoring_node, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
-          count += 2;
-        } else {
-          cerr << "invalid request type\n";
-        }
+      while (run < 5) {
+        size_t count = 0;
+        auto benchmark_start = std::chrono::system_clock::now();
+        auto benchmark_end = std::chrono::system_clock::now();
+        auto epoch_start = std::chrono::system_clock::now();
+        auto epoch_end = std::chrono::system_clock::now();
+        auto total_time = chrono::duration_cast<std::chrono::seconds>(benchmark_end-benchmark_start).count();
 
-        epoch_end = std::chrono::system_clock::now();
-        auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(epoch_end-epoch_start).count();
-        // report throughput every report_period seconds
-        if (time_elapsed >= report_period) {
-          cout << "Throughput is " + to_string((double)count / (double)time_elapsed) + " ops/seconds\n";
-          count = 0;
-          epoch_start = std::chrono::system_clock::now();
-        }
+        while (true) {
+          string key;
+          if (run % 2 == 0) {
+            key = to_string(rand_r(&seed) % (key_value.size()/2) + 1);
+          } else {
+            key = to_string(rand_r(&seed) % (key_value.size()/2) + (key_value.size()/2) + 1);
+          }
+          if (type == "G") {
+            process_request("GET", false, key, "", context, requesters, pushers, monitoring_node, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
+            count += 1;
+          } else if (type == "P") {
+            process_request("PUT", false, key, key_value[key], context, requesters, pushers, monitoring_node, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
+            count += 1;
+          } else if (type == "M") {
+            process_request("PUT", false, key, key_value[key], context, requesters, pushers, monitoring_node, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
+            process_request("GET", false, key, "", context, requesters, pushers, monitoring_node, global_memory_hash_ring, global_ebs_hash_ring, placement, address_cache, key_access_monitoring);
+            count += 2;
+          } else {
+            cerr << "invalid request type\n";
+          }
 
-        benchmark_end = std::chrono::system_clock::now();
-        total_time = chrono::duration_cast<std::chrono::seconds>(benchmark_end-benchmark_start).count();
-        if (total_time > time) {
-          break;
+          epoch_end = std::chrono::system_clock::now();
+          auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(epoch_end-epoch_start).count();
+          // report throughput every report_period seconds
+          if (time_elapsed >= report_period) {
+            cout << "Throughput is " + to_string((double)count / (double)time_elapsed) + " ops/seconds\n";
+            count = 0;
+            epoch_start = std::chrono::system_clock::now();
+          }
+
+          benchmark_end = std::chrono::system_clock::now();
+          total_time = chrono::duration_cast<std::chrono::seconds>(benchmark_end-benchmark_start).count();
+          if (total_time > time) {
+            break;
+          }
         }
+        run += 1;
       }
 
-      cout << "benchamrk took " + to_string(total_time) + " seconds\n";
-      cerr << "Finished\n";
+      cout << "Finished\n";
     }
 
     if (pollitems[3].revents & ZMQ_POLLIN) {
