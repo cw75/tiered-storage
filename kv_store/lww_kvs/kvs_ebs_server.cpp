@@ -205,9 +205,11 @@ void send_gossip(address_keyset_map& addr_keyset_map, SocketCache& pushers, unsi
   unordered_map<string, communication::Request> gossip_map;
 
   for (auto map_it = addr_keyset_map.begin(); map_it != addr_keyset_map.end(); map_it++) {
+    gossip_map[map_it->first].set_type("PUT");
     for (auto set_it = map_it->second.begin(); set_it != map_it->second.end(); set_it++) {
       auto res = process_get(*set_it, thread_id);
       if (res.second == 0) {
+        cerr << "gossiping key " + *set_it + " to address " + map_it->first + "\n";
         prepare_put_tuple(gossip_map[map_it->first], *set_it, res.first.reveal().value, res.first.reveal().timestamp);
       }
     }
