@@ -20,7 +20,7 @@ string handle_request(
     SocketCache& requesters,
     vector<string>& proxy_address,
     unordered_map<string, unordered_set<string>>& key_address_cache,
-    unsigned seed) {
+    unsigned& seed) {
   vector<string> v;
   split(input, ' ', v);
 

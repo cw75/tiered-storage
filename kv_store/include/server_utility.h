@@ -115,15 +115,15 @@ void get_global_replication_factor(
     SocketCache& requesters,
     string node_type,
     vector<string>& proxy_address,
-    unsigned tid) {
+    unsigned& seed) {
   string target_address;
   if (node_type == "M") {
     auto threads = responsible_global(key + "_replication", METADATA_MEMORY_REPLICATION_FACTOR, global_hash_ring);
-    target_address = next(begin(threads), rand() % threads.size())->get_request_handling_connect_addr();
+    target_address = next(begin(threads), rand_r(&seed) % threads.size())->get_request_handling_connect_addr();
   } else {
-    string target_proxy_address = get_random_proxy_thread(proxy_address, tid).get_key_address_connect_addr();
+    string target_proxy_address = get_random_proxy_thread(proxy_address, seed).get_key_address_connect_addr();
     auto addresses = get_address_from_other_tier(key + "_replication", requesters[target_proxy_address], node_type, 0, "RH");
-    target_address = addresses[rand_r(&tid) % addresses.size()];
+    target_address = addresses[rand_r(&seed) % addresses.size()];
   }
   communication::Request req;
   req.set_type("GET");
@@ -147,15 +147,15 @@ void get_local_replication_factor(
     SocketCache& requesters,
     string node_type,
     vector<string>& proxy_address,
-    unsigned tid) {
+    unsigned& seed) {
   string target_address;
   if (node_type == "M") {
     auto threads = responsible_global(key + "_" + ip + "_replication", METADATA_MEMORY_REPLICATION_FACTOR, global_hash_ring);
-    target_address = next(begin(threads), rand() % threads.size())->get_request_handling_connect_addr();
+    target_address = next(begin(threads), rand_r(&seed) % threads.size())->get_request_handling_connect_addr();
   } else {
-    string target_proxy_address = get_random_proxy_thread(proxy_address, tid).get_key_address_connect_addr();
+    string target_proxy_address = get_random_proxy_thread(proxy_address, seed).get_key_address_connect_addr();
     auto addresses = get_address_from_other_tier(key + "_" + ip + "_replication", requesters[target_proxy_address], node_type, 0, "RH");
-    target_address = addresses[rand_r(&tid) % addresses.size()];
+    target_address = addresses[rand_r(&seed) % addresses.size()];
   }
   communication::Request req;
   req.set_type("GET");
@@ -180,7 +180,7 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads(
     SocketCache& requesters,
     string node_type,
     vector<string>& proxy_address,
-    unsigned tid) {
+    unsigned& seed) {
   if (metadata_flag == 0) {
     if (node_type == "M") {
       return responsible_global(key, METADATA_MEMORY_REPLICATION_FACTOR, global_hash_ring);
@@ -190,7 +190,7 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads(
     }
   } else {
     if (placement.find(key) == placement.end()) {
-      get_global_replication_factor(key, global_hash_ring, placement, requesters, node_type, proxy_address, tid);
+      get_global_replication_factor(key, global_hash_ring, placement, requesters, node_type, proxy_address, seed);
     }
     unsigned rep;
     if (node_type == "M") {
@@ -205,7 +205,7 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads(
     for (auto it = mts.begin(); it != mts.end(); it++) {
       string ip = it->get_ip();
       if (placement[key].local_replication_.find(ip) == placement[key].local_replication_.end()) {
-        get_local_replication_factor(key, ip, global_hash_ring, placement, requesters, node_type, proxy_address, tid);
+        get_local_replication_factor(key, ip, global_hash_ring, placement, requesters, node_type, proxy_address, seed);
       }
       auto tids = responsible_local(key, placement[key].local_replication_[ip], local_hash_ring);
       for (auto iter = tids.begin(); iter != tids.end(); iter++) {

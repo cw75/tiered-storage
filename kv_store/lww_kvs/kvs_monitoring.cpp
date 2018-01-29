@@ -186,12 +186,12 @@ int main(int argc, char* argv[]) {
   vector<address_t> proxy_address;
 
   // read address of management node from conf file
-  address_t management_address;
+  /*address_t management_address;
 
   address.open("conf/monitoring/management_ip.txt");
   getline(address, ip_line);
   management_address = ip_line;
-  address.close();
+  address.close();*/
 
   zmq::context_t context(1);
 
@@ -327,8 +327,10 @@ int main(int argc, char* argv[]) {
                 key_access_frequency[access.tuple(j).key()][ip + ":" + to_string(tid)] = access.tuple(j).access();
               }
             }
+          } else if (res.tuple(i).err_number() == 1) {
+            cerr << "key " + res.tuple(i).key() + " doesn't exist\n";
           } else {
-            cerr << "hash ring is inconsistent\n";
+            cerr << "hash ring is inconsistent for key " + res.tuple(i).key() + "\n";
             //TODO: reach here when the hash ring is inconsistent
           }
         }

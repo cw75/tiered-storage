@@ -367,7 +367,7 @@ vector<string> get_address_from_other_tier(
   return result;
 }
 
-proxy_thread_t get_random_proxy_thread(vector<string>& proxy_address, unsigned seed) {
+proxy_thread_t get_random_proxy_thread(vector<string>& proxy_address, unsigned& seed) {
   string proxy_ip = proxy_address[rand_r(&seed) % proxy_address.size()];
   unsigned tid = rand_r(&seed) % PROXY_THREAD_NUM;
   return proxy_thread_t(proxy_ip, tid);

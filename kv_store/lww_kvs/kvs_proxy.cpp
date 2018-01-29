@@ -24,10 +24,11 @@ void get_global_replication_factor_proxy(
     string key,
     global_hash_t& global_memory_hash_ring,
     unordered_map<string, key_info>& placement,
-    SocketCache& requesters) {
+    SocketCache& requesters,
+    unsigned& seed) {
   string target_address;
   auto threads = responsible_global(key + "_replication", METADATA_MEMORY_REPLICATION_FACTOR, global_memory_hash_ring);
-  target_address = next(begin(threads), rand() % threads.size())->get_request_handling_connect_addr();
+  target_address = next(begin(threads), rand_r(&seed) % threads.size())->get_request_handling_connect_addr();
   communication::Request req;
   req.set_type("GET");
   prepare_get_tuple(req, key + "_replication");
@@ -47,10 +48,11 @@ void get_local_replication_factor_proxy(
     string ip,
     global_hash_t& global_memory_hash_ring,
     unordered_map<string, key_info>& placement,
-    SocketCache& requesters) {
+    SocketCache& requesters,
+    unsigned& seed) {
   string target_address;
   auto threads = responsible_global(key + "_" + ip + "_replication", METADATA_MEMORY_REPLICATION_FACTOR, global_memory_hash_ring);
-  target_address = next(begin(threads), rand() % threads.size())->get_request_handling_connect_addr();
+  target_address = next(begin(threads), rand_r(&seed) % threads.size())->get_request_handling_connect_addr();
   communication::Request req;
   req.set_type("GET");
   prepare_get_tuple(req, key + "_" + ip + "_replication");
@@ -74,12 +76,13 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads_proxy(
     local_hash_t& local_ebs_hash_ring,
     unordered_map<string, key_info>& placement,
     SocketCache& requesters,
-    unordered_set<string>& node_types) {
+    unordered_set<string>& node_types,
+    unsigned& seed) {
   if (metadata_flag == 0) {
     return responsible_global(key, METADATA_MEMORY_REPLICATION_FACTOR, global_memory_hash_ring);
   } else {
     if (placement.find(key) == placement.end()) {
-      get_global_replication_factor_proxy(key, global_memory_hash_ring, placement, requesters);
+      get_global_replication_factor_proxy(key, global_memory_hash_ring, placement, requesters, seed);
     }
 
     unordered_set<server_thread_t, thread_hash> result;
@@ -102,7 +105,7 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads_proxy(
       for (auto it = mts.begin(); it != mts.end(); it++) {
         string ip = it->get_ip();
         if (placement[key].local_replication_.find(ip) == placement[key].local_replication_.end()) {
-          get_local_replication_factor_proxy(key, ip, global_memory_hash_ring, placement, requesters);
+          get_local_replication_factor_proxy(key, ip, global_memory_hash_ring, placement, requesters, seed);
         }
         auto tids = responsible_local(key, placement[key].local_replication_[ip], *local_hash_ring);
         for (auto iter = tids.begin(); iter != tids.end(); iter++) {
@@ -124,6 +127,8 @@ void run(unsigned thread_id) {
   string ip = get_ip("proxy");
 
   proxy_thread_t pt = proxy_thread_t(ip, thread_id);
+
+  unsigned seed = thread_id;
 
   // prepare the zmq context
   zmq::context_t context(1);
@@ -274,7 +279,7 @@ void run(unsigned thread_id) {
         communication::Key_Response_Tuple* tp = key_res.add_tuple();
         string key = key_req.tuple(i).key();
         tp->set_key(key);
-        auto threads = get_responsible_threads_proxy(key, metadata, global_memory_hash_ring, global_ebs_hash_ring, local_memory_hash_ring, local_ebs_hash_ring, placement, requesters, node_types);
+        auto threads = get_responsible_threads_proxy(key, metadata, global_memory_hash_ring, global_ebs_hash_ring, local_memory_hash_ring, local_ebs_hash_ring, placement, requesters, node_types, seed);
         if (address_type == "RH") {
           for (auto it = threads.begin(); it != threads.end(); it++) {
             communication::Key_Response_Address* ad = tp->add_address();

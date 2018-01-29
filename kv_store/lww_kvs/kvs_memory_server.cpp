@@ -65,28 +65,33 @@ communication::Response process_request(
     SocketCache& requesters,
     unordered_map<string, key_stat>& key_stat_map,
     vector<string>& proxy_address,
-    chrono::system_clock::time_point& start_time) {
+    chrono::system_clock::time_point& start_time,
+    unsigned& seed) {
   communication::Response response;
   if (req.type() == "GET") {
     //cout << "received get by thread " << thread_id << "\n";
     response.set_type("GET");
     for (int i = 0; i < req.tuple_size(); i++) {
+      cerr << "received get by thread " + to_string(wt.get_tid()) + " on key " + req.tuple(i).key() + "\n";
       communication::Response_Tuple* tp = response.add_tuple();
       string key = req.tuple(i).key();
       tp->set_key(key);
       // first check if the thread is responsible for the key
-      auto threads = get_responsible_threads(key, wt.get_tid(), global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
+      auto threads = get_responsible_threads(key, wt.get_tid(), global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, seed);
       if (threads.find(wt) == threads.end()) {
+        //cerr << "wrong address by thread " + to_string(wt.get_tid()) + " on key " + req.tuple(i).key() + "\n";
         tp->set_err_number(2);
         for (auto it = threads.begin(); it != threads.end(); it++) {
           communication::Response_Address* ad = tp->add_address();
           ad->set_addr(it->get_request_handling_connect_addr());
         }
       } else {
+        //cerr << "correct address by thread " + to_string(wt.get_tid()) + " on key " + req.tuple(i).key() + "\n";
         auto res = process_get(key, kvs);
         tp->set_value(res.first.reveal().value);
         tp->set_timestamp(res.first.reveal().timestamp);
         tp->set_err_number(res.second);
+        //cerr << "error number is " + to_string(res.second) + "\n";
         key_stat_map[key].access_ += 1;
       }
     }
@@ -94,18 +99,21 @@ communication::Response process_request(
     //cout << "received put by thread " << thread_id << "\n";
     response.set_type("PUT");
     for (int i = 0; i < req.tuple_size(); i++) {
+      cerr << "received put by thread " + to_string(wt.get_tid()) + " on key " + req.tuple(i).key() + "\n";
       communication::Response_Tuple* tp = response.add_tuple();
       string key = req.tuple(i).key();
       tp->set_key(key);
       // first check if the thread is responsible for the key
-      auto threads = get_responsible_threads(key, wt.get_tid(), global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
+      auto threads = get_responsible_threads(key, wt.get_tid(), global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, seed);
       if (threads.find(wt) == threads.end()) {
+        //cerr << "wrong address by thread " + to_string(wt.get_tid()) + " on key " + req.tuple(i).key() + "\n";
         tp->set_err_number(2);
         for (auto it = threads.begin(); it != threads.end(); it++) {
           communication::Response_Address* ad = tp->add_address();
           ad->set_addr(it->get_request_handling_connect_addr());
         }
       } else {
+        //cerr << "correct address by thread " + to_string(wt.get_tid()) + " on key " + req.tuple(i).key() + "\n";
         auto current_time = chrono::system_clock::now();
         auto ts = generate_timestamp(chrono::duration_cast<chrono::milliseconds>(current_time-start_time).count(), wt.get_tid());
         process_put(key, ts, req.tuple(i).value(), kvs, key_stat_map);
@@ -126,10 +134,11 @@ void process_gossip(communication::Request& gossip,
     SocketCache& requesters,
     Database* kvs,
     unordered_map<string, key_stat>& key_stat_map,
-    vector<string>& proxy_address) {
+    vector<string>& proxy_address,
+    unsigned& seed) {
   for (int i = 0; i < gossip.tuple_size(); i++) {
     // first check if the thread is responsible for the key
-    auto threads = get_responsible_threads(gossip.tuple(i).key(), wt.get_tid(), global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
+    auto threads = get_responsible_threads(gossip.tuple(i).key(), wt.get_tid(), global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, seed);
     if (threads.find(wt) != threads.end()) {
       process_put(gossip.tuple(i).key(), gossip.tuple(i).timestamp(), gossip.tuple(i).value(), kvs, key_stat_map);
     }
@@ -169,6 +178,8 @@ void run(unsigned thread_id, string new_node) {
   server_thread_t mt = server_thread_t(ip, 0, NODE_TYPE);
   // each thread has a handle to itself
   server_thread_t wt = server_thread_t(ip, thread_id, NODE_TYPE);
+
+  unsigned seed = thread_id;
 
   // prepare the zmq context
   zmq::context_t context(1);
@@ -319,6 +330,7 @@ void run(unsigned thread_id, string new_node) {
 
     // only relavant for the metadata thread of the seed node
     if (pollitems[0].revents & ZMQ_POLLIN) {
+      //cerr << "thread " + to_string(thread_id) + " entering event 0\n";
       auto work_start = chrono::system_clock::now();
       logger->info("Received an address request");
       zmq_util::recv_string(&addr_responder);
@@ -332,42 +344,44 @@ void run(unsigned thread_id, string new_node) {
       addresses.pop_back();
       zmq_util::send_string(addresses, &addr_responder);
       working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+      //cerr << "thread " + to_string(thread_id) + " leaving event 0\n";
     }
 
     // receives a node join
     if (pollitems[1].revents & ZMQ_POLLIN) {
+      //cerr << "thread " + to_string(thread_id) + " entering event 1\n";
       auto work_start = chrono::system_clock::now();
       string new_server_ip = zmq_util::recv_string(&join_puller);
       logger->info("Received a node join. New node is {}", new_server_ip);
       server_thread_t new_node = server_thread_t(new_server_ip, 0, NODE_TYPE);
       // update global hash ring
       bool inserted = global_hash_ring.insert(new_node).second;
-      // only relevant for the metadata thread
-      if (thread_id == 0) {
-        // gossip the new node address between server nodes to ensure consistency
-        for (auto it = global_hash_ring.begin(); it != global_hash_ring.end(); it++) {
-          if (it->second.get_ip().compare(ip) != 0 && it->second.get_ip().compare(new_server_ip) != 0) {
-            // if the node is not myself and not the newly joined node, send the ip of the newly joined node
-            zmq_util::send_string(new_server_ip, &pushers[(it->second).get_node_join_connect_addr()]);
-          } else if (it->second.get_ip().compare(new_server_ip) == 0) {
-            // if the node is the newly joined node, send my ip
-            zmq_util::send_string(ip, &pushers[(it->second).get_node_join_connect_addr()]);
-          }
-        }
-        // tell all worker threads about the new node join
-        for (unsigned tid = 1; tid <= THREAD_NUM; tid++) {
-          zmq_util::send_string(new_server_ip, &pushers[server_thread_t(ip, tid, NODE_TYPE).get_node_join_connect_addr()]);
-        }
-      }
 
       if (inserted) {
+        // only relevant for the metadata thread
+        if (thread_id == 0) {
+          // gossip the new node address between server nodes to ensure consistency
+          for (auto it = global_hash_ring.begin(); it != global_hash_ring.end(); it++) {
+            if (it->second.get_ip().compare(ip) != 0 && it->second.get_ip().compare(new_server_ip) != 0) {
+              // if the node is not myself and not the newly joined node, send the ip of the newly joined node
+              zmq_util::send_string(new_server_ip, &pushers[(it->second).get_node_join_connect_addr()]);
+            } else if (it->second.get_ip().compare(new_server_ip) == 0) {
+              // if the node is the newly joined node, send my ip
+              zmq_util::send_string(ip, &pushers[(it->second).get_node_join_connect_addr()]);
+            }
+          }
+          // tell all worker threads about the new node join
+          for (unsigned tid = 1; tid <= THREAD_NUM; tid++) {
+            zmq_util::send_string(new_server_ip, &pushers[server_thread_t(ip, tid, NODE_TYPE).get_node_join_connect_addr()]);
+          }
+        }
         // map from worker address to a set of keys
         address_keyset_map addr_keyset_map;
         // keep track of which key should be removed
         unordered_set<string> remove_set;
         for (auto it = key_stat_map.begin(); it != key_stat_map.end(); it++) {
           string key = it->first;
-          auto threads = get_responsible_threads(key, thread_id, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
+          auto threads = get_responsible_threads(key, thread_id, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, seed);
           if (threads.find(wt) == threads.end()) {
             remove_set.insert(key);
             for (auto iter = threads.begin(); iter != threads.end(); iter++) {
@@ -386,10 +400,12 @@ void run(unsigned thread_id, string new_node) {
         }
       }
       working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+      //cerr << "thread " + to_string(thread_id) + " leaving event 1\n";
     }
 
     // receives a node departure notice
     if (pollitems[2].revents & ZMQ_POLLIN) {
+      //cerr << "thread " + to_string(thread_id) + " entering event 2\n";
       auto work_start = chrono::system_clock::now();
       string departing_server_ip = zmq_util::recv_string(&depart_puller);
       logger->info("Received departure for node {}", departing_server_ip);
@@ -402,10 +418,12 @@ void run(unsigned thread_id, string new_node) {
         }
       }
       working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+      //cerr << "thread " + to_string(thread_id) + " leaving event 2\n";
     }
 
     // receives a node departure request
     if (pollitems[3].revents & ZMQ_POLLIN) {
+      //cerr << "thread " + to_string(thread_id) + " entering event 3\n";
       auto work_start = chrono::system_clock::now();
       string ack_addr = zmq_util::recv_string(&self_depart_puller);
       logger->info("Node is departing");
@@ -438,7 +456,7 @@ void run(unsigned thread_id, string new_node) {
 
       for (auto it = key_stat_map.begin(); it != key_stat_map.end(); it++) {
         string key = it->first;
-        auto threads = get_responsible_threads(key, thread_id, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
+        auto threads = get_responsible_threads(key, thread_id, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, seed);
         // since we already removed itself from the hash ring, no need to exclude itself from threads
         for (auto iter = threads.begin(); iter != threads.end(); iter++) {
           addr_keyset_map[iter->get_gossip_connect_addr()].insert(key);
@@ -447,54 +465,64 @@ void run(unsigned thread_id, string new_node) {
         tp->set_key(key);
       }
       // query proxy for addresses on the other tier
-      string target_address = get_random_proxy_thread(proxy_address, wt.get_tid()).get_key_address_connect_addr();
-      query_key_address(key_req, requesters[target_address], addr_keyset_map);
+      string target_address = get_random_proxy_thread(proxy_address, seed).get_key_address_connect_addr();
+      if (thread_id != 0) {
+        query_key_address(key_req, requesters[target_address], addr_keyset_map);
+      }
 
       send_gossip(addr_keyset_map, pushers, kvs);
 
       zmq_util::send_string("done", &pushers[ack_addr]);
       working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+      //cerr << "thread " + to_string(thread_id) + " leaving event 3\n";
     }
 
     // receives a request
     if (pollitems[4].revents & ZMQ_POLLIN) {
+      //cerr << "thread " + to_string(thread_id) + " entering event 4\n";
       auto work_start = chrono::system_clock::now();
       string serialized_req = zmq_util::recv_string(&request_responder);
       communication::Request req;
       req.ParseFromString(serialized_req);
       //  process request
-      auto response = process_request(req, local_changeset, kvs, wt, global_hash_ring, local_hash_ring, placement, requesters, key_stat_map, proxy_address, start_time);
+      auto response = process_request(req, local_changeset, kvs, wt, global_hash_ring, local_hash_ring, placement, requesters, key_stat_map, proxy_address, start_time, seed);
       string serialized_response;
       response.SerializeToString(&serialized_response);
       //  send response
       zmq_util::send_string(serialized_response, &request_responder);
       working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+      //cerr << "thread " + to_string(thread_id) + " leaving event 4\n";
     }
 
     // receives a request (no response needed)
     if (pollitems[5].revents & ZMQ_POLLIN) {
+      //cerr << "thread " + to_string(thread_id) + " entering event 5\n";
       auto work_start = chrono::system_clock::now();
       string serialized_req = zmq_util::recv_string(&request_puller);
       communication::Request req;
       req.ParseFromString(serialized_req);
       //  process request
-      process_request(req, local_changeset, kvs, wt, global_hash_ring, local_hash_ring, placement, requesters, key_stat_map, proxy_address, start_time);
+      process_request(req, local_changeset, kvs, wt, global_hash_ring, local_hash_ring, placement, requesters, key_stat_map, proxy_address, start_time, seed);
       working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+      //cerr << "thread " + to_string(thread_id) + " leaving event 5\n";
     }
 
     // receives a gossip
     if (pollitems[6].revents & ZMQ_POLLIN) {
+      //cerr << "thread " + to_string(thread_id) + " entering event 6\n";
       auto work_start = chrono::system_clock::now();
       string serialized_gossip = zmq_util::recv_string(&gossip_puller);
       communication::Request gossip;
       gossip.ParseFromString(serialized_gossip);
       //  Process distributed gossip
-      process_gossip(gossip, wt, global_hash_ring, local_hash_ring, placement, requesters, kvs, key_stat_map, proxy_address);
+      process_gossip(gossip, wt, global_hash_ring, local_hash_ring, placement, requesters, kvs, key_stat_map, proxy_address, seed);
       working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+      //cerr << "thread " + to_string(thread_id) + " leaving event 6\n";
     }
 
     // receives replication factor change
     if (pollitems[7].revents & ZMQ_POLLIN) {
+      //cerr << "thread " + to_string(thread_id) + " entering event 7\n";
       auto work_start = chrono::system_clock::now();
       logger->info("Received replication factor change");
       string serialized_req = zmq_util::recv_string(&replication_factor_puller);
@@ -530,7 +558,7 @@ void run(unsigned thread_id, string new_node) {
 
           // proceed only if it is originally responsible for the key
           if (key_stat_map.find(key) != key_stat_map.end()) {
-            auto threads = get_responsible_threads(key, thread_id, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
+            auto threads = get_responsible_threads(key, thread_id, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, seed);
             if (threads.find(wt) == threads.end()) {
               remove_set.insert(key);
             }
@@ -545,8 +573,10 @@ void run(unsigned thread_id, string new_node) {
         }
 
         // query proxy for addresses on the other tier
-        string target_address = get_random_proxy_thread(proxy_address, wt.get_tid()).get_key_address_connect_addr();
-        query_key_address(key_req, requesters[target_address], addr_keyset_map);
+        string target_address = get_random_proxy_thread(proxy_address, seed).get_key_address_connect_addr();
+        if (thread_id != 0) {
+          query_key_address(key_req, requesters[target_address], addr_keyset_map);
+        }
 
         send_gossip(addr_keyset_map, pushers, kvs);
 
@@ -557,10 +587,12 @@ void run(unsigned thread_id, string new_node) {
         }
       }
       working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+      //cerr << "thread " + to_string(thread_id) + " leaving event 7\n";
     }
 
     gossip_end = chrono::system_clock::now();
     if (chrono::duration_cast<chrono::microseconds>(gossip_end-gossip_start).count() >= PERIOD || local_changeset.size() >= THRESHOLD) {
+      //cerr << "thread " + to_string(thread_id) + " entering event gossip\n";
       auto work_start = chrono::system_clock::now();
       // only gossip if we have changes
       if (local_changeset.size() > 0) {
@@ -571,7 +603,7 @@ void run(unsigned thread_id, string new_node) {
         key_req.set_address_type("G");
 
         for (auto it = local_changeset.begin(); it != local_changeset.end(); it++) {
-          auto threads = get_responsible_threads(*it, thread_id, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
+          auto threads = get_responsible_threads(*it, thread_id, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, seed);
           for (auto iter = threads.begin(); iter != threads.end(); iter++) {
             if (iter->get_id() != wt.get_id()) {
               addr_keyset_map[iter->get_gossip_connect_addr()].insert(*it);
@@ -582,23 +614,27 @@ void run(unsigned thread_id, string new_node) {
         }
 
         // query proxy for addresses on the other tier
-        string target_address = get_random_proxy_thread(proxy_address, wt.get_tid()).get_key_address_connect_addr();
-        query_key_address(key_req, requesters[target_address], addr_keyset_map);
+        string target_address = get_random_proxy_thread(proxy_address, seed).get_key_address_connect_addr();
+        if (thread_id != 0) {
+          query_key_address(key_req, requesters[target_address], addr_keyset_map);
+        }
 
         send_gossip(addr_keyset_map, pushers, kvs);
         local_changeset.clear();
       }
       gossip_start = chrono::system_clock::now();
       working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+      //cerr << "thread " + to_string(thread_id) + " leaving event gossip\n";
     }
 
     garbage_end = chrono::system_clock::now();
     if (chrono::duration_cast<chrono::microseconds>(garbage_end-garbage_start).count() >= GARBAGE_COLLECT_THRESHOLD) {
+      //cerr << "thread " + to_string(thread_id) + " entering event gc\n";
       auto work_start = chrono::system_clock::now();
       // perform garbage collection
       for (auto it = key_stat_map.begin(); it != key_stat_map.end(); it++) {
         string key = it->first;
-        auto threads = get_responsible_threads(key, thread_id, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
+        auto threads = get_responsible_threads(key, thread_id, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, seed);
         if (threads.find(wt) == threads.end()) {
           key_stat_map.erase(key);
           kvs->remove(key);
@@ -606,10 +642,12 @@ void run(unsigned thread_id, string new_node) {
       }
       garbage_start = chrono::system_clock::now();
       working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+      //cerr << "thread " + to_string(thread_id) + " leaving event gc\n";
     }
 
     report_end = chrono::system_clock::now();
     if (auto duration = chrono::duration_cast<chrono::microseconds>(report_end-report_start).count() >= SERVER_REPORT_THRESHOLD) {
+      //cerr << "thread " + to_string(thread_id) + " entering event report\n";
       // report server stats
       epoch += 1;
       string key = wt.get_ip() + "_" + to_string(wt.get_tid()) + "_" + NODE_TYPE + "_stat";
@@ -633,12 +671,12 @@ void run(unsigned thread_id, string new_node) {
       string target_address;
 
       if (NODE_TYPE == "M") {
-        auto threads = get_responsible_threads(key, 0, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
-        target_address = next(begin(threads), rand_r(&thread_id) % threads.size())->get_request_pulling_connect_addr();
+        auto threads = get_responsible_threads(key, 0, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, seed);
+        target_address = next(begin(threads), rand_r(&seed) % threads.size())->get_request_pulling_connect_addr();
       } else { // query the proxy for metadata thread address
-        string target_proxy_address = get_random_proxy_thread(proxy_address, wt.get_tid()).get_key_address_connect_addr();
+        string target_proxy_address = get_random_proxy_thread(proxy_address, seed).get_key_address_connect_addr();
         auto addresses = get_address_from_other_tier(key, requesters[target_proxy_address], NODE_TYPE, 0, "RP");
-        target_address = addresses[rand_r(&thread_id) % addresses.size()];
+        target_address = addresses[rand_r(&seed) % addresses.size()];
       }
       push_request(req, pushers[target_address]);
 
@@ -664,17 +702,18 @@ void run(unsigned thread_id, string new_node) {
       prepare_put_tuple(req, key, serialized_access, 0);
 
       if (NODE_TYPE == "M") {
-        auto threads = get_responsible_threads(key, 0, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
-        target_address = next(begin(threads), rand_r(&thread_id) % threads.size())->get_request_pulling_connect_addr();
+        auto threads = get_responsible_threads(key, 0, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, seed);
+        target_address = next(begin(threads), rand_r(&seed) % threads.size())->get_request_pulling_connect_addr();
       } else { // query the proxy for metadata thread address
-        string target_proxy_address = get_random_proxy_thread(proxy_address, wt.get_tid()).get_key_address_connect_addr();
+        string target_proxy_address = get_random_proxy_thread(proxy_address, seed).get_key_address_connect_addr();
         auto addresses = get_address_from_other_tier(key, requesters[target_proxy_address], NODE_TYPE, 0, "RP");
-        target_address = addresses[rand_r(&thread_id) % addresses.size()];
+        target_address = addresses[rand_r(&seed) % addresses.size()];
       }
       push_request(req, pushers[target_address]);
 
       report_start = chrono::system_clock::now();
       working_time = 0;
+      //cerr << "thread " + to_string(thread_id) + " leaving event report\n";
     }
   }
 }

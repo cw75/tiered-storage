@@ -131,7 +131,8 @@ communication::Response process_request(
     SocketCache& requesters,
     unordered_map<string, key_stat>& key_stat_map,
     vector<string>& proxy_address,
-    chrono::system_clock::time_point& start_time) {
+    chrono::system_clock::time_point& start_time,
+    unsigned& seed) {
   communication::Response response;
   if (req.type() == "GET") {
     //cout << "received get by thread " << thread_id << "\n";
@@ -141,7 +142,7 @@ communication::Response process_request(
       string key = req.tuple(i).key();
       tp->set_key(key);
       // first check if the thread is responsible for the key
-      auto threads = get_responsible_threads(key, wt.get_tid(), global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
+      auto threads = get_responsible_threads(key, wt.get_tid(), global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, seed);
       if (threads.find(wt) == threads.end()) {
         tp->set_err_number(2);
         for (auto it = threads.begin(); it != threads.end(); it++) {
@@ -164,7 +165,7 @@ communication::Response process_request(
       string key = req.tuple(i).key();
       tp->set_key(key);
       // first check if the thread is responsible for the key
-      auto threads = get_responsible_threads(key, wt.get_tid(), global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
+      auto threads = get_responsible_threads(key, wt.get_tid(), global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, seed);
       if (threads.find(wt) == threads.end()) {
         tp->set_err_number(2);
         for (auto it = threads.begin(); it != threads.end(); it++) {
@@ -191,10 +192,11 @@ void process_gossip(communication::Request& gossip,
     unordered_map<string, key_info>& placement,
     SocketCache& requesters,
     unordered_map<string, key_stat>& key_stat_map,
-    vector<string>& proxy_address) {
+    vector<string>& proxy_address,
+    unsigned& seed) {
   for (int i = 0; i < gossip.tuple_size(); i++) {
     // first check if the thread is responsible for the key
-    auto threads = get_responsible_threads(gossip.tuple(i).key(), wt.get_tid(), global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
+    auto threads = get_responsible_threads(gossip.tuple(i).key(), wt.get_tid(), global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, seed);
     if (threads.find(wt) != threads.end()) {
       process_put(gossip.tuple(i).key(), gossip.tuple(i).timestamp(), gossip.tuple(i).value(), wt.get_tid(), key_stat_map);
     }
@@ -234,6 +236,8 @@ void run(unsigned thread_id, string new_node) {
   server_thread_t mt = server_thread_t(ip, 0, NODE_TYPE);
   // each thread has a handle to itself
   server_thread_t wt = server_thread_t(ip, thread_id, NODE_TYPE);
+
+  unsigned seed = thread_id;
 
   // prepare the zmq context
   zmq::context_t context(1);
@@ -405,32 +409,32 @@ void run(unsigned thread_id, string new_node) {
       server_thread_t new_node = server_thread_t(new_server_ip, 0, NODE_TYPE);
       // update global hash ring
       bool inserted = global_hash_ring.insert(new_node).second;
-      // only relevant for the metadata thread
-      if (thread_id == 0) {
-        // gossip the new node address between server nodes to ensure consistency
-        for (auto it = global_hash_ring.begin(); it != global_hash_ring.end(); it++) {
-          if (it->second.get_ip().compare(ip) != 0 && it->second.get_ip().compare(new_server_ip) != 0) {
-            // if the node is not myself and not the newly joined node, send the ip of the newly joined node
-            zmq_util::send_string(new_server_ip, &pushers[(it->second).get_node_join_connect_addr()]);
-          } else if (it->second.get_ip().compare(new_server_ip) == 0) {
-            // if the node is the newly joined node, send my ip
-            zmq_util::send_string(ip, &pushers[(it->second).get_node_join_connect_addr()]);
-          }
-        }
-        // tell all worker threads about the new node join
-        for (unsigned tid = 1; tid <= THREAD_NUM; tid++) {
-          zmq_util::send_string(new_server_ip, &pushers[server_thread_t(ip, tid, NODE_TYPE).get_node_join_connect_addr()]);
-        }
-      }
 
       if (inserted) {
+        // only relevant for the metadata thread
+        if (thread_id == 0) {
+          // gossip the new node address between server nodes to ensure consistency
+          for (auto it = global_hash_ring.begin(); it != global_hash_ring.end(); it++) {
+            if (it->second.get_ip().compare(ip) != 0 && it->second.get_ip().compare(new_server_ip) != 0) {
+              // if the node is not myself and not the newly joined node, send the ip of the newly joined node
+              zmq_util::send_string(new_server_ip, &pushers[(it->second).get_node_join_connect_addr()]);
+            } else if (it->second.get_ip().compare(new_server_ip) == 0) {
+              // if the node is the newly joined node, send my ip
+              zmq_util::send_string(ip, &pushers[(it->second).get_node_join_connect_addr()]);
+            }
+          }
+          // tell all worker threads about the new node join
+          for (unsigned tid = 1; tid <= THREAD_NUM; tid++) {
+            zmq_util::send_string(new_server_ip, &pushers[server_thread_t(ip, tid, NODE_TYPE).get_node_join_connect_addr()]);
+          }
+        }
         // map from worker address to a set of keys
         address_keyset_map addr_keyset_map;
         // keep track of which key should be removed
         unordered_set<string> remove_set;
         for (auto it = key_stat_map.begin(); it != key_stat_map.end(); it++) {
           string key = it->first;
-          auto threads = get_responsible_threads(key, thread_id, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
+          auto threads = get_responsible_threads(key, thread_id, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, seed);
           if (threads.find(wt) == threads.end()) {
             remove_set.insert(key);
             for (auto iter = threads.begin(); iter != threads.end(); iter++) {
@@ -506,7 +510,7 @@ void run(unsigned thread_id, string new_node) {
 
       for (auto it = key_stat_map.begin(); it != key_stat_map.end(); it++) {
         string key = it->first;
-        auto threads = get_responsible_threads(key, thread_id, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
+        auto threads = get_responsible_threads(key, thread_id, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, seed);
         // since we already removed itself from the hash ring, no need to exclude itself from threads
         for (auto iter = threads.begin(); iter != threads.end(); iter++) {
           addr_keyset_map[iter->get_gossip_connect_addr()].insert(key);
@@ -515,8 +519,10 @@ void run(unsigned thread_id, string new_node) {
         tp->set_key(key);
       }
       // query proxy for addresses on the other tier
-      string target_address = get_random_proxy_thread(proxy_address, wt.get_tid()).get_key_address_connect_addr();
-      query_key_address(key_req, requesters[target_address], addr_keyset_map);
+      string target_address = get_random_proxy_thread(proxy_address, seed).get_key_address_connect_addr();
+      if (thread_id != 0) {
+        query_key_address(key_req, requesters[target_address], addr_keyset_map);
+      }
 
       send_gossip(addr_keyset_map, pushers, thread_id);
 
@@ -531,7 +537,7 @@ void run(unsigned thread_id, string new_node) {
       communication::Request req;
       req.ParseFromString(serialized_req);
       //  process request
-      auto response = process_request(req, local_changeset, wt, global_hash_ring, local_hash_ring, placement, requesters, key_stat_map, proxy_address, start_time);
+      auto response = process_request(req, local_changeset, wt, global_hash_ring, local_hash_ring, placement, requesters, key_stat_map, proxy_address, start_time, seed);
       string serialized_response;
       response.SerializeToString(&serialized_response);
       //  send response
@@ -546,7 +552,7 @@ void run(unsigned thread_id, string new_node) {
       communication::Request req;
       req.ParseFromString(serialized_req);
       //  process request
-      process_request(req, local_changeset, wt, global_hash_ring, local_hash_ring, placement, requesters, key_stat_map, proxy_address, start_time);
+      process_request(req, local_changeset, wt, global_hash_ring, local_hash_ring, placement, requesters, key_stat_map, proxy_address, start_time, seed);
       working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
     }
 
@@ -557,7 +563,7 @@ void run(unsigned thread_id, string new_node) {
       communication::Request gossip;
       gossip.ParseFromString(serialized_gossip);
       //  Process distributed gossip
-      process_gossip(gossip, wt, global_hash_ring, local_hash_ring, placement, requesters, key_stat_map, proxy_address);
+      process_gossip(gossip, wt, global_hash_ring, local_hash_ring, placement, requesters, key_stat_map, proxy_address, seed);
       working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
     }
 
@@ -598,7 +604,7 @@ void run(unsigned thread_id, string new_node) {
 
           // proceed only if it is originally responsible for the key
           if (key_stat_map.find(key) != key_stat_map.end()) {
-            auto threads = get_responsible_threads(key, thread_id, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
+            auto threads = get_responsible_threads(key, thread_id, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, seed);
             if (threads.find(wt) == threads.end()) {
               remove_set.insert(key);
             }
@@ -613,8 +619,10 @@ void run(unsigned thread_id, string new_node) {
         }
 
         // query proxy for addresses on the other tier
-        string target_address = get_random_proxy_thread(proxy_address, wt.get_tid()).get_key_address_connect_addr();
-        query_key_address(key_req, requesters[target_address], addr_keyset_map);
+        string target_address = get_random_proxy_thread(proxy_address, seed).get_key_address_connect_addr();
+        if (thread_id != 0) {
+          query_key_address(key_req, requesters[target_address], addr_keyset_map);
+        }
 
         send_gossip(addr_keyset_map, pushers, thread_id);
 
@@ -644,7 +652,7 @@ void run(unsigned thread_id, string new_node) {
         key_req.set_address_type("G");
 
         for (auto it = local_changeset.begin(); it != local_changeset.end(); it++) {
-          auto threads = get_responsible_threads(*it, thread_id, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
+          auto threads = get_responsible_threads(*it, thread_id, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, seed);
           for (auto iter = threads.begin(); iter != threads.end(); iter++) {
             if (iter->get_id() != wt.get_id()) {
               addr_keyset_map[iter->get_gossip_connect_addr()].insert(*it);
@@ -655,8 +663,10 @@ void run(unsigned thread_id, string new_node) {
         }
 
         // query proxy for addresses on the other tier
-        string target_address = get_random_proxy_thread(proxy_address, wt.get_tid()).get_key_address_connect_addr();
-        query_key_address(key_req, requesters[target_address], addr_keyset_map);
+        string target_address = get_random_proxy_thread(proxy_address, seed).get_key_address_connect_addr();
+        if (thread_id != 0) {
+          query_key_address(key_req, requesters[target_address], addr_keyset_map);
+        }
 
         send_gossip(addr_keyset_map, pushers, thread_id);
         local_changeset.clear();
@@ -671,7 +681,7 @@ void run(unsigned thread_id, string new_node) {
       // perform garbage collection
       for (auto it = key_stat_map.begin(); it != key_stat_map.end(); it++) {
         string key = it->first;
-        auto threads = get_responsible_threads(key, thread_id, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
+        auto threads = get_responsible_threads(key, thread_id, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, seed);
         if (threads.find(wt) == threads.end()) {
           key_stat_map.erase(key);
           string fname = get_ebs_path("ebs_" + to_string(thread_id) + "/" + key);
@@ -711,12 +721,12 @@ void run(unsigned thread_id, string new_node) {
       string target_address;
 
       if (NODE_TYPE == "M") {
-        auto threads = get_responsible_threads(key, 0, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
-        target_address = next(begin(threads), rand_r(&thread_id) % threads.size())->get_request_pulling_connect_addr();
+        auto threads = get_responsible_threads(key, 0, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, seed);
+        target_address = next(begin(threads), rand_r(&seed) % threads.size())->get_request_pulling_connect_addr();
       } else { // query the proxy for metadata thread address
-        string target_proxy_address = get_random_proxy_thread(proxy_address, wt.get_tid()).get_key_address_connect_addr();
+        string target_proxy_address = get_random_proxy_thread(proxy_address, seed).get_key_address_connect_addr();
         auto addresses = get_address_from_other_tier(key, requesters[target_proxy_address], NODE_TYPE, 0, "RP");
-        target_address = addresses[rand_r(&thread_id) % addresses.size()];
+        target_address = addresses[rand_r(&seed) % addresses.size()];
       }
       push_request(req, pushers[target_address]);
 
@@ -742,12 +752,12 @@ void run(unsigned thread_id, string new_node) {
       prepare_put_tuple(req, key, serialized_access, 0);
 
       if (NODE_TYPE == "M") {
-        auto threads = get_responsible_threads(key, 0, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
-        target_address = next(begin(threads), rand_r(&thread_id) % threads.size())->get_request_pulling_connect_addr();
+        auto threads = get_responsible_threads(key, 0, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, seed);
+        target_address = next(begin(threads), rand_r(&seed) % threads.size())->get_request_pulling_connect_addr();
       } else { // query the proxy for metadata thread address
-        string target_proxy_address = get_random_proxy_thread(proxy_address, wt.get_tid()).get_key_address_connect_addr();
+        string target_proxy_address = get_random_proxy_thread(proxy_address, seed).get_key_address_connect_addr();
         auto addresses = get_address_from_other_tier(key, requesters[target_proxy_address], NODE_TYPE, 0, "RP");
-        target_address = addresses[rand_r(&thread_id) % addresses.size()];
+        target_address = addresses[rand_r(&seed) % addresses.size()];
       }
       push_request(req, pushers[target_address]);
 
