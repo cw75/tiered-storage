@@ -638,7 +638,7 @@ void run(unsigned thread_id, string new_node) {
         auto addresses = get_address_from_other_tier(key, requesters[target_proxy_address], NODE_TYPE, 0, "RP");
         target_address = addresses[rand_r(&thread_id) % addresses.size()];
       }
-      push_request(req, requesters[target_address]);
+      push_request(req, pushers[target_address]);
 
       if (epoch % 50 == 1) {
         for (auto it = key_stat_map.begin(); it != key_stat_map.end(); it++) {
@@ -669,7 +669,7 @@ void run(unsigned thread_id, string new_node) {
         auto addresses = get_address_from_other_tier(key, requesters[target_proxy_address], NODE_TYPE, 0, "RP");
         target_address = addresses[rand_r(&thread_id) % addresses.size()];
       }
-      push_request(req, requesters[target_address]);
+      push_request(req, pushers[target_address]);
 
       report_start = chrono::system_clock::now();
       working_time = 0;
