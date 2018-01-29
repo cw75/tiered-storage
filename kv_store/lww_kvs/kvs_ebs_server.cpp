@@ -26,25 +26,20 @@ using namespace std;
 // If the total number of updates to the kvs before the last gossip reaches THRESHOLD, then the thread gossips to others.
 #define THRESHOLD 1000
 
-// Define the gossip period (frequency)
-#define PERIOD 10
-
 // Define node type
 #define NODE_TYPE "E"
 
+// Define worker thread number
+#define THREAD_NUM EBS_THREAD_NUM
+
 // Define the locatioon of the conf file with the ebs root path
 #define EBS_ROOT_FILE "conf/server/ebs_root.txt"
-
-// TODO:  this should be changed to something more globally robust
-atomic<int> lww_timestamp(0);
-
-atomic<int> worker_thread_status[EBS_THREAD_NUM] = {};
 
 string ebs_root("empty");
 
 string get_ebs_path(string subpath) {
   if (ebs_root == "empty") {
-    ifstream address;
+     ifstream address;
 
     address.open(EBS_ROOT_FILE);
     std::getline(address, ebs_root);
@@ -54,14 +49,12 @@ string get_ebs_path(string subpath) {
       ebs_root = ebs_root + "/";
     }
   }
-
   return ebs_root + subpath;
 }
 
-// TODO: more intelligent error mesages throughout
-pair<RC_KVS_PairLattice<string>, bool> process_get(string key, int thread_id) {
+pair<RC_KVS_PairLattice<string>, unsigned> process_get(string key, unsigned thread_id) {
   RC_KVS_PairLattice<string> res;
-  bool succeed = true;
+  bool err_number = 0;
 
   communication::Payload pl;
   string fname = get_ebs_path("ebs_" + to_string(thread_id) + "/" + key);
@@ -70,21 +63,24 @@ pair<RC_KVS_PairLattice<string>, bool> process_get(string key, int thread_id) {
   fstream input(fname, ios::in | ios::binary);
 
   if (!input) {
-    succeed = false;
+    err_number = 1;
   } else if (!pl.ParseFromIstream(&input)) {
     cerr << "Failed to parse payload." << endl;
-    succeed = false;
+    err_number = 1;
   } else {
     res = RC_KVS_PairLattice<string>(timestamp_value_pair<string>(pl.timestamp(), pl.value()));
   }
 
   // we return a lattice here because this method is invoked for gossip in
   // addition to user requests
-  return pair<RC_KVS_PairLattice<string>, bool>(res, succeed);
+  return pair<RC_KVS_PairLattice<string>, unsigned>(res, err_number);
 }
 
-bool process_put(string key, int timestamp, string value, int thread_id, unordered_set<string>& key_set, unordered_map<string, size_t>& size_map) {
-  bool succeed = true;
+void process_put(string key,
+    unsigned long long timestamp,
+    string value,
+    unsigned thread_id,
+    unordered_map<string, key_stat>& key_stat_map) {
   timestamp_value_pair<string> p = timestamp_value_pair<string>(timestamp, value);
 
   communication::Payload pl_orig;
@@ -95,7 +91,7 @@ bool process_put(string key, int timestamp, string value, int thread_id, unorder
 
   if (!input) { // in this case, this key has never been seen before, so we attempt to create a new file for it
     // update value size
-    size_map[key] = value.length();
+    key_stat_map[key].size_ = value.size();
     pl.set_timestamp(timestamp);
     pl.set_value(value);
 
@@ -103,392 +99,149 @@ bool process_put(string key, int timestamp, string value, int thread_id, unorder
     fstream output(fname, ios::out | ios::trunc | ios::binary);
     if (!pl.SerializeToOstream(&output)) {
       cerr << "Failed to write payload." << endl;
-      succeed = false;
     }
   } else if (!pl_orig.ParseFromIstream(&input)) { // if we have seen the key before, attempt to parse what was there before
     cerr << "Failed to parse payload." << endl;
-    succeed = false;
   } else {
     // get the existing value that we have and merge
     RC_KVS_PairLattice<string> l = RC_KVS_PairLattice<string>(timestamp_value_pair<string>(pl_orig.timestamp(), pl_orig.value()));
     bool replaced = l.Merge(p);
     if (replaced) {
       // update value size
-      size_map[key] = value.length();
-
+      key_stat_map[key].size_ = value.size();
       // set the payload's data to the merged values of the value and timestamp
       pl.set_timestamp(l.reveal().timestamp);
       pl.set_value(l.reveal().value);
-
       // write out the new payload.
       fstream output(fname, ios::out | ios::trunc | ios::binary);
       if (!pl.SerializeToOstream(&output)) {
         cerr << "Failed to write payload\n";
-        succeed = false;
       }
     }
   }
-
-  if (succeed) {
-    key_set.insert(key);
-  }
-
-  return succeed;
 }
 
-string process_proxy_request(communication::Request& req, int thread_id, unordered_set<string>& local_changeset, unordered_set<string>& key_set, unordered_map<string, size_t>& size_map) {
+communication::Response process_request(
+    communication::Request& req,
+    unordered_set<string>& local_changeset,
+    server_thread_t& wt,
+    global_hash_t& global_hash_ring,
+    local_hash_t& local_hash_ring,
+    unordered_map<string, key_info>& placement,
+    SocketCache& requesters,
+    unordered_map<string, key_stat>& key_stat_map,
+    vector<string>& proxy_address,
+    chrono::system_clock::time_point& start_time) {
   communication::Response response;
-
   if (req.type() == "GET") {
     //cout << "received get by thread " << thread_id << "\n";
     response.set_type("GET");
     for (int i = 0; i < req.tuple_size(); i++) {
-      auto res = process_get(req.tuple(i).key(), thread_id);
       communication::Response_Tuple* tp = response.add_tuple();
-      tp->set_key(req.tuple(i).key());
-      tp->set_value(res.first.reveal().value);
-      tp->set_timestamp(res.first.reveal().timestamp);
-      tp->set_succeed(res.second);
+      string key = req.tuple(i).key();
+      tp->set_key(key);
+      // first check if the thread is responsible for the key
+      auto threads = get_responsible_threads(key, wt.get_tid(), global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
+      if (threads.find(wt) == threads.end()) {
+        tp->set_err_number(2);
+        for (auto it = threads.begin(); it != threads.end(); it++) {
+          communication::Response_Address* ad = tp->add_address();
+          ad->set_addr(it->get_request_handling_connect_addr());
+        }
+      } else {
+        auto res = process_get(key, wt.get_tid());
+        tp->set_value(res.first.reveal().value);
+        tp->set_timestamp(res.first.reveal().timestamp);
+        tp->set_err_number(res.second);
+        key_stat_map[key].access_ += 1;
+      }
     }
   } else if (req.type() == "PUT") {
     //cout << "received put by thread " << thread_id << "\n";
     response.set_type("PUT");
     for (int i = 0; i < req.tuple_size(); i++) {
-      bool succeed = process_put(req.tuple(i).key(), lww_timestamp.load(), req.tuple(i).value(), thread_id, key_set, size_map);
       communication::Response_Tuple* tp = response.add_tuple();
-      tp->set_key(req.tuple(i).key());
-      tp->set_succeed(succeed);
-      local_changeset.insert(req.tuple(i).key());
+      string key = req.tuple(i).key();
+      tp->set_key(key);
+      // first check if the thread is responsible for the key
+      auto threads = get_responsible_threads(key, wt.get_tid(), global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
+      if (threads.find(wt) == threads.end()) {
+        tp->set_err_number(2);
+        for (auto it = threads.begin(); it != threads.end(); it++) {
+          communication::Response_Address* ad = tp->add_address();
+          ad->set_addr(it->get_request_handling_connect_addr());
+        }
+      } else {
+        auto current_time = chrono::system_clock::now();
+        auto ts = generate_timestamp(chrono::duration_cast<chrono::milliseconds>(current_time-start_time).count(), wt.get_tid());
+        process_put(key, ts, req.tuple(i).value(), wt.get_tid(), key_stat_map);
+        tp->set_err_number(0);
+        key_stat_map[key].access_ += 1;
+        local_changeset.insert(key);
+      }
     }
   }
-
-  string data;
-  response.SerializeToString(&data);
-  return data;
+  return response;
 }
 
-void process_distributed_gossip(communication::Gossip& gossip, int thread_id, unordered_set<string>& key_set, unordered_map<string, size_t>& size_map) {
+void process_gossip(communication::Request& gossip,
+    server_thread_t& wt,
+    global_hash_t& global_hash_ring,
+    local_hash_t& local_hash_ring,
+    unordered_map<string, key_info>& placement,
+    SocketCache& requesters,
+    unordered_map<string, key_stat>& key_stat_map,
+    vector<string>& proxy_address) {
   for (int i = 0; i < gossip.tuple_size(); i++) {
-    process_put(gossip.tuple(i).key(), gossip.tuple(i).timestamp(), gossip.tuple(i).value(), thread_id, key_set, size_map);
-  }
-}
-
-// This is not serialized into protobuf and using the method above for serializiation overhead
-void process_local_gossip(gossip_data* g_data, int thread_id, unordered_set<string>& key_set, unordered_map<string, size_t>& size_map) {
-  for (auto it = g_data->begin(); it != g_data->end(); it++) {
-    process_put(it->first, it->second.reveal().timestamp, it->second.reveal().value, thread_id, key_set, size_map);
-  }
-  delete g_data;
-}
-
-void send_gossip(changeset_address* change_set_addr, SocketCache& pushers, string ip, int thread_id) {
-  unordered_map<string, gossip_data*> local_gossip_map;
-  unordered_map<string, communication::Gossip> distributed_gossip_map;
-
-  for (auto map_it = change_set_addr->begin(); map_it != change_set_addr->end(); map_it++) {
-    vector<string> v;
-    split(map_it->first, ':', v);
-    worker_node_t wnode = worker_node_t(v[0], stoi(v[1]) - SERVER_PORT);
-
-    if (v[0] == ip) { // add to local gossip map
-      local_gossip_map[wnode.local_gossip_addr_] = new gossip_data;
-
-      // iterate over all of the gossip going to this destination
-      for (auto set_it = map_it->second.begin(); set_it != map_it->second.end(); set_it++) {
-        auto res = process_get(*set_it, thread_id);
-
-        if (res.second) {
-          cout << "Local gossip key " + *set_it + " sent on thread " + to_string(thread_id) + ".\n";
-          local_gossip_map[wnode.local_gossip_addr_]->emplace(*set_it, res.first);
-        }
-      }
-    } else { // add to distributed gossip map
-      string gossip_addr = wnode.distributed_gossip_connect_addr_;
-      for (auto set_it = map_it->second.begin(); set_it != map_it->second.end(); set_it++) {
-        auto res = process_get(*set_it, thread_id);
-
-        if (res.second) {
-          cout << "Distributed gossip key " + *set_it + " sent on thread " + to_string(thread_id) + ".\n";
-          communication::Gossip_Tuple* tp = distributed_gossip_map[gossip_addr].add_tuple();
-          tp->set_key(*set_it);
-          tp->set_value(res.first.reveal().value);
-          tp->set_timestamp(res.first.reveal().timestamp);
-        }
-      }
-    }
-  }
-
-  // send local gossip
-  for (auto it = local_gossip_map.begin(); it != local_gossip_map.end(); it++) {
-    zmq_util::send_msg((void*)it->second, &pushers[it->first]);
-  }
-
-  // send distributed gossip
-  for (auto it = distributed_gossip_map.begin(); it != distributed_gossip_map.end(); it++) {
-    string data;
-    it->second.SerializeToString(&data);
-    zmq_util::send_string(data, &pushers[it->first]);
-  }
-}
-
-// worker event loop
-void worker_routine (zmq::context_t* context, string ip, int thread_id) {
-  size_t port = SERVER_PORT + thread_id;
-
-  // the set of all the keys that this particular thread is storing
-  unordered_set<string> key_set;
-
-  // the set of changes made on this thread since the last round of gossip
-  unordered_set<string> local_changeset;
-  worker_node_t wnode = worker_node_t(ip, thread_id);
-
-  // keep track of the size of values
-  unordered_map<string, size_t> size_map;
-
-  // socket that respond to proxy requests
-  zmq::socket_t responder(*context, ZMQ_REP);
-  responder.bind(wnode.proxy_connection_bind_addr_);
-
-  // socket that listens for distributed gossip
-  zmq::socket_t dgossip_puller(*context, ZMQ_PULL);
-  dgossip_puller.bind(wnode.distributed_gossip_bind_addr_);
-
-  // socket that listens for local gossip
-  zmq::socket_t lgossip_puller(*context, ZMQ_PULL);
-  lgossip_puller.bind(wnode.local_gossip_addr_);
-
-  // socket that listens for local gossip
-  zmq::socket_t lredistribute_puller(*context, ZMQ_PULL);
-  lredistribute_puller.bind(wnode.local_redistribute_addr_);
-
-  // used to communicate with master thread for changeset addresses
-  zmq::socket_t changeset_address_requester(*context, ZMQ_REQ);
-  changeset_address_requester.connect(CHANGESET_ADDR);
-
-  // used to communicate with master thread for garbage collection
-  zmq::socket_t garbage_collection_requester(*context, ZMQ_REQ);
-  garbage_collection_requester.connect(GARBAGE_COLLECTION_ADDR);
-
-  // used to send gossip
-  SocketCache pushers(context, ZMQ_PUSH);
-
-  //  Initialize poll set
-  vector<zmq::pollitem_t> pollitems = {
-    { static_cast<void *>(responder), 0, ZMQ_POLLIN, 0 },
-    { static_cast<void *>(dgossip_puller), 0, ZMQ_POLLIN, 0 },
-    { static_cast<void *>(lgossip_puller), 0, ZMQ_POLLIN, 0 },
-    { static_cast<void *>(lredistribute_puller), 0, ZMQ_POLLIN, 0 }
-  };
-
-  auto gossip_start = std::chrono::system_clock::now();
-  auto gossip_end = std::chrono::system_clock::now();
-  auto report_start = std::chrono::system_clock::now();
-  auto report_end = std::chrono::system_clock::now();
-  auto garbage_start = std::chrono::system_clock::now();
-  auto garbage_end = std::chrono::system_clock::now();
-
-  size_t epoch = 0;
-
-  // Enter the event loop
-  while (true) {
-    zmq_util::poll(0, &pollitems);
-
-    if (pollitems[0].revents & ZMQ_POLLIN) { // process a request from the proxy
-      worker_thread_status[thread_id - 1].store(1);
-      lww_timestamp++;
-      string data = zmq_util::recv_string(&responder);
-      communication::Request req;
-      req.ParseFromString(data);
-
-      //  Process request
-      string result = process_proxy_request(req, thread_id, local_changeset, key_set, size_map);
-
-      //  Send reply back to proxy
-      zmq_util::send_string(result, &responder);
-      worker_thread_status[thread_id - 1].store(0);
-    }
-
-    if (pollitems[1].revents & ZMQ_POLLIN) { // process distributed gossip
-      worker_thread_status[thread_id - 1].store(1);
-      cout << "Received distributed gossip on thread " + to_string(thread_id) + ".\n";
-
-      string data = zmq_util::recv_string(&dgossip_puller);
-      communication::Gossip gossip;
-      gossip.ParseFromString(data);
-
-      //  Process distributed gossip
-      process_distributed_gossip(gossip, thread_id, key_set, size_map);
-      worker_thread_status[thread_id - 1].store(0);
-    }
-
-    if (pollitems[2].revents & ZMQ_POLLIN) { // process local gossip
-      worker_thread_status[thread_id - 1].store(1);
-      cout << "Received local gossip on thread " + to_string(thread_id) + ".\n";
-
-      zmq::message_t msg;
-      zmq_util::recv_msg(&lgossip_puller, msg);
-      gossip_data* g_data = *(gossip_data **)(msg.data());
-
-      //  Process local gossip
-      process_local_gossip(g_data, thread_id, key_set, size_map);
-      worker_thread_status[thread_id - 1].store(0);
-    }
-
-    if (pollitems[3].revents & ZMQ_POLLIN) { // process a local redistribute request
-      worker_thread_status[thread_id - 1].store(1);
-      cout << "Received local redistribute request on thread " + to_string(thread_id) + ".\n";
-
-      zmq::message_t msg;
-      zmq_util::recv_msg(&lredistribute_puller, msg);
-
-      redistribution_address* r_data = *(redistribution_address **)(msg.data());
-      changeset_address c_address;
-      unordered_set<string> remove_set;
-
-      // converting the redistribution_address to a changeset_address
-      for (auto map_it = r_data->begin(); map_it != r_data->end(); map_it++) {
-        for (auto set_it = map_it->second.begin(); set_it != map_it->second.end(); set_it++) {
-          c_address[map_it->first].insert(set_it->first);
-          if (set_it->second) {
-            remove_set.insert(set_it->first);
-          }
-        }
-      }
-
-      send_gossip(&c_address, pushers, ip, thread_id);
-      delete r_data;
-
-      // remove keys in the remove set
-      for (auto it = remove_set.begin(); it != remove_set.end(); it++) {
-        key_set.erase(*it);
-        // update value size
-        size_map.erase(*it);
-
-        string fname = get_ebs_path("ebs_" + to_string(thread_id) + "/" + *it);
-        if(remove(fname.c_str()) != 0) {
-          cout << "Error deleting file";
-        } else {
-          cout << "File successfully deleted";
-        }
-      }
-      worker_thread_status[thread_id - 1].store(0);
-    }
-
-    gossip_end = std::chrono::system_clock::now();
-    // check whether we should gossip
-    if (chrono::duration_cast<std::chrono::seconds>(gossip_end-gossip_start).count() >= PERIOD || local_changeset.size() >= THRESHOLD) {
-      // only gossip if we have changes
-      if (local_changeset.size() > 0) {
-        // populate the data that has changed
-        changeset_data* data = new changeset_data();
-        data->first = port;
-
-        for (auto it = local_changeset.begin(); it != local_changeset.end(); it++) {
-          (data->second).insert(*it);
-        }
-
-        // send a message to the master thread requesting the addresses of the
-        // desinations for gossip
-        zmq_util::send_msg((void*)data, &changeset_address_requester);
-        zmq::message_t msg;
-        zmq_util::recv_msg(&changeset_address_requester, msg);
-
-        // send the gossip
-        changeset_address* res = *(changeset_address **)(msg.data());
-        send_gossip(res, pushers, ip, thread_id);
-        delete res;
-        local_changeset.clear();
-      }
-
-      gossip_start = std::chrono::system_clock::now();
-    }
-
-    report_end = std::chrono::system_clock::now();
-    // check whether we should send storage consumption update
-    if (chrono::duration_cast<std::chrono::seconds>(report_end-report_start).count() >= SERVER_REPORT_THRESHOLD) {
-      epoch += 1;
-      storage_data* data = new storage_data();
-
-      data->first = to_string(thread_id);
-
-      // compute total storage consumption
-      size_t consumption = 0;
-      for (auto it = size_map.begin(); it != size_map.end(); it++) {
-        consumption += it->second;
-      }
-      data->second = consumption;
-
-      zmq_util::send_msg((void*)data, &pushers[LOCAL_STORAGE_CONSUMPTION_ADDR]);
-
-      if (epoch % 50 == 1) {
-        for (auto it = size_map.begin(); it != size_map.end(); it++) {
-          cerr << "thread " + to_string(thread_id) + " epoch " + to_string(epoch) + " key " + it->first + " has length " + to_string(it->second) + "\n";
-        }
-      }
-
-      report_start = std::chrono::system_clock::now();
-    }
-
-    garbage_end = std::chrono::system_clock::now();
-    // check if garbage collect should be triggered
-    if (chrono::duration_cast<std::chrono::seconds>(garbage_end-garbage_start).count() >= GARBAGE_COLLECT_THRESHOLD) {
-      garbage_collect_info* info = new garbage_collect_info(key_set, wnode.id_);
-
-      zmq_util::send_msg((void*)info, &garbage_collection_requester);
-      zmq::message_t msg;
-      zmq_util::recv_msg(&garbage_collection_requester, msg);
-
-      // send the gossip
-      unordered_set<string>* res = *(unordered_set<string> **)(msg.data());
-      for (auto it = res->begin(); it != res->end(); it++) {
-        key_set.erase(*it);
-        size_map.erase(*it);
-        string fname = get_ebs_path("ebs_" + to_string(thread_id) + "/" + *it);
-        if(remove(fname.c_str()) != 0) {
-          cout << "Error deleting file";
-        } else {
-          cout << "File successfully deleted";
-        }
-      }
-      delete res;
-
-      garbage_start = std::chrono::system_clock::now();
+    // first check if the thread is responsible for the key
+    auto threads = get_responsible_threads(gossip.tuple(i).key(), wt.get_tid(), global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
+    if (threads.find(wt) != threads.end()) {
+      process_put(gossip.tuple(i).key(), gossip.tuple(i).timestamp(), gossip.tuple(i).value(), wt.get_tid(), key_stat_map);
     }
   }
 }
 
-int main(int argc, char* argv[]) {
+void send_gossip(address_keyset_map& addr_keyset_map, SocketCache& pushers, unsigned thread_id) {
+  unordered_map<string, communication::Request> gossip_map;
 
-  auto logger = spdlog::basic_logger_mt("basic_logger", "log.txt", true);
-  logger->flush_on(spdlog::level::info); 
-  
-  if (argc != 2) {
-    cerr << "usage:" << argv[0] << " <new_node>" << endl;
-    return 1;
+  for (auto map_it = addr_keyset_map.begin(); map_it != addr_keyset_map.end(); map_it++) {
+    for (auto set_it = map_it->second.begin(); set_it != map_it->second.end(); set_it++) {
+      auto res = process_get(*set_it, thread_id);
+      if (res.second == 0) {
+        prepare_put_tuple(gossip_map[map_it->first], *set_it, res.first.reveal().value, res.first.reveal().timestamp);
+      }
+    }
   }
+  // send gossip
+  for (auto it = gossip_map.begin(); it != gossip_map.end(); it++) {
+    push_request(it->second, pushers[it->first]);
+  }
+}
 
-  if (string(argv[1]) != "y" && string(argv[1]) != "n") {
-    cerr << "Invalid first argument: " << string(argv[1]) << "." << endl;
-    return 1;
-  }
+// thread entry point
+void run(unsigned thread_id, string new_node) {
+
+  string log_file = "log_" + to_string(thread_id) + ".txt";
+  auto logger = spdlog::basic_logger_mt("basic_logger", log_file, true);
+  logger->flush_on(spdlog::level::info);
 
   string ip = get_ip("server");
-  string new_node = argv[1];
 
-  master_node_t mnode = master_node_t(ip, NODE_TYPE);
+  // every thread has a handle to the master thread
+  server_thread_t mt = server_thread_t(ip, 0, NODE_TYPE);
+  // each thread has a handle to itself
+  server_thread_t wt = server_thread_t(ip, thread_id, NODE_TYPE);
 
   // prepare the zmq context
   zmq::context_t context(1);
+
   SocketCache pushers(&context, ZMQ_PUSH);
   SocketCache requesters(&context, ZMQ_REQ);
 
   // create our hash rings
   global_hash_t global_hash_ring;
   local_hash_t local_hash_ring;
-  unordered_map<string, storage_key_info> placement;
-
-  // keep track of the storage consumption for all worker threads
-  unordered_map<string, size_t> worker_thread_storage;
+  unordered_map<string, key_info> placement;
 
   vector<string> proxy_address;
 
@@ -510,22 +263,10 @@ int main(int argc, char* argv[]) {
   }
   address.close();
 
-  // use the first address for now
-  monitoring_node_t monitoring_node = monitoring_node_t(*monitoring_address.begin());
-
-  cerr << "getting info from seed\n";
-
-  // read server address from the file
+  // form the global hash ring
   if (new_node == "n") {
-    address.open("conf/server/start_servers.txt");
     // add itself to the ring
-    global_hash_ring.insert(mnode);
-
-    // add all other servers
-    while (getline(address, ip_line)) {
-      global_hash_ring.insert(master_node_t(ip_line, NODE_TYPE));
-    }
-    address.close();
+    global_hash_ring.insert(mt);
   } else { // get server address from the seed node
     address.open("conf/server/seed_server.txt");
     getline(address, ip_line);
@@ -533,658 +274,506 @@ int main(int argc, char* argv[]) {
 
     cerr << "seed address is " + ip_line + "\n";
 
-    // tell the seed node that you are joining
+    // request server addresses from the seed node
     zmq::socket_t addr_requester(context, ZMQ_REQ);
-    addr_requester.connect(master_node_t(ip_line, NODE_TYPE).seed_connection_connect_addr_);
+    addr_requester.connect(server_thread_t(ip_line, 0, NODE_TYPE).get_seed_connect_addr());
     zmq_util::send_string("join", &addr_requester);
 
     // receive and add all the addresses that seed node sent
     vector<string> addresses;
     split(zmq_util::recv_string(&addr_requester), '|', addresses);
     for (auto it = addresses.begin(); it != addresses.end(); it++) {
-      global_hash_ring.insert(master_node_t(*it, NODE_TYPE));
+      global_hash_ring.insert(server_thread_t(*it, 0, NODE_TYPE));
     }
 
     // add itself to global hash ring
-    global_hash_ring.insert(mnode);
+    global_hash_ring.insert(mt);
   }
 
-  cerr << "finished getting info from seed\n";
-
-  vector<thread> worker_threads;
-
-  // start the initial threads based on EBS_THREAD_NUM
-  for (int thread_id = 1; thread_id <= EBS_THREAD_NUM; thread_id++) {
-    //cout << "thread id is " + to_string(thread_id) + "\n";
-    worker_threads.push_back(thread(worker_routine, &context, ip, thread_id));
-    local_hash_ring.insert(worker_node_t(ip, thread_id));
+  // form the local hash ring
+  for (unsigned tid = 1; tid <= THREAD_NUM; tid++) {
+    local_hash_ring.insert(tid);
   }
 
-  cerr << "notifying other server nodes\n";
-
-  if (new_node == "y") {
-    // notify other servers that there is a new node
+  // the metadata thread notify other servers that it has joined
+  if (thread_id == 0 && new_node == "y") {
     for (auto it = global_hash_ring.begin(); it != global_hash_ring.end(); it++) {
-      if (it->second.ip_.compare(ip) != 0) {
-        zmq_util::send_string(ip, &pushers[(it->second).node_join_connect_addr_]);
+      if (it->second.get_ip().compare(ip) != 0) {
+        zmq_util::send_string(ip, &pushers[(it->second).get_node_join_connect_addr()]);
       }
     }
   }
 
-  cerr << "finished notifying other server nodes\n";
-  cerr << "notifying proxy\n";
+  // the metadata thread notify proxies and monitoring node that it has joined
+  if (thread_id == 0) {
+    string msg = "join:" + string(NODE_TYPE) + ":" + ip;
+    // notify proxies that this node has joined the service
+    for (auto it = proxy_address.begin(); it != proxy_address.end(); it++) {
+      zmq_util::send_string(msg, &pushers[proxy_thread_t(*it, 0).get_notify_connect_addr()]);
+    }
 
-  string msg = "join:" + string(NODE_TYPE) + ":" + ip;
-  // notify proxies that this node has joined the service
-  for (auto it = proxy_address.begin(); it != proxy_address.end(); it++) {
-    zmq_util::send_string(msg, &pushers[proxy_node_t(*it).notify_connect_addr_]);
+    // notify monitoring nodes that this node has joined the service
+    for (auto it = monitoring_address.begin(); it != monitoring_address.end(); it++) {
+      zmq_util::send_string(msg, &pushers[monitoring_thread_t(*it).get_notify_connect_addr()]);
+    }
   }
-  cerr << "notifying monitoring\n";
 
-  // notify monitoring nodes that this node has joined the service
-  for (auto it = monitoring_address.begin(); it != monitoring_address.end(); it++) {
-    zmq_util::send_string(msg, &pushers[monitoring_node_t(*it).notify_connect_addr_]);
-  }
-  cerr << "finished notifying monitoring\n";
+  // the set of changes made on this thread since the last round of gossip
+  unordered_set<string> local_changeset;
 
-  // responsible for sending the server address to a new node
+  // keep track of the key stat
+  unordered_map<string, key_stat> key_stat_map;
+
+
+  // responsible for sending the server address to a new node (only relevant for metadata thread)
   zmq::socket_t addr_responder(context, ZMQ_REP);
-  addr_responder.bind(SEED_BIND_ADDR);
-
+  addr_responder.bind(wt.get_seed_bind_addr());
   // listens for a new node joining
   zmq::socket_t join_puller(context, ZMQ_PULL);
-  join_puller.bind(NODE_JOIN_BIND_ADDR);
-
+  join_puller.bind(wt.get_node_join_bind_addr());
   // listens for a node departing
   zmq::socket_t depart_puller(context, ZMQ_PULL);
-  depart_puller.bind(NODE_DEPART_BIND_ADDR);
-
-  // responsible for sending the worker address (responsible for the requested key) to the proxy or other to servers
-  zmq::socket_t key_address_responder(context, ZMQ_REP);
-  key_address_responder.bind(KEY_EXCHANGE_BIND_ADDR);
-
-  // responsible for responding to changeset address requests from workers
-  zmq::socket_t changeset_address_responder(context, ZMQ_REP);
-  changeset_address_responder.bind(CHANGESET_ADDR);
-
+  depart_puller.bind(wt.get_node_depart_bind_addr());
   // responsible for listening for a command that this node should leave
-  zmq::socket_t self_depart_responder(context, ZMQ_REP);
-  self_depart_responder.bind(SELF_DEPART_BIND_ADDR);
-
+  zmq::socket_t self_depart_puller(context, ZMQ_PULL);
+  self_depart_puller.bind(wt.get_self_depart_bind_addr());
+  // responsible for handling requests
+  zmq::socket_t request_responder(context, ZMQ_REP);
+  request_responder.bind(wt.get_request_handling_bind_addr());
+  // responsible for handling requests (no response needed)
+  zmq::socket_t request_puller(context, ZMQ_PULL);
+  request_puller.bind(wt.get_request_pulling_bind_addr());
+  // responsible for processing gossips
+  zmq::socket_t gossip_puller(context, ZMQ_PULL);
+  gossip_puller.bind(wt.get_gossip_bind_addr());
   // responsible for listening for key replication factor change
-  zmq::socket_t replication_factor_change_puller(context, ZMQ_PULL);
-  replication_factor_change_puller.bind(REPLICATION_FACTOR_BIND_ADDR);
+  zmq::socket_t replication_factor_puller(context, ZMQ_PULL);
+  replication_factor_puller.bind(wt.get_replication_factor_bind_addr());
 
-  // responsible for receiving storage consumption updates from worker threads
-  zmq::socket_t storage_consumption_puller(context, ZMQ_PULL);
-  storage_consumption_puller.bind(LOCAL_STORAGE_CONSUMPTION_ADDR);
+  //  Initialize poll set
+  vector<zmq::pollitem_t> pollitems = {
+    { static_cast<void *>(addr_responder), 0, ZMQ_POLLIN, 0 },
+    { static_cast<void *>(join_puller), 0, ZMQ_POLLIN, 0 },
+    { static_cast<void *>(depart_puller), 0, ZMQ_POLLIN, 0 },
+    { static_cast<void *>(self_depart_puller), 0, ZMQ_POLLIN, 0 },
+    { static_cast<void *>(request_responder), 0, ZMQ_POLLIN, 0 },
+    { static_cast<void *>(request_puller), 0, ZMQ_POLLIN, 0 },
+    { static_cast<void *>(gossip_puller), 0, ZMQ_POLLIN, 0 },
+    { static_cast<void *>(replication_factor_puller), 0, ZMQ_POLLIN, 0 }
+  };
 
-  // responsible for responding to garbage collection requests from workers
-  zmq::socket_t garbage_collection_responder(context, ZMQ_REP);
-  garbage_collection_responder.bind(GARBAGE_COLLECTION_ADDR);
+  auto start_time = chrono::system_clock::now();
 
-  // set up zmq receivers
-  vector<zmq::pollitem_t> pollitems = {{static_cast<void*>(addr_responder), 0, ZMQ_POLLIN, 0},
-                                       {static_cast<void*>(join_puller), 0, ZMQ_POLLIN, 0},
-                                       {static_cast<void*>(depart_puller), 0, ZMQ_POLLIN, 0},
-                                       {static_cast<void*>(key_address_responder), 0, ZMQ_POLLIN, 0},
-                                       {static_cast<void*>(changeset_address_responder), 0, ZMQ_POLLIN, 0},
-                                       {static_cast<void*>(self_depart_responder), 0, ZMQ_POLLIN, 0},
-                                       {static_cast<void*>(replication_factor_change_puller), 0, ZMQ_POLLIN, 0},
-                                       {static_cast<void*>(storage_consumption_puller), 0, ZMQ_POLLIN, 0},
-                                       {static_cast<void*>(garbage_collection_responder), 0, ZMQ_POLLIN, 0}
-                                     };
+  auto gossip_start = chrono::system_clock::now();
+  auto gossip_end = chrono::system_clock::now();
+  auto report_start = chrono::system_clock::now();
+  auto report_end = chrono::system_clock::now();
+  auto garbage_start = chrono::system_clock::now();
+  auto garbage_end = chrono::system_clock::now();
 
-  auto report_start = std::chrono::system_clock::now();
-  auto report_end = std::chrono::system_clock::now();
-
-  cerr << "entering event loop\n";
-
+  unsigned long long working_time = 0;
+  unsigned epoch = 0;
   // enter event loop
   while (true) {
     zmq_util::poll(0, &pollitems);
 
+    // only relavant for the metadata thread of the seed node
     if (pollitems[0].revents & ZMQ_POLLIN) {
+      auto work_start = chrono::system_clock::now();
       logger->info("Received an address request");
-      string request = zmq_util::recv_string(&addr_responder);
+      zmq_util::recv_string(&addr_responder);
 
       string addresses;
       for (auto it = global_hash_ring.begin(); it != global_hash_ring.end(); it++) {
-        addresses += (it->second.ip_ + "|");
+        addresses += (it->second.get_ip() + "|");
       }
 
       // remove the trailing pipe
       addresses.pop_back();
       zmq_util::send_string(addresses, &addr_responder);
+      working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
     }
 
+    // receives a node join
     if (pollitems[1].revents & ZMQ_POLLIN) {
+      auto work_start = chrono::system_clock::now();
       string new_server_ip = zmq_util::recv_string(&join_puller);
-      master_node_t new_node = master_node_t(new_server_ip, NODE_TYPE);
-
+      logger->info("Received a node join. New node is {}", new_server_ip);
+      server_thread_t new_node = server_thread_t(new_server_ip, 0, NODE_TYPE);
       // update global hash ring
       bool inserted = global_hash_ring.insert(new_node).second;
+      // only relevant for the metadata thread
+      if (thread_id == 0) {
+        // gossip the new node address between server nodes to ensure consistency
+        for (auto it = global_hash_ring.begin(); it != global_hash_ring.end(); it++) {
+          if (it->second.get_ip().compare(ip) != 0 && it->second.get_ip().compare(new_server_ip) != 0) {
+            // if the node is not myself and not the newly joined node, send the ip of the newly joined node
+            zmq_util::send_string(new_server_ip, &pushers[(it->second).get_node_join_connect_addr()]);
+          } else if (it->second.get_ip().compare(new_server_ip) == 0) {
+            // if the node is the newly joined node, send my ip
+            zmq_util::send_string(ip, &pushers[(it->second).get_node_join_connect_addr()]);
+          }
+        }
+        // tell all worker threads about the new node join
+        for (unsigned tid = 1; tid <= THREAD_NUM; tid++) {
+          zmq_util::send_string(new_server_ip, &pushers[server_thread_t(ip, tid, NODE_TYPE).get_node_join_connect_addr()]);
+        }
+      }
 
       if (inserted) {
-        logger->info("Received a node join. New node is {}", new_server_ip);
-        for (auto it = global_hash_ring.begin(); it != global_hash_ring.end(); it++) {
-          if (it->second.ip_.compare(ip) != 0 && it->second.ip_.compare(new_server_ip) != 0) {
-            // if the node is not myself and not the newly joined node, send the ip of the newly joined node
-            zmq_util::send_string(new_server_ip, &pushers[(it->second).node_join_connect_addr_]);
-          } else if (it->second.ip_.compare(new_server_ip) == 0) {
-            // if the node is the newly joined node, send my ip
-            zmq_util::send_string(ip, &pushers[(it->second).node_join_connect_addr_]);
-          }
-        }
-        // a map for each local worker that has to redistribute to the remote
-        // node
-        unordered_map<string, redistribution_address*> redistribution_map;
-
-        // for each key in this set, we will ask the new node which worker the
-        // key should be sent to
-        unordered_set<string> key_to_query;
-
-        // iterate through all of my keys
-        for (auto it = placement.begin(); it != placement.end(); it++) {
-
+        // map from worker address to a set of keys
+        address_keyset_map addr_keyset_map;
+        // keep track of which key should be removed
+        unordered_set<string> remove_set;
+        for (auto it = key_stat_map.begin(); it != key_stat_map.end(); it++) {
           string key = it->first;
-          storage_key_info info = it->second;
-
-          auto result = responsible<master_node_t, global_hasher>(key, info.global_ebs_replication_, global_hash_ring, new_node.id_);
-
-          if (result.first && (result.second->ip_.compare(ip) == 0)) {
-            key_to_query.insert(it->first);
-          }
-        }
-
-        communication::Key_Response resp = get_key_address<storage_key_info>(new_node.key_exchange_connect_addr_, "", key_to_query, requesters, placement);
-
-        // for each key in the response
-        for (int i = 0; i < resp.tuple_size(); i++) {
-          // for each of the workers we are sending the key to (if the local
-          // replication factor is > 1)
-          for (int j = 0; j < resp.tuple(i).address_size(); j++) {
-            string key = resp.tuple(i).key();
-            string target_address = resp.tuple(i).address(j).addr();
-
-            // TODO; only send from *one* local replica not from many...
-            // figure out how to tell local replica to *remove* but not gossip
-            // for each replica of the key on this machine
-            auto pos = local_hash_ring.find(key);
-            for (int k = 0; k < placement[key].local_replication_; k++) {
-              // create a redistribution_address object for each of the local
-              // workers
-              string worker_address = pos->second.local_redistribute_addr_;
-              if (redistribution_map.find(worker_address) == redistribution_map.end()) {
-                redistribution_map[worker_address] = new redistribution_address();
-              }
-
-              // insert this key into the redistrution address for each of the
-              // local workers based on the destination
-              (*redistribution_map[worker_address])[target_address].insert(pair<string, bool>(key, true));
-
-              // go to the next position on the ring
-              if (++pos == local_hash_ring.end()) {
-                pos = local_hash_ring.begin();
+          auto threads = get_responsible_threads(key, thread_id, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
+          if (threads.find(wt) == threads.end()) {
+            remove_set.insert(key);
+            for (auto iter = threads.begin(); iter != threads.end(); iter++) {
+              if (iter->get_ip() == new_node.get_ip()) {
+                addr_keyset_map[iter->get_gossip_connect_addr()].insert(key);
               }
             }
           }
         }
 
-        // send a local message for each local worker that has to redistribute
-        // data to a remote node
-        for (auto it = redistribution_map.begin(); it != redistribution_map.end(); it++) {
-          zmq_util::send_msg((void*)it->second, &pushers[it->first]);
+        send_gossip(addr_keyset_map, pushers, thread_id);
+        // remove keys
+        for (auto it = remove_set.begin(); it != remove_set.end(); it++) {
+          key_stat_map.erase(*it);
+          string fname = get_ebs_path("ebs_" + to_string(thread_id) + "/" + *it);
+          if(remove(fname.c_str()) != 0) {
+            cout << "Error deleting file";
+          } else {
+            cout << "File successfully deleted";
+          }
         }
       }
+      working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
     }
 
+    // receives a node departure notice
     if (pollitems[2].revents & ZMQ_POLLIN) {
+      auto work_start = chrono::system_clock::now();
       string departing_server_ip = zmq_util::recv_string(&depart_puller);
       logger->info("Received departure for node {}", departing_server_ip);
-
       // update hash ring
-      global_hash_ring.erase(master_node_t(departing_server_ip, NODE_TYPE));
+      global_hash_ring.erase(server_thread_t(departing_server_ip, 0, NODE_TYPE));
+      if (thread_id == 0) {
+        // tell all worker threads about the node departure
+        for (unsigned tid = 1; tid <= THREAD_NUM; tid++) {
+          zmq_util::send_string(departing_server_ip, &pushers[server_thread_t(ip, tid, NODE_TYPE).get_node_depart_connect_addr()]);
+        }
+      }
+      working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
     }
 
+    // receives a node departure request
     if (pollitems[3].revents & ZMQ_POLLIN) {
-      //cout << "Received a key address request.\n";
-
-      string serialized_key_req = zmq_util::recv_string(&key_address_responder);
-      communication::Key_Request key_req;
-      key_req.ParseFromString(serialized_key_req);
-
-      string sender = key_req.sender();
-      communication::Key_Response key_resp;
-
-      // for every requested key
-      for (int i = 0; i < key_req.tuple_size(); i++) {
-        string key = key_req.tuple(i).key();
-        int gmr = key_req.tuple(i).global_memory_replication();
-        int ger = key_req.tuple(i).global_ebs_replication();
-        //cout << "Received a key request for key " + key + ".\n";
-
-        // fill in placement metadata only if not already exist
-        if (placement.find(key) == placement.end()) {
-          placement[key] = storage_key_info(gmr, ger);
-        }
-
-        // check if the node is responsible for this key
-        auto result = responsible<master_node_t, global_hasher>(key, placement[key].global_ebs_replication_, global_hash_ring, mnode.id_);
-
-        if (result.first) {
-          communication::Key_Response_Tuple* tp = key_resp.add_tuple();
-          tp->set_key(key);
-
-          // find all the local worker threads that are assigned to this key
-          auto it = local_hash_ring.find(key);
-          for (int i = 0; i < placement[key].local_replication_; i++) {
-            // add each one to the response
-            communication::Key_Response_Address* tp_addr = tp->add_address();
-            if (sender == "server") {
-              tp_addr->set_addr(it->second.id_);
-            } else {
-              tp_addr->set_addr(it->second.proxy_connection_connect_addr_);
-            }
-
-            if (++it == local_hash_ring.end()) {
-              it = local_hash_ring.begin();
-            }
-          }
-        }
-      }
-
-      string serialized_key_resp;
-      key_resp.SerializeToString(&serialized_key_resp);
-      zmq_util::send_string(serialized_key_resp, &key_address_responder);
-    }
-
-    if (pollitems[4].revents & ZMQ_POLLIN) {
-      //cout << "Received a changeset address request from a worker thread.\n";
-
-      zmq::message_t msg;
-      zmq_util::recv_msg(&changeset_address_responder, msg);
-      changeset_data* data = *(changeset_data **)(msg.data());
-
-      // determine the IP and port of the thread that made the request
-      string self_id = ip + ":" + to_string(data->first);
-      changeset_address* res = new changeset_address();
-      unordered_map<master_node_t, unordered_set<string>, node_hash> node_map;
-
-      // a set of keys to send to proxy to perform cross tier gossip
-      unordered_set<string> key_to_proxy;
-
-      // look for every key requestsed by the worker thread
-      for (auto it = data->second.begin(); it != data->second.end(); it++) {
-        string key = *it;
-        // first, check the local ring
-        auto local_pos = local_hash_ring.find(key);
-        for (int i = 0; i < placement[key].local_replication_; i++) {
-          // add any thread that is responsible for this key but is not the
-          // thread that made the request
-          if (local_pos->second.id_.compare(self_id) != 0) {
-            (*res)[local_pos->second.id_].insert(key);
-          }
-
-          if (++local_pos == local_hash_ring.end()) {
-            local_pos = local_hash_ring.begin();
-          }
-        }
-
-        // second, check the global ebs ring for any nodes that might also be
-        // responsible for this key
-        auto pos = global_hash_ring.find(key);
-        for (int i = 0; i < placement[key].global_ebs_replication_; i++) {
-          if (pos->second.ip_.compare(ip) != 0) {
-            node_map[pos->second].insert(key);
-          }
-
-          if (++pos == global_hash_ring.end()) {
-            pos = global_hash_ring.begin();
-          }
-        }
-
-        // finally, check if the key has replica on the other tier
-        if (placement[key].global_memory_replication_ != 0) {
-          key_to_proxy.insert(key);
-        }
-      }
-
-      // for any remote nodes that should receive gossip, we make key
-      // requests
-      for (auto map_iter = node_map.begin(); map_iter != node_map.end(); map_iter++) {
-        // get key address
-        communication::Key_Response resp = get_key_address<storage_key_info>(map_iter->first.key_exchange_connect_addr_, "", map_iter->second, requesters, placement);
-
-        // for each key, add the address of *every* (there can be multiple)
-        // worker thread on the other node that should receive this key
-        for (int i = 0; i < resp.tuple_size(); i++) {
-          for (int j = 0; j < resp.tuple(i).address_size(); j++) {
-            (*res)[resp.tuple(i).address(j).addr()].insert(resp.tuple(i).key());
-          }
-        }
-      }
-
-      // check if there are key requests to send to proxy
-      if (key_to_proxy.size() != 0) {
-        // for now, randomly choose a proxy worker to contact
-        int tid = 1 + rand() % PROXY_THREAD_NUM;
-        string target_proxy_address = proxy_worker_thread_t(proxy_address[rand() % proxy_address.size()], tid).proxy_gossip_connect_addr_;
-        // get key address
-        communication::Key_Response resp = get_key_address<storage_key_info>(target_proxy_address, NODE_TYPE, key_to_proxy, requesters, placement);
-
-        // for each key, add the address of *every* (there can be multiple)
-        // worker thread on the other node that should receive this key
-        for (int i = 0; i < resp.tuple_size(); i++) {
-          for (int j = 0; j < resp.tuple(i).address_size(); j++) {
-            (*res)[resp.tuple(i).address(j).addr()].insert(resp.tuple(i).key());
-          }
-        }
-      }
-
-      // send the resulting changeset_address object back to the thread
-      zmq_util::send_msg((void*)res, &changeset_address_responder);
-      delete data;
-    }
-
-    if (pollitems[5].revents & ZMQ_POLLIN) {
+      auto work_start = chrono::system_clock::now();
+      string ack_addr = zmq_util::recv_string(&self_depart_puller);
       logger->info("Node is departing");
-
-      global_hash_ring.erase(mnode);
-      for (auto it = global_hash_ring.begin(); it != global_hash_ring.end(); it++) {
-        zmq_util::send_string(ip, &pushers[it->second.node_depart_connect_addr_]);
+      global_hash_ring.erase(mt);
+      if (thread_id == 0) {
+        // tell other metadata thread that the node is departing
+        for (auto it = global_hash_ring.begin(); it != global_hash_ring.end(); it++) {
+          zmq_util::send_string(ip, &pushers[(it->second).get_node_depart_connect_addr()]);
+        }
+        string msg = "depart:" + string(NODE_TYPE) + ":" + ip;
+        // notify proxies
+        for (auto it = proxy_address.begin(); it != proxy_address.end(); it++) {
+          zmq_util::send_string(msg, &pushers[proxy_thread_t(*it, 0).get_notify_connect_addr()]);
+        }
+        // notify monitoring nodes
+        for (auto it = monitoring_address.begin(); it != monitoring_address.end(); it++) {
+          zmq_util::send_string(msg, &pushers[monitoring_thread_t(*it).get_notify_connect_addr()]);
+        }
+        // tell all worker threads about the self departure
+        for (unsigned tid = 1; tid <= THREAD_NUM; tid++) {
+          zmq_util::send_string(ack_addr, &pushers[server_thread_t(ip, tid, NODE_TYPE).get_self_depart_connect_addr()]);
+        }
       }
-      
-      string msg = "depart:" + string(NODE_TYPE) + ":" + ip;
-      // notify proxies
-      for (auto it = proxy_address.begin(); it != proxy_address.end(); it++) {
-        zmq_util::send_string(msg, &pushers[proxy_node_t(*it).notify_connect_addr_]);
-      }
 
-      // form the key_request map
-      unordered_map<string, communication::Key_Request> key_request_map;
-      for (auto it = placement.begin(); it != placement.end(); it++) {
+      address_keyset_map addr_keyset_map;
+      communication::Key_Request key_req;
+      key_req.set_source_tier(NODE_TYPE);
+      key_req.set_metadata(wt.get_tid());
+      key_req.set_address_type("G");
+
+      for (auto it = key_stat_map.begin(); it != key_stat_map.end(); it++) {
         string key = it->first;
-        auto pos = global_hash_ring.find(key);
-
-        for (int i = 0; i < placement[key].global_ebs_replication_; i++) {
-          key_request_map[pos->second.key_exchange_connect_addr_].set_sender("server");
-          communication::Key_Request_Tuple* tp = key_request_map[pos->second.key_exchange_connect_addr_].add_tuple();
-          tp->set_key(key);
-          tp->set_global_memory_replication(placement[key].global_memory_replication_);
-          tp->set_global_ebs_replication(placement[key].global_ebs_replication_);
-
-          if (++pos == global_hash_ring.end()) {
-            pos = global_hash_ring.begin();
-          }
+        auto threads = get_responsible_threads(key, thread_id, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
+        // since we already removed itself from the hash ring, no need to exclude itself from threads
+        for (auto iter = threads.begin(); iter != threads.end(); iter++) {
+          addr_keyset_map[iter->get_gossip_connect_addr()].insert(key);
         }
+        communication::Key_Request_Tuple* tp = key_req.add_tuple();
+        tp->set_key(key);
       }
+      // query proxy for addresses on the other tier
+      string target_address = get_random_proxy_thread(proxy_address, wt.get_tid()).get_key_address_connect_addr();
+      query_key_address(key_req, requesters[target_address], addr_keyset_map);
 
-      // send key address requests to other server nodes
-      unordered_map<string, redistribution_address*> redistribution_map;
-      for (auto it = key_request_map.begin(); it != key_request_map.end(); it++) {
-        string key_req;
-        it->second.SerializeToString(&key_req);
-        zmq_util::send_string(key_req, &requesters[it->first]);
+      send_gossip(addr_keyset_map, pushers, thread_id);
 
-        string key_res = zmq_util::recv_string(&requesters[it->first]);
-        communication::Key_Response resp;
-        resp.ParseFromString(key_res);
-
-        for (int i = 0; i < resp.tuple_size(); i++) {
-          for (int j = 0; j < resp.tuple(i).address_size(); j++) {
-            string key = resp.tuple(i).key();
-            string target_address = resp.tuple(i).address(j).addr();
-            auto pos = local_hash_ring.find(key);
-
-            for (int k = 0; k < placement[key].local_replication_; k++) {
-              string worker_address = pos->second.local_redistribute_addr_;
-              if (redistribution_map.find(worker_address) == redistribution_map.end()) {
-                redistribution_map[worker_address] = new redistribution_address();
-              }
-
-              (*redistribution_map[worker_address])[target_address].insert(pair<string, bool>(key, false));
-
-              if (++pos == local_hash_ring.end()) {
-                pos = local_hash_ring.begin();
-              }
-            }
-          }
-        }
-      }
-
-      for (auto it = redistribution_map.begin(); it != redistribution_map.end(); it++) {
-        zmq_util::send_msg((void*)it->second, &pushers[it->first]);
-      }
-      
-      // TODO: once we break here, I don't think that the threads will have
-      // finished. they will still be looping.
-      break;
+      zmq_util::send_string("done", &pushers[ack_addr]);
+      working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
     }
 
-    if (pollitems[6].revents & ZMQ_POLLIN) {
-      logger->info("Received replication factor change request");
-
-      string placement_req = zmq_util::recv_string(&replication_factor_change_puller);
-      communication::Replication_Factor_Request req;
-      req.ParseFromString(placement_req);
-
-      unordered_map<master_node_t, unordered_set<string>, node_hash> node_map;
-      // a set of keys to send to proxy to perform cross tier gossip
-      unordered_set<string> key_to_proxy;
-      // keep track of which key should be removed
-      unordered_map<string, bool> key_remove_map;
-
-      // for every key, update the replication factor and 
-      // check if the node is still responsible for the key
-      for (int i = 0; i < req.tuple_size(); i++) {
-        string key = req.tuple(i).key();
-
-        int gmr = req.tuple(i).global_memory_replication();
-        int ger = req.tuple(i).global_ebs_replication();
-
-        // fill in placement metadata only if not already exist
-        if (placement.find(key) == placement.end()) {
-          placement[key] = storage_key_info(gmr, ger);
-        }
-
-        // first, check whether the node is responsible for the key before the replication factor change
-        auto result = responsible<master_node_t, global_hasher>(key, placement[key].global_ebs_replication_, global_hash_ring, mnode.id_);
-        // update placement info
-        placement[key].global_memory_replication_ = gmr;
-        placement[key].global_ebs_replication_ = ger;
-        // proceed only if the node is responsible for the key before the replication factor change
-        if (result.first) {
-          // check the global ring and request worker addresses from other node's master thread
-          auto pos = global_hash_ring.find(key);
-          for (int i = 0; i < placement[key].global_ebs_replication_; i++) {
-            if (pos->second.ip_.compare(ip) != 0) {
-              node_map[pos->second].insert(key);
-            }
-            if (++pos == global_hash_ring.end()) {
-              pos = global_hash_ring.begin();
-            }
-          }
-
-          // check if the key has replica on the other tier
-          if (placement[key].global_memory_replication_ != 0) {
-            key_to_proxy.insert(key);
-          }
-
-          // check if the key has to be removed under the new replication factor
-          result = responsible<master_node_t, global_hasher>(key, placement[key].global_ebs_replication_, global_hash_ring, mnode.id_);
-          if (result.first) {
-            key_remove_map[key] = false;
-          } else {
-            key_remove_map[key] = true;
-          }
-        }
-      }
-
-      // initialize the redistribution map (key is the address of the worker threads)
-      unordered_map<string, redistribution_address*> redistribution_map;
-
-      for (auto map_iter = node_map.begin(); map_iter != node_map.end(); map_iter++) {
-        // get key address
-        communication::Key_Response resp = get_key_address<storage_key_info>(map_iter->first.key_exchange_connect_addr_, "", map_iter->second, requesters, placement);
-        // for each key in the response
-        for (int i = 0; i < resp.tuple_size(); i++) {
-          // for each of the workers we are sending the key to (if the local
-          // replication factor is > 1)
-          for (int j = 0; j < resp.tuple(i).address_size(); j++) {
-            string key = resp.tuple(i).key();
-            string target_address = resp.tuple(i).address(j).addr();
-
-            // TODO; only send from *one* local replica not from many...
-            // figure out how to tell local replica to *remove* but not gossip
-            // for each replica of the key on this machine
-            auto pos = local_hash_ring.find(key);
-            for (int k = 0; k < placement[key].local_replication_; k++) {
-              // create a redistribution_address object for each of the local
-              // workers
-              string worker_address = pos->second.local_redistribute_addr_;
-              if (redistribution_map.find(worker_address) == redistribution_map.end()) {
-                redistribution_map[worker_address] = new redistribution_address();
-              }
-
-              // insert this key into the redistrution address for each of the
-              // local workers based on the destination
-              (*redistribution_map[worker_address])[target_address].insert(pair<string, bool>(key, key_remove_map[key]));
-
-              // go to the next position on the ring
-              if (++pos == local_hash_ring.end()) {
-                pos = local_hash_ring.begin();
-              }
-            }
-          }
-        }
-      }
-
-      // check if there are key requests to send to proxy
-      if (key_to_proxy.size() != 0) {
-        // for now, randomly choose a proxy worker to contact
-        int tid = 1 + rand() % PROXY_THREAD_NUM;
-        string target_proxy_address = proxy_worker_thread_t(proxy_address[rand() % proxy_address.size()], tid).proxy_gossip_connect_addr_;
-        // get key address
-        communication::Key_Response resp = get_key_address<storage_key_info>(target_proxy_address, NODE_TYPE, key_to_proxy, requesters, placement);
-
-        // for each key in the response
-        for (int i = 0; i < resp.tuple_size(); i++) {
-          // for each of the workers we are sending the key to (if the local
-          // replication factor is > 1)
-          for (int j = 0; j < resp.tuple(i).address_size(); j++) {
-            string key = resp.tuple(i).key();
-            string target_address = resp.tuple(i).address(j).addr();
-
-            // TODO; only send from *one* local replica not from many...
-            // figure out how to tell local replica to *remove* but not gossip
-            // for each replica of the key on this machine
-            auto pos = local_hash_ring.find(key);
-            for (int k = 0; k < placement[key].local_replication_; k++) {
-              // create a redistribution_address object for each of the local
-              // workers
-              string worker_address = pos->second.local_redistribute_addr_;
-              if (redistribution_map.find(worker_address) == redistribution_map.end()) {
-                redistribution_map[worker_address] = new redistribution_address();
-              }
-
-              // insert this key into the redistrution address for each of the
-              // local workers based on the destination
-              (*redistribution_map[worker_address])[target_address].insert(pair<string, bool>(key, key_remove_map[key]));
-
-              // go to the next position on the ring
-              if (++pos == local_hash_ring.end()) {
-                pos = local_hash_ring.begin();
-              }
-            }
-          }
-        }
-      }
-
-      // send a local message for each local worker that has to redistribute
-      // data to a remote node
-      for (auto it = redistribution_map.begin(); it != redistribution_map.end(); it++) {
-        zmq_util::send_msg((void*)it->second, &pushers[it->first]);
-      }
-    }
-
-    if (pollitems[7].revents & ZMQ_POLLIN) {
-      //cerr << "received storage update from worker thread\n";
-      zmq::message_t msg;
-      zmq_util::recv_msg(&storage_consumption_puller, msg);
-      storage_data* data = *(storage_data **)(msg.data());
-
-      worker_thread_storage[data->first] = data->second;
-
-      delete data;
-    }
-
-    if (pollitems[8].revents & ZMQ_POLLIN) {
-      zmq::message_t msg;
-      zmq_util::recv_msg(&garbage_collection_responder, msg);
-      garbage_collect_info* info = *(garbage_collect_info **)(msg.data());
-
-      cerr << "received garbage collection request from worker thread" + info->id_ + "\n";
-
-      unordered_set<string>* res = new unordered_set<string>();
-
-      for (auto it = info->keys_.begin(); it != info->keys_.end(); it++) {
-        auto key = *it;
-        if (!(responsible<master_node_t, global_hasher>(key, placement[key].global_ebs_replication_, global_hash_ring, mnode.id_).first
-          && responsible<worker_node_t, local_hasher>(key, placement[key].local_replication_, local_hash_ring, info->id_).first)) {
-          res->insert(*it);
-        }
-      }
-
-      zmq_util::send_msg((void*)res, &garbage_collection_responder);
-      delete info;
-    }
-
-    report_end = std::chrono::system_clock::now();
-
-    if (chrono::duration_cast<std::chrono::seconds>(report_end-report_start).count() >= SERVER_REPORT_THRESHOLD) {
-      cerr << "reporting\n";
-      cerr << "proxy address size is " + to_string(proxy_address.size()) + "\n";
+    // receives a request
+    if (pollitems[4].revents & ZMQ_POLLIN) {
+      auto work_start = chrono::system_clock::now();
+      string serialized_req = zmq_util::recv_string(&request_responder);
       communication::Request req;
-      // report storage consumption
+      req.ParseFromString(serialized_req);
+      //  process request
+      auto response = process_request(req, local_changeset, wt, global_hash_ring, local_hash_ring, placement, requesters, key_stat_map, proxy_address, start_time);
+      string serialized_response;
+      response.SerializeToString(&serialized_response);
+      //  send response
+      zmq_util::send_string(serialized_response, &request_responder);
+      working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+    }
+
+    // receives a request (no response needed)
+    if (pollitems[5].revents & ZMQ_POLLIN) {
+      auto work_start = chrono::system_clock::now();
+      string serialized_req = zmq_util::recv_string(&request_puller);
+      communication::Request req;
+      req.ParseFromString(serialized_req);
+      //  process request
+      process_request(req, local_changeset, wt, global_hash_ring, local_hash_ring, placement, requesters, key_stat_map, proxy_address, start_time);
+      working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+    }
+
+    // receives a gossip
+    if (pollitems[6].revents & ZMQ_POLLIN) {
+      auto work_start = chrono::system_clock::now();
+      string serialized_gossip = zmq_util::recv_string(&gossip_puller);
+      communication::Request gossip;
+      gossip.ParseFromString(serialized_gossip);
+      //  Process distributed gossip
+      process_gossip(gossip, wt, global_hash_ring, local_hash_ring, placement, requesters, key_stat_map, proxy_address);
+      working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+    }
+
+    // receives replication factor change
+    if (pollitems[7].revents & ZMQ_POLLIN) {
+      auto work_start = chrono::system_clock::now();
+      logger->info("Received replication factor change");
+      string serialized_req = zmq_util::recv_string(&replication_factor_puller);
+
+      if (thread_id == 0) {
+        // tell all worker threads about the replication factor change
+        for (unsigned tid = 1; tid <= THREAD_NUM; tid++) {
+          zmq_util::send_string(serialized_req, &pushers[server_thread_t(ip, tid, NODE_TYPE).get_replication_factor_connect_addr()]);
+        }
+      } else {
+        // rep factor change is only relevant to worker threads
+        communication::Replication_Factor_Request req;
+        req.ParseFromString(serialized_req);
+
+        address_keyset_map addr_keyset_map;
+        communication::Key_Request key_req;
+        key_req.set_source_tier(NODE_TYPE);
+        key_req.set_metadata(wt.get_tid());
+        key_req.set_address_type("G");
+        // keep track of which key should be removed
+        unordered_set<string> remove_set;
+
+        // for every key, update the replication factor and 
+        // check if the node is still responsible for the key
+        for (int i = 0; i < req.tuple_size(); i++) {
+          string key = req.tuple(i).key();
+          // update the replication factor
+          placement[key].global_memory_replication_ = req.tuple(i).global_memory_replication();
+          placement[key].global_ebs_replication_ = req.tuple(i).global_ebs_replication();
+          for (int j = 0; j < req.tuple(i).local_size(); j++) {
+            placement[key].local_replication_[req.tuple(i).local(j).ip()] = req.tuple(i).local(j).local_replication();
+          }
+
+          // proceed only if it is originally responsible for the key
+          if (key_stat_map.find(key) != key_stat_map.end()) {
+            auto threads = get_responsible_threads(key, thread_id, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
+            if (threads.find(wt) == threads.end()) {
+              remove_set.insert(key);
+            }
+            for (auto it = threads.begin(); it != threads.end(); it++) {
+              if (it->get_id() != wt.get_id()) {
+                addr_keyset_map[it->get_gossip_connect_addr()].insert(key);
+              }
+            }
+            communication::Key_Request_Tuple* tp = key_req.add_tuple();
+            tp->set_key(key);
+          }
+        }
+
+        // query proxy for addresses on the other tier
+        string target_address = get_random_proxy_thread(proxy_address, wt.get_tid()).get_key_address_connect_addr();
+        query_key_address(key_req, requesters[target_address], addr_keyset_map);
+
+        send_gossip(addr_keyset_map, pushers, thread_id);
+
+        // remove keys
+        for (auto it = remove_set.begin(); it != remove_set.end(); it++) {
+          key_stat_map.erase(*it);
+          string fname = get_ebs_path("ebs_" + to_string(thread_id) + "/" + *it);
+          if(remove(fname.c_str()) != 0) {
+            cout << "Error deleting file";
+          } else {
+            cout << "File successfully deleted";
+          }
+        }
+      }
+      working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+    }
+
+    gossip_end = chrono::system_clock::now();
+    if (chrono::duration_cast<chrono::microseconds>(gossip_end-gossip_start).count() >= PERIOD || local_changeset.size() >= THRESHOLD) {
+      auto work_start = chrono::system_clock::now();
+      // only gossip if we have changes
+      if (local_changeset.size() > 0) {
+        address_keyset_map addr_keyset_map;
+        communication::Key_Request key_req;
+        key_req.set_source_tier(NODE_TYPE);
+        key_req.set_metadata(wt.get_tid());
+        key_req.set_address_type("G");
+
+        for (auto it = local_changeset.begin(); it != local_changeset.end(); it++) {
+          auto threads = get_responsible_threads(*it, thread_id, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
+          for (auto iter = threads.begin(); iter != threads.end(); iter++) {
+            if (iter->get_id() != wt.get_id()) {
+              addr_keyset_map[iter->get_gossip_connect_addr()].insert(*it);
+            }
+          }
+          communication::Key_Request_Tuple* tp = key_req.add_tuple();
+          tp->set_key(*it);
+        }
+
+        // query proxy for addresses on the other tier
+        string target_address = get_random_proxy_thread(proxy_address, wt.get_tid()).get_key_address_connect_addr();
+        query_key_address(key_req, requesters[target_address], addr_keyset_map);
+
+        send_gossip(addr_keyset_map, pushers, thread_id);
+        local_changeset.clear();
+      }
+      gossip_start = chrono::system_clock::now();
+      working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+    }
+
+    garbage_end = chrono::system_clock::now();
+    if (chrono::duration_cast<chrono::microseconds>(garbage_end-garbage_start).count() >= GARBAGE_COLLECT_THRESHOLD) {
+      auto work_start = chrono::system_clock::now();
+      // perform garbage collection
+      for (auto it = key_stat_map.begin(); it != key_stat_map.end(); it++) {
+        string key = it->first;
+        auto threads = get_responsible_threads(key, thread_id, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
+        if (threads.find(wt) == threads.end()) {
+          key_stat_map.erase(key);
+          string fname = get_ebs_path("ebs_" + to_string(thread_id) + "/" + key);
+          if(remove(fname.c_str()) != 0) {
+            cout << "Error deleting file";
+          } else {
+            cout << "File successfully deleted";
+          }
+        }
+      }
+      garbage_start = chrono::system_clock::now();
+      working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+    }
+
+    report_end = chrono::system_clock::now();
+    if (auto duration = chrono::duration_cast<chrono::microseconds>(report_end-report_start).count() >= SERVER_REPORT_THRESHOLD) {
+      // report server stats
+      epoch += 1;
+      string key = wt.get_ip() + "_" + to_string(wt.get_tid()) + "_" + NODE_TYPE + "_stat";
+      // compute total storage consumption
+      unsigned long long consumption = 0;
+      for (auto it = key_stat_map.begin(); it != key_stat_map.end(); it++) {
+        consumption += it->second.size_;
+      }
+      // compute occupancy
+      double occupancy = (double) working_time / duration;
+      communication::Server_Stat stat;
+      stat.set_storage_consumption(consumption);
+      stat.set_occupancy(occupancy);
+      string serialized_stat;
+      stat.SerializeToString(&serialized_stat);
+
+      communication::Request req;
       req.set_type("PUT");
-      req.set_metadata(true);
+      prepare_put_tuple(req, key, serialized_stat, 0);
 
-      communication::Request_Tuple* tp = req.add_tuple();
-      tp->set_key(mnode.ip_ + "_" + NODE_TYPE + "_storage");
+      string target_address;
 
-      string storage_val = "";
-
-      for (auto it = worker_thread_storage.begin(); it != worker_thread_storage.end(); it++) {
-        storage_val += (it->first + ":" + to_string(it->second) + "|");
+      if (NODE_TYPE == "M") {
+        auto threads = get_responsible_threads(key, 0, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
+        target_address = next(begin(threads), rand_r(&thread_id) % threads.size())->get_request_pulling_connect_addr();
+      } else { // query the proxy for metadata thread address
+        string target_proxy_address = get_random_proxy_thread(proxy_address, wt.get_tid()).get_key_address_connect_addr();
+        auto addresses = get_address_from_other_tier(key, requesters[target_proxy_address], NODE_TYPE, 0, "RP");
+        target_address = addresses[rand_r(&thread_id) % addresses.size()];
       }
-      storage_val.pop_back();
+      push_request(req, requesters[target_address]);
 
-      tp->set_value(storage_val);
-
-      // report worker thread occupancy
-      tp = req.add_tuple();
-      tp->set_key(mnode.ip_ + "_" + NODE_TYPE + "_occupancy");
-
-      string occupancy_val = "";
-
-      for (int i = 0; i < EBS_THREAD_NUM; i++) {
-        occupancy_val += (to_string(i+1) + ":" + to_string(worker_thread_status[i].load()) + "|");
+      if (epoch % 50 == 1) {
+        for (auto it = key_stat_map.begin(); it != key_stat_map.end(); it++) {
+          cerr << "thread " + to_string(thread_id) + " epoch " + to_string(epoch) + " key " + it->first + " has length " + to_string(it->second.size_) + "\n";
+        }
       }
-      occupancy_val.pop_back();
 
-      tp->set_value(occupancy_val);
-      string serialized_req;
-      req.SerializeToString(&serialized_req);
-      // send the storage consumption update to a random proxy worker
-      // just pick the first proxy to contact for now;
-      // this should eventually be round-robin / random
-      string proxy_ip = *(proxy_address.begin());
-      // randomly choose a proxy thread to connect
-      int tid = 1 + rand() % PROXY_THREAD_NUM;
-      zmq_util::send_string(serialized_req, &pushers[proxy_worker_thread_t(proxy_ip, tid).metadata_connect_addr_]);
+      // report key access stats
+      key = wt.get_ip() + "_" + to_string(wt.get_tid()) + "_" + NODE_TYPE + "_access";
+      // prepare key access stat
+      communication::Key_Access access;
+      for (auto it = key_stat_map.begin(); it != key_stat_map.end(); it++) {
+        communication::Key_Access_Tuple* tp = access.add_tuple();
+        tp->set_key(it->first);
+        tp->set_access(it->second.access_);
+      }
+      string serialized_access;
+      access.SerializeToString(&serialized_access);
+      req.Clear();
+      req.set_type("PUT");
+      prepare_put_tuple(req, key, serialized_access, 0);
 
-      report_start = std::chrono::system_clock::now();
+      if (NODE_TYPE == "M") {
+        auto threads = get_responsible_threads(key, 0, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, wt.get_tid());
+        target_address = next(begin(threads), rand_r(&thread_id) % threads.size())->get_request_pulling_connect_addr();
+      } else { // query the proxy for metadata thread address
+        string target_proxy_address = get_random_proxy_thread(proxy_address, wt.get_tid()).get_key_address_connect_addr();
+        auto addresses = get_address_from_other_tier(key, requesters[target_proxy_address], NODE_TYPE, 0, "RP");
+        target_address = addresses[rand_r(&thread_id) % addresses.size()];
+      }
+      push_request(req, requesters[target_address]);
+
+      report_start = chrono::system_clock::now();
+      working_time = 0;
     }
   }
+}
+
+int main(int argc, char* argv[]) {
+
+  if (argc != 2) {
+    cerr << "usage:" << argv[0] << " <new_node>" << endl;
+    return 1;
+  }
+
+  if (string(argv[1]) != "y" && string(argv[1]) != "n") {
+    cerr << "Invalid first argument: " << string(argv[1]) << "." << endl;
+    return 1;
+  }
+
+  string new_node = argv[1];
+
+  vector<thread> worker_threads;
+
+  // start the initial threads based on THREAD_NUM
+  for (unsigned thread_id = 1; thread_id <= THREAD_NUM; thread_id++) {
+    worker_threads.push_back(thread(run, thread_id, new_node));
+  }
+
+  run(0, new_node);
 }

@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <memory>
 #include <unordered_set>
+#include "message.pb.h"
 #include "socket_cache.h"
 #include "zmq_util.h"
 #include "common.h"
@@ -29,18 +30,19 @@ int main(int argc, char* argv[]) {
   address.close();
 
   zmq::context_t context(1);
-  SocketCache pushers(&context, ZMQ_PUSH);
+  SocketCache requesters(&context, ZMQ_REQ);
 
   string input;
 
   while (true) {
     cout << "benchmark> ";
     getline(cin, input);
+    cerr << input + "\n";
 
-    for (auto it = proxy_address.begin(); it != proxy_address.end(); it++) {
+    /*for (auto it = proxy_address.begin(); it != proxy_address.end(); it++) {
       for (int tid = 1; tid <= PROXY_THREAD_NUM; tid++) {
         zmq_util::send_string(input, &pushers[proxy_worker_thread_t(*it, tid).banchmark_connect_addr_]);
       }
-    }
+    }*/
   }
 }
