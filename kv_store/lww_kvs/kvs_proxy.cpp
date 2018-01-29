@@ -117,7 +117,8 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads_proxy(
 void run(unsigned thread_id) {
 
   string log_file = "log_" + to_string(thread_id) + ".txt";
-  auto logger = spdlog::basic_logger_mt("basic_logger", log_file, true);
+  string logger_name = "basic_logger_" + to_string(thread_id);
+  auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
   logger->flush_on(spdlog::level::info);
 
   string ip = get_ip("proxy");

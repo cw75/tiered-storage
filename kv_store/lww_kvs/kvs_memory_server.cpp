@@ -157,7 +157,8 @@ void send_gossip(address_keyset_map& addr_keyset_map, SocketCache& pushers, Data
 void run(unsigned thread_id, string new_node) {
 
   string log_file = "log_" + to_string(thread_id) + ".txt";
-  auto logger = spdlog::basic_logger_mt("basic_logger", log_file, true);
+  string logger_name = "basic_logger_" + to_string(thread_id);
+  auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
   logger->flush_on(spdlog::level::info);
 
   string ip = get_ip("server");
