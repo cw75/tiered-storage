@@ -63,7 +63,6 @@ for i in $(seq 1 $3); do
   ./add_server_create.sh p $UUID
   IDS+=( $UUID )
 done
-echo $IDS
 
 kops update cluster --name ${NAME} --yes > /dev/null 2>&1
 kops validate cluster > /dev/null 2>&1
@@ -72,7 +71,7 @@ do
   kops validate cluster > /dev/null 2>&1
 done
 
-for ID in $IDS; do
+for ID in ${IDS[@]}; do
   ./add_node_create.sh p $ID
 done
 
@@ -103,8 +102,8 @@ if [ $1 -ge 1 ]; then
     kops validate cluster > /dev/null 2>&1
   done
 
-  for ID in $IDS; do
-    ./add_node_create.sh m n $UUID
+  for ID in ${IDS[@]}; do
+    ./add_node_create.sh m $UUID n
   done
 fi
 
@@ -127,8 +126,8 @@ if [ $2 -ge 1 ]; then
     kops validate cluster > /dev/null 2>&1
   done
 
-  for ID in $IDS; do
-    ./add_node_create.sh e n $UUID
+  for ID in ${IDS[@]}; do
+    ./add_node_create.sh e $UUID n
   done
 fi
 
@@ -148,7 +147,7 @@ do
   kops validate cluster > /dev/null 2>&1
 done
 
-for ID in $IDS; do
+for ID in ${IDS[@]}; do
   ./add_node_create.sh b $ID
 done
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ -z "$1" ] && [ -z "$2" ]; then
-  echo "Usage: ./add_server.sh <node-type> <uid>\nValid node types are m (memory), e (EBS), and p (proxy); valid validate options are y or n."
+  echo "Usage: ./add_server_create.sh <node-type> <uid>\nValid node types are m (memory), e (EBS), b (benchmark) and p (proxy)."
   exit 1
 fi
 
@@ -13,7 +13,6 @@ elif [ "$1" = "p" ]; then
   YML_FILE=yaml/igs/proxy-ig.yml
 elif [ "$1" = "b" ]; then
   YML_FILE=yaml/igs/benchmark-ig.yml
-  $2=""
 else
   echo "Unrecognized node type $1. Valid node types are m (memory), e (EBS), b (benchmark), and p (proxy)."
 fi
