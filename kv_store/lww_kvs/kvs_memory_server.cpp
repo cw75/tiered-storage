@@ -647,7 +647,8 @@ void run(unsigned thread_id, string new_node) {
     }
 
     report_end = chrono::system_clock::now();
-    if (auto duration = chrono::duration_cast<chrono::microseconds>(report_end-report_start).count() >= SERVER_REPORT_THRESHOLD) {
+    auto duration = chrono::duration_cast<chrono::microseconds>(report_end-report_start).count();
+    if (duration >= SERVER_REPORT_THRESHOLD) {
       //cerr << "thread " + to_string(thread_id) + " entering event report\n";
       // report server stats
       epoch += 1;
@@ -658,7 +659,7 @@ void run(unsigned thread_id, string new_node) {
         consumption += it->second.size_;
       }
       // compute occupancy
-      double occupancy = (double) working_time / duration;
+      double occupancy = (double) working_time / (double) duration;
       communication::Server_Stat stat;
       stat.set_storage_consumption(consumption);
       stat.set_occupancy(occupancy);

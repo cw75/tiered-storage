@@ -698,7 +698,8 @@ void run(unsigned thread_id, string new_node) {
     }
 
     report_end = chrono::system_clock::now();
-    if (auto duration = chrono::duration_cast<chrono::microseconds>(report_end-report_start).count() >= SERVER_REPORT_THRESHOLD) {
+    auto duration = chrono::duration_cast<chrono::microseconds>(report_end-report_start).count();
+    if (duration >= SERVER_REPORT_THRESHOLD) {
       // report server stats
       epoch += 1;
       string key = wt.get_ip() + "_" + to_string(wt.get_tid()) + "_" + NODE_TYPE + "_stat";
