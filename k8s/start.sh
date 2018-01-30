@@ -12,6 +12,7 @@ if [ "$1" = "mn" ]; then
   #sh k8s/set_ips.sh $MEM_IPS conf/monitoring/existing_memory_servers.txt
   #sh k8s/set_ips.sh $EBS_IPS conf/monitoring/existing_ebs_servers.txt
   #sh k8s/set_ips.sh $PROXY_IPS conf/monitoring/proxy_address.txt
+  echo $IP > conf/monitoring/monitoring_ip.txt
   echo $MGMT_IP > conf/monitoring/management_ip.txt 
 
   ./build/kv_store/lww_kvs/kvs_monitoring

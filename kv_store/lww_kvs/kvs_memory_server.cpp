@@ -472,9 +472,10 @@ void run(unsigned thread_id, string new_node) {
 
       send_gossip(addr_keyset_map, pushers, kvs);
 
-      zmq_util::send_string("done", &pushers[ack_addr]);
+      zmq_util::send_string(ip + "_" + NODE_TYPE, &pushers[ack_addr]);
       working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
       //cerr << "thread " + to_string(thread_id) + " leaving event 3\n";
+      break;
     }
 
     // receives a request
@@ -740,4 +741,8 @@ int main(int argc, char* argv[]) {
   }
 
   run(0, new_node);
+
+  for (auto it = worker_threads.begin(); it != worker_threads.end(); it++) {
+    it->join();
+  }
 }

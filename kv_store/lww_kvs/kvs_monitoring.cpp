@@ -162,6 +162,8 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
+  string ip = get_ip("monitoring");
+
   global_hash_t global_memory_hash_ring;
   global_hash_t global_ebs_hash_ring;
 
@@ -186,24 +188,32 @@ int main(int argc, char* argv[]) {
   vector<address_t> proxy_address;
 
   // read address of management node from conf file
-  /*address_t management_address;
+  address_t management_address;
 
   address.open("conf/monitoring/management_ip.txt");
   getline(address, ip_line);
   management_address = ip_line;
-  address.close();*/
+  address.close();
+
+  monitoring_thread_t mt = monitoring_thread_t(ip);
 
   zmq::context_t context(1);
 
   SocketCache pushers(&context, ZMQ_PUSH);
   SocketCache requesters(&context, ZMQ_REQ);
 
+  unordered_map<address_t, unsigned> departing_node_map;
+
   // responsible for both node join and departure
   zmq::socket_t notify_puller(context, ZMQ_PULL);
-  notify_puller.bind("tcp://*:" + to_string(NOTIFY_BASE_PORT));
+  notify_puller.bind(mt.get_notify_bind_addr());
+  // responsible for receiving depart done notice
+  zmq::socket_t depart_done_puller(context, ZMQ_PULL);
+  depart_done_puller.bind(mt.get_depart_done_bind_addr());
 
   vector<zmq::pollitem_t> pollitems = {
-    { static_cast<void *>(notify_puller), 0, ZMQ_POLLIN, 0 }
+    { static_cast<void *>(notify_puller), 0, ZMQ_POLLIN, 0 },
+    { static_cast<void *>(depart_done_puller), 0, ZMQ_POLLIN, 0 }
   };
 
   auto report_start = std::chrono::system_clock::now();
@@ -268,6 +278,31 @@ int main(int argc, char* argv[]) {
         }
         logger->info("memory hash ring size is {}", to_string(global_memory_hash_ring.size()));
         logger->info("ebs hash ring size is {}", to_string(global_ebs_hash_ring.size()));
+      }
+    }
+
+    if (pollitems[1].revents & ZMQ_POLLIN) {
+      string msg = zmq_util::recv_string(&depart_done_puller);
+      vector<string> tokens;
+      split(msg, '_', tokens);
+      address_t departed_ip = tokens[0];
+      string node_type = tokens[1];
+      if (departing_node_map.find(departed_ip) != departing_node_map.end()) {
+        departing_node_map[departed_ip] -= 1;
+        if (departing_node_map[departed_ip] == 0) {
+          if (node_type == "M") {
+            logger->info("removing memory node {}", departed_ip);
+            string shell_command = "curl -X POST http://" + management_address + "/remove/memory/" + departed_ip;
+            system(shell_command.c_str());
+          } else {
+            logger->info("removing ebs node {}", departed_ip);
+            string shell_command = "curl -X POST http://" + management_address + "/remove/ebs/" + departed_ip;
+            system(shell_command.c_str());
+          }
+          departing_node_map.erase(departed_ip);
+        }
+      } else {
+        cerr << "missing entry in the depart done map\n";
       }
     }
 
@@ -371,7 +406,7 @@ int main(int argc, char* argv[]) {
         }
       }
 
-      /*if (average_memory_consumption >= 100 && !adding_memory_node) {
+      if (average_memory_consumption >= 1000 && !adding_memory_node) {
         logger->info("trigger add memory node");
         //cerr << "trigger add memory node\n";
         string shell_command = "curl -X POST http://" + management_address + "/memory";
@@ -379,13 +414,13 @@ int main(int argc, char* argv[]) {
         adding_memory_node = true;
       }
 
-      if (average_ebs_consumption >= 500 && !adding_ebs_node) {
+      if (average_ebs_consumption >= 2000 && !adding_ebs_node) {
         logger->info("trigger add ebs node");
         //cerr << "trigger add ebs node\n";
         string shell_command = "curl -X POST http://" + management_address + "/ebs";
         system(shell_command.c_str());
         adding_ebs_node = true;
-      }*/
+      }
 
       if (server_monitoring_epoch % 50 == 1) {
         for (auto it1 = memory_tier_occupancy.begin(); it1 != memory_tier_occupancy.end(); it1++) {

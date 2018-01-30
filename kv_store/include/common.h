@@ -30,13 +30,16 @@ using namespace std;
 #define DEFAULT_LOCAL_REPLICATION 1
 
 // Define the number of memory threads
-#define MEMORY_THREAD_NUM 2
+#define MEMORY_THREAD_NUM 4
 
 // Define the number of ebs threads
 #define EBS_THREAD_NUM 3
 
 // Define the number of proxy worker threads
-#define PROXY_THREAD_NUM 1
+#define PROXY_THREAD_NUM 3
+
+// Define the number of benchmark threads
+#define BENCHMARK_THREAD_NUM 8
 
 // Define port offset
 // used by servers
@@ -54,8 +57,15 @@ using namespace std;
 #define NOTIFY_BASE_PORT 6560
 #define KEY_ADDRESS_BASE_PORT 6660
 
+// used by monitoring nodes
+#define DEPART_DONE_BASE_PORT 6760
+
+// used by benchmark threads
+#define COMMAND_BASE_PORT 6560
+
 #define SERVER_IP_FILE "conf/server/server_ip.txt"
 #define PROXY_IP_FILE "conf/proxy/proxy_ip.txt"
+#define MONITORING_IP_FILE "conf/monitoring/monitoring_ip.txt"
 
 // server thread
 class server_thread_t {
@@ -225,6 +235,12 @@ public:
   string get_notify_bind_addr() const {
     return "tcp://*:" + to_string(NOTIFY_BASE_PORT);
   }
+  string get_depart_done_connect_addr() const {
+    return "tcp://" + ip_ + ":" + to_string(DEPART_DONE_BASE_PORT);
+  }
+  string get_depart_done_bind_addr() const {
+    return "tcp://*:" + to_string(DEPART_DONE_BASE_PORT);
+  }
 };
 
 // represents the replication state for each key
@@ -256,6 +272,8 @@ string get_ip(string node_type) {
     address.open(SERVER_IP_FILE);
   } else if (node_type == "proxy") {
     address.open(PROXY_IP_FILE);
+  } else if (node_type == "monitoring") {
+    address.open(MONITORING_IP_FILE);
   }
   std::getline(address, server_ip);
   address.close();
