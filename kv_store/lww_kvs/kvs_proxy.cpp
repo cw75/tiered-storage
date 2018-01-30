@@ -255,7 +255,7 @@ void run(unsigned thread_id) {
     }
 
     if (pollitems[2].revents & ZMQ_POLLIN) {
-      cerr << "received key address request\n";
+      //cerr << "received key address request\n";
       string serialized_key_req = zmq_util::recv_string(&key_address_responder);
       communication::Key_Request key_req;
       key_req.ParseFromString(serialized_key_req);

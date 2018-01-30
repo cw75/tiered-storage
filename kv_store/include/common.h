@@ -39,7 +39,7 @@ using namespace std;
 #define PROXY_THREAD_NUM 3
 
 // Define the number of benchmark threads
-#define BENCHMARK_THREAD_NUM 8
+#define BENCHMARK_THREAD_NUM 16
 
 // Define port offset
 // used by servers

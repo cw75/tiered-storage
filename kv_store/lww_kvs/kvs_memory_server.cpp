@@ -23,9 +23,6 @@
 // TODO: Everything that's currently writing to cout and cerr should be replaced with a logfile.
 using namespace std;
 
-// If the total number of updates to the kvs before the last gossip reaches THRESHOLD, then the thread gossips to others.
-#define THRESHOLD 1000
-
 // Define node type
 #define NODE_TYPE "M"
 
@@ -72,7 +69,7 @@ communication::Response process_request(
     //cout << "received get by thread " << thread_id << "\n";
     response.set_type("GET");
     for (int i = 0; i < req.tuple_size(); i++) {
-      cerr << "received get by thread " + to_string(wt.get_tid()) + " on key " + req.tuple(i).key() + "\n";
+      //cerr << "received get by thread " + to_string(wt.get_tid()) + " on key " + req.tuple(i).key() + "\n";
       communication::Response_Tuple* tp = response.add_tuple();
       string key = req.tuple(i).key();
       tp->set_key(key);
@@ -99,7 +96,7 @@ communication::Response process_request(
     //cout << "received put by thread " << thread_id << "\n";
     response.set_type("PUT");
     for (int i = 0; i < req.tuple_size(); i++) {
-      cerr << "received put by thread " + to_string(wt.get_tid()) + " on key " + req.tuple(i).key() + "\n";
+      //cerr << "received put by thread " + to_string(wt.get_tid()) + " on key " + req.tuple(i).key() + "\n";
       communication::Response_Tuple* tp = response.add_tuple();
       string key = req.tuple(i).key();
       tp->set_key(key);
@@ -153,7 +150,7 @@ void send_gossip(address_keyset_map& addr_keyset_map, SocketCache& pushers, Data
     for (auto set_it = map_it->second.begin(); set_it != map_it->second.end(); set_it++) {
       auto res = process_get(*set_it, kvs);
       if (res.second == 0) {
-        cerr << "gossiping key " + *set_it + " to address " + map_it->first + "\n";
+        //cerr << "gossiping key " + *set_it + " to address " + map_it->first + "\n";
         prepare_put_tuple(gossip_map[map_it->first], *set_it, res.first.reveal().value, res.first.reveal().timestamp);
       }
     }
@@ -592,7 +589,7 @@ void run(unsigned thread_id, string new_node) {
     }
 
     gossip_end = chrono::system_clock::now();
-    if (chrono::duration_cast<chrono::microseconds>(gossip_end-gossip_start).count() >= PERIOD || local_changeset.size() >= THRESHOLD) {
+    if (chrono::duration_cast<chrono::microseconds>(gossip_end-gossip_start).count() >= PERIOD) {
       //cerr << "thread " + to_string(thread_id) + " entering event gossip\n";
       auto work_start = chrono::system_clock::now();
       // only gossip if we have changes
@@ -682,11 +679,11 @@ void run(unsigned thread_id, string new_node) {
       }
       push_request(req, pushers[target_address]);
 
-      if (epoch % 50 == 1) {
+      /*if (epoch % 50 == 1) {
         for (auto it = key_stat_map.begin(); it != key_stat_map.end(); it++) {
           cerr << "thread " + to_string(thread_id) + " epoch " + to_string(epoch) + " key " + it->first + " has length " + to_string(it->second.size_) + "\n";
         }
-      }
+      }*/
 
       // report key access stats
       key = wt.get_ip() + "_" + to_string(wt.get_tid()) + "_" + NODE_TYPE + "_access";

@@ -23,9 +23,6 @@
 // TODO: Everything that's currently writing to cout and cerr should be replaced with a logfile.
 using namespace std;
 
-// If the total number of updates to the kvs before the last gossip reaches THRESHOLD, then the thread gossips to others.
-#define THRESHOLD 1000
-
 // Define node type
 #define NODE_TYPE "E"
 
@@ -642,7 +639,7 @@ void run(unsigned thread_id, string new_node) {
     }
 
     gossip_end = chrono::system_clock::now();
-    if (chrono::duration_cast<chrono::microseconds>(gossip_end-gossip_start).count() >= PERIOD || local_changeset.size() >= THRESHOLD) {
+    if (chrono::duration_cast<chrono::microseconds>(gossip_end-gossip_start).count() >= PERIOD) {
       auto work_start = chrono::system_clock::now();
       // only gossip if we have changes
       if (local_changeset.size() > 0) {
@@ -732,11 +729,11 @@ void run(unsigned thread_id, string new_node) {
       }
       push_request(req, pushers[target_address]);
 
-      if (epoch % 50 == 1) {
+      /*if (epoch % 50 == 1) {
         for (auto it = key_stat_map.begin(); it != key_stat_map.end(); it++) {
           cerr << "thread " + to_string(thread_id) + " epoch " + to_string(epoch) + " key " + it->first + " has length " + to_string(it->second.size_) + "\n";
         }
-      }
+      }*/
 
       // report key access stats
       key = wt.get_ip() + "_" + to_string(wt.get_tid()) + "_" + NODE_TYPE + "_access";

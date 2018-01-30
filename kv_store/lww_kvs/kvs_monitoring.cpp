@@ -406,7 +406,7 @@ int main(int argc, char* argv[]) {
         }
       }
 
-      if (average_memory_consumption >= 1000 && !adding_memory_node) {
+      /*if (average_memory_consumption >= 1000 && !adding_memory_node) {
         logger->info("trigger add memory node");
         //cerr << "trigger add memory node\n";
         string shell_command = "curl -X POST http://" + management_address + "/memory";
@@ -420,7 +420,7 @@ int main(int argc, char* argv[]) {
         string shell_command = "curl -X POST http://" + management_address + "/ebs";
         system(shell_command.c_str());
         adding_ebs_node = true;
-      }
+      }*/
 
       if (server_monitoring_epoch % 10 == 1) {
         for (auto it1 = memory_tier_occupancy.begin(); it1 != memory_tier_occupancy.end(); it1++) {

@@ -14,7 +14,7 @@ else
 fi
 
 export NAME=kvs.k8s.local
-export KOPS_STATE_STORE=s3://tiered-storage-state-store
+export KOPS_STATE_STORE=s3://1-tiered-storage-state-store
 
 echo "Creating cluster object..."
 kops create cluster --zones us-east-1a --ssh-public-key ${SSH_KEY}.pub ${NAME} > /dev/null 2>&1
@@ -63,6 +63,7 @@ for i in $(seq 1 $3); do
   ./add_server_create.sh p $UUID
   IDS+=( $UUID )
 done
+echo $IDS
 
 kops update cluster --name ${NAME} --yes > /dev/null 2>&1
 kops validate cluster > /dev/null 2>&1
@@ -71,7 +72,7 @@ do
   kops validate cluster > /dev/null 2>&1
 done
 
-for ID in ${IDS[@]}; do
+for ID in $IDS; do
   ./add_node_create.sh p $ID
 done
 
@@ -102,8 +103,8 @@ if [ $1 -ge 1 ]; then
     kops validate cluster > /dev/null 2>&1
   done
 
-  for ID in ${IDS[@]}; do
-    ./add_node_create.sh m $UUID n
+  for ID in $IDS; do
+    ./add_node_create.sh m n $UUID
   done
 fi
 
@@ -126,8 +127,8 @@ if [ $2 -ge 1 ]; then
     kops validate cluster > /dev/null 2>&1
   done
 
-  for ID in ${IDS[@]}; do
-    ./add_node_create.sh e $UUID n
+  for ID in $IDS; do
+    ./add_node_create.sh e n $UUID
   done
 fi
 
@@ -147,7 +148,7 @@ do
   kops validate cluster > /dev/null 2>&1
 done
 
-for ID in ${IDS[@]}; do
+for ID in $IDS; do
   ./add_node_create.sh b $ID
 done
 

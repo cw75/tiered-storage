@@ -92,24 +92,78 @@ void run(unsigned thread_id) {
     zmq_util::poll(-1, &pollitems);
 
     if (pollitems[0].revents & ZMQ_POLLIN) {
+      cout << "received benchmark command\n";
       vector<string> v;
       split(zmq_util::recv_string(&command_puller), ':', v);
-      string type = v[0];
-      unsigned contention = stoi(v[1]);
-      unsigned length = stoi(v[2]);
-      unsigned report_period = stoi(v[3]);
-      unsigned time = stoi(v[4]);
+      string mode = v[0];
+      string type = v[1];
+      unsigned contention = stoi(v[2]);
+      unsigned length = stoi(v[3]);
+      unsigned report_period = stoi(v[4]);
+      unsigned time = stoi(v[5]);
 
       // warm up
       for (unsigned i = 1; i <= contention; i++) {
         // key is 8 bytes
         string key = string(8 - to_string(i).length(), '0') + to_string(i);
+        if (i % 1000 == 0) {
+          cout << "warming up key " + key + "\n";
+        }
         handle_request(key, string(length, 'a'), requesters, proxy_address, key_address_cache, seed);
       }
 
-      int run = 0;
+      if (mode == "MOVEMENT") {
+        int run = 0;
 
-      while (run < 5) {
+        while (run < 5) {
+          size_t count = 0;
+          auto benchmark_start = std::chrono::system_clock::now();
+          auto benchmark_end = std::chrono::system_clock::now();
+          auto epoch_start = std::chrono::system_clock::now();
+          auto epoch_end = std::chrono::system_clock::now();
+          auto total_time = chrono::duration_cast<std::chrono::seconds>(benchmark_end-benchmark_start).count();
+
+          while (true) {
+            string key_aux;
+            string key;
+            if (run % 2 == 0) {
+              key_aux = to_string(rand_r(&seed) % (contention/2) + 1);
+            } else {
+              key_aux = to_string(rand_r(&seed) % (contention/2) + (contention/2) + 1);
+            }
+            key = string(8 - key_aux.length(), '0') + key_aux;
+            if (type == "G") {
+              handle_request(key, "", requesters, proxy_address, key_address_cache, seed);
+              count += 1;
+            } else if (type == "P") {
+              handle_request(key, string(length, 'a'), requesters, proxy_address, key_address_cache, seed);
+              count += 1;
+            } else if (type == "M") {
+              handle_request(key, string(length, 'a'), requesters, proxy_address, key_address_cache, seed);
+              handle_request(key, "", requesters, proxy_address, key_address_cache, seed);
+              count += 2;
+            } else {
+              cerr << "invalid request type\n";
+            }
+
+            epoch_end = std::chrono::system_clock::now();
+            auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(epoch_end-epoch_start).count();
+            // report throughput every report_period seconds
+            if (time_elapsed >= report_period) {
+              cout << "Throughput is " + to_string((double)count / (double)time_elapsed) + " ops/seconds\n";
+              count = 0;
+              epoch_start = std::chrono::system_clock::now();
+            }
+
+            benchmark_end = std::chrono::system_clock::now();
+            total_time = chrono::duration_cast<std::chrono::seconds>(benchmark_end-benchmark_start).count();
+            if (total_time > time) {
+              break;
+            }
+          }
+          run += 1;
+        }
+      } else if (mode == "LOAD") {
         size_t count = 0;
         auto benchmark_start = std::chrono::system_clock::now();
         auto benchmark_end = std::chrono::system_clock::now();
@@ -120,11 +174,7 @@ void run(unsigned thread_id) {
         while (true) {
           string key_aux;
           string key;
-          if (run % 2 == 0) {
-            key_aux = to_string(rand_r(&seed) % (contention/2) + 1);
-          } else {
-            key_aux = to_string(rand_r(&seed) % (contention/2) + (contention/2) + 1);
-          }
+          key_aux = to_string(rand_r(&seed) % (contention) + 1);
           key = string(8 - key_aux.length(), '0') + key_aux;
           if (type == "G") {
             handle_request(key, "", requesters, proxy_address, key_address_cache, seed);
@@ -155,7 +205,8 @@ void run(unsigned thread_id) {
             break;
           }
         }
-        run += 1;
+      } else {
+        cerr << "invalid experiment mode\n";
       }
 
       cout << "Finished\n";
