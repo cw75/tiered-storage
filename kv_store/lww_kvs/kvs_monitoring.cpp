@@ -422,7 +422,7 @@ int main(int argc, char* argv[]) {
         adding_ebs_node = true;
       }
 
-      if (server_monitoring_epoch % 50 == 1) {
+      if (server_monitoring_epoch % 10 == 1) {
         for (auto it1 = memory_tier_occupancy.begin(); it1 != memory_tier_occupancy.end(); it1++) {
           for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
             logger->info("memory node ip {} thread {} occupancy is {} for epoch {}", it1->first, it2->first, it2->second, server_monitoring_epoch);
