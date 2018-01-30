@@ -1,20 +1,20 @@
 #!/bin/bash
 
-if [ -z "$1" ] && [ -z "$2"] && [ -z "$3"]; then
-  echo "Usage: ./create_cluster.sh <min_mem_instances> <min_ebs_instances> <proxy_instances> {<path-to-ssh-key>}"
+if [ -z "$1" ] && [ -z "$2"] && [ -z "$3"] && [ -z "$4" ]; then
+  echo "Usage: ./create_cluster.sh <min_mem_instances> <min_ebs_instances> <proxy_instances> <benchmark_instances> {<path-to-ssh-key>}"
   echo ""
   echo "If no SSH key is specified, it is assumed that we are using the default SSH key (/home/ubuntu/.ssh/id_rsa). We assume that the corresponding public key has the same name and ends in .pub."
   exit 1
 fi
 
-if [ -z "$4" ]; then
+if [ -z "$5" ]; then
   SSH_KEY=/home/ubuntu/.ssh/id_rsa
 else 
-  SSH_KEY=$4
+  SSH_KEY=$5
 fi
 
 export NAME=kvs.k8s.local
-export KOPS_STATE_STORE=s3://1-tiered-storage-state-store
+export KOPS_STATE_STORE=s3://tiered-storage-state-store
 
 echo "Creating cluster object..."
 kops create cluster --zones us-east-1a --ssh-public-key ${SSH_KEY}.pub ${NAME} > /dev/null 2>&1
@@ -57,8 +57,23 @@ kubectl create -f tmp.yml > /dev/null 2>&1
 rm tmp.yml
 
 echo "Creating $3 proxy node(s)..."
+IDS=()
 for i in $(seq 1 $3); do
-  ./add_node.sh p
+  UUID=`tr -dc 'a-z0-9' < /dev/urandom | head -c 16`
+  ./add_server_create.sh p $UUID
+  IDS+=( $UUID )
+done
+echo $IDS
+
+kops update cluster --name ${NAME} --yes > /dev/null 2>&1
+kops validate cluster > /dev/null 2>&1
+while [ $? -ne 0 ]
+do
+  kops validate cluster > /dev/null 2>&1
+done
+
+for ID in $IDS; do
+  ./add_node_create.sh p $ID
 done
 
 # wait for all proxies to be ready
@@ -71,12 +86,25 @@ done
 
 # TODO: optimize this to create multiple nodes at once
 echo "Creating $1 memory node(s)..."
-
 if [ $1 -ge 1 ]; then
   ./add_node.sh m n
 
+  IDS=()
   for i in $(seq 2 $1); do
-    ./add_node.sh m y
+    UUID=`tr -dc 'a-z0-9' < /dev/urandom | head -c 16`
+    ./add_server_create.sh m $UUID
+    IDS+=( $UUID )
+  done
+  
+  kops update cluster --name ${NAME} --yes > /dev/null 2>&1
+  kops validate cluster > /dev/null 2>&1
+  while [ $? -ne 0 ]
+  do
+    kops validate cluster > /dev/null 2>&1
+  done
+
+  for ID in $IDS; do
+    ./add_node_create.sh m n $UUID
   done
 fi
 
@@ -85,10 +113,44 @@ echo "Creating $2 EBS node(s)..."
 if [ $2 -ge 1 ]; then
   ./add_node.sh e n
 
-  for i in $(seq 2 $2); do
-    ./add_node.sh e y
+  IDS=()
+  for i in $(seq 2 $1); do
+    UUID=`tr -dc 'a-z0-9' < /dev/urandom | head -c 16`
+    ./add_server_create.sh e $UUID
+    IDS+=( $UUID )
+  done
+
+  kops update cluster --name ${NAME} --yes > /dev/null 2>&1
+  kops validate cluster > /dev/null 2>&1
+  while [ $? -ne 0 ]
+  do
+    kops validate cluster > /dev/null 2>&1
+  done
+
+  for ID in $IDS; do
+    ./add_node_create.sh e n $UUID
   done
 fi
+
+echo "Creating $4 benchmark node(s)..."
+
+IDS=()
+for i in $(seq 1 $4); do
+  UUID=`tr -dc 'a-z0-9' < /dev/urandom | head -c 16`
+  ./add_server_create.sh b $UUID
+  IDS[$i]=$UUID
+done
+
+kops update cluster --name ${NAME} --yes > /dev/null 2>&1
+kops validate cluster > /dev/null 2>&1
+while [ $? -ne 0 ]
+do
+  kops validate cluster > /dev/null 2>&1
+done
+
+for ID in $IDS; do
+  ./add_node_create.sh b $ID
+done
 
 # copy the SSH key into the management node... doing this later because we need
 # to wait for the pod to come up

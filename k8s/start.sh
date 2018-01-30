@@ -23,6 +23,10 @@ elif [ "$1" = "p" ]; then
   #sh k8s/set_ips.sh $EBS_IPS conf/proxy/existing_ebs_servers.txt
 
   ./build/kv_store/lww_kvs/kvs_proxy
+elif [ "$1" = "b" ]; then
+  sh k8s/set_ips.sh $PROXY_IPS conf/user/proxy_address.txt
+
+  ./build/kv_store/lww_kvs/kvs_benchmark
 else 
   echo $IP > conf/server/server_ip.txt
   echo "$PROXY_IPS"

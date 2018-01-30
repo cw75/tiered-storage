@@ -24,11 +24,3 @@ sed -i "s|UNIQUE|$2|g" tmp.yml
 echo "Adding an EC2 server to the cluster..."
 kops create -f tmp.yml > /dev/null 2>&1
 rm tmp.yml
-
-echo "Waiting for resources to be available..."
-kops update cluster ${NAME} --yes > /dev/null 2>&1
-
-kops validate cluster > /dev/null 2>&1
-while [ $? -ne 0 ]; do
-  kops validate cluster > /dev/null 2>&1
-done

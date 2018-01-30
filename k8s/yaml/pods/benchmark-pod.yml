@@ -1,0 +1,19 @@
+# template for creating a new memory tier pod
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: benchmark-instance-UNIQUE
+  labels: 
+    role: benchmark
+spec:
+  containers:
+  - name: kvs-memory-container
+    image: vsreekanti/kvs
+    env: 
+    - name: SERVER_TYPE
+      value: b
+    - name: PROXY_IPS
+      value: PROXY_IPS_DUMMY
+  nodeSelector:
+    role: benchmark

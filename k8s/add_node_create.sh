@@ -1,31 +1,22 @@
 #!/bin/bash
 
-if [[ -z "$1" ]] || [[ "$1" = "m" && -z "$2" ]] || [[ "$1" = "e" && -z "$2" ]]; then
-  echo "Usage: ./add_node.sh <node-type> {<join-node>}"
+if [[ -z "$1" ]] || [[ -z "$2" ]] || [[ "$1" = "m" && -z "$3" ]] || [[ "$1" = "e" && -z "$3" ]]; then
+  echo "Usage: ./add_node.sh <node-type> $UUID {<join-node>}"
   echo ""
   echo "Expected usage is calling add_node, which in turn adds a server (using add_server.sh)."
   echo "If adding a server node, join node determines whether it is the initial node (n) or a node joining an existing server (y)."
   exit 1
 fi
 
-# NOTE: This generates a broken pipe error from tr, which we can ignore because
-# we're purposefully terminating the pipe early once we have the characters we
-# want.
-UUID=`tr -dc 'a-z0-9' < /dev/urandom | head -c 16`
+UUID=$2
 
 if [ "$1" = "m" ]; then
   YML_FILE=yaml/pods/memory-pod.yml
-
-  # add a new memory server
-  ./add_server.sh m $UUID
 elif [ "$1" = "b" ]; then
   ./add_server.sh b NULL
 elif [ "$1" = "e" ]; then
   YML_FILE=yaml/pods/ebs-pod.yml
 
-  # add a new EBS server
-  ./add_server.sh e $UUID
- 
   # create new EBS volumes; we have 3 per server by default
   EBS_V1=`aws ec2 create-volume --availability-zone=us-east-1a --size=64 --volume-type=gp2 | grep VolumeId | cut -d\" -f4`
   aws ec2 create-tags --resources $EBS_V1 --tags Key=KubernetesCluster,Value=$NAME
@@ -35,8 +26,6 @@ elif [ "$1" = "e" ]; then
   aws ec2 create-tags --resources $EBS_V3 --tags Key=KubernetesCluster,Value=$NAME
 elif [ "$1" = "p" ]; then
   YML_FILE=yaml/pods/proxy-pod.yml
-
-  ./add_server.sh p $UUID
 else
   echo "Unrecognized node type $1. Valid node types are m (memory), e (EBS), and p (proxy)."
   exit 1
