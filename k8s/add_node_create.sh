@@ -55,6 +55,9 @@ fi
 
 # this one should never be empty
 MON_IP=`kubectl get pods -l role=monitoring -o jsonpath='{.items[*].status.podIP}' | tr -d '[:space:]'`
+while [ "$MON_IP" = "" ]; do
+  MON_IP=`kubectl get pods -l role=monitoring -o jsonpath='{.items[*].status.podIP}' | tr -d '[:space:]'`
+done
 
 if [ -z "$PROXY_IPS" ]; then
   PROXY_IPS=NONE
