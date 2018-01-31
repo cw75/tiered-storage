@@ -1,7 +1,9 @@
 #!/bin/bash
 
-if [ -z "$1" ] && [ -z "$2" ]; then
-  echo "Usage: ./add_server.sh <node-type> <uid>\nValid node types are m (memory), e (EBS), and p (proxy); valid validate options are y or n."
+if [ -z "$1" ] && [ -z "$2" ] && [ -z "$3" ]; then
+  echo "Usage: ./add_server.sh <node-type> <uid> <validate>"
+  echo"Valid node types are m (memory), e (EBS), b (benchmark), and p (proxy)"
+  echo "Valid validate options are y or n; if y, resources will be automatically added.."
   exit 1
 fi
 
@@ -13,7 +15,6 @@ elif [ "$1" = "p" ]; then
   YML_FILE=yaml/igs/proxy-ig.yml
 elif [ "$1" = "b" ]; then
   YML_FILE=yaml/igs/benchmark-ig.yml
-  $2=""
 else
   echo "Unrecognized node type $1. Valid node types are m (memory), e (EBS), b (benchmark), and p (proxy)."
 fi
@@ -25,10 +26,12 @@ echo "Adding an EC2 server to the cluster..."
 kops create -f tmp.yml > /dev/null 2>&1
 rm tmp.yml
 
-echo "Waiting for resources to be available..."
-kops update cluster ${NAME} --yes > /dev/null 2>&1
+if [ "$3" = "y" ]; then
+  echo "Waiting for resources to be available..."
+  kops update cluster ${NAME} --yes > /dev/null 2>&1
 
-kops validate cluster > /dev/null 2>&1
-while [ $? -ne 0 ]; do
   kops validate cluster > /dev/null 2>&1
-done
+  while [ $? -ne 0 ]; do
+    kops validate cluster > /dev/null 2>&1
+  done
+fi
