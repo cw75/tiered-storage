@@ -128,7 +128,8 @@ void run(unsigned thread_id) {
 
   proxy_thread_t pt = proxy_thread_t(ip, thread_id);
 
-  unsigned seed = thread_id;
+  unsigned seed = time(NULL);
+  seed += thread_id;
 
   // prepare the zmq context
   zmq::context_t context(1);

@@ -422,18 +422,32 @@ int main(int argc, char* argv[]) {
         adding_ebs_node = true;
       }*/
 
-      if (server_monitoring_epoch % 10 == 1) {
+      bool add_node_flag = false;
+
+      if (server_monitoring_epoch % 5 == 1) {
         for (auto it1 = memory_tier_occupancy.begin(); it1 != memory_tier_occupancy.end(); it1++) {
           for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
-            logger->info("memory node ip {} thread {} occupancy is {} for epoch {}", it1->first, it2->first, it2->second, server_monitoring_epoch);
+            if (it2->first != 0) {
+              logger->info("memory node ip {} thread {} occupancy is {} for epoch {}", it1->first, it2->first, it2->second, server_monitoring_epoch);
+              if (it2->second > 0.4) {
+                add_node_flag = true;
+              }
+            }
           }
         }
 
-        for (auto it1 = ebs_tier_occupancy.begin(); it1 != ebs_tier_occupancy.end(); it1++) {
+        /*for (auto it1 = ebs_tier_occupancy.begin(); it1 != ebs_tier_occupancy.end(); it1++) {
           for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
             logger->info("ebs node ip {} thread {} occupancy is {} for epoch {}", it1->first, it2->first, it2->second, server_monitoring_epoch);
           }
-        }
+        }*/
+      }
+
+      if (add_node_flag && !adding_memory_node) {
+        logger->info("trigger add memory node");
+        string shell_command = "curl -X POST http://" + management_address + "/memory";
+        system(shell_command.c_str());
+        adding_memory_node = true;
       }
 
       report_start = std::chrono::system_clock::now();
