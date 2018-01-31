@@ -15,10 +15,12 @@
 using namespace std;
 
 int main(int argc, char* argv[]) {
-  if (argc != 1) {
-    cerr << "usage:" << argv[0] << endl;
+  if (argc != 2) {
+    cerr << "usage:" << argv[0] << " <benchmark_threads>" << endl;
     return 1;
   }
+
+  unsigned thread_num = atoi(argv[1]);
 
   // read in the benchmark addresses
   vector<string> benchmark_address;
@@ -41,7 +43,7 @@ int main(int argc, char* argv[]) {
     getline(cin, command);
 
     for (auto it = benchmark_address.begin(); it != benchmark_address.end(); it++) {
-      for (unsigned tid = 0; tid < BENCHMARK_THREAD_NUM; tid++) {
+      for (unsigned tid = 0; tid < thread_num; tid++) {
         zmq_util::send_string(command, &pushers["tcp://" + *it + ":" + to_string(tid + COMMAND_BASE_PORT)]);
       }
     }
