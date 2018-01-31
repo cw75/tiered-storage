@@ -103,7 +103,7 @@ if [ $1 -ge 1 ]; then
   done
 
   for ID in ${IDS[@]}; do
-    ./add_node_create.sh m $UUID n
+    ./add_node_create.sh m $ID n
   done
 fi
 
@@ -113,7 +113,7 @@ if [ $2 -ge 1 ]; then
   ./add_node.sh e n
 
   IDS=()
-  for i in $(seq 2 $1); do
+  for i in $(seq 2 $2); do
     UUID=`tr -dc 'a-z0-9' < /dev/urandom | head -c 16`
     ./add_server_create.sh e $UUID
     IDS+=( $UUID )
@@ -127,7 +127,7 @@ if [ $2 -ge 1 ]; then
   done
 
   for ID in ${IDS[@]}; do
-    ./add_node_create.sh e $UUID n
+    ./add_node_create.sh e $ID n
   done
 fi
 
