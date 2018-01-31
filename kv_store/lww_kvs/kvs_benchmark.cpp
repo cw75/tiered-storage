@@ -60,6 +60,12 @@ void handle_request(
 }
 
 void run(unsigned thread_id) {
+
+  string log_file = "log_" + to_string(thread_id) + ".txt";
+  string logger_name = "basic_logger_" + to_string(thread_id);
+  auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
+  logger->flush_on(spdlog::level::info);
+
   unsigned seed = thread_id;
 
   // read in the proxy addresses
@@ -107,7 +113,8 @@ void run(unsigned thread_id) {
         // key is 8 bytes
         string key = string(8 - to_string(i).length(), '0') + to_string(i);
         if (i % 1000 == 0) {
-          cout << "warming up key " + key + "\n";
+          logger->info("warming up key {}", key);
+          //cout << "warming up key " + key + "\n";
         }
         handle_request(key, string(length, 'a'), requesters, proxy_address, key_address_cache, seed);
       }
@@ -150,7 +157,8 @@ void run(unsigned thread_id) {
             auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(epoch_end-epoch_start).count();
             // report throughput every report_period seconds
             if (time_elapsed >= report_period) {
-              cout << "Throughput is " + to_string((double)count / (double)time_elapsed) + " ops/seconds\n";
+              logger->info("Throughput is {} ops/seconds", to_string((double)count / (double)time_elapsed));
+              //cout << "Throughput is " + to_string((double)count / (double)time_elapsed) + " ops/seconds\n";
               count = 0;
               epoch_start = std::chrono::system_clock::now();
             }
@@ -194,7 +202,8 @@ void run(unsigned thread_id) {
           auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(epoch_end-epoch_start).count();
           // report throughput every report_period seconds
           if (time_elapsed >= report_period) {
-            cout << "Throughput is " + to_string((double)count / (double)time_elapsed) + " ops/seconds\n";
+            logger->info("Throughput is {} ops/seconds", to_string((double)count / (double)time_elapsed));
+            //cout << "Throughput is " + to_string((double)count / (double)time_elapsed) + " ops/seconds\n";
             count = 0;
             epoch_start = std::chrono::system_clock::now();
           }
@@ -208,7 +217,7 @@ void run(unsigned thread_id) {
       } else {
         cerr << "invalid experiment mode\n";
       }
-
+      logger->info("Finished");
       cout << "Finished\n";
     }
   }

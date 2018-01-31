@@ -103,7 +103,7 @@ if [ $1 -ge 1 ]; then
   done
 
   for ID in ${IDS[@]}; do
-    ./add_node_create.sh m $ID n
+    ./add_node_create.sh m $ID y
   done
 fi
 
@@ -127,7 +127,7 @@ if [ $2 -ge 1 ]; then
   done
 
   for ID in ${IDS[@]}; do
-    ./add_node_create.sh e $ID n
+    ./add_node_create.sh e $ID y
   done
 fi
 
