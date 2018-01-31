@@ -21,7 +21,8 @@ void handle_request(
     SocketCache& requesters,
     vector<string>& proxy_address,
     unordered_map<string, unordered_set<string>>& key_address_cache,
-    unsigned& seed) {
+    unsigned& seed,
+    shared_ptr<spdlog::logger> logger) {
   communication::Request req;
   if (value == "") {
     // get request
@@ -50,17 +51,25 @@ void handle_request(
   // initialize the respond string
   if (res.tuple(0).err_number() == 2) {
     // update cache and retry
-    cerr << "cache invalidation\n";
+    logger->info("cache invalidation");
+    //cerr << "cache invalidation\n";
     key_address_cache.erase(key);
     for (int i = 0; i < res.tuple(0).address_size(); i++) {
       key_address_cache[key].insert(res.tuple(0).address(i).addr());
     }
-    handle_request(key, value, requesters, proxy_address, key_address_cache, seed);
+    handle_request(key, value, requesters, proxy_address, key_address_cache, seed, logger);
   }
 }
 
 void run(unsigned thread_id) {
-  unsigned seed = thread_id;
+
+  string log_file = "log_" + to_string(thread_id) + ".txt";
+  string logger_name = "basic_logger_" + to_string(thread_id);
+  auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
+  logger->flush_on(spdlog::level::info);
+
+  unsigned seed = time(NULL);
+  seed += thread_id;
 
   // read in the proxy addresses
   vector<string> proxy_address;
@@ -107,9 +116,10 @@ void run(unsigned thread_id) {
         // key is 8 bytes
         string key = string(8 - to_string(i).length(), '0') + to_string(i);
         if (i % 1000 == 0) {
-          cout << "warming up key " + key + "\n";
+          logger->info("warming up key {}", key);
+          //cout << "warming up key " + key + "\n";
         }
-        handle_request(key, string(length, 'a'), requesters, proxy_address, key_address_cache, seed);
+        handle_request(key, string(length, 'a'), requesters, proxy_address, key_address_cache, seed, logger);
       }
 
       if (mode == "MOVEMENT") {
@@ -133,14 +143,14 @@ void run(unsigned thread_id) {
             }
             key = string(8 - key_aux.length(), '0') + key_aux;
             if (type == "G") {
-              handle_request(key, "", requesters, proxy_address, key_address_cache, seed);
+              handle_request(key, "", requesters, proxy_address, key_address_cache, seed, logger);
               count += 1;
             } else if (type == "P") {
-              handle_request(key, string(length, 'a'), requesters, proxy_address, key_address_cache, seed);
+              handle_request(key, string(length, 'a'), requesters, proxy_address, key_address_cache, seed, logger);
               count += 1;
             } else if (type == "M") {
-              handle_request(key, string(length, 'a'), requesters, proxy_address, key_address_cache, seed);
-              handle_request(key, "", requesters, proxy_address, key_address_cache, seed);
+              handle_request(key, string(length, 'a'), requesters, proxy_address, key_address_cache, seed, logger);
+              handle_request(key, "", requesters, proxy_address, key_address_cache, seed, logger);
               count += 2;
             } else {
               cerr << "invalid request type\n";
@@ -150,7 +160,8 @@ void run(unsigned thread_id) {
             auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(epoch_end-epoch_start).count();
             // report throughput every report_period seconds
             if (time_elapsed >= report_period) {
-              cout << "Throughput is " + to_string((double)count / (double)time_elapsed) + " ops/seconds\n";
+              logger->info("Throughput is {} ops/seconds", to_string((double)count / (double)time_elapsed));
+              //cout << "Throughput is " + to_string((double)count / (double)time_elapsed) + " ops/seconds\n";
               count = 0;
               epoch_start = std::chrono::system_clock::now();
             }
@@ -177,14 +188,14 @@ void run(unsigned thread_id) {
           key_aux = to_string(rand_r(&seed) % (contention) + 1);
           key = string(8 - key_aux.length(), '0') + key_aux;
           if (type == "G") {
-            handle_request(key, "", requesters, proxy_address, key_address_cache, seed);
+            handle_request(key, "", requesters, proxy_address, key_address_cache, seed, logger);
             count += 1;
           } else if (type == "P") {
-            handle_request(key, string(length, 'a'), requesters, proxy_address, key_address_cache, seed);
+            handle_request(key, string(length, 'a'), requesters, proxy_address, key_address_cache, seed, logger);
             count += 1;
           } else if (type == "M") {
-            handle_request(key, string(length, 'a'), requesters, proxy_address, key_address_cache, seed);
-            handle_request(key, "", requesters, proxy_address, key_address_cache, seed);
+            handle_request(key, string(length, 'a'), requesters, proxy_address, key_address_cache, seed, logger);
+            handle_request(key, "", requesters, proxy_address, key_address_cache, seed, logger);
             count += 2;
           } else {
             cerr << "invalid request type\n";
@@ -194,7 +205,8 @@ void run(unsigned thread_id) {
           auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(epoch_end-epoch_start).count();
           // report throughput every report_period seconds
           if (time_elapsed >= report_period) {
-            cout << "Throughput is " + to_string((double)count / (double)time_elapsed) + " ops/seconds\n";
+            logger->info("Throughput is {} ops/seconds", to_string((double)count / (double)time_elapsed));
+            //cout << "Throughput is " + to_string((double)count / (double)time_elapsed) + " ops/seconds\n";
             count = 0;
             epoch_start = std::chrono::system_clock::now();
           }
@@ -208,7 +220,7 @@ void run(unsigned thread_id) {
       } else {
         cerr << "invalid experiment mode\n";
       }
-
+      logger->info("Finished");
       cout << "Finished\n";
     }
   }

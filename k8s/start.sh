@@ -24,7 +24,7 @@ elif [ "$1" = "p" ]; then
 
   ./build/kv_store/lww_kvs/kvs_proxy
 elif [ "$1" = "b" ]; then
-  sh k8s/set_ips.sh $PROXY_IPS conf/user/proxy_address.txt
+  sh k8s/set_ips.sh "$PROXY_IPS" conf/user/proxy_address.txt
 
   ./build/kv_store/lww_kvs/kvs_benchmark
 else 

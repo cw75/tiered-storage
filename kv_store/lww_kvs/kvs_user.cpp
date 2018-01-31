@@ -101,7 +101,7 @@ int main(int argc, char* argv[]) {
   // mapping from key to a set of worker addresses
   unordered_map<string, unordered_set<string>> key_address_cache;
 
-  unsigned seed = 0;
+  unsigned seed = time(NULL);
 
   // read proxy address from the file
   string ip_line;

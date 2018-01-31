@@ -176,7 +176,8 @@ void run(unsigned thread_id, string new_node) {
   // each thread has a handle to itself
   server_thread_t wt = server_thread_t(ip, thread_id, NODE_TYPE);
 
-  unsigned seed = thread_id;
+  unsigned seed = time(NULL);
+  seed += thread_id;
 
   // prepare the zmq context
   zmq::context_t context(1);
