@@ -12,7 +12,7 @@ spec:
     image: vsreekanti/kvs
     env: 
     - name: SERVER_TYPE
-      value: m
+      value: M
     - name: PROXY_IPS
       value: PROXY_IPS_DUMMY
     - name: SEED_SERVER
@@ -21,9 +21,5 @@ spec:
       value: MON_IP_DUMMY
     - name: NEW
       value: NEW_DUMMY
-    - name: NODE_TYPE
-      value: M
-    - name: THREAD_NUM
-      value: 1
   nodeSelector:
     role: memory-UNIQUE

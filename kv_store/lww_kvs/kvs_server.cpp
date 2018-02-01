@@ -24,10 +24,10 @@
 using namespace std;
 
 // get node type
-string NODE_TYPE = string(getenv("NODE_TYPE"));
+string NODE_TYPE = string(getenv("SERVER_TYPE"));
 
-// get worker thread number
-unsigned THREAD_NUM = atoi(getenv("THREAD_NUM"));
+// worker thread number
+unsigned THREAD_NUM;
 
 pair<RC_KVS_PairLattice<string>, unsigned> process_get(const string& key, Serializer* serializer) {
   unsigned err_number = 0;
@@ -739,7 +739,16 @@ int main(int argc, char* argv[]) {
   }
 
   // debugging
-  cerr << "node type is " + NODE_TYPE + " and worker thread number is " + to_string(THREAD_NUM) + "\n";
+  cerr << "node type is " + NODE_TYPE + "\n";
+
+  if (NODE_TYPE == "M") {
+    THREAD_NUM = MEMORY_THREAD_NUM;
+  } else if (NODE_TYPE == "E") {
+    THREAD_NUM = EBS_THREAD_NUM;
+  }
+
+  // debugging
+  cerr << "worker thread number is " + to_string(THREAD_NUM) + "\n";
 
   string new_node = argv[1];
 
