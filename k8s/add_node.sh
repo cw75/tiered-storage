@@ -31,14 +31,14 @@ if [ "$1" = "m" ] || [ "$1" = "e" ]; then
 fi
 
 MEM_SERVERS=`kubectl get pods -l role=memory -o jsonpath='{.items[*].status.podIP}'`
-if [ "$1" = "m" ] && [ "$2" = "y" ]; then
+if [ "$1" = "m" ] && [ "$3" = "y" ]; then
   while [ "$MEM_SERVERS" = "" ]; do
     MEM_SERVERS=`kubectl get pods -l role=memory -o jsonpath='{.items[*].status.podIP}'`
   done
 fi
 
 EBS_SERVERS=`kubectl get pods -l role=ebs -o jsonpath='{.items[*].status.podIP}'`
-if [ "$1" = "e" ] && [ "$2" = "y" ]; then
+if [ "$1" = "e" ] && [ "$3" = "y" ]; then
   while [ "$EBS_SERVERS" = "" ]; do
     EBS_SERVERS=`kubectl get pods -l role=ebs -o jsonpath='{.items[*].status.podIP}'`
   done
