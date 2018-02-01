@@ -36,7 +36,7 @@ else
   echo $SEED_SERVER > conf/server/seed_server.txt
   echo $MON_IP > conf/server/monitoring_address.txt
 
-  if [ "$1" = "M" || "$1" = "E" ]; then
+  if [ "$1" = "M" ] || [ "$1" = "E" ]; then
     ./build/kv_store/lww_kvs/kvs_server $NEW
   else
     echo "Unrecognized server type: $1. Exiting."
