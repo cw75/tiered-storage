@@ -16,9 +16,7 @@ public:
     db = other;
   }
   V get(const K& k, unsigned& err_number) {
-    if (db.contain(k).reveal()) {
-      err_number = 0;
-    } else {
+    if (!db.contain(k).reveal()) {
       err_number = 1;
     }
     return db.at(k);

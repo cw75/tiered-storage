@@ -35,8 +35,5 @@ TARGET_LINK_LIBRARIES(kvs_proxy ${KV_LIBRARY_DEPENDENCIES} ${TBB_LIBRARIES} ${BO
 ADD_EXECUTABLE(kvs_monitoring kvs_monitoring.cpp ${KV_SRC_DEPENDENCIES} ../include/zmq_util.cc ../include/zmq_util.h ../include/socket_cache.cc ../include/socket_cache.h)
 TARGET_LINK_LIBRARIES(kvs_monitoring ${KV_LIBRARY_DEPENDENCIES})
 
-ADD_EXECUTABLE(kvs_ebs_server kvs_ebs_server.cpp ${KV_SRC_DEPENDENCIES} ../include/zmq_util.cc ../include/zmq_util.h ../include/socket_cache.cc ../include/socket_cache.h)
-TARGET_LINK_LIBRARIES(kvs_ebs_server ${KV_LIBRARY_DEPENDENCIES} ${TBB_LIBRARIES})
-
-ADD_EXECUTABLE(kvs_memory_server kvs_memory_server.cpp ${KV_SRC_DEPENDENCIES} ../include/zmq_util.cc ../include/zmq_util.h ../include/socket_cache.cc ../include/socket_cache.h)
-TARGET_LINK_LIBRARIES(kvs_memory_server ${KV_LIBRARY_DEPENDENCIES} ${TBB_LIBRARIES})
+ADD_EXECUTABLE(kvs_server kvs_server.cpp ${KV_SRC_DEPENDENCIES} ../include/zmq_util.cc ../include/zmq_util.h ../include/socket_cache.cc ../include/socket_cache.h)
+TARGET_LINK_LIBRARIES(kvs_server ${KV_LIBRARY_DEPENDENCIES} ${TBB_LIBRARIES})

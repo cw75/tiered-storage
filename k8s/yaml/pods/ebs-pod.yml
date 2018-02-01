@@ -19,6 +19,10 @@ spec:
         value: MON_IP_DUMMY
       - name: NEW
         value: NEW_DUMMY
+      - name: NODE_TYPE
+        value: E
+      - name: THREAD_NUM
+        value: 3
       volumeMounts:
       - mountPath: /ebs/ebs_1
         name: ebs1

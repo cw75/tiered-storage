@@ -23,15 +23,15 @@
 // TODO: Everything that's currently writing to cout and cerr should be replaced with a logfile.
 using namespace std;
 
-// Define node type
-#define NODE_TYPE "M"
+// get node type
+string NODE_TYPE = string(getenv("NODE_TYPE"));
 
-// Define worker thread number
-#define THREAD_NUM MEMORY_THREAD_NUM
+// get worker thread number
+unsigned THREAD_NUM = atoi(getenv("THREAD_NUM"));
 
-pair<RC_KVS_PairLattice<string>, unsigned> process_get(string key, Database* kvs) {
-  unsigned err_number;
-  auto res = kvs->get(key, err_number);
+pair<RC_KVS_PairLattice<string>, unsigned> process_get(const string& key, Serializer* serializer) {
+  unsigned err_number = 0;
+  auto res = serializer->get(key, err_number);
   // check if the value is an empty string
   if (res.reveal().value == "") {
     err_number = 1;
@@ -39,13 +39,12 @@ pair<RC_KVS_PairLattice<string>, unsigned> process_get(string key, Database* kvs
   return pair<RC_KVS_PairLattice<string>, unsigned>(res, err_number);
 }
 
-void process_put(string key,
-    unsigned long long timestamp,
-    string value,
-    Database* kvs,
+void process_put(const string& key,
+    const unsigned long long& timestamp,
+    const string& value,
+    Serializer* serializer,
     unordered_map<string, key_stat>& key_stat_map) {
-  timestamp_value_pair<string> p = timestamp_value_pair<string>(timestamp, value);
-  if (kvs->put(key, RC_KVS_PairLattice<string>(p))) {
+  if (serializer->put(key, value, timestamp)) {
     // update value size if the value is replaced
     key_stat_map[key].size_ = value.size();
   }
@@ -54,7 +53,7 @@ void process_put(string key,
 communication::Response process_request(
     communication::Request& req,
     unordered_set<string>& local_changeset,
-    Database* kvs,
+    Serializer* serializer,
     server_thread_t& wt,
     global_hash_t& global_hash_ring,
     local_hash_t& local_hash_ring,
@@ -84,7 +83,7 @@ communication::Response process_request(
         }
       } else {
         //cerr << "correct address by thread " + to_string(wt.get_tid()) + " on key " + req.tuple(i).key() + "\n";
-        auto res = process_get(key, kvs);
+        auto res = process_get(key, serializer);
         tp->set_value(res.first.reveal().value);
         tp->set_timestamp(res.first.reveal().timestamp);
         tp->set_err_number(res.second);
@@ -113,7 +112,7 @@ communication::Response process_request(
         //cerr << "correct address by thread " + to_string(wt.get_tid()) + " on key " + req.tuple(i).key() + "\n";
         auto current_time = chrono::system_clock::now();
         auto ts = generate_timestamp(chrono::duration_cast<chrono::milliseconds>(current_time-start_time).count(), wt.get_tid());
-        process_put(key, ts, req.tuple(i).value(), kvs, key_stat_map);
+        process_put(key, ts, req.tuple(i).value(), serializer, key_stat_map);
         tp->set_err_number(0);
         key_stat_map[key].access_ += 1;
         local_changeset.insert(key);
@@ -129,7 +128,7 @@ void process_gossip(communication::Request& gossip,
     local_hash_t& local_hash_ring,
     unordered_map<string, key_info>& placement,
     SocketCache& requesters,
-    Database* kvs,
+    Serializer* serializer,
     unordered_map<string, key_stat>& key_stat_map,
     vector<string>& proxy_address,
     unsigned& seed) {
@@ -137,18 +136,18 @@ void process_gossip(communication::Request& gossip,
     // first check if the thread is responsible for the key
     auto threads = get_responsible_threads(gossip.tuple(i).key(), wt.get_tid(), global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, seed);
     if (threads.find(wt) != threads.end()) {
-      process_put(gossip.tuple(i).key(), gossip.tuple(i).timestamp(), gossip.tuple(i).value(), kvs, key_stat_map);
+      process_put(gossip.tuple(i).key(), gossip.tuple(i).timestamp(), gossip.tuple(i).value(), serializer, key_stat_map);
     }
   }
 }
 
-void send_gossip(address_keyset_map& addr_keyset_map, SocketCache& pushers, Database* kvs) {
+void send_gossip(address_keyset_map& addr_keyset_map, SocketCache& pushers, Serializer* serializer) {
   unordered_map<string, communication::Request> gossip_map;
 
   for (auto map_it = addr_keyset_map.begin(); map_it != addr_keyset_map.end(); map_it++) {
     gossip_map[map_it->first].set_type("PUT");
     for (auto set_it = map_it->second.begin(); set_it != map_it->second.end(); set_it++) {
-      auto res = process_get(*set_it, kvs);
+      auto res = process_get(*set_it, serializer);
       if (res.second == 0) {
         //cerr << "gossiping key " + *set_it + " to address " + map_it->first + "\n";
         prepare_put_tuple(gossip_map[map_it->first], *set_it, res.first.reveal().value, res.first.reveal().timestamp);
@@ -265,7 +264,16 @@ void run(unsigned thread_id, string new_node) {
     }
   }
 
-  Database* kvs = new Database();
+  Serializer* serializer;
+
+  if (NODE_TYPE == "M") {
+    Database* kvs = new Database();
+    serializer = new Memory_Serializer(kvs);
+  } else if (NODE_TYPE == "E") {
+    serializer = new EBS_Serializer(thread_id);
+  } else {
+    cerr << "Invalid node type\n";
+  }
 
   // the set of changes made on this thread since the last round of gossip
   unordered_set<string> local_changeset;
@@ -390,11 +398,11 @@ void run(unsigned thread_id, string new_node) {
           }
         }
 
-        send_gossip(addr_keyset_map, pushers, kvs);
+        send_gossip(addr_keyset_map, pushers, serializer);
         // remove keys
         for (auto it = remove_set.begin(); it != remove_set.end(); it++) {
           key_stat_map.erase(*it);
-          kvs->remove(*it);
+          serializer->remove(*it);
         }
       }
       working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
@@ -468,7 +476,7 @@ void run(unsigned thread_id, string new_node) {
         query_key_address(key_req, requesters[target_address], addr_keyset_map);
       }
 
-      send_gossip(addr_keyset_map, pushers, kvs);
+      send_gossip(addr_keyset_map, pushers, serializer);
 
       zmq_util::send_string(ip + "_" + NODE_TYPE, &pushers[ack_addr]);
       working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
@@ -484,7 +492,7 @@ void run(unsigned thread_id, string new_node) {
       communication::Request req;
       req.ParseFromString(serialized_req);
       //  process request
-      auto response = process_request(req, local_changeset, kvs, wt, global_hash_ring, local_hash_ring, placement, requesters, key_stat_map, proxy_address, start_time, seed);
+      auto response = process_request(req, local_changeset, serializer, wt, global_hash_ring, local_hash_ring, placement, requesters, key_stat_map, proxy_address, start_time, seed);
       string serialized_response;
       response.SerializeToString(&serialized_response);
       //  send response
@@ -501,7 +509,7 @@ void run(unsigned thread_id, string new_node) {
       communication::Request req;
       req.ParseFromString(serialized_req);
       //  process request
-      process_request(req, local_changeset, kvs, wt, global_hash_ring, local_hash_ring, placement, requesters, key_stat_map, proxy_address, start_time, seed);
+      process_request(req, local_changeset, serializer, wt, global_hash_ring, local_hash_ring, placement, requesters, key_stat_map, proxy_address, start_time, seed);
       working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
       //cerr << "thread " + to_string(thread_id) + " leaving event 5\n";
     }
@@ -514,7 +522,7 @@ void run(unsigned thread_id, string new_node) {
       communication::Request gossip;
       gossip.ParseFromString(serialized_gossip);
       //  Process distributed gossip
-      process_gossip(gossip, wt, global_hash_ring, local_hash_ring, placement, requesters, kvs, key_stat_map, proxy_address, seed);
+      process_gossip(gossip, wt, global_hash_ring, local_hash_ring, placement, requesters, serializer, key_stat_map, proxy_address, seed);
       working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
       //cerr << "thread " + to_string(thread_id) + " leaving event 6\n";
     }
@@ -577,12 +585,12 @@ void run(unsigned thread_id, string new_node) {
           query_key_address(key_req, requesters[target_address], addr_keyset_map);
         }
 
-        send_gossip(addr_keyset_map, pushers, kvs);
+        send_gossip(addr_keyset_map, pushers, serializer);
 
         // remove keys
         for (auto it = remove_set.begin(); it != remove_set.end(); it++) {
           key_stat_map.erase(*it);
-          kvs->remove(*it);
+          serializer->remove(*it);
         }
       }
       working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
@@ -618,7 +626,7 @@ void run(unsigned thread_id, string new_node) {
           query_key_address(key_req, requesters[target_address], addr_keyset_map);
         }
 
-        send_gossip(addr_keyset_map, pushers, kvs);
+        send_gossip(addr_keyset_map, pushers, serializer);
         local_changeset.clear();
       }
       gossip_start = chrono::system_clock::now();
@@ -636,7 +644,7 @@ void run(unsigned thread_id, string new_node) {
         auto threads = get_responsible_threads(key, thread_id, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, seed);
         if (threads.find(wt) == threads.end()) {
           key_stat_map.erase(key);
-          kvs->remove(key);
+          serializer->remove(key);
         }
       }
       garbage_start = chrono::system_clock::now();
@@ -729,6 +737,9 @@ int main(int argc, char* argv[]) {
     cerr << "Invalid first argument: " << string(argv[1]) << "." << endl;
     return 1;
   }
+
+  // debugging
+  cerr << "node type is " + NODE_TYPE + " and worker thread number is " + to_string(THREAD_NUM) + "\n";
 
   string new_node = argv[1];
 

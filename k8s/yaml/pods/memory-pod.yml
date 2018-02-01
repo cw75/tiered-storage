@@ -21,5 +21,9 @@ spec:
       value: MON_IP_DUMMY
     - name: NEW
       value: NEW_DUMMY
+    - name: NODE_TYPE
+      value: M
+    - name: THREAD_NUM
+      value: 1
   nodeSelector:
     role: memory-UNIQUE
