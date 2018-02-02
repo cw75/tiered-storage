@@ -109,7 +109,7 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads_proxy(
         }
         auto tids = responsible_local(key, placement[key].local_replication_[ip], *local_hash_ring);
         for (auto iter = tids.begin(); iter != tids.end(); iter++) {
-          result.insert(server_thread_t(ip, *iter, *tp_it));
+          result.insert(server_thread_t(ip, *iter));
         }
       }
     }
@@ -166,10 +166,10 @@ void run(unsigned thread_id) {
 
   // form the local hash ring for both tiers
   for (unsigned tid = 1; tid <= MEMORY_THREAD_NUM; tid++) {
-    local_memory_hash_ring.insert(tid);
+    insert_to_hash_ring<local_hash_t>(local_memory_hash_ring, ip, tid);
   }
   for (unsigned tid = 1; tid <= EBS_THREAD_NUM; tid++) {
-    local_ebs_hash_ring.insert(tid);
+    insert_to_hash_ring<local_hash_t>(local_ebs_hash_ring, ip, tid);
   }
 
   // responsible for both node join and departure
@@ -207,9 +207,9 @@ void run(unsigned thread_id) {
         cerr << "received join\n";
         // update hash ring
         if (v[1] == "M") {
-          global_memory_hash_ring.insert(server_thread_t(v[2], 0, "M"));
+          insert_to_hash_ring<global_hash_t>(global_memory_hash_ring, v[2], 0);
         } else if (v[1] == "E") {
-          global_ebs_hash_ring.insert(server_thread_t(v[2], 0, "E"));
+          insert_to_hash_ring<global_hash_t>(global_ebs_hash_ring, v[2], 0);
         } else {
           cerr << "Invalid Tier info\n";
         }
@@ -219,9 +219,9 @@ void run(unsigned thread_id) {
         cerr << "received depart\n";
         // update hash ring
         if (v[1] == "M") {
-          global_memory_hash_ring.erase(server_thread_t(v[2], 0, "M"));
+          remove_from_hash_ring<global_hash_t>(global_memory_hash_ring, v[2], 0);
         } else if (v[1] == "E") {
-          global_ebs_hash_ring.erase(server_thread_t(v[2], 0, "E"));
+          remove_from_hash_ring<global_hash_t>(global_ebs_hash_ring, v[2], 0);
         } else {
           cerr << "Invalid Tier info\n";
         }

@@ -41,6 +41,9 @@ using namespace std;
 // Define the number of benchmark threads
 #define BENCHMARK_THREAD_NUM 16
 
+// Define the number of virtual thread per each physical thread
+#define VIRTUAL_THREAD_NUM 3
+
 // Define port offset
 // used by servers
 #define SERVER_PORT 6560
@@ -71,10 +74,11 @@ using namespace std;
 class server_thread_t {
   string ip_;
   unsigned tid_;
-  string tier_;
+  unsigned virtual_num_;
 public:
   server_thread_t() {}
-  server_thread_t(string ip, unsigned tid, string tier): ip_(ip), tid_(tid), tier_(tier) {}
+  server_thread_t(string ip, unsigned tid): ip_(ip), tid_(tid) {}
+  server_thread_t(string ip, unsigned tid, unsigned virtual_num): ip_(ip), tid_(tid), virtual_num_(virtual_num) {}
 
   string get_ip() const {
     return ip_;
@@ -82,11 +86,14 @@ public:
   unsigned get_tid() const {
     return tid_;
   }
-  string get_tier() const {
-    return tier_;
+  unsigned get_virtual_num() const {
+    return virtual_num_;
   }
   string get_id() const {
     return ip_ + ":" + to_string(SERVER_PORT + tid_);
+  }
+  string get_virtual_id() const {
+    return ip_ + ":" + to_string(SERVER_PORT + tid_) + "_" + to_string(virtual_num_);
   }
   string get_seed_connect_addr() const {
     return "tcp://" + ip_ + ":" + to_string(tid_ + SEED_BASE_PORT);
@@ -138,13 +145,13 @@ public:
   }
 };
 
-bool operator<(const server_thread_t& l, const server_thread_t& r) {
+/*bool operator<(const server_thread_t& l, const server_thread_t& r) {
   if (l.get_id().compare(r.get_id()) == 0) {
     return false;
   } else {
     return true;
   }
-}
+}*/
 
 bool operator==(const server_thread_t& l, const server_thread_t& r) {
   if (l.get_id().compare(r.get_id()) == 0) {
@@ -163,7 +170,7 @@ struct thread_hash {
 struct global_hasher {
   uint32_t operator()(const server_thread_t& th) {
     boost::crc_32_type ret;
-    ret.process_bytes(th.get_id().c_str(), th.get_id().size());
+    ret.process_bytes(th.get_virtual_id().c_str(), th.get_virtual_id().size());
     return ret.checksum();
   }
   uint32_t operator()(const string& key) {
@@ -175,8 +182,8 @@ struct global_hasher {
 };
 
 struct local_hasher {
-  hash<string>::result_type operator()(const unsigned& tid) {
-    return hash<string>{}(to_string(tid));
+  hash<string>::result_type operator()(const server_thread_t& th) {
+    return hash<string>{}(to_string(th.get_tid()) + "_" + to_string(th.get_virtual_num()));
   }
   hash<string>::result_type operator()(const string& key) {
     return hash<string>{}(key);
@@ -254,7 +261,7 @@ struct key_info {
 };
 
 typedef consistent_hash_map<server_thread_t, global_hasher> global_hash_t;
-typedef consistent_hash_map<unsigned, local_hasher> local_hash_t;
+typedef consistent_hash_map<server_thread_t, local_hasher> local_hash_t;
 
 void split(const string &s, char delim, vector<string> &elems) {
   stringstream ss(s);
@@ -287,11 +294,15 @@ unordered_set<server_thread_t, thread_hash> responsible_global(string key, unsig
   unordered_set<server_thread_t, thread_hash> threads;
   auto pos = global_hash_ring.find(key);
   if (pos != global_hash_ring.end()) {
-    // iterate once for every value in the replication factor
-    for (unsigned i = 0; i < global_rep; i++) {
-      threads.insert(pos->second);
+    // iterate for every value in the replication factor
+    unsigned i = 0;
+    while (i < global_rep) {
+      bool succeed = threads.insert(pos->second).second;
       if (++pos == global_hash_ring.end()) {
         pos = global_hash_ring.begin();
+      }
+      if (succeed) {
+        i += 1;
       }
     }
   }
@@ -304,34 +315,20 @@ unordered_set<unsigned> responsible_local(string key, unsigned local_rep, local_
   unordered_set<unsigned> tids;
   auto pos = local_hash_ring.find(key);
   if (pos != local_hash_ring.end()) {
-    // iterate once for every value in the replication factor
-    for (unsigned i = 0; i < local_rep; i++) {
-      tids.insert(pos->second);
+    // iterate for every value in the replication factor
+    unsigned i = 0;
+    while (i < local_rep) {
+      bool succeed = tids.insert(pos->second.get_tid()).second;
       if (++pos == local_hash_ring.end()) {
         pos = local_hash_ring.begin();
+      }
+      if (succeed) {
+        i += 1;
       }
     }
   }
   return tids;
 }
-
-// given a key, its replication factor, the hash ring, and a thread
-// return if the thread is responsible for the key
-/*template<typename H>
-bool check_responsible_aux(string key, unsigned rep, consistent_hash_map<server_thread_t,H>& hash_ring, server_thread_t& th) {
-  bool result = false;
-  auto pos = hash_ring.find(key);
-  // iterate once for every value in the replication factor
-  for (unsigned i = 0; i < rep; i++) {
-    if (pos.second == th) {
-      result = true;
-    }
-    if (++pos == hash_ring.end()) {
-      pos = hash_ring.begin();
-    }
-  }
-  return result;
-}*/
 
 void prepare_get_tuple(communication::Request& req, string key) {
   communication::Request_Tuple* tp = req.add_tuple();
@@ -389,6 +386,22 @@ proxy_thread_t get_random_proxy_thread(vector<string>& proxy_address, unsigned& 
   string proxy_ip = proxy_address[rand_r(&seed) % proxy_address.size()];
   unsigned tid = rand_r(&seed) % PROXY_THREAD_NUM;
   return proxy_thread_t(proxy_ip, tid);
+}
+
+template<typename H>
+bool insert_to_hash_ring(H& hash_ring, string ip, unsigned tid) {
+  bool succeed;
+  for (unsigned virtual_num = 0; virtual_num < VIRTUAL_THREAD_NUM; virtual_num++) {
+    succeed = hash_ring.insert(server_thread_t(ip, tid, virtual_num)).second;
+  }
+  return succeed;
+}
+
+template<typename H>
+void remove_from_hash_ring(H& hash_ring, string ip, unsigned tid) {
+  for (unsigned virtual_num = 0; virtual_num < VIRTUAL_THREAD_NUM; virtual_num++) {
+    hash_ring.erase(server_thread_t(ip, tid, virtual_num));
+  }
 }
 
 #endif

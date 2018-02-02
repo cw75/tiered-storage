@@ -143,77 +143,6 @@ unsigned long long generate_timestamp(unsigned long long time, unsigned tid) {
     return time * pow + tid;        
 }
 
-// contact target_node_address to get the worker address that's responsible for the keys
-/*template<typename T>
-communication::Key_Response get_key_address(string target_node_address, string source_tier, unordered_set<string> keys, SocketCache& requesters, unordered_map<string, T> placement) {
-  // form key address request
-  communication::Key_Request req;
-  req.set_sender("server");
-  if (source_tier == "M") {
-    req.set_source_tier("M");
-  } else if (source_tier == "E") {
-    req.set_source_tier("E");
-  }
-  for (auto it = keys.begin(); it != keys.end(); it++) {
-    communication::Key_Request_Tuple* tp = req.add_tuple();
-    tp->set_key(*it);
-    tp->set_global_memory_replication(placement[*it].global_memory_replication_);
-    tp->set_global_ebs_replication(placement[*it].global_ebs_replication_);
-  }
-  string key_req;
-  req.SerializeToString(&key_req);
-  // send key address request
-  zmq_util::send_string(key_req, &requesters[target_node_address]);
-  // receive key address response
-  string key_res = zmq_util::recv_string(&requesters[target_node_address]);
-
-  communication::Key_Response resp;
-  resp.ParseFromString(key_res);
-  return resp;
-}*/
-
-// check if a thread is responsible for storing a key
-/*bool check_responsible(
-    string key,
-    server_thread_t& mt,
-    server_thread_t& wt,
-    global_hash_t& global_hash_ring,
-    local_hash_t& local_hash_ring,
-    unordered_map<string, key_info>& placement,
-    SocketCache& requesters,
-    string node_type) {
-  if (wt.get_tid() == 0) {
-    if (node_type == "M") {
-      return check_responsible_aux<global_hasher>(key, METADATA_MEMORY_REPLICATION_FACTOR, global_hash_ring, wt);
-    } else {
-      return false;
-    }
-  } else {
-    bool result = false;
-    if (placement.find(key) == placement.end()) {
-      get_global_replication_factor(key, global_hash_ring, placement, requesters, node_type);
-    }
-    unsigned rep;
-    if (node_type == "M") {
-      rep = placement[key].global_memory_replication_;
-    } else {
-      rep = placement[key].global_ebs_replication_;
-    }
-
-    unordered_set<server_thread_t, thread_hash> result;
-
-    if (check_responsible_aux<global_hasher>(key, rep, global_hash_ring, mt)) {
-      if (placement[key].local_replication_.find(mt.get_ip()) == placement[key].local_replication_.end()) {
-        get_local_replication_factor(key, mt.get_ip(), global_hash_ring, placement, requesters, node_type);
-      }
-      if (check_responsible_aux<local_hasher>(key, placement[key].local_replication_[mt.get_ip()], local_hash_ring, wt)) {
-        result = true;
-      }
-    }
-    return result;
-  }
-}*/
-
 void get_global_replication_factor(
     string key,
     global_hash_t& global_hash_ring,
@@ -315,7 +244,7 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads(
       }
       auto tids = responsible_local(key, placement[key].local_replication_[ip], local_hash_ring);
       for (auto iter = tids.begin(); iter != tids.end(); iter++) {
-        result.insert(server_thread_t(ip, *iter, node_type));
+        result.insert(server_thread_t(ip, *iter));
       }
     }
     return result;
@@ -326,9 +255,8 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads(
 void query_key_address(communication::Key_Request& key_req, zmq::socket_t& socket, address_keyset_map& addr_keyset_map) {
   auto key_response = send_request<communication::Key_Request, communication::Key_Response>(key_req, socket);
   for (int i = 0; i < key_response.tuple_size(); i++) {
-    string key = key_response.tuple(i).key();
     for (int j = 0; j < key_response.tuple(i).address_size(); j++) {
-      addr_keyset_map[key_response.tuple(i).address(j).addr()].insert(key);
+      addr_keyset_map[key_response.tuple(i).address(j).addr()].insert(key_response.tuple(i).key());
     }
   }
 }

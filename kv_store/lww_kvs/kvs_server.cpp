@@ -170,10 +170,8 @@ void run(unsigned thread_id, string new_node) {
 
   string ip = get_ip("server");
 
-  // every thread has a handle to the master thread
-  server_thread_t mt = server_thread_t(ip, 0, NODE_TYPE);
   // each thread has a handle to itself
-  server_thread_t wt = server_thread_t(ip, thread_id, NODE_TYPE);
+  server_thread_t wt = server_thread_t(ip, thread_id);
 
   unsigned seed = time(NULL);
   seed += thread_id;
@@ -212,7 +210,7 @@ void run(unsigned thread_id, string new_node) {
   // form the global hash ring
   if (new_node == "n") {
     // add itself to the ring
-    global_hash_ring.insert(mt);
+    insert_to_hash_ring<global_hash_t>(global_hash_ring, ip, 0);
   } else { // get server address from the seed node
     address.open("conf/server/seed_server.txt");
     getline(address, ip_line);
@@ -222,37 +220,39 @@ void run(unsigned thread_id, string new_node) {
 
     // request server addresses from the seed node
     zmq::socket_t addr_requester(context, ZMQ_REQ);
-    addr_requester.connect(server_thread_t(ip_line, 0, NODE_TYPE).get_seed_connect_addr());
+    addr_requester.connect(server_thread_t(ip_line, 0).get_seed_connect_addr());
     zmq_util::send_string("join", &addr_requester);
 
     // receive and add all the addresses that seed node sent
     vector<string> addresses;
     split(zmq_util::recv_string(&addr_requester), '|', addresses);
     for (auto it = addresses.begin(); it != addresses.end(); it++) {
-      global_hash_ring.insert(server_thread_t(*it, 0, NODE_TYPE));
+      insert_to_hash_ring<global_hash_t>(global_hash_ring, *it, 0);
     }
 
     // add itself to global hash ring
-    global_hash_ring.insert(mt);
+    insert_to_hash_ring<global_hash_t>(global_hash_ring, ip, 0);
   }
 
   // form the local hash ring
   for (unsigned tid = 1; tid <= THREAD_NUM; tid++) {
-    local_hash_ring.insert(tid);
+    insert_to_hash_ring<local_hash_t>(local_hash_ring, ip, tid);
   }
 
   // the metadata thread notify other servers that it has joined
   if (thread_id == 0 && new_node == "y") {
+    unordered_set<string> observed_ip;
     for (auto it = global_hash_ring.begin(); it != global_hash_ring.end(); it++) {
-      if (it->second.get_ip().compare(ip) != 0) {
+      if (it->second.get_ip().compare(ip) != 0 && observed_ip.find(it->second.get_ip()) == observed_ip.end()) {
         zmq_util::send_string(ip, &pushers[(it->second).get_node_join_connect_addr()]);
+        observed_ip.insert(it->second.get_ip());
       }
     }
   }
 
   // the metadata thread notify proxies and monitoring node that it has joined
   if (thread_id == 0) {
-    string msg = "join:" + string(NODE_TYPE) + ":" + ip;
+    string msg = "join:" + NODE_TYPE + ":" + ip;
     // notify proxies that this node has joined the service
     for (auto it = proxy_address.begin(); it != proxy_address.end(); it++) {
       zmq_util::send_string(msg, &pushers[proxy_thread_t(*it, 0).get_notify_connect_addr()]);
@@ -342,8 +342,12 @@ void run(unsigned thread_id, string new_node) {
       zmq_util::recv_string(&addr_responder);
 
       string addresses;
+      unordered_set<string> observed_ip;
       for (auto it = global_hash_ring.begin(); it != global_hash_ring.end(); it++) {
-        addresses += (it->second.get_ip() + "|");
+        if (observed_ip.find(it->second.get_ip()) == observed_ip.end()) {
+          addresses += (it->second.get_ip() + "|");
+          observed_ip.insert(it->second.get_ip());
+        }
       }
 
       // remove the trailing pipe
@@ -359,26 +363,28 @@ void run(unsigned thread_id, string new_node) {
       auto work_start = chrono::system_clock::now();
       string new_server_ip = zmq_util::recv_string(&join_puller);
       logger->info("Received a node join. New node is {}", new_server_ip);
-      server_thread_t new_node = server_thread_t(new_server_ip, 0, NODE_TYPE);
       // update global hash ring
-      bool inserted = global_hash_ring.insert(new_node).second;
+      bool inserted = insert_to_hash_ring<global_hash_t>(global_hash_ring, new_server_ip, 0);
 
       if (inserted) {
-        // only relevant for the metadata thread
+        // only relevant to the metadata thread
         if (thread_id == 0) {
           // gossip the new node address between server nodes to ensure consistency
+          unordered_set<string> observed_ip;
           for (auto it = global_hash_ring.begin(); it != global_hash_ring.end(); it++) {
-            if (it->second.get_ip().compare(ip) != 0 && it->second.get_ip().compare(new_server_ip) != 0) {
+            if (it->second.get_ip().compare(ip) != 0 && it->second.get_ip().compare(new_server_ip) != 0 && observed_ip.find(it->second.get_ip()) == observed_ip.end()) {
               // if the node is not myself and not the newly joined node, send the ip of the newly joined node
               zmq_util::send_string(new_server_ip, &pushers[(it->second).get_node_join_connect_addr()]);
-            } else if (it->second.get_ip().compare(new_server_ip) == 0) {
+              observed_ip.insert(it->second.get_ip());
+            } else if (it->second.get_ip().compare(new_server_ip) == 0 && observed_ip.find(it->second.get_ip()) == observed_ip.end()) {
               // if the node is the newly joined node, send my ip
               zmq_util::send_string(ip, &pushers[(it->second).get_node_join_connect_addr()]);
+              observed_ip.insert(it->second.get_ip());
             }
           }
           // tell all worker threads about the new node join
           for (unsigned tid = 1; tid <= THREAD_NUM; tid++) {
-            zmq_util::send_string(new_server_ip, &pushers[server_thread_t(ip, tid, NODE_TYPE).get_node_join_connect_addr()]);
+            zmq_util::send_string(new_server_ip, &pushers[server_thread_t(ip, tid).get_node_join_connect_addr()]);
           }
         }
         // map from worker address to a set of keys
@@ -391,7 +397,7 @@ void run(unsigned thread_id, string new_node) {
           if (threads.find(wt) == threads.end()) {
             remove_set.insert(key);
             for (auto iter = threads.begin(); iter != threads.end(); iter++) {
-              if (iter->get_ip() == new_node.get_ip()) {
+              if (iter->get_ip() == new_server_ip) {
                 addr_keyset_map[iter->get_gossip_connect_addr()].insert(key);
               }
             }
@@ -416,11 +422,11 @@ void run(unsigned thread_id, string new_node) {
       string departing_server_ip = zmq_util::recv_string(&depart_puller);
       logger->info("Received departure for node {}", departing_server_ip);
       // update hash ring
-      global_hash_ring.erase(server_thread_t(departing_server_ip, 0, NODE_TYPE));
+      remove_from_hash_ring<global_hash_t>(global_hash_ring, departing_server_ip, 0);
       if (thread_id == 0) {
         // tell all worker threads about the node departure
         for (unsigned tid = 1; tid <= THREAD_NUM; tid++) {
-          zmq_util::send_string(departing_server_ip, &pushers[server_thread_t(ip, tid, NODE_TYPE).get_node_depart_connect_addr()]);
+          zmq_util::send_string(departing_server_ip, &pushers[server_thread_t(ip, tid).get_node_depart_connect_addr()]);
         }
       }
       working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
@@ -433,13 +439,17 @@ void run(unsigned thread_id, string new_node) {
       auto work_start = chrono::system_clock::now();
       string ack_addr = zmq_util::recv_string(&self_depart_puller);
       logger->info("Node is departing");
-      global_hash_ring.erase(mt);
+      remove_from_hash_ring<global_hash_t>(global_hash_ring, ip, 0);
       if (thread_id == 0) {
         // tell other metadata thread that the node is departing
+        unordered_set<string> observed_ip;
         for (auto it = global_hash_ring.begin(); it != global_hash_ring.end(); it++) {
-          zmq_util::send_string(ip, &pushers[(it->second).get_node_depart_connect_addr()]);
+          if (observed_ip.find(it->second.get_ip()) == observed_ip.end()) {
+            zmq_util::send_string(ip, &pushers[(it->second).get_node_depart_connect_addr()]);
+            observed_ip.insert(it->second.get_ip());
+          }
         }
-        string msg = "depart:" + string(NODE_TYPE) + ":" + ip;
+        string msg = "depart:" + NODE_TYPE + ":" + ip;
         // notify proxies
         for (auto it = proxy_address.begin(); it != proxy_address.end(); it++) {
           zmq_util::send_string(msg, &pushers[proxy_thread_t(*it, 0).get_notify_connect_addr()]);
@@ -450,7 +460,7 @@ void run(unsigned thread_id, string new_node) {
         }
         // tell all worker threads about the self departure
         for (unsigned tid = 1; tid <= THREAD_NUM; tid++) {
-          zmq_util::send_string(ack_addr, &pushers[server_thread_t(ip, tid, NODE_TYPE).get_self_depart_connect_addr()]);
+          zmq_util::send_string(ack_addr, &pushers[server_thread_t(ip, tid).get_self_depart_connect_addr()]);
         }
       }
 
@@ -537,7 +547,7 @@ void run(unsigned thread_id, string new_node) {
       if (thread_id == 0) {
         // tell all worker threads about the replication factor change
         for (unsigned tid = 1; tid <= THREAD_NUM; tid++) {
-          zmq_util::send_string(serialized_req, &pushers[server_thread_t(ip, tid, NODE_TYPE).get_replication_factor_connect_addr()]);
+          zmq_util::send_string(serialized_req, &pushers[server_thread_t(ip, tid).get_replication_factor_connect_addr()]);
         }
       } else {
         // rep factor change is only relevant to worker threads
@@ -581,9 +591,7 @@ void run(unsigned thread_id, string new_node) {
 
         // query proxy for addresses on the other tier
         string target_address = get_random_proxy_thread(proxy_address, seed).get_key_address_connect_addr();
-        if (thread_id != 0) {
-          query_key_address(key_req, requesters[target_address], addr_keyset_map);
-        }
+        query_key_address(key_req, requesters[target_address], addr_keyset_map);
 
         send_gossip(addr_keyset_map, pushers, serializer);
 
@@ -635,17 +643,22 @@ void run(unsigned thread_id, string new_node) {
     }
 
     garbage_end = chrono::system_clock::now();
+    // this should be for debugging only!
     if (chrono::duration_cast<chrono::microseconds>(garbage_end-garbage_start).count() >= GARBAGE_COLLECT_THRESHOLD) {
       //cerr << "thread " + to_string(thread_id) + " entering event gc\n";
       auto work_start = chrono::system_clock::now();
+      unordered_set<string> remove_set;
       // perform garbage collection
       for (auto it = key_stat_map.begin(); it != key_stat_map.end(); it++) {
         string key = it->first;
         auto threads = get_responsible_threads(key, thread_id, global_hash_ring, local_hash_ring, placement, requesters, NODE_TYPE, proxy_address, seed);
         if (threads.find(wt) == threads.end()) {
-          key_stat_map.erase(key);
-          serializer->remove(key);
+          remove_set.insert(key);
         }
+      }
+      for (auto it = remove_set.begin(); it != remove_set.end(); it++) {
+        key_stat_map.erase(*it);
+        serializer->remove(*it);
       }
       garbage_start = chrono::system_clock::now();
       working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
