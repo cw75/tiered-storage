@@ -477,8 +477,11 @@ void run(unsigned thread_id, string new_node) {
         for (auto iter = threads.begin(); iter != threads.end(); iter++) {
           addr_keyset_map[iter->get_gossip_connect_addr()].insert(key);
         }
-        communication::Key_Request_Tuple* tp = key_req.add_tuple();
-        tp->set_key(key);
+        if ((NODE_TYPE == "M" && thread_id != 0 && placement[key].global_ebs_replication_ != 0)
+            || (NODE_TYPE == "E" && thread_id != 0 && placement[key].global_memory_replication_ != 0)) {
+          communication::Key_Request_Tuple* tp = key_req.add_tuple();
+          tp->set_key(key);
+        }
       }
       // query proxy for addresses on the other tier
       string target_address = get_random_proxy_thread(proxy_address, seed).get_key_address_connect_addr();
@@ -584,8 +587,11 @@ void run(unsigned thread_id, string new_node) {
                 addr_keyset_map[it->get_gossip_connect_addr()].insert(key);
               }
             }
-            communication::Key_Request_Tuple* tp = key_req.add_tuple();
-            tp->set_key(key);
+            if ((NODE_TYPE == "M" && placement[key].global_ebs_replication_ != 0)
+                || (NODE_TYPE == "E" && placement[key].global_memory_replication_ != 0)) {
+              communication::Key_Request_Tuple* tp = key_req.add_tuple();
+              tp->set_key(key);
+            }
           }
         }
 
@@ -624,8 +630,11 @@ void run(unsigned thread_id, string new_node) {
               addr_keyset_map[iter->get_gossip_connect_addr()].insert(*it);
             }
           }
-          communication::Key_Request_Tuple* tp = key_req.add_tuple();
-          tp->set_key(*it);
+          if ((NODE_TYPE == "M" && thread_id != 0 && placement[*it].global_ebs_replication_ != 0)
+              || (NODE_TYPE == "E" && thread_id != 0 && placement[*it].global_memory_replication_ != 0)) {
+            communication::Key_Request_Tuple* tp = key_req.add_tuple();
+            tp->set_key(*it);
+          }
         }
 
         // query proxy for addresses on the other tier
