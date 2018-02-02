@@ -25,7 +25,7 @@ using namespace std;
 
 // Define the default replication factor for the data
 #define DEFAULT_GLOBAL_MEMORY_REPLICATION 2
-#define DEFAULT_GLOBAL_EBS_REPLICATION 1
+#define DEFAULT_GLOBAL_EBS_REPLICATION 0
 // Define the default local replication factor
 #define DEFAULT_LOCAL_REPLICATION 1
 
@@ -42,7 +42,7 @@ using namespace std;
 #define BENCHMARK_THREAD_NUM 16
 
 // Define the number of virtual thread per each physical thread
-#define VIRTUAL_THREAD_NUM 3
+#define VIRTUAL_THREAD_NUM 1
 
 // Define port offset
 // used by servers

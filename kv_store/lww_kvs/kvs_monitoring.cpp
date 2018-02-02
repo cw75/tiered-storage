@@ -394,6 +394,12 @@ int main(int argc, char* argv[]) {
         if (average_memory_consumption != average_memory_consumption_new) {
           logger->info("avg memory consumption for epoch {} is {:03.3f}", server_monitoring_epoch, average_memory_consumption_new);
           average_memory_consumption = average_memory_consumption_new;
+          for (auto it1 = memory_tier_storage.begin(); it1 != memory_tier_storage.end(); it1++) {
+            for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
+              logger->info("memory node ip {} thread {} consumption is {} for epoch {}", it1->first, it2->first, it2->second, server_monitoring_epoch);
+            }
+            memory_node_count += 1;
+          }
         }
       }
 
