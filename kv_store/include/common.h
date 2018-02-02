@@ -42,7 +42,7 @@ using namespace std;
 #define BENCHMARK_THREAD_NUM 16
 
 // Define the number of virtual thread per each physical thread
-#define VIRTUAL_THREAD_NUM 1
+#define VIRTUAL_THREAD_NUM 3
 
 // Define port offset
 // used by servers
