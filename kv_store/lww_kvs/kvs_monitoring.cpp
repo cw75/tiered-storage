@@ -19,7 +19,7 @@ using namespace std;
 using address_t = string;
 
 void prepare_metadata_get_request(
-    string key,
+    string& key,
     global_hash_t& global_memory_hash_ring,
     unordered_map<address_t, communication::Request>& addr_request_map) {
   auto threads = responsible_global(key, METADATA_MEMORY_REPLICATION_FACTOR, global_memory_hash_ring);
@@ -33,8 +33,8 @@ void prepare_metadata_get_request(
 }
 
 void prepare_metadata_put_request(
-    string key,
-    string value,
+    string& key,
+    string& value,
     global_hash_t& global_memory_hash_ring,
     unordered_map<address_t, communication::Request>& addr_request_map) {
   auto threads = responsible_global(key, METADATA_MEMORY_REPLICATION_FACTOR, global_memory_hash_ring);
@@ -104,6 +104,8 @@ void change_replication_factor(
       prepare_replication_factor_update(key, replication_factor_map, server_iter->get_replication_factor_connect_addr(), placement, it->second.local_replication_);
     }
 
+    //TODO: check the local_replication map again in case we have missing entry for global rep factors?
+
     // form placement requests for proxy nodes
     for (auto proxy_iter = proxy_address.begin(); proxy_iter != proxy_address.end(); proxy_iter++) {
       prepare_replication_factor_update(key, replication_factor_map, proxy_thread_t(*proxy_iter, 0).get_replication_factor_connect_addr(), placement, it->second.local_replication_);
@@ -120,14 +122,19 @@ void change_replication_factor(
   // store the new replication factor in storage servers
   unordered_map<address_t, communication::Request> addr_request_map;
   for (auto it = requests.begin(); it != requests.end(); it++) {
-    string key_global = it->first + "_replication";
-    string global_replication_value = to_string(it->second.global_memory_replication_) + ":" + to_string(it->second.global_ebs_replication_);
-    prepare_metadata_put_request(key_global, global_replication_value, global_memory_hash_ring, addr_request_map);
-    for (auto iter = it->second.local_replication_.begin(); iter != it->second.local_replication_.end(); iter++) {
-      string key_local = it->first + "_" + iter->first + "_replication";
-      string local_replication_value = to_string(iter->second);
-      prepare_metadata_put_request(key_local, local_replication_value, global_memory_hash_ring, addr_request_map);
+    string key = it->first;
+    communication::Replication_Factor rep_data;
+    rep_data.set_global_memory_replication(placement[key].global_memory_replication_);
+    rep_data.set_global_ebs_replication(placement[key].global_ebs_replication_);
+    for (auto iter = placement[key].local_replication_.begin(); iter != placement[key].local_replication_.end(); iter++) {
+      communication::Replication_Factor_Local* l = rep_data.add_local();
+      l->set_ip(iter->first);
+      l->set_local_replication(iter->second);
     }
+    string rep_key = key + "_replication";
+    string serialized_rep_data;
+    rep_data.SerializeToString(&serialized_rep_data);
+    prepare_metadata_put_request(rep_key, serialized_rep_data, global_memory_hash_ring, addr_request_map);
   }
 
   for (auto it = addr_request_map.begin(); it != addr_request_map.end(); it++) {

@@ -143,8 +143,8 @@ unsigned long long generate_timestamp(unsigned long long time, unsigned tid) {
     return time * pow + tid;        
 }
 
-void get_global_replication_factor(
-    string key,
+void get_replication_factor(
+    string& key,
     global_hash_t& global_hash_ring,
     unordered_map<string, key_info>& placement,
     SocketCache& requesters,
@@ -165,42 +165,16 @@ void get_global_replication_factor(
   prepare_get_tuple(req, key + "_replication");
   auto response = send_request<communication::Request, communication::Response>(req, requesters[target_address]);
   if (response.tuple(0).err_number() == 0) {
-    vector<string> rep_factors;
-    split(response.tuple(0).value(), ':', rep_factors);
-    placement[key] = key_info(stoi(rep_factors[0]), stoi(rep_factors[1]));
+    communication::Replication_Factor rep_data;
+    rep_data.ParseFromString(response.tuple(0).value());
+    placement[key].global_memory_replication_ = rep_data.global_memory_replication();
+    placement[key].global_ebs_replication_ = rep_data.global_ebs_replication();
+    for (int i = 0; i < rep_data.local_size(); i++) {
+      placement[key].local_replication_[rep_data.local(i).ip()] = rep_data.local(i).local_replication();
+    }
   } else {
     // TODO: ADD RETRY (hash ring inconsistency issue)
     placement[key] = key_info(DEFAULT_GLOBAL_MEMORY_REPLICATION, DEFAULT_GLOBAL_EBS_REPLICATION);
-  }
-}
-
-void get_local_replication_factor(
-    string key,
-    string ip,
-    global_hash_t& global_hash_ring,
-    unordered_map<string, key_info>& placement,
-    SocketCache& requesters,
-    string node_type,
-    vector<string>& proxy_address,
-    unsigned& seed) {
-  string target_address;
-  if (node_type == "M") {
-    auto threads = responsible_global(key + "_" + ip + "_replication", METADATA_MEMORY_REPLICATION_FACTOR, global_hash_ring);
-    target_address = next(begin(threads), rand_r(&seed) % threads.size())->get_request_handling_connect_addr();
-  } else {
-    string target_proxy_address = get_random_proxy_thread(proxy_address, seed).get_key_address_connect_addr();
-    auto addresses = get_address_from_other_tier(key + "_" + ip + "_replication", requesters[target_proxy_address], node_type, 0, "RH");
-    target_address = addresses[rand_r(&seed) % addresses.size()];
-  }
-  communication::Request req;
-  req.set_type("GET");
-  prepare_get_tuple(req, key + "_" + ip + "_replication");
-  auto response = send_request<communication::Request, communication::Response>(req, requesters[target_address]);
-  if (response.tuple(0).err_number() == 0) {
-    placement[key].local_replication_[ip] = stoi(response.tuple(0).value());
-  } else {
-    // TODO: ADD RETRY (hash ring inconsistency issue)
-    placement[key].local_replication_[ip] = DEFAULT_LOCAL_REPLICATION;
   }
 }
 
@@ -225,7 +199,7 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads(
     }
   } else {
     if (placement.find(key) == placement.end()) {
-      get_global_replication_factor(key, global_hash_ring, placement, requesters, node_type, proxy_address, seed);
+      get_replication_factor(key, global_hash_ring, placement, requesters, node_type, proxy_address, seed);
     }
     unsigned rep;
     if (node_type == "M") {
@@ -240,7 +214,7 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads(
     for (auto it = mts.begin(); it != mts.end(); it++) {
       string ip = it->get_ip();
       if (placement[key].local_replication_.find(ip) == placement[key].local_replication_.end()) {
-        get_local_replication_factor(key, ip, global_hash_ring, placement, requesters, node_type, proxy_address, seed);
+        placement[key].local_replication_[ip] = DEFAULT_LOCAL_REPLICATION;
       }
       auto tids = responsible_local(key, placement[key].local_replication_[ip], local_hash_ring);
       for (auto iter = tids.begin(); iter != tids.end(); iter++) {

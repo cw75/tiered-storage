@@ -20,8 +20,8 @@
 
 using namespace std;
 
-void get_global_replication_factor_proxy(
-    string key,
+void get_replication_factor_proxy(
+    string& key,
     global_hash_t& global_memory_hash_ring,
     unordered_map<string, key_info>& placement,
     SocketCache& requesters,
@@ -34,36 +34,39 @@ void get_global_replication_factor_proxy(
   prepare_get_tuple(req, key + "_replication");
   auto response = send_request<communication::Request, communication::Response>(req, requesters[target_address]);
   if (response.tuple(0).err_number() == 0) {
-    vector<string> rep_factors;
-    split(response.tuple(0).value(), ':', rep_factors);
-    placement[key] = key_info(stoi(rep_factors[0]), stoi(rep_factors[1]));
+    communication::Replication_Factor rep_data;
+    rep_data.ParseFromString(response.tuple(0).value());
+    placement[key].global_memory_replication_ = rep_data.global_memory_replication();
+    placement[key].global_ebs_replication_ = rep_data.global_ebs_replication();
+    for (int i = 0; i < rep_data.local_size(); i++) {
+      placement[key].local_replication_[rep_data.local(i).ip()] = rep_data.local(i).local_replication();
+    }
   } else {
     // TODO: ADD RETRY (hash ring inconsistency issue)
     placement[key] = key_info(DEFAULT_GLOBAL_MEMORY_REPLICATION, DEFAULT_GLOBAL_EBS_REPLICATION);
   }
 }
 
-void get_local_replication_factor_proxy(
-    string key,
-    string ip,
+
+/*void find_threads(unordered_set<server_thread_t, thread_hash>& result,
+    string& key,
+    unsigned& rep,
     global_hash_t& global_memory_hash_ring,
-    unordered_map<string, key_info>& placement,
-    SocketCache& requesters,
-    unsigned& seed) {
-  string target_address;
-  auto threads = responsible_global(key + "_" + ip + "_replication", METADATA_MEMORY_REPLICATION_FACTOR, global_memory_hash_ring);
-  target_address = next(begin(threads), rand_r(&seed) % threads.size())->get_request_handling_connect_addr();
-  communication::Request req;
-  req.set_type("GET");
-  prepare_get_tuple(req, key + "_" + ip + "_replication");
-  auto response = send_request<communication::Request, communication::Response>(req, requesters[target_address]);
-  if (response.tuple(0).err_number() == 0) {
-    placement[key].local_replication_[ip] = stoi(response.tuple(0).value());
-  } else {
-    // TODO: ADD RETRY (hash ring inconsistency issue)
-    placement[key].local_replication_[ip] = DEFAULT_LOCAL_REPLICATION;
+    global_hash_t* global_hash_ring,
+    local_hash_t* local_hash_ring,
+    unordered_map<string, key_info>& placement) {
+  auto mts = responsible_global(key, rep, *global_hash_ring);
+  for (auto it = mts.begin(); it != mts.end(); it++) {
+    string ip = it->get_ip();
+    if (placement[key].local_replication_.find(ip) == placement[key].local_replication_.end()) {
+      get_local_replication_factor_proxy(key, ip, global_memory_hash_ring, placement, requesters, seed);
+    }
+    auto tids = responsible_local(key, placement[key].local_replication_[ip], *local_hash_ring);
+    for (auto iter = tids.begin(); iter != tids.end(); iter++) {
+      result.insert(server_thread_t(ip, *iter));
+    }
   }
-}
+}*/
 
 // get all threads responsible for a key from the "node_type" tier
 // metadata flag = 0 means the key is a metadata. Otherwise, it is a regular data
@@ -76,13 +79,13 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads_proxy(
     local_hash_t& local_ebs_hash_ring,
     unordered_map<string, key_info>& placement,
     SocketCache& requesters,
-    unordered_set<string>& node_types,
+    string node_type,
     unsigned& seed) {
   if (metadata_flag == 0) {
     return responsible_global(key, METADATA_MEMORY_REPLICATION_FACTOR, global_memory_hash_ring);
   } else {
     if (placement.find(key) == placement.end()) {
-      get_global_replication_factor_proxy(key, global_memory_hash_ring, placement, requesters, seed);
+      get_replication_factor_proxy(key, global_memory_hash_ring, placement, requesters, seed);
     }
 
     unordered_set<server_thread_t, thread_hash> result;
@@ -90,27 +93,25 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads_proxy(
     global_hash_t* global_hash_ring;
     local_hash_t* local_hash_ring;
 
-    for (auto tp_it = node_types.begin(); tp_it != node_types.end(); tp_it++) {
-      if (*tp_it == "M") {
-        rep = placement[key].global_memory_replication_;
-        global_hash_ring = &global_memory_hash_ring;
-        local_hash_ring = &local_memory_hash_ring;
-      } else {
-        rep = placement[key].global_ebs_replication_;
-        global_hash_ring = &global_ebs_hash_ring;
-        local_hash_ring = &local_ebs_hash_ring;
-      }
+    if (node_type == "M") {
+      rep = placement[key].global_memory_replication_;
+      global_hash_ring = &global_memory_hash_ring;
+      local_hash_ring = &local_memory_hash_ring;
+    } else {
+      rep = placement[key].global_ebs_replication_;
+      global_hash_ring = &global_ebs_hash_ring;
+      local_hash_ring = &local_ebs_hash_ring;
+    }
 
-      auto mts = responsible_global(key, rep, *global_hash_ring);
-      for (auto it = mts.begin(); it != mts.end(); it++) {
-        string ip = it->get_ip();
-        if (placement[key].local_replication_.find(ip) == placement[key].local_replication_.end()) {
-          get_local_replication_factor_proxy(key, ip, global_memory_hash_ring, placement, requesters, seed);
-        }
-        auto tids = responsible_local(key, placement[key].local_replication_[ip], *local_hash_ring);
-        for (auto iter = tids.begin(); iter != tids.end(); iter++) {
-          result.insert(server_thread_t(ip, *iter));
-        }
+    auto mts = responsible_global(key, rep, *global_hash_ring);
+    for (auto it = mts.begin(); it != mts.end(); it++) {
+      string ip = it->get_ip();
+      if (placement[key].local_replication_.find(ip) == placement[key].local_replication_.end()) {
+        placement[key].local_replication_[ip] = DEFAULT_LOCAL_REPLICATION;
+      }
+      auto tids = responsible_local(key, placement[key].local_replication_[ip], *local_hash_ring);
+      for (auto iter = tids.begin(); iter != tids.end(); iter++) {
+        result.insert(server_thread_t(ip, *iter));
       }
     }
     return result;
@@ -264,15 +265,6 @@ void run(unsigned thread_id) {
       string source_tier = key_req.source_tier();
       unsigned metadata = key_req.metadata();
       string address_type = key_req.address_type();
-      unordered_set<string> node_types;
-      if (source_tier == "M") {
-        node_types.insert("E");
-      } else if (source_tier == "E") {
-        node_types.insert("M");
-      } else if (source_tier == "U") {
-        node_types.insert("M");
-        node_types.insert("E");
-      }
 
       communication::Key_Response key_res;
 
@@ -280,7 +272,17 @@ void run(unsigned thread_id) {
         communication::Key_Response_Tuple* tp = key_res.add_tuple();
         string key = key_req.tuple(i).key();
         tp->set_key(key);
-        auto threads = get_responsible_threads_proxy(key, metadata, global_memory_hash_ring, global_ebs_hash_ring, local_memory_hash_ring, local_ebs_hash_ring, placement, requesters, node_types, seed);
+        unordered_set<server_thread_t, thread_hash> threads;
+        if (source_tier == "M") {
+          threads = get_responsible_threads_proxy(key, metadata, global_memory_hash_ring, global_ebs_hash_ring, local_memory_hash_ring, local_ebs_hash_ring, placement, requesters, "E", seed);
+        } else if (source_tier == "E") {
+          threads = get_responsible_threads_proxy(key, metadata, global_memory_hash_ring, global_ebs_hash_ring, local_memory_hash_ring, local_ebs_hash_ring, placement, requesters, "M", seed);
+        } else if (source_tier == "U") {
+          threads = get_responsible_threads_proxy(key, metadata, global_memory_hash_ring, global_ebs_hash_ring, local_memory_hash_ring, local_ebs_hash_ring, placement, requesters, "M", seed);
+          if (threads.size() == 0) {
+            threads = get_responsible_threads_proxy(key, metadata, global_memory_hash_ring, global_ebs_hash_ring, local_memory_hash_ring, local_ebs_hash_ring, placement, requesters, "E", seed);
+          }
+        }
         if (address_type == "RH") {
           for (auto it = threads.begin(); it != threads.end(); it++) {
             communication::Key_Response_Address* ad = tp->add_address();

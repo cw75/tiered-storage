@@ -66,6 +66,16 @@ message Replication_Factor_Request {
   repeated Tuple tuple = 1;
 }
 
+message Replication_Factor {
+  message Local {
+    required string ip = 1;
+    required uint32 local_replication = 2;
+  }
+  required uint32 global_memory_replication = 1;
+  required uint32 global_ebs_replication = 2;
+  repeated Local local = 3;
+}
+
 message Server_Stat {
   required uint64 storage_consumption = 1;
   required double occupancy = 2;
