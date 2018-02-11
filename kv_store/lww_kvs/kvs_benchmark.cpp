@@ -82,7 +82,7 @@ void run(unsigned thread_id) {
   // mapping from key to a set of worker addresses
   unordered_map<string, unordered_set<string>> key_address_cache;
 
-  user_thread_t ut = user_thread_t(ip, 0);
+  user_thread_t ut = user_thread_t(ip, thread_id);
 
   // read proxy address from the file
   string ip_line;

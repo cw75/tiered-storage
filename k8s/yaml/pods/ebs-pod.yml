@@ -10,7 +10,7 @@ spec:
       image: vsreekanti/kvs
       env: 
       - name: SERVER_TYPE
-        value: 2
+        value: "2"
       - name: PROXY_IPS
         value: PROXY_IPS_DUMMY
       - name: SEED_SERVER
