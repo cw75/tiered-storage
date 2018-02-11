@@ -8,16 +8,40 @@ if [ -z "$1" ] && [ -z "$2"] && [ -z "$3"] && [ -z "$4" ]; then
 fi
 
 add_nodes() {
-  if [ -z "$1" ] || [ -z "$2" ]; then 
-    echo "Expected usage: add_nodes <num-nodes> <node-type>."
+  if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ]; then 
+    echo "Expected usage: add_nodes <num-memory-nodes> <num-ebs-nodes> <num-proxy-nodes> <num-benchmark-nodes>."
     exit 1
   fi
 
   IDS=()
+  NODE_TYPE=()
+  # memory node(s)
   for i in $(seq 1 $1); do
     UUID=`tr -dc 'a-z0-9' < /dev/urandom | head -c 16`
-    ./add_server.sh $2 $UUID
+    ./add_server.sh m $UUID
     IDS+=( $UUID )
+    NODE_TYPE+=( m )
+  done
+  # ebs node(s)
+  for i in $(seq 1 $2); do
+    UUID=`tr -dc 'a-z0-9' < /dev/urandom | head -c 16`
+    ./add_server.sh e $UUID
+    IDS+=( $UUID )
+    NODE_TYPE+=( e )
+  done
+  # proxy node(s)
+  for i in $(seq 1 $3); do
+    UUID=`tr -dc 'a-z0-9' < /dev/urandom | head -c 16`
+    ./add_server.sh p $UUID
+    IDS+=( $UUID )
+    NODE_TYPE+=( p )
+  done
+  # benchmark node(s)
+  for i in $(seq 1 $4); do
+    UUID=`tr -dc 'a-z0-9' < /dev/urandom | head -c 16`
+    ./add_server.sh b $UUID
+    IDS+=( $UUID )
+    NODE_TYPE+=( b )
   done
 
   kops update cluster --name ${NAME} --yes > /dev/null 2>&1
@@ -27,8 +51,11 @@ add_nodes() {
     kops validate cluster > /dev/null 2>&1
   done
 
-  for ID in ${IDS[@]}; do
-    ./add_node.sh $2 $ID
+  for i in ${!IDS[@]}; do
+    echo $i
+    echo ${NODE_TYPE[$i]}
+    echo ${IDS[$i]}
+    ./add_node.sh ${NODE_TYPE[$i]} ${IDS[$i]}
   done
 }
 
@@ -82,7 +109,7 @@ kubectl create -f tmp.yml > /dev/null 2>&1
 rm tmp.yml
 
 echo "Creating $3 proxy node(s)..."
-add_nodes $3 p
+add_nodes 0 0 $3 0
 
 # wait for all proxies to be ready
 PROXY_IPS=`kubectl get pods -l role=proxy -o jsonpath='{.items[*].status.podIP}'`
@@ -92,16 +119,9 @@ while [ ${#PROXY_IP_ARR[@]} -ne $3 ]; do
   PROXY_IP_ARR=($PROXY_IPS)
 done
 
-echo "Creating $1 memory node(s)..."
+echo "Creating memory node(s), ebs node(s), and benchmark node(s)..."
 
-add_nodes $1 m
-
-echo "Creating $2 EBS node(s)..."
-
-add_nodes $2 e
-
-echo "Creating $4 benchmark node(s)..."
-add_nodes $4 b
+add_nodes $1 $2 0 $4
 
 # copy the SSH key into the management node... doing this later because we need
 # to wait for the pod to come up

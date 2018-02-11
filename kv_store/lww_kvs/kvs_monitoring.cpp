@@ -24,12 +24,14 @@ unordered_map<unsigned, tier_data> tier_data_map;
 void prepare_metadata_get_request(
     string& key,
     global_hash_t& global_memory_hash_ring,
-    unordered_map<address_t, communication::Request>& addr_request_map) {
+    unordered_map<address_t, communication::Request>& addr_request_map,
+    monitoring_thread_t& mt) {
   auto threads = responsible_global(key, METADATA_REPLICATION_FACTOR, global_memory_hash_ring);
   if (threads.size() != 0) {
     string target_address = next(begin(threads), rand() % threads.size())->get_request_pulling_connect_addr();
     if (addr_request_map.find(target_address) == addr_request_map.end()) {
       addr_request_map[target_address].set_type("GET");
+      addr_request_map[target_address].set_respond_address(mt.get_request_pulling_connect_addr());
     }
     prepare_get_tuple(addr_request_map[target_address], key);
   }
@@ -334,9 +336,9 @@ int main(int argc, char* argv[]) {
           if (observed_ip.find(iter->second.get_ip()) == observed_ip.end()) {
             for (unsigned i = 0; i < tier_data_map[tier_id].thread_number_; i++) {
               string key = iter->second.get_ip() + "_" + to_string(i) + "_" + to_string(tier_id) + "_stat";
-              prepare_metadata_get_request(key, global_hash_ring_map[1], addr_request_map);
+              prepare_metadata_get_request(key, global_hash_ring_map[1], addr_request_map, mt);
               key = iter->second.get_ip() + "_" + to_string(i) + "_" + to_string(tier_id) + "_access";
-              prepare_metadata_get_request(key, global_hash_ring_map[1], addr_request_map);
+              prepare_metadata_get_request(key, global_hash_ring_map[1], addr_request_map, mt);
             }
             observed_ip.insert(iter->second.get_ip());
           }

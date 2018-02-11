@@ -71,7 +71,6 @@ communication::Response process_request(
   bool succeed;
   if (req.type() == "GET") {
     //cout << "received get by thread " << thread_id << "\n";
-    response.set_type("GET");
     for (int i = 0; i < req.tuple_size(); i++) {
       string key = req.tuple(i).key();
       //cerr << "received get by thread " + to_string(wt.get_tid()) + " on key " + req.tuple(i).key() + "\n";
@@ -101,7 +100,6 @@ communication::Response process_request(
     }
   } else if (req.type() == "PUT") {
     //cout << "received put by thread " << thread_id << "\n";
-    response.set_type("PUT");
     for (int i = 0; i < req.tuple_size(); i++) {
       string key = req.tuple(i).key();
       //cerr << "received put by thread " + to_string(wt.get_tid()) + " on key " + req.tuple(i).key() + "\n";

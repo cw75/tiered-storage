@@ -19,8 +19,7 @@ message Response {
     optional uint64 timestamp = 4;
     repeated string addresses = 5;
   }
-  required string type = 1;
-  repeated Tuple tuple = 2;
+  repeated Tuple tuple = 1;
 }
 
 message Key_Request {
