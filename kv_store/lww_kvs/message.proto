@@ -1,48 +1,37 @@
 package communication;
 
 message Request {
-
   message Tuple {
     required string key = 1;
     optional string value = 2;
     optional uint64 timestamp = 3;
   }
   required string type = 1;
-  repeated Tuple tuple = 2;
+  optional string respond_address = 2;
+  repeated Tuple tuple = 3;
 }
 
 message Response {
-  message Address {
-    required string addr = 1;
-  }
   message Tuple {
     required uint32 err_number = 1;
     required string key = 2;
     optional string value = 3;
     optional uint64 timestamp = 4;
-    repeated Address address = 5;
+    repeated string addresses = 5;
   }
   required string type = 1;
   repeated Tuple tuple = 2;
 }
 
 message Key_Request {
-  message Tuple {
-    required string key = 1;
-  }
-  required string source_tier = 1;
-  required uint32 metadata = 2;
-  required string address_type = 3;
-  repeated Tuple tuple = 4;
+  required string respond_address = 1;
+  repeated string keys = 2;
 }
 
 message Key_Response {
-  message Address {
-    required string addr = 1;
-  }
   message Tuple {
     required string key = 1;
-    repeated Address address = 2;
+    repeated string addresses = 2;
   }
   repeated Tuple tuple = 1;
 }
@@ -53,27 +42,33 @@ message Payload {
 }
 
 message Replication_Factor_Request {
+  message Global {
+    required uint32 tier_id = 1;
+    required uint32 global_replication = 2;
+  }
   message Local {
     required string ip = 1;
     required uint32 local_replication = 2;
   }
   message Tuple {
     required string key = 1;
-    required uint32 global_memory_replication = 2;
-    required uint32 global_ebs_replication = 3;
-    repeated Local local = 4;
+    repeated Global global = 2;
+    repeated Local local = 3;
   }
   repeated Tuple tuple = 1;
 }
 
 message Replication_Factor {
+  message Global {
+    required uint32 tier_id = 1;
+    required uint32 global_replication = 2;
+  }
   message Local {
     required string ip = 1;
     required uint32 local_replication = 2;
   }
-  required uint32 global_memory_replication = 1;
-  required uint32 global_ebs_replication = 2;
-  repeated Local local = 3;
+  repeated Global global = 1;
+  repeated Local local = 2;
 }
 
 message Server_Stat {
@@ -86,5 +81,13 @@ message Key_Access {
     required string key = 1;
     required uint32 access = 2;
   }
-  repeated Tuple tuple = 2;
+  repeated Tuple tuple = 1;
+}
+
+message Address {
+  message Tuple {
+    required uint32 tier_id = 1;
+    required string ip = 2;
+  }
+  repeated Tuple tuple = 1;
 }

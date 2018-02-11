@@ -17,10 +17,13 @@ using namespace std;
 
 string handle_request(
     string input,
-    SocketCache& requesters,
+    SocketCache& pushers,
     vector<string>& proxy_address,
     unordered_map<string, unordered_set<string>>& key_address_cache,
-    unsigned& seed) {
+    unsigned& seed,
+    user_thread_t& ut,
+    zmq::socket_t& response_puller,
+    zmq::socket_t& key_address_puller) {
   vector<string> v;
   split(input, ' ', v);
 
@@ -32,6 +35,7 @@ string handle_request(
     string key = v[1];
     communication::Request req;
     req.set_type(v[0]);
+    req.set_respond_address(ut.get_request_pulling_connect_addr());
     if (v[0] == "GET") {
       prepare_get_tuple(req, key);
     } else {
@@ -42,7 +46,7 @@ string handle_request(
     if (key_address_cache.find(key) == key_address_cache.end()) {
       // query the proxy and update the cache
       string target_proxy_address = get_random_proxy_thread(proxy_address, seed).get_key_address_connect_addr();
-      auto addresses = get_address_from_other_tier(key, requesters[target_proxy_address], "U", 1, "RH");
+      auto addresses = get_address_from_proxy(ut, key, pushers[target_proxy_address], key_address_puller);
       for (auto it = addresses.begin(); it != addresses.end(); it++) {
         key_address_cache[key].insert(*it);
       }
@@ -51,7 +55,7 @@ string handle_request(
       worker_address = *(next(begin(key_address_cache[key]), rand_r(&seed) % key_address_cache[key].size()));
     }
 
-    auto res = send_request<communication::Request, communication::Response>(req, requesters[worker_address]);
+    auto res = send_request<communication::Request, communication::Response>(req, pushers[worker_address], response_puller);
     // initialize the respond string
     if (v[0] == "GET") {
       if (res.tuple(0).err_number() == 0) {
@@ -62,10 +66,10 @@ string handle_request(
         // update cache and retry
         cerr << "cache invalidation\n";
         key_address_cache.erase(key);
-        for (int i = 0; i < res.tuple(0).address_size(); i++) {
-          key_address_cache[key].insert(res.tuple(0).address(i).addr());
+        for (int i = 0; i < res.tuple(0).addresses_size(); i++) {
+          key_address_cache[key].insert(res.tuple(0).addresses(i));
         }
-        return handle_request(input, requesters, proxy_address, key_address_cache, seed);
+        return handle_request(input, pushers, proxy_address, key_address_cache, seed, ut, response_puller, key_address_puller);
       }
     } else {
       if (res.tuple(0).err_number() == 0) {
@@ -74,10 +78,10 @@ string handle_request(
         // update cache and retry
         cerr << "cache invalidation\n";
         key_address_cache.erase(key);
-        for (int i = 0; i < res.tuple(0).address_size(); i++) {
-          key_address_cache[key].insert(res.tuple(0).address(i).addr());
+        for (int i = 0; i < res.tuple(0).addresses_size(); i++) {
+          key_address_cache[key].insert(res.tuple(0).addresses(i));
         }
-        return handle_request(input, requesters, proxy_address, key_address_cache, seed);
+        return handle_request(input, pushers, proxy_address, key_address_cache, seed, ut, response_puller, key_address_puller);
       }
     }
   }
@@ -95,6 +99,8 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
+  string ip = get_ip("user");
+
   // read in the proxy addresses
   vector<string> proxy_address;
 
@@ -102,6 +108,8 @@ int main(int argc, char* argv[]) {
   unordered_map<string, unordered_set<string>> key_address_cache;
 
   unsigned seed = time(NULL);
+
+  user_thread_t ut = user_thread_t(ip, 0);
 
   // read proxy address from the file
   string ip_line;
@@ -113,14 +121,21 @@ int main(int argc, char* argv[]) {
   address.close();
 
   zmq::context_t context(1);
-  SocketCache requesters(&context, ZMQ_REQ);
+  SocketCache pushers(&context, ZMQ_PUSH);
+
+  // responsible for pulling response
+  zmq::socket_t response_puller(context, ZMQ_PULL);
+  response_puller.bind(ut.get_request_pulling_bind_addr());
+  // responsible for receiving depart done notice
+  zmq::socket_t key_address_puller(context, ZMQ_PULL);
+  key_address_puller.bind(ut.get_key_address_bind_addr());
 
   if (!batch) {
     string input;
     while (true) {
       cout << "kvs> ";
       getline(cin, input);
-      cout << handle_request(input, requesters, proxy_address, key_address_cache, seed);
+      cout << handle_request(input, pushers, proxy_address, key_address_cache, seed, ut, response_puller, key_address_puller);
     }
   } else {
     // read in the request
@@ -128,7 +143,7 @@ int main(int argc, char* argv[]) {
     ifstream request_reader;
     request_reader.open(argv[1]);
     while (getline(request_reader, request)) {
-      cout << handle_request(request, requesters, proxy_address, key_address_cache, seed);
+      cout << handle_request(request, pushers, proxy_address, key_address_cache, seed, ut, response_puller, key_address_puller);
     }
   }
 }

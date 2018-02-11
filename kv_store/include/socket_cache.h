@@ -28,6 +28,7 @@ class SocketCache {
   explicit SocketCache(zmq::context_t* context, int type) : context_(context), type_(type) {}
   zmq::socket_t& At(const std::string& addr);
   zmq::socket_t& operator[](const std::string& addr);
+  void clear_cache();
 
  private:
   zmq::context_t* context_;

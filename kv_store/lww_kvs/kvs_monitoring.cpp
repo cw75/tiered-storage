@@ -18,13 +18,16 @@
 using namespace std;
 using address_t = string;
 
+// read-only per-tier metadata
+unordered_map<unsigned, tier_data> tier_data_map;
+
 void prepare_metadata_get_request(
     string& key,
     global_hash_t& global_memory_hash_ring,
     unordered_map<address_t, communication::Request>& addr_request_map) {
-  auto threads = responsible_global(key, METADATA_MEMORY_REPLICATION_FACTOR, global_memory_hash_ring);
+  auto threads = responsible_global(key, METADATA_REPLICATION_FACTOR, global_memory_hash_ring);
   if (threads.size() != 0) {
-    string target_address = next(begin(threads), rand() % threads.size())->get_request_handling_connect_addr();
+    string target_address = next(begin(threads), rand() % threads.size())->get_request_pulling_connect_addr();
     if (addr_request_map.find(target_address) == addr_request_map.end()) {
       addr_request_map[target_address].set_type("GET");
     }
@@ -37,7 +40,7 @@ void prepare_metadata_put_request(
     string& value,
     global_hash_t& global_memory_hash_ring,
     unordered_map<address_t, communication::Request>& addr_request_map) {
-  auto threads = responsible_global(key, METADATA_MEMORY_REPLICATION_FACTOR, global_memory_hash_ring);
+  auto threads = responsible_global(key, METADATA_REPLICATION_FACTOR, global_memory_hash_ring);
   if (threads.size() != 0) {
     string target_address = next(begin(threads), rand() % threads.size())->get_request_pulling_connect_addr();
     if (addr_request_map.find(target_address) == addr_request_map.end()) {
@@ -48,15 +51,18 @@ void prepare_metadata_put_request(
 }
 
 void prepare_replication_factor_update(
-    string key,
+    string& key,
     unordered_map<address_t, communication::Replication_Factor_Request>& replication_factor_map,
     string server_address,
     unordered_map<string, key_info>& placement,
     unordered_map<address_t, unsigned>& local_replication_map) {
   communication::Replication_Factor_Request_Tuple* tp = replication_factor_map[server_address].add_tuple();
   tp->set_key(key);
-  tp->set_global_memory_replication(placement[key].global_memory_replication_);
-  tp->set_global_ebs_replication(placement[key].global_ebs_replication_);
+  for (auto iter = placement[key].global_replication_map_.begin(); iter != placement[key].global_replication_map_.end(); iter++) {
+    communication::Replication_Factor_Request_Global* g = tp->add_global();
+    g->set_tier_id(iter->first);
+    g->set_global_replication(iter->second);
+  }
   for (auto iter = local_replication_map.begin(); iter != local_replication_map.end(); iter++) {
     communication::Replication_Factor_Request_Local* l = tp->add_local();
     l->set_ip(iter->first);
@@ -68,8 +74,7 @@ void prepare_replication_factor_update(
 // (rep factor <= total number of nodes in a tier)
 void change_replication_factor(
     unordered_map<string, key_info>& requests,
-    global_hash_t& global_memory_hash_ring,
-    global_hash_t& global_ebs_hash_ring,
+    unordered_map<unsigned, global_hash_t>& global_hash_ring_map,
     vector<address_t>& proxy_address,
     unordered_map<string, key_info>& placement,
     SocketCache& pushers) {
@@ -83,32 +88,26 @@ void change_replication_factor(
     string key = it->first;
     orig_placement_info[key] = placement[key];
     // update the placement map
-    placement[key].global_memory_replication_ = it->second.global_memory_replication_;
-    placement[key].global_ebs_replication_ = it->second.global_ebs_replication_;
-    for (auto iter = it->second.local_replication_.begin(); iter != it->second.local_replication_.end(); iter++) {
-      placement[key].local_replication_[iter->first] = iter->second;
+    for (auto iter = it->second.global_replication_map_.begin(); iter != it->second.global_replication_map_.end(); iter++) {
+      placement[key].global_replication_map_[iter->first] = iter->second;
     }
-    // for each tier, take the max between the key's original rep factor and current rep factor
-    int memory_rep = max(placement[key].global_memory_replication_, orig_placement_info[key].global_memory_replication_);
-    int ebs_rep = max(placement[key].global_ebs_replication_, orig_placement_info[key].global_ebs_replication_);
-
-    // form placement requests for memory tier nodes
-    auto threads = responsible_global(key, memory_rep, global_memory_hash_ring);
-    for (auto server_iter = threads.begin(); server_iter != threads.end(); server_iter++) {
-      prepare_replication_factor_update(key, replication_factor_map, server_iter->get_replication_factor_connect_addr(), placement, it->second.local_replication_);
+    for (auto iter = it->second.local_replication_map_.begin(); iter != it->second.local_replication_map_.end(); iter++) {
+      placement[key].local_replication_map_[iter->first] = iter->second;
     }
-
-    // form placement requests for ebs tier nodes
-    threads = responsible_global(key, ebs_rep, global_ebs_hash_ring);
-    for (auto server_iter = threads.begin(); server_iter != threads.end(); server_iter++) {
-      prepare_replication_factor_update(key, replication_factor_map, server_iter->get_replication_factor_connect_addr(), placement, it->second.local_replication_);
+    // form rep factor change requests for all tiers
+    for (unsigned tier = MIN_TIER; tier <= MAX_TIER; tier++) {
+      unsigned rep = max(placement[key].global_replication_map_[tier], orig_placement_info[key].global_replication_map_[tier]);
+      auto threads = responsible_global(key, rep, global_hash_ring_map[tier]);
+      for (auto server_iter = threads.begin(); server_iter != threads.end(); server_iter++) {
+        prepare_replication_factor_update(key, replication_factor_map, server_iter->get_replication_factor_change_connect_addr(), placement, it->second.local_replication_map_);
+      }
     }
 
     //TODO: check the local_replication map again in case we have missing entry for global rep factors?
 
     // form placement requests for proxy nodes
     for (auto proxy_iter = proxy_address.begin(); proxy_iter != proxy_address.end(); proxy_iter++) {
-      prepare_replication_factor_update(key, replication_factor_map, proxy_thread_t(*proxy_iter, 0).get_replication_factor_connect_addr(), placement, it->second.local_replication_);
+      prepare_replication_factor_update(key, replication_factor_map, proxy_thread_t(*proxy_iter, 0).get_replication_factor_change_connect_addr(), placement, it->second.local_replication_map_);
     }
   }
 
@@ -120,13 +119,17 @@ void change_replication_factor(
   }
 
   // store the new replication factor in storage servers
+  // TODO: make this synchronous?
   unordered_map<address_t, communication::Request> addr_request_map;
   for (auto it = requests.begin(); it != requests.end(); it++) {
     string key = it->first;
     communication::Replication_Factor rep_data;
-    rep_data.set_global_memory_replication(placement[key].global_memory_replication_);
-    rep_data.set_global_ebs_replication(placement[key].global_ebs_replication_);
-    for (auto iter = placement[key].local_replication_.begin(); iter != placement[key].local_replication_.end(); iter++) {
+    for (auto iter = placement[key].global_replication_map_.begin(); iter != placement[key].global_replication_map_.end(); iter++) {
+      communication::Replication_Factor_Global* g = rep_data.add_global();
+      g->set_tier_id(iter->first);
+      g->set_global_replication(iter->second);
+    }
+    for (auto iter = placement[key].local_replication_map_.begin(); iter != placement[key].local_replication_map_.end(); iter++) {
       communication::Replication_Factor_Local* l = rep_data.add_local();
       l->set_ip(iter->first);
       l->set_local_replication(iter->second);
@@ -134,7 +137,7 @@ void change_replication_factor(
     string rep_key = key + "_replication";
     string serialized_rep_data;
     rep_data.SerializeToString(&serialized_rep_data);
-    prepare_metadata_put_request(rep_key, serialized_rep_data, global_memory_hash_ring, addr_request_map);
+    prepare_metadata_put_request(rep_key, serialized_rep_data, global_hash_ring_map[1], addr_request_map);
   }
 
   for (auto it = addr_request_map.begin(); it != addr_request_map.end(); it++) {
@@ -154,8 +157,11 @@ int main(int argc, char* argv[]) {
 
   string ip = get_ip("monitoring");
 
-  global_hash_t global_memory_hash_ring;
-  global_hash_t global_ebs_hash_ring;
+  tier_data_map[0] = tier_data(MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION);
+  tier_data_map[1] = tier_data(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION);
+
+  // initialize hash ring maps
+  unordered_map<unsigned, global_hash_t> global_hash_ring_map;
 
   // keep track of the keys' replication info
   unordered_map<string, key_info> placement;
@@ -190,7 +196,10 @@ int main(int argc, char* argv[]) {
   zmq::context_t context(1);
 
   SocketCache pushers(&context, ZMQ_PUSH);
-  SocketCache requesters(&context, ZMQ_REQ);
+
+  // responsible for both node join and departure
+  zmq::socket_t response_puller(context, ZMQ_PULL);
+  response_puller.bind(mt.get_request_pulling_bind_addr());
 
   unordered_map<address_t, unsigned> departing_node_map;
 
@@ -225,57 +234,63 @@ int main(int argc, char* argv[]) {
 
     // handle a join or depart event
     if (pollitems[0].revents & ZMQ_POLLIN) {
+      string message = zmq_util::recv_string(&notify_puller);
+
       vector<string> v;
-      split(zmq_util::recv_string(&notify_puller), ':', v);
-      if (v[0] == "join") {
+      split(message, ':', v);
+      string type = v[0];
+      unsigned tier = stoi(v[1]);
+      string new_server_ip = v[2];
+      if (type == "join") {
         logger->info("received join");
-        // update hash ring
-        if (v[1] == "M") {
-          insert_to_hash_ring<global_hash_t>(global_memory_hash_ring, v[2], 0);
+        if (tier == 1) {
+          insert_to_hash_ring<global_hash_t>(global_hash_ring_map[tier], new_server_ip, 0);
           adding_memory_node = false;
           // reset storage timer
           report_start = std::chrono::system_clock::now();
           report_end = std::chrono::system_clock::now();
-        } else if (v[1] == "E") {
-          insert_to_hash_ring<global_hash_t>(global_ebs_hash_ring, v[2], 0);
+        } else if (tier == 2) {
+          insert_to_hash_ring<global_hash_t>(global_hash_ring_map[tier], new_server_ip, 0);
           adding_ebs_node = false;
           // reset storage timer
           report_start = std::chrono::system_clock::now();
           report_end = std::chrono::system_clock::now();
-        } else if (v[1] == "P") {
-          proxy_address.push_back(v[2]);
+        } else if (tier == 0) {
+          proxy_address.push_back(new_server_ip);
         } else {
           cerr << "Invalid Tier info\n";
         }
-        logger->info("memory hash ring size is {}", to_string(global_memory_hash_ring.size()));
-        logger->info("ebs hash ring size is {}", to_string(global_ebs_hash_ring.size()));
-      } else if (v[0] == "depart") {
+        for (auto it = global_hash_ring_map.begin(); it != global_hash_ring_map.end(); it++) {
+          logger->info("hash ring for tier {} size is {}", to_string(it->first), to_string(it->second.size()));
+        }
+      } else if (type == "depart") {
         logger->info("received depart");
         //cerr << "received depart\n";
         // update hash ring
-        if (v[1] == "M") {
-          remove_from_hash_ring<global_hash_t>(global_memory_hash_ring, v[2], 0);
-          memory_tier_storage.erase(v[2]);
-          memory_tier_occupancy.erase(v[2]);
+        if (tier == 1) {
+          remove_from_hash_ring<global_hash_t>(global_hash_ring_map[tier], new_server_ip, 0);
+          memory_tier_storage.erase(new_server_ip);
+          memory_tier_occupancy.erase(new_server_ip);
           for (auto it = key_access_frequency.begin(); it != key_access_frequency.end(); it++) {
-            for (unsigned i = 0; i <= MEMORY_THREAD_NUM; i++) {
-              it->second.erase(v[2] + ":" + to_string(i));
+            for (unsigned i = 0; i < MEMORY_THREAD_NUM; i++) {
+              it->second.erase(new_server_ip + ":" + to_string(i));
             }
           }
-        } else if (v[1] == "E") {
-          remove_from_hash_ring<global_hash_t>(global_ebs_hash_ring, v[2], 0);
-          ebs_tier_storage.erase(v[2]);
-          ebs_tier_occupancy.erase(v[2]);
+        } else if (tier == 2) {
+          remove_from_hash_ring<global_hash_t>(global_hash_ring_map[tier], new_server_ip, 0);
+          ebs_tier_storage.erase(new_server_ip);
+          ebs_tier_occupancy.erase(new_server_ip);
           for (auto it = key_access_frequency.begin(); it != key_access_frequency.end(); it++) {
-            for (unsigned i = 0; i <= EBS_THREAD_NUM; i++) {
-              it->second.erase(v[2] + ":" + to_string(i));
+            for (unsigned i = 0; i < EBS_THREAD_NUM; i++) {
+              it->second.erase(new_server_ip + ":" + to_string(i));
             }
           }
         } else {
           cerr << "Invalid Tier info\n";
         }
-        logger->info("memory hash ring size is {}", to_string(global_memory_hash_ring.size()));
-        logger->info("ebs hash ring size is {}", to_string(global_ebs_hash_ring.size()));
+        for (auto it = global_hash_ring_map.begin(); it != global_hash_ring_map.end(); it++) {
+          logger->info("hash ring for tier {} size is {}", to_string(it->first), to_string(it->second.size()));
+        }
       }
     }
 
@@ -284,11 +299,11 @@ int main(int argc, char* argv[]) {
       vector<string> tokens;
       split(msg, '_', tokens);
       address_t departed_ip = tokens[0];
-      string node_type = tokens[1];
+      unsigned tier_id = stoi(tokens[1]);
       if (departing_node_map.find(departed_ip) != departing_node_map.end()) {
         departing_node_map[departed_ip] -= 1;
         if (departing_node_map[departed_ip] == 0) {
-          if (node_type == "M") {
+          if (tier_id == 1) {
             logger->info("removing memory node {}", departed_ip);
             string shell_command = "curl -X POST http://" + management_address + "/remove/memory/" + departed_ip;
             system(shell_command.c_str());
@@ -310,50 +325,40 @@ int main(int argc, char* argv[]) {
       server_monitoring_epoch += 1;
 
       unordered_map<address_t, communication::Request> addr_request_map;
-      string target_address;
 
-      unordered_set<string> observed_ip;
-      for (auto it = global_memory_hash_ring.begin(); it != global_memory_hash_ring.end(); it++) {
-        if (observed_ip.find(it->second.get_ip()) == observed_ip.end()) {
-          for (unsigned i = 0; i <= MEMORY_THREAD_NUM; i++) {
-            string key = it->second.get_ip() + "_" + to_string(i) + "_M_stat";
-            prepare_metadata_get_request(key, global_memory_hash_ring, addr_request_map);
-            key = it->second.get_ip() + "_" + to_string(i) + "_M_access";
-            prepare_metadata_get_request(key, global_memory_hash_ring, addr_request_map);
+      for (auto it = global_hash_ring_map.begin(); it != global_hash_ring_map.end(); it++) {
+        unsigned tier_id = it->first;
+        auto hash_ring = &(it->second);
+        unordered_set<string> observed_ip;
+        for (auto iter = hash_ring->begin(); iter != hash_ring->end(); iter++) {
+          if (observed_ip.find(iter->second.get_ip()) == observed_ip.end()) {
+            for (unsigned i = 0; i < tier_data_map[tier_id].thread_number_; i++) {
+              string key = iter->second.get_ip() + "_" + to_string(i) + "_" + to_string(tier_id) + "_stat";
+              prepare_metadata_get_request(key, global_hash_ring_map[1], addr_request_map);
+              key = iter->second.get_ip() + "_" + to_string(i) + "_" + to_string(tier_id) + "_access";
+              prepare_metadata_get_request(key, global_hash_ring_map[1], addr_request_map);
+            }
+            observed_ip.insert(iter->second.get_ip());
           }
-          observed_ip.insert(it->second.get_ip());
-        }
-      }
-
-      observed_ip.clear();
-      for (auto it = global_ebs_hash_ring.begin(); it != global_ebs_hash_ring.end(); it++) {
-        if (observed_ip.find(it->second.get_ip()) == observed_ip.end()) {
-          for (unsigned i = 1; i <= EBS_THREAD_NUM; i++) {
-            string key = it->second.get_ip() + "_" + to_string(i) + "_E_stat";
-            prepare_metadata_get_request(key, global_memory_hash_ring, addr_request_map);
-            key = it->second.get_ip() + "_" + to_string(i) + "_E_access";
-            prepare_metadata_get_request(key, global_memory_hash_ring, addr_request_map);
-          }
-          observed_ip.insert(it->second.get_ip());
         }
       }
 
       for (auto it = addr_request_map.begin(); it != addr_request_map.end(); it++) {
-        auto res = send_request<communication::Request, communication::Response>(it->second, requesters[it->first]);
+        auto res = send_request<communication::Request, communication::Response>(it->second, pushers[it->first], response_puller);
         for (int i = 0; i < res.tuple_size(); i++) {
           if (res.tuple(i).err_number() == 0) {
             vector<string> tokens;
             split(res.tuple(i).key(), '_', tokens);
             string ip = tokens[0];
             unsigned tid = stoi(tokens[1]);
-            string node_type = tokens[2];
+            unsigned tier_id = stoi(tokens[2]);
             string metadata_type = tokens[3];
 
             if (metadata_type == "stat") {
               // deserialized the value
               communication::Server_Stat stat;
               stat.ParseFromString(res.tuple(i).value());
-              if (node_type == "M") {
+              if (tier_id == 1) {
                 memory_tier_storage[ip][tid] = stat.storage_consumption();
                 memory_tier_occupancy[ip][tid] = stat.occupancy();
               } else {
@@ -405,7 +410,6 @@ int main(int argc, char* argv[]) {
             for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
               logger->info("memory node ip {} thread {} consumption is {} for epoch {}", it1->first, it2->first, it2->second, server_monitoring_epoch);
             }
-            memory_node_count += 1;
           }
         }
       }
@@ -439,11 +443,9 @@ int main(int argc, char* argv[]) {
       if (server_monitoring_epoch % 5 == 1) {
         for (auto it1 = memory_tier_occupancy.begin(); it1 != memory_tier_occupancy.end(); it1++) {
           for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
-            if (it2->first != 0) {
-              logger->info("memory node ip {} thread {} occupancy is {} for epoch {}", it1->first, it2->first, it2->second, server_monitoring_epoch);
-              if (it2->second > 0.4) {
-                add_node_flag = true;
-              }
+            logger->info("memory node ip {} thread {} occupancy is {} for epoch {}", it1->first, it2->first, it2->second, server_monitoring_epoch);
+            if (it2->second > 0.4) {
+              add_node_flag = true;
             }
           }
         }

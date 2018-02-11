@@ -24,6 +24,7 @@ elif [ "$1" = "p" ]; then
 
   ./build/kv_store/lww_kvs/kvs_proxy
 elif [ "$1" = "b" ]; then
+  echo $IP > conf/user/user_ip.txt
   sh k8s/set_ips.sh "$PROXY_IPS" conf/user/proxy_address.txt
 
   ./build/kv_store/lww_kvs/kvs_benchmark
@@ -36,8 +37,8 @@ else
   echo $SEED_SERVER > conf/server/seed_server.txt
   echo $MON_IP > conf/server/monitoring_address.txt
 
-  if [ "$1" = "M" ] || [ "$1" = "E" ]; then
-    ./build/kv_store/lww_kvs/kvs_server $NEW
+  if [ "$1" = "1" ] || [ "$1" = "2" ]; then
+    ./build/kv_store/lww_kvs/kvs_server
   else
     echo "Unrecognized server type: $1. Exiting."
     exit 1

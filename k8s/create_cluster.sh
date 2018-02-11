@@ -28,7 +28,7 @@ add_nodes() {
   done
 
   for ID in ${IDS[@]}; do
-    ./add_node.sh $2 $ID y
+    ./add_node.sh $2 $ID
   done
 }
 
@@ -93,19 +93,12 @@ while [ ${#PROXY_IP_ARR[@]} -ne $3 ]; do
 done
 
 echo "Creating $1 memory node(s)..."
-if [ $1 -ge 1 ]; then
-  ./add_node.sh m NULL n
 
-  add_nodes `expr $1 - 1` m
-fi
+add_nodes $1 m
 
 echo "Creating $2 EBS node(s)..."
 
-if [ $2 -ge 1 ]; then
-  ./add_node.sh e NULL n
-
-  add_nodes `expr $2 - 1` e
-fi
+add_nodes $2 e
 
 echo "Creating $4 benchmark node(s)..."
 add_nodes $4 b

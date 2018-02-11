@@ -135,104 +135,29 @@ struct key_stat {
   unsigned access_;
 };
 
+struct pending_request {
+  pending_request() {}
+  pending_request(string type, const string& value, string addr)
+    : type_(type), value_(value), addr_(addr) {}
+  string type_;
+  string value_;
+  string addr_;
+};
+
+struct pending_gossip {
+  pending_gossip() {}
+  pending_gossip(const string& value, const unsigned long long& ts)
+    : value_(value), ts_(ts) {}
+  string value_;
+  unsigned long long ts_;
+};
+
 // form the timestamp given a time and a thread id
 unsigned long long generate_timestamp(unsigned long long time, unsigned tid) {
     unsigned pow = 10;
     while(tid >= pow)
         pow *= 10;
     return time * pow + tid;        
-}
-
-void get_replication_factor(
-    string& key,
-    global_hash_t& global_hash_ring,
-    unordered_map<string, key_info>& placement,
-    SocketCache& requesters,
-    string node_type,
-    vector<string>& proxy_address,
-    unsigned& seed) {
-  string target_address;
-  if (node_type == "M") {
-    auto threads = responsible_global(key + "_replication", METADATA_MEMORY_REPLICATION_FACTOR, global_hash_ring);
-    target_address = next(begin(threads), rand_r(&seed) % threads.size())->get_request_handling_connect_addr();
-  } else {
-    string target_proxy_address = get_random_proxy_thread(proxy_address, seed).get_key_address_connect_addr();
-    auto addresses = get_address_from_other_tier(key + "_replication", requesters[target_proxy_address], node_type, 0, "RH");
-    target_address = addresses[rand_r(&seed) % addresses.size()];
-  }
-  communication::Request req;
-  req.set_type("GET");
-  prepare_get_tuple(req, key + "_replication");
-  auto response = send_request<communication::Request, communication::Response>(req, requesters[target_address]);
-  if (response.tuple(0).err_number() == 0) {
-    communication::Replication_Factor rep_data;
-    rep_data.ParseFromString(response.tuple(0).value());
-    placement[key].global_memory_replication_ = rep_data.global_memory_replication();
-    placement[key].global_ebs_replication_ = rep_data.global_ebs_replication();
-    for (int i = 0; i < rep_data.local_size(); i++) {
-      placement[key].local_replication_[rep_data.local(i).ip()] = rep_data.local(i).local_replication();
-    }
-  } else {
-    // TODO: ADD RETRY (hash ring inconsistency issue)
-    placement[key] = key_info(DEFAULT_GLOBAL_MEMORY_REPLICATION, DEFAULT_GLOBAL_EBS_REPLICATION);
-  }
-}
-
-// get all threads responsible for a key from the "node_type" tier
-// metadata flag = 0 means the key is a metadata. Otherwise, it is a regular data
-unordered_set<server_thread_t, thread_hash> get_responsible_threads(
-    string key,
-    unsigned metadata_flag,
-    global_hash_t& global_hash_ring,
-    local_hash_t& local_hash_ring,
-    unordered_map<string, key_info>& placement,
-    SocketCache& requesters,
-    string node_type,
-    vector<string>& proxy_address,
-    unsigned& seed) {
-  if (metadata_flag == 0) {
-    if (node_type == "M") {
-      return responsible_global(key, METADATA_MEMORY_REPLICATION_FACTOR, global_hash_ring);
-    } else {
-      // EBS tier doesn't store metadata
-      return unordered_set<server_thread_t, thread_hash>();
-    }
-  } else {
-    if (placement.find(key) == placement.end()) {
-      get_replication_factor(key, global_hash_ring, placement, requesters, node_type, proxy_address, seed);
-    }
-    unsigned rep;
-    if (node_type == "M") {
-      rep = placement[key].global_memory_replication_;
-    } else {
-      rep = placement[key].global_ebs_replication_;
-    }
-
-    unordered_set<server_thread_t, thread_hash> result;
-
-    auto mts = responsible_global(key, rep, global_hash_ring);
-    for (auto it = mts.begin(); it != mts.end(); it++) {
-      string ip = it->get_ip();
-      if (placement[key].local_replication_.find(ip) == placement[key].local_replication_.end()) {
-        placement[key].local_replication_[ip] = DEFAULT_LOCAL_REPLICATION;
-      }
-      auto tids = responsible_local(key, placement[key].local_replication_[ip], local_hash_ring);
-      for (auto iter = tids.begin(); iter != tids.end(); iter++) {
-        result.insert(server_thread_t(ip, *iter));
-      }
-    }
-    return result;
-  }
-}
-
-// query proxy for addresses on the other tier and update address map
-void query_key_address(communication::Key_Request& key_req, zmq::socket_t& socket, address_keyset_map& addr_keyset_map) {
-  auto key_response = send_request<communication::Key_Request, communication::Key_Response>(key_req, socket);
-  for (int i = 0; i < key_response.tuple_size(); i++) {
-    for (int j = 0; j < key_response.tuple(i).address_size(); j++) {
-      addr_keyset_map[key_response.tuple(i).address(j).addr()].insert(key_response.tuple(i).key());
-    }
-  }
 }
 
 #endif

@@ -18,11 +18,14 @@ using namespace std;
 void handle_request(
     string key,
     string value,
-    SocketCache& requesters,
+    SocketCache& pushers,
     vector<string>& proxy_address,
     unordered_map<string, unordered_set<string>>& key_address_cache,
     unsigned& seed,
-    shared_ptr<spdlog::logger> logger) {
+    shared_ptr<spdlog::logger> logger,
+    user_thread_t& ut,
+    zmq::socket_t& response_puller,
+    zmq::socket_t& key_address_puller) {
   communication::Request req;
   if (value == "") {
     // get request
@@ -38,7 +41,7 @@ void handle_request(
   if (key_address_cache.find(key) == key_address_cache.end()) {
     // query the proxy and update the cache
     string target_proxy_address = get_random_proxy_thread(proxy_address, seed).get_key_address_connect_addr();
-    auto addresses = get_address_from_other_tier(key, requesters[target_proxy_address], "U", 1, "RH");
+    auto addresses = get_address_from_proxy(ut, key, pushers[target_proxy_address], key_address_puller);
     for (auto it = addresses.begin(); it != addresses.end(); it++) {
       key_address_cache[key].insert(*it);
     }
@@ -47,17 +50,17 @@ void handle_request(
     worker_address = *(next(begin(key_address_cache[key]), rand_r(&seed) % key_address_cache[key].size()));
   }
 
-  auto res = send_request<communication::Request, communication::Response>(req, requesters[worker_address]);
+  auto res = send_request<communication::Request, communication::Response>(req, pushers[worker_address], response_puller);
   // initialize the respond string
   if (res.tuple(0).err_number() == 2) {
     // update cache and retry
     logger->info("cache invalidation");
     //cerr << "cache invalidation\n";
     key_address_cache.erase(key);
-    for (int i = 0; i < res.tuple(0).address_size(); i++) {
-      key_address_cache[key].insert(res.tuple(0).address(i).addr());
+    for (int i = 0; i < res.tuple(0).addresses_size(); i++) {
+      key_address_cache[key].insert(res.tuple(0).addresses(i));
     }
-    handle_request(key, value, requesters, proxy_address, key_address_cache, seed, logger);
+    handle_request(key, value, pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller);
   }
 }
 
@@ -71,11 +74,15 @@ void run(unsigned thread_id) {
   unsigned seed = time(NULL);
   seed += thread_id;
 
+  string ip = get_ip("user");
+
   // read in the proxy addresses
   vector<string> proxy_address;
 
   // mapping from key to a set of worker addresses
   unordered_map<string, unordered_set<string>> key_address_cache;
+
+  user_thread_t ut = user_thread_t(ip, 0);
 
   // read proxy address from the file
   string ip_line;
@@ -87,8 +94,14 @@ void run(unsigned thread_id) {
   address.close();
 
   zmq::context_t context(1);
-  SocketCache requesters(&context, ZMQ_REQ);
+  SocketCache pushers(&context, ZMQ_PUSH);
 
+  // responsible for pulling response
+  zmq::socket_t response_puller(context, ZMQ_PULL);
+  response_puller.bind(ut.get_request_pulling_bind_addr());
+  // responsible for receiving depart done notice
+  zmq::socket_t key_address_puller(context, ZMQ_PULL);
+  key_address_puller.bind(ut.get_key_address_bind_addr());
   // responsible for pulling benchmark command
   zmq::socket_t command_puller(context, ZMQ_PULL);
   command_puller.bind("tcp://*:" + to_string(thread_id + COMMAND_BASE_PORT));
@@ -119,7 +132,7 @@ void run(unsigned thread_id) {
           logger->info("warming up key {}", key);
           //cout << "warming up key " + key + "\n";
         }
-        handle_request(key, string(length, 'a'), requesters, proxy_address, key_address_cache, seed, logger);
+        handle_request(key, string(length, 'a'), pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller);
       }
 
       if (mode == "MOVEMENT") {
@@ -143,14 +156,14 @@ void run(unsigned thread_id) {
             }
             key = string(8 - key_aux.length(), '0') + key_aux;
             if (type == "G") {
-              handle_request(key, "", requesters, proxy_address, key_address_cache, seed, logger);
+              handle_request(key, "", pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller);
               count += 1;
             } else if (type == "P") {
-              handle_request(key, string(length, 'a'), requesters, proxy_address, key_address_cache, seed, logger);
+              handle_request(key, string(length, 'a'), pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller);
               count += 1;
             } else if (type == "M") {
-              handle_request(key, string(length, 'a'), requesters, proxy_address, key_address_cache, seed, logger);
-              handle_request(key, "", requesters, proxy_address, key_address_cache, seed, logger);
+              handle_request(key, string(length, 'a'), pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller);
+              handle_request(key, "", pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller);
               count += 2;
             } else {
               cerr << "invalid request type\n";
@@ -188,14 +201,14 @@ void run(unsigned thread_id) {
           key_aux = to_string(rand_r(&seed) % (contention) + 1);
           key = string(8 - key_aux.length(), '0') + key_aux;
           if (type == "G") {
-            handle_request(key, "", requesters, proxy_address, key_address_cache, seed, logger);
+            handle_request(key, "", pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller);
             count += 1;
           } else if (type == "P") {
-            handle_request(key, string(length, 'a'), requesters, proxy_address, key_address_cache, seed, logger);
+            handle_request(key, string(length, 'a'), pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller);
             count += 1;
           } else if (type == "M") {
-            handle_request(key, string(length, 'a'), requesters, proxy_address, key_address_cache, seed, logger);
-            handle_request(key, "", requesters, proxy_address, key_address_cache, seed, logger);
+            handle_request(key, string(length, 'a'), pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller);
+            handle_request(key, "", pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller);
             count += 2;
           } else {
             cerr << "invalid request type\n";
