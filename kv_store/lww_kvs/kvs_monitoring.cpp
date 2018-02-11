@@ -157,8 +157,8 @@ int main(int argc, char* argv[]) {
 
   string ip = get_ip("monitoring");
 
-  tier_data_map[0] = tier_data(MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION);
-  tier_data_map[1] = tier_data(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION);
+  tier_data_map[1] = tier_data(MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION);
+  tier_data_map[2] = tier_data(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION);
 
   // initialize hash ring maps
   unordered_map<unsigned, global_hash_t> global_hash_ring_map;

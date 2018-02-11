@@ -315,8 +315,8 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  tier_data_map[0] = tier_data(MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION);
-  tier_data_map[1] = tier_data(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION);
+  tier_data_map[1] = tier_data(MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION);
+  tier_data_map[2] = tier_data(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION);
 
   vector<thread> proxy_worker_threads;
 

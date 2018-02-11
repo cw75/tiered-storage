@@ -391,6 +391,9 @@ void run(unsigned thread_id) {
           for (unsigned tid = 1; tid < THREAD_NUM; tid++) {
             zmq_util::send_string(message, &pushers[server_thread_t(ip, tid).get_node_join_connect_addr()]);
           }
+          for (auto it = global_hash_ring_map.begin(); it != global_hash_ring_map.end(); it++) {
+            logger->info("hash ring for tier {} size is {}", to_string(it->first), to_string(it->second.size()));
+          }
         }
         if (tier == SELF_TIER_ID) {
           vector<unsigned> tier_ids;
@@ -446,6 +449,9 @@ void run(unsigned thread_id) {
         // tell all worker threads about the node departure
         for (unsigned tid = 1; tid < THREAD_NUM; tid++) {
           zmq_util::send_string(message, &pushers[server_thread_t(ip, tid).get_node_depart_connect_addr()]);
+        }
+        for (auto it = global_hash_ring_map.begin(); it != global_hash_ring_map.end(); it++) {
+          logger->info("hash ring for tier {} size is {}", to_string(it->first), to_string(it->second.size()));
         }
       }
       working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
@@ -821,14 +827,14 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  // debugging
-  cerr << "tier id is " + to_string(SELF_TIER_ID) + "\n";
-
   // populate metadata
   SELF_TIER_ID = atoi(getenv("SERVER_TYPE"));
 
-  tier_data_map[0] = tier_data(MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION);
-  tier_data_map[1] = tier_data(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION);
+  // debugging
+  cerr << "tier id is " + to_string(SELF_TIER_ID) + "\n";
+
+  tier_data_map[1] = tier_data(MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION);
+  tier_data_map[2] = tier_data(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION);
 
   THREAD_NUM = tier_data_map[SELF_TIER_ID].thread_number_;
 
