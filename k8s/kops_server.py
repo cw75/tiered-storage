@@ -12,7 +12,7 @@ class KopsHandler(BaseHTTPRequestHandler):
         if self.path == '/memory':
             print('Adding a new memory node...')
             logging.info('Adding a new memory node...')
-            if os.system('./add_node.sh m NULL y') == 0:
+            if os.system('./add_node.sh m NULL') == 0:
                 self.send_response(200)
                 self.wfile.write(bytes('Successfully added a memory node.', 'utf-8'))
             else:
@@ -21,7 +21,7 @@ class KopsHandler(BaseHTTPRequestHandler):
         elif self.path == '/ebs':
             print('Adding a new EBS node...')
             logging.info('Adding a new EBS node...')
-            if os.system('./add_node.sh e NULL y') == 0:
+            if os.system('./add_node.sh e NULL') == 0:
                 self.send_response(200)
                 self.wfile.write(bytes('Successfully added an EBS node.', 'utf-8'))
             else:
