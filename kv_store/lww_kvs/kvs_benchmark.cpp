@@ -27,6 +27,7 @@ void handle_request(
     zmq::socket_t& response_puller,
     zmq::socket_t& key_address_puller) {
   communication::Request req;
+  req.set_respond_address(ut.get_request_pulling_connect_addr());
   if (value == "") {
     // get request
     req.set_type("GET");
@@ -49,7 +50,7 @@ void handle_request(
       }
       worker_address = addresses[rand_r(&seed) % addresses.size()];
     } else {
-      cerr << "request timed out\n";
+      cerr << "request timed out when querying proxy\n";
       return;
     }
   } else {
@@ -70,7 +71,7 @@ void handle_request(
       handle_request(key, value, pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller);
     }
   } else {
-    cerr << "request timed out\n";
+    cerr << "request timed out when querying worker\n";
   }
 }
 

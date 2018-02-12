@@ -54,7 +54,7 @@ string handle_request(
         }
         worker_address = addresses[rand_r(&seed) % addresses.size()];
       } else {
-        return "request timed out\n";
+        return "request timed out when querying proxy\n";
       }
     } else {
       worker_address = *(next(begin(key_address_cache[key]), rand_r(&seed) % key_address_cache[key].size()));
@@ -91,7 +91,7 @@ string handle_request(
         }
       }
     } else {
-      return "request timed out\n";
+      return "request timed out when querying worker\n";
     }
   }
 }

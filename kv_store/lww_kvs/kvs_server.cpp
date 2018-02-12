@@ -830,6 +830,7 @@ void run(unsigned thread_id) {
     for (auto it = pending_request_map.begin(); it != pending_request_map.end(); it++) {
       auto t = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now()-it->second.first).count();
       if (t > GARBAGE_COLLECTION_THRESHOLD) {
+        logger->info("GC {}", it->first);
         remove_set.insert(it->first);
       }
     }
@@ -840,6 +841,7 @@ void run(unsigned thread_id) {
     for (auto it = pending_gossip_map.begin(); it != pending_gossip_map.end(); it++) {
       auto t = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now()-it->second.first).count();
       if (t > GARBAGE_COLLECTION_THRESHOLD) {
+        logger->info("GC {}", it->first);
         remove_set.insert(it->first);
       }
     }
