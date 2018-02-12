@@ -400,8 +400,8 @@ RES send_request(REQ& req, zmq::socket_t& sending_socket, zmq::socket_t& receivi
   zmq_util::send_string(serialized_req, &sending_socket);
   RES response;
   zmq::message_t message;
-  int rc = receiving_socket.recv(&message);
-  if (rc == 0) {
+  bool rc = receiving_socket.recv(&message);
+  if (rc) {
     succeed = true;
     auto serialized_resp = zmq_util::message_to_string(message);
     response.ParseFromString(serialized_resp);
