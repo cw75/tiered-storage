@@ -69,7 +69,7 @@ void run(unsigned thread_id) {
   unordered_map<unsigned, local_hash_t> local_hash_ring_map;
 
   // pending events for asynchrony
-  unordered_map<string, vector<string>> pending_key_request_map;
+  unordered_map<string, pair<chrono::system_clock::time_point, vector<string>>> pending_key_request_map;
 
   // form local hash rings
   for (auto it = tier_data_map.begin(); it != tier_data_map.end(); it++) {
@@ -223,7 +223,7 @@ void run(unsigned thread_id) {
             tier_ids.push_back(2);
             threads = get_responsible_threads(pt.get_replication_factor_connect_addr(), key, false, global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids, succeed, seed);
           }
-          for (auto it = pending_key_request_map[key].begin(); it != pending_key_request_map[key].end(); it++) {
+          for (auto it = pending_key_request_map[key].second.begin(); it != pending_key_request_map[key].second.end(); it++) {
             communication::Key_Response key_res;
             communication::Key_Response_Tuple* tp = key_res.add_tuple();
             tp->set_key(key);
@@ -296,7 +296,10 @@ void run(unsigned thread_id) {
             tp->add_addresses(it->get_request_pulling_connect_addr());
           }
         } else {
-          pending_key_request_map[key].push_back(key_req.respond_address());
+          if (pending_key_request_map.find(key) == pending_key_request_map.end()) {
+            pending_key_request_map[key].first = chrono::system_clock::now();
+          }
+          pending_key_request_map[key].second.push_back(key_req.respond_address());
         }
       }
       if (key_res.tuple_size() > 0) {
@@ -305,6 +308,18 @@ void run(unsigned thread_id) {
         key_res.SerializeToString(&serialized_key_res);
         zmq_util::send_string(serialized_key_res, &pushers[key_req.respond_address()]);
       }
+    }
+
+    // check pending events and garbage collect
+    unordered_set<string> remove_set;
+    for (auto it = pending_key_request_map.begin(); it != pending_key_request_map.end(); it++) {
+      auto t = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now()-it->second.first).count();
+      if (t > GARBAGE_COLLECTION_THRESHOLD) {
+        remove_set.insert(it->first);
+      }
+    }
+    for (auto it = remove_set.begin(); it != remove_set.end(); it++) {
+      pending_key_request_map.erase(*it);
     }
   }
 }

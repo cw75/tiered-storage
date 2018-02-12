@@ -18,6 +18,8 @@ using namespace std;
 
 // Define monitoring constant
 #define SERVER_REPORT_THRESHOLD 10000000
+// Define garbage collection threshold for pending events (in millisecond)
+#define GARBAGE_COLLECTION_THRESHOLD 3000
 
 // Define the replication factor for the metadata
 #define METADATA_REPLICATION_FACTOR 2
@@ -392,13 +394,26 @@ void prepare_put_tuple(communication::Request& req, string key, string value, un
 }
 
 template<typename REQ, typename RES>
-RES send_request(REQ& req, zmq::socket_t& sending_socket, zmq::socket_t& receiving_socket) {
+RES send_request(REQ& req, zmq::socket_t& sending_socket, zmq::socket_t& receiving_socket, bool& succeed) {
   string serialized_req;
   req.SerializeToString(&serialized_req);
   zmq_util::send_string(serialized_req, &sending_socket);
-  string serialized_resp = zmq_util::recv_string(&receiving_socket);
   RES response;
-  response.ParseFromString(serialized_resp);
+  zmq::message_t message;
+  int rc = receiving_socket.recv(&message);
+  if (rc == 0) {
+    succeed = true;
+    auto serialized_resp = zmq_util::message_to_string(message);
+    response.ParseFromString(serialized_resp);
+  } else {
+    // timeout
+    if (errno == EAGAIN) {
+      succeed = false;
+    } else {
+      cerr << "Unexpected error type\n";
+      succeed = false;
+    }
+  }
   return response;
 }
 
@@ -498,16 +513,18 @@ vector<string> get_address_from_proxy(
     user_thread_t& ut,
     string key,
     zmq::socket_t& sending_socket,
-    zmq::socket_t& receiving_socket) {
+    zmq::socket_t& receiving_socket,
+    bool& succeed) {
   communication::Key_Request key_req;
   key_req.set_respond_address(ut.get_key_address_connect_addr());
   key_req.add_keys(key);
   // query proxy for addresses on the other tier
-  auto key_response = send_request<communication::Key_Request, communication::Key_Response>(key_req, sending_socket, receiving_socket);
-
+  auto key_response = send_request<communication::Key_Request, communication::Key_Response>(key_req, sending_socket, receiving_socket, succeed);
   vector<string> result;
-  for (int j = 0; j < key_response.tuple(0).addresses_size(); j++) {
-    result.push_back(key_response.tuple(0).addresses(j));
+  if (succeed) {
+    for (int j = 0; j < key_response.tuple(0).addresses_size(); j++) {
+      result.push_back(key_response.tuple(0).addresses(j));
+    }
   }
   return result;
 }

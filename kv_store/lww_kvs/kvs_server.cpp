@@ -63,7 +63,7 @@ communication::Response process_request(
     SocketCache& pushers,
     unordered_map<string, key_stat>& key_stat_map,
     chrono::system_clock::time_point& start_time,
-    unordered_map<string, vector<pending_request>>& pending_request_map,
+    unordered_map<string, pair<chrono::system_clock::time_point, vector<pending_request>>>& pending_request_map,
     unsigned& seed) {
   communication::Response response;
   vector<unsigned> tier_ids;
@@ -95,7 +95,10 @@ communication::Response process_request(
         }
       } else {
         string val = "";
-        pending_request_map[key].push_back(pending_request("G", val, req.respond_address()));
+        if (pending_request_map.find(key) == pending_request_map.end()) {
+          pending_request_map[key].first = chrono::system_clock::now();
+        }
+        pending_request_map[key].second.push_back(pending_request("G", val, req.respond_address()));
       }
     }
   } else if (req.type() == "PUT") {
@@ -124,10 +127,13 @@ communication::Response process_request(
           local_changeset.insert(key);
         }
       } else {
+        if (pending_request_map.find(key) == pending_request_map.end()) {
+          pending_request_map[key].first = chrono::system_clock::now();
+        }
         if (req.has_respond_address()) {
-          pending_request_map[key].push_back(pending_request("P", req.tuple(i).value(), req.respond_address()));
+          pending_request_map[key].second.push_back(pending_request("P", req.tuple(i).value(), req.respond_address()));
         } else {
-          pending_request_map[key].push_back(pending_request("P", req.tuple(i).value(), ""));
+          pending_request_map[key].second.push_back(pending_request("P", req.tuple(i).value(), ""));
         }
       }
     }
@@ -143,7 +149,7 @@ void process_gossip(communication::Request& gossip,
     SocketCache& pushers,
     Serializer* serializer,
     unordered_map<string, key_stat>& key_stat_map,
-    unordered_map<string, vector<pending_gossip>>& pending_gossip_map,
+    unordered_map<string, pair<chrono::system_clock::time_point, vector<pending_gossip>>>& pending_gossip_map,
     unsigned& seed) {
   vector<unsigned> tier_ids;
   tier_ids.push_back(SELF_TIER_ID);
@@ -157,7 +163,10 @@ void process_gossip(communication::Request& gossip,
         process_put(gossip.tuple(i).key(), gossip.tuple(i).timestamp(), gossip.tuple(i).value(), serializer, key_stat_map);
       }
     } else {
-      pending_gossip_map[key].push_back(pending_gossip(gossip.tuple(i).value(), gossip.tuple(i).timestamp()));
+      if (pending_gossip_map.find(key) == pending_gossip_map.end()) {
+        pending_gossip_map[key].first = chrono::system_clock::now();
+      }
+      pending_gossip_map[key].second.push_back(pending_gossip(gossip.tuple(i).value(), gossip.tuple(i).timestamp()));
     }
   }
 }
@@ -207,8 +216,8 @@ void run(unsigned thread_id) {
   unordered_map<unsigned, local_hash_t> local_hash_ring_map;
 
   // pending events for asynchrony
-  unordered_map<string, vector<pending_request>> pending_request_map;
-  unordered_map<string, vector<pending_gossip>> pending_gossip_map;
+  unordered_map<string, pair<chrono::system_clock::time_point, vector<pending_request>>> pending_request_map;
+  unordered_map<string, pair<chrono::system_clock::time_point, vector<pending_gossip>>> pending_gossip_map;
 
   unordered_map<string, key_info> placement;
 
@@ -585,7 +594,7 @@ void run(unsigned thread_id) {
           } else {
             responsible = false;
           }
-          for (auto it = pending_request_map[key].begin(); it != pending_request_map[key].end(); it++) {
+          for (auto it = pending_request_map[key].second.begin(); it != pending_request_map[key].second.end(); it++) {
             if (!responsible && it->addr_ != "") {
               communication::Response response;
               communication::Response_Tuple* tp = response.add_tuple();
@@ -641,7 +650,7 @@ void run(unsigned thread_id) {
       if (pending_gossip_map.find(key) != pending_gossip_map.end()) {
         auto threads = get_responsible_threads(wt.get_replication_factor_connect_addr(), key, is_metadata(key), global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids, succeed, seed);
         if (succeed && threads.find(wt) != threads.end()) {
-          for (auto it = pending_gossip_map[key].begin(); it != pending_gossip_map[key].end(); it++) {
+          for (auto it = pending_gossip_map[key].second.begin(); it != pending_gossip_map[key].second.end(); it++) {
             process_put(key, it->ts_, it->value_, serializer, key_stat_map);
           }
         } else if (!succeed) {
@@ -814,6 +823,28 @@ void run(unsigned thread_id) {
       report_start = chrono::system_clock::now();
       working_time = 0;
       //cerr << "thread " + to_string(thread_id) + " leaving event report\n";
+    }
+
+    // check pending events and garbage collect
+    unordered_set<string> remove_set;
+    for (auto it = pending_request_map.begin(); it != pending_request_map.end(); it++) {
+      auto t = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now()-it->second.first).count();
+      if (t > GARBAGE_COLLECTION_THRESHOLD) {
+        remove_set.insert(it->first);
+      }
+    }
+    for (auto it = remove_set.begin(); it != remove_set.end(); it++) {
+      pending_request_map.erase(*it);
+    }
+    remove_set.clear();
+    for (auto it = pending_gossip_map.begin(); it != pending_gossip_map.end(); it++) {
+      auto t = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now()-it->second.first).count();
+      if (t > GARBAGE_COLLECTION_THRESHOLD) {
+        remove_set.insert(it->first);
+      }
+    }
+    for (auto it = remove_set.begin(); it != remove_set.end(); it++) {
+      pending_gossip_map.erase(*it);
     }
   }
 }

@@ -201,6 +201,8 @@ int main(int argc, char* argv[]) {
 
   // responsible for both node join and departure
   zmq::socket_t response_puller(context, ZMQ_PULL);
+  int timeout = 5000;
+  response_puller.setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
   response_puller.bind(mt.get_request_pulling_bind_addr());
 
   unordered_map<address_t, unsigned> departing_node_map;
@@ -346,41 +348,46 @@ int main(int argc, char* argv[]) {
       }
 
       for (auto it = addr_request_map.begin(); it != addr_request_map.end(); it++) {
-        auto res = send_request<communication::Request, communication::Response>(it->second, pushers[it->first], response_puller);
-        for (int i = 0; i < res.tuple_size(); i++) {
-          if (res.tuple(i).err_number() == 0) {
-            vector<string> tokens;
-            split(res.tuple(i).key(), '_', tokens);
-            string ip = tokens[0];
-            unsigned tid = stoi(tokens[1]);
-            unsigned tier_id = stoi(tokens[2]);
-            string metadata_type = tokens[3];
+        bool succeed;
+        auto res = send_request<communication::Request, communication::Response>(it->second, pushers[it->first], response_puller, succeed);
+        if (succeed) {
+          for (int i = 0; i < res.tuple_size(); i++) {
+            if (res.tuple(i).err_number() == 0) {
+              vector<string> tokens;
+              split(res.tuple(i).key(), '_', tokens);
+              string ip = tokens[0];
+              unsigned tid = stoi(tokens[1]);
+              unsigned tier_id = stoi(tokens[2]);
+              string metadata_type = tokens[3];
 
-            if (metadata_type == "stat") {
-              // deserialized the value
-              communication::Server_Stat stat;
-              stat.ParseFromString(res.tuple(i).value());
-              if (tier_id == 1) {
-                memory_tier_storage[ip][tid] = stat.storage_consumption();
-                memory_tier_occupancy[ip][tid] = stat.occupancy();
-              } else {
-                ebs_tier_storage[ip][tid] = stat.storage_consumption();
-                ebs_tier_occupancy[ip][tid] = stat.occupancy();
+              if (metadata_type == "stat") {
+                // deserialized the value
+                communication::Server_Stat stat;
+                stat.ParseFromString(res.tuple(i).value());
+                if (tier_id == 1) {
+                  memory_tier_storage[ip][tid] = stat.storage_consumption();
+                  memory_tier_occupancy[ip][tid] = stat.occupancy();
+                } else {
+                  ebs_tier_storage[ip][tid] = stat.storage_consumption();
+                  ebs_tier_occupancy[ip][tid] = stat.occupancy();
+                }
+              } else if (metadata_type == "access") {
+                // deserialized the value
+                communication::Key_Access access;
+                access.ParseFromString(res.tuple(i).value());
+                for (int j = 0; j < access.tuple_size(); j++) {
+                  key_access_frequency[access.tuple(j).key()][ip + ":" + to_string(tid)] = access.tuple(j).access();
+                }
               }
-            } else if (metadata_type == "access") {
-              // deserialized the value
-              communication::Key_Access access;
-              access.ParseFromString(res.tuple(i).value());
-              for (int j = 0; j < access.tuple_size(); j++) {
-                key_access_frequency[access.tuple(j).key()][ip + ":" + to_string(tid)] = access.tuple(j).access();
-              }
+            } else if (res.tuple(i).err_number() == 1) {
+              cerr << "key " + res.tuple(i).key() + " doesn't exist\n";
+            } else {
+              cerr << "hash ring is inconsistent for key " + res.tuple(i).key() + "\n";
+              //TODO: reach here when the hash ring is inconsistent
             }
-          } else if (res.tuple(i).err_number() == 1) {
-            cerr << "key " + res.tuple(i).key() + " doesn't exist\n";
-          } else {
-            cerr << "hash ring is inconsistent for key " + res.tuple(i).key() + "\n";
-            //TODO: reach here when the hash ring is inconsistent
           }
+        } else {
+          continue;
         }
       }
 

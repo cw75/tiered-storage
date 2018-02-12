@@ -41,26 +41,36 @@ void handle_request(
   if (key_address_cache.find(key) == key_address_cache.end()) {
     // query the proxy and update the cache
     string target_proxy_address = get_random_proxy_thread(proxy_address, seed).get_key_address_connect_addr();
-    auto addresses = get_address_from_proxy(ut, key, pushers[target_proxy_address], key_address_puller);
-    for (auto it = addresses.begin(); it != addresses.end(); it++) {
-      key_address_cache[key].insert(*it);
+    bool succeed;
+    auto addresses = get_address_from_proxy(ut, key, pushers[target_proxy_address], key_address_puller, succeed);
+    if (succeed) {
+      for (auto it = addresses.begin(); it != addresses.end(); it++) {
+        key_address_cache[key].insert(*it);
+      }
+      worker_address = addresses[rand_r(&seed) % addresses.size()];
+    } else {
+      cerr << "request timed out\n";
+      return;
     }
-    worker_address = addresses[rand_r(&seed) % addresses.size()];
   } else {
     worker_address = *(next(begin(key_address_cache[key]), rand_r(&seed) % key_address_cache[key].size()));
   }
-
-  auto res = send_request<communication::Request, communication::Response>(req, pushers[worker_address], response_puller);
-  // initialize the respond string
-  if (res.tuple(0).err_number() == 2) {
-    // update cache and retry
-    logger->info("cache invalidation");
-    //cerr << "cache invalidation\n";
-    key_address_cache.erase(key);
-    for (int i = 0; i < res.tuple(0).addresses_size(); i++) {
-      key_address_cache[key].insert(res.tuple(0).addresses(i));
+  bool succeed;
+  auto res = send_request<communication::Request, communication::Response>(req, pushers[worker_address], response_puller, succeed);
+  if (succeed) {
+    // initialize the respond string
+    if (res.tuple(0).err_number() == 2) {
+      // update cache and retry
+      logger->info("cache invalidation");
+      //cerr << "cache invalidation\n";
+      key_address_cache.erase(key);
+      for (int i = 0; i < res.tuple(0).addresses_size(); i++) {
+        key_address_cache[key].insert(res.tuple(0).addresses(i));
+      }
+      handle_request(key, value, pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller);
     }
-    handle_request(key, value, pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller);
+  } else {
+    cerr << "request timed out\n";
   }
 }
 
@@ -96,11 +106,14 @@ void run(unsigned thread_id) {
   zmq::context_t context(1);
   SocketCache pushers(&context, ZMQ_PUSH);
 
+  int timeout = 5000;
   // responsible for pulling response
   zmq::socket_t response_puller(context, ZMQ_PULL);
+  response_puller.setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
   response_puller.bind(ut.get_request_pulling_bind_addr());
   // responsible for receiving depart done notice
   zmq::socket_t key_address_puller(context, ZMQ_PULL);
+  key_address_puller.setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
   key_address_puller.bind(ut.get_key_address_bind_addr());
   // responsible for pulling benchmark command
   zmq::socket_t command_puller(context, ZMQ_PULL);
