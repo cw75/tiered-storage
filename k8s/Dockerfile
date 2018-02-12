@@ -1,6 +1,6 @@
 FROM ubuntu:14.04
 
-MAINTAINER Vikram Sreekanti <vsreekanti@gmail.com> version: 0.1
+MAINTAINER Chenggang Wu <cgwu0530@gmail.com> version: 0.1
 
 USER root
 
