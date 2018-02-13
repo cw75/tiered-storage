@@ -132,7 +132,7 @@ int main(int argc, char* argv[]) {
   zmq::context_t context(1);
   SocketCache pushers(&context, ZMQ_PUSH);
 
-  int timeout = 30000;
+  int timeout = 5000;
   // responsible for pulling response
   zmq::socket_t response_puller(context, ZMQ_PULL);
   response_puller.setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));

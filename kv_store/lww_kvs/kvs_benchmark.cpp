@@ -107,7 +107,7 @@ void run(unsigned thread_id) {
   zmq::context_t context(1);
   SocketCache pushers(&context, ZMQ_PUSH);
 
-  int timeout = 30000;
+  int timeout = 5000;
   // responsible for pulling response
   zmq::socket_t response_puller(context, ZMQ_PULL);
   response_puller.setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
@@ -139,30 +139,23 @@ void run(unsigned thread_id) {
       unsigned time = stoi(v[5]);
 
       // warm up cache
-      string target_proxy_address = get_random_proxy_thread(proxy_address, seed).get_key_address_connect_addr();
-      communication::Key_Request key_req;
-      key_req.set_respond_address(ut.get_key_address_connect_addr());
       for (unsigned i = 1; i <= contention; i++) {
         // key is 8 bytes
         string key = string(8 - to_string(i).length(), '0') + to_string(i);
+        communication::Key_Request key_req;
+        key_req.set_respond_address(ut.get_key_address_connect_addr());
         key_req.add_keys(key);
-      }
-      bool succeed;
-      auto key_response = send_request<communication::Key_Request, communication::Key_Response>(key_req, pushers[target_proxy_address], key_address_puller, succeed);
-      logger->info("received address response");
-      if (succeed) {
-        for (unsigned i = 0; i < key_response.tuple_size(); i++) {
-          if (i % 5000) {
-            logger->info("updating cache for tuple {}", to_string(i));
-          }
+        string target_proxy_address = get_random_proxy_thread(proxy_address, seed).get_key_address_connect_addr();
+        bool succeed;
+        auto key_response = send_request<communication::Key_Request, communication::Key_Response>(key_req, pushers[target_proxy_address], key_address_puller, succeed);
+        if (succeed) {
           // update cache
-          for (int j = 0; j < key_response.tuple(i).addresses_size(); j++) {
-            key_address_cache[key_response.tuple(i).key()].insert(key_response.tuple(i).addresses(j));
+          for (int i = 0; i < key_response.tuple(0).addresses_size(); i++) {
+            key_address_cache[key_response.tuple(0).key()].insert(key_response.tuple(0).addresses(i));
           }
+        } else {
+          cerr << "timeout during warmup\n";
         }
-      } else {
-        // timeout
-        cerr << "timeout during warmup\n";
       }
 
       if (mode == "MOVEMENT") {

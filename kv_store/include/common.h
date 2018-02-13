@@ -19,7 +19,7 @@ using namespace std;
 // Define monitoring constant
 #define SERVER_REPORT_THRESHOLD 10000000
 // Define garbage collection threshold for pending events (in millisecond)
-#define GARBAGE_COLLECTION_THRESHOLD 20000
+#define GARBAGE_COLLECTION_THRESHOLD 3000
 
 // Define the replication factor for the metadata
 #define METADATA_REPLICATION_FACTOR 2
@@ -37,7 +37,7 @@ using namespace std;
 #define EBS_THREAD_NUM 3
 
 // Define the number of proxy worker threads
-#define PROXY_THREAD_NUM 3
+#define PROXY_THREAD_NUM 16
 
 // Define the number of benchmark threads
 #define BENCHMARK_THREAD_NUM 16
