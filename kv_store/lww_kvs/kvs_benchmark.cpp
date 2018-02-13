@@ -142,6 +142,9 @@ void run(unsigned thread_id) {
       for (unsigned i = 1; i <= contention; i++) {
         // key is 8 bytes
         string key = string(8 - to_string(i).length(), '0') + to_string(i);
+        if (i % 2000 == 0) {
+          logger->info("warming up key {}", key);
+        }
         communication::Key_Request key_req;
         key_req.set_respond_address(ut.get_key_address_connect_addr());
         key_req.add_keys(key);
