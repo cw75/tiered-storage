@@ -521,7 +521,6 @@ void run(unsigned thread_id) {
       zmq_util::send_string(ip + "_" + to_string(SELF_TIER_ID), &pushers[ack_addr]);
       working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
       //cerr << "thread " + to_string(thread_id) + " leaving event 3\n";
-      break;
     }
 
     // receives a request
@@ -880,8 +879,4 @@ int main(int argc, char* argv[]) {
   }
 
   run(0);
-
-  for (auto it = worker_threads.begin(); it != worker_threads.end(); it++) {
-    it->join();
-  }
 }
