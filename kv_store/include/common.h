@@ -453,10 +453,20 @@ void issue_replication_factor_request(
     string& respond_address,
     string& key,
     global_hash_t& global_hash_ring,
+    local_hash_t& local_hash_ring,
     unordered_map<string, key_info>& placement,
     SocketCache& pushers,
     unsigned& seed) {
-  auto threads = responsible_global(key + "_replication", METADATA_REPLICATION_FACTOR, global_hash_ring);
+  unordered_set<server_thread_t, thread_hash> threads;
+  auto mts = responsible_global(key + "_replication", METADATA_REPLICATION_FACTOR, global_hash_ring);
+  for (auto it = mts.begin(); it != mts.end(); it++) {
+    string ip = it->get_ip();
+    auto tids = responsible_local(key + "_replication", DEFAULT_LOCAL_REPLICATION, local_hash_ring);
+    for (auto iter = tids.begin(); iter != tids.end(); iter++) {
+      threads.insert(server_thread_t(ip, *iter));
+    }
+  }
+
   string target_address = next(begin(threads), rand_r(&seed) % threads.size())->get_request_pulling_connect_addr();
 
   communication::Request req;
@@ -481,11 +491,20 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads(
     unsigned& seed) {
   if (metadata) {
     succeed = true;
-    return responsible_global(key, METADATA_REPLICATION_FACTOR, global_hash_ring_map[1]);
+    unordered_set<server_thread_t, thread_hash> result;
+    auto mts = responsible_global(key, METADATA_REPLICATION_FACTOR, global_hash_ring_map[1]);
+    for (auto it = mts.begin(); it != mts.end(); it++) {
+      string ip = it->get_ip();
+      auto tids = responsible_local(key, DEFAULT_LOCAL_REPLICATION, local_hash_ring_map[1]);
+      for (auto iter = tids.begin(); iter != tids.end(); iter++) {
+        result.insert(server_thread_t(ip, *iter));
+      }
+    }
+    return result;
   } else {
     unordered_set<server_thread_t, thread_hash> result;
     if (placement.find(key) == placement.end()) {
-      issue_replication_factor_request(respond_address, key, global_hash_ring_map[1], placement, pushers, seed);
+      issue_replication_factor_request(respond_address, key, global_hash_ring_map[1], local_hash_ring_map[1], placement, pushers, seed);
       succeed = false;
     } else {
       for (auto id_iter = tier_ids.begin(); id_iter != tier_ids.end(); id_iter++) {

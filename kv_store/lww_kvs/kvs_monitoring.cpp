@@ -224,6 +224,8 @@ int main(int argc, char* argv[]) {
 
   bool adding_memory_node = false;
   bool adding_ebs_node = false;
+  bool removing_memory_node = false;
+  bool removing_ebs_node = false;
 
   unsigned server_monitoring_epoch = 0;
 
@@ -250,13 +252,13 @@ int main(int argc, char* argv[]) {
         if (tier == 1) {
           insert_to_hash_ring<global_hash_t>(global_hash_ring_map[tier], new_server_ip, 0);
           adding_memory_node = false;
-          // reset storage timer
+          // reset timer
           report_start = std::chrono::system_clock::now();
           report_end = std::chrono::system_clock::now();
         } else if (tier == 2) {
           insert_to_hash_ring<global_hash_t>(global_hash_ring_map[tier], new_server_ip, 0);
           adding_ebs_node = false;
-          // reset storage timer
+          // reset timer
           report_start = std::chrono::system_clock::now();
           report_end = std::chrono::system_clock::now();
         } else if (tier == 0) {
@@ -311,10 +313,18 @@ int main(int argc, char* argv[]) {
             logger->info("removing memory node {}", departed_ip);
             string shell_command = "curl -X POST http://" + management_address + "/remove/memory/" + departed_ip;
             system(shell_command.c_str());
+            removing_memory_node = false;
+            // reset timer
+            report_start = std::chrono::system_clock::now();
+            report_end = std::chrono::system_clock::now();
           } else {
             logger->info("removing ebs node {}", departed_ip);
             string shell_command = "curl -X POST http://" + management_address + "/remove/ebs/" + departed_ip;
             system(shell_command.c_str());
+            removing_ebs_node = false;
+            // reset timer
+            report_start = std::chrono::system_clock::now();
+            report_end = std::chrono::system_clock::now();
           }
           departing_node_map.erase(departed_ip);
         }
@@ -447,14 +457,14 @@ int main(int argc, char* argv[]) {
         adding_ebs_node = true;
       }*/
 
-      bool add_node_flag = false;
+      double max_occupancy = 0.0;
 
       if (server_monitoring_epoch % 5 == 1) {
         for (auto it1 = memory_tier_occupancy.begin(); it1 != memory_tier_occupancy.end(); it1++) {
           for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
             logger->info("memory node ip {} thread {} occupancy is {} for epoch {}", it1->first, it2->first, it2->second, server_monitoring_epoch);
-            if (it2->second > 0.4) {
-              add_node_flag = true;
+            if (it2->second > max_occupancy) {
+              max_occupancy = it2->second;
             }
           }
         }
@@ -466,11 +476,23 @@ int main(int argc, char* argv[]) {
         }*/
       }
 
-      if (add_node_flag && !adding_memory_node) {
+      if (max_occupancy > 0.1 && !adding_memory_node) {
         logger->info("trigger add memory node");
         string shell_command = "curl -X POST http://" + management_address + "/memory";
         system(shell_command.c_str());
         adding_memory_node = true;
+      }
+
+      if (max_occupancy < 0.05 && !removing_memory_node && global_hash_ring_map[1].size() >= 3) {
+        logger->info("sending remove memory node msg");
+        // pick a random memory node
+        auto node = next(begin(global_hash_ring_map[1]), rand() % global_hash_ring_map[1].size())->second;
+        auto connection_addr = node.get_self_depart_connect_addr();
+        auto ip = node.get_ip();
+        departing_node_map[ip] = tier_data_map[1].thread_number_;
+        auto ack_addr = mt.get_depart_done_connect_addr();
+        zmq_util::send_string(ack_addr, &pushers[connection_addr]);
+        removing_memory_node = true;
       }
 
       report_start = std::chrono::system_clock::now();
