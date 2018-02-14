@@ -23,10 +23,19 @@ unordered_map<unsigned, tier_data> tier_data_map;
 
 void prepare_metadata_get_request(
     string& key,
-    global_hash_t& global_memory_hash_ring,
+    global_hash_t& global_hash_ring,
+    local_hash_t& local_hash_ring,
     unordered_map<address_t, communication::Request>& addr_request_map,
     monitoring_thread_t& mt) {
-  auto threads = responsible_global(key, METADATA_REPLICATION_FACTOR, global_memory_hash_ring);
+  unordered_set<server_thread_t, thread_hash> threads;
+  auto mts = responsible_global(key, METADATA_REPLICATION_FACTOR, global_hash_ring);
+  for (auto it = mts.begin(); it != mts.end(); it++) {
+    string ip = it->get_ip();
+    auto tids = responsible_local(key, DEFAULT_LOCAL_REPLICATION, local_hash_ring);
+    for (auto iter = tids.begin(); iter != tids.end(); iter++) {
+      threads.insert(server_thread_t(ip, *iter));
+    }
+  }
   if (threads.size() != 0) {
     string target_address = next(begin(threads), rand() % threads.size())->get_request_pulling_connect_addr();
     if (addr_request_map.find(target_address) == addr_request_map.end()) {
@@ -40,9 +49,18 @@ void prepare_metadata_get_request(
 void prepare_metadata_put_request(
     string& key,
     string& value,
-    global_hash_t& global_memory_hash_ring,
+    global_hash_t& global_hash_ring,
+    local_hash_t& local_hash_ring,
     unordered_map<address_t, communication::Request>& addr_request_map) {
-  auto threads = responsible_global(key, METADATA_REPLICATION_FACTOR, global_memory_hash_ring);
+  unordered_set<server_thread_t, thread_hash> threads;
+  auto mts = responsible_global(key, METADATA_REPLICATION_FACTOR, global_hash_ring);
+  for (auto it = mts.begin(); it != mts.end(); it++) {
+    string ip = it->get_ip();
+    auto tids = responsible_local(key, DEFAULT_LOCAL_REPLICATION, local_hash_ring);
+    for (auto iter = tids.begin(); iter != tids.end(); iter++) {
+      threads.insert(server_thread_t(ip, *iter));
+    }
+  }
   if (threads.size() != 0) {
     string target_address = next(begin(threads), rand() % threads.size())->get_request_pulling_connect_addr();
     if (addr_request_map.find(target_address) == addr_request_map.end()) {
@@ -77,6 +95,7 @@ void prepare_replication_factor_update(
 void change_replication_factor(
     unordered_map<string, key_info>& requests,
     unordered_map<unsigned, global_hash_t>& global_hash_ring_map,
+    unordered_map<unsigned, local_hash_t>& local_hash_ring_map,
     vector<address_t>& proxy_address,
     unordered_map<string, key_info>& placement,
     SocketCache& pushers) {
@@ -139,7 +158,7 @@ void change_replication_factor(
     string rep_key = key + "_replication";
     string serialized_rep_data;
     rep_data.SerializeToString(&serialized_rep_data);
-    prepare_metadata_put_request(rep_key, serialized_rep_data, global_hash_ring_map[1], addr_request_map);
+    prepare_metadata_put_request(rep_key, serialized_rep_data, global_hash_ring_map[1], local_hash_ring_map[1], addr_request_map);
   }
 
   for (auto it = addr_request_map.begin(); it != addr_request_map.end(); it++) {
@@ -164,6 +183,14 @@ int main(int argc, char* argv[]) {
 
   // initialize hash ring maps
   unordered_map<unsigned, global_hash_t> global_hash_ring_map;
+  unordered_map<unsigned, local_hash_t> local_hash_ring_map;
+
+  // form local hash rings
+  for (auto it = tier_data_map.begin(); it != tier_data_map.end(); it++) {
+    for (unsigned tid = 0; tid < it->second.thread_number_; tid++) {
+      insert_to_hash_ring<local_hash_t>(local_hash_ring_map[it->first], ip, tid);
+    }
+  }
 
   // keep track of the keys' replication info
   unordered_map<string, key_info> placement;
@@ -273,6 +300,7 @@ int main(int argc, char* argv[]) {
         }
       } else if (type == "depart") {
         logger->info("received depart");
+        logger->info("departing server ip is {}", new_server_ip);
         //cerr << "received depart\n";
         // update hash ring
         if (tier == 1) {
@@ -350,9 +378,9 @@ int main(int argc, char* argv[]) {
           if (observed_ip.find(iter->second.get_ip()) == observed_ip.end()) {
             for (unsigned i = 0; i < tier_data_map[tier_id].thread_number_; i++) {
               string key = iter->second.get_ip() + "_" + to_string(i) + "_" + to_string(tier_id) + "_stat";
-              prepare_metadata_get_request(key, global_hash_ring_map[1], addr_request_map, mt);
+              prepare_metadata_get_request(key, global_hash_ring_map[1], local_hash_ring_map[1], addr_request_map, mt);
               key = iter->second.get_ip() + "_" + to_string(i) + "_" + to_string(tier_id) + "_access";
-              prepare_metadata_get_request(key, global_hash_ring_map[1], addr_request_map, mt);
+              prepare_metadata_get_request(key, global_hash_ring_map[1], local_hash_ring_map[1], addr_request_map, mt);
             }
             observed_ip.insert(iter->second.get_ip());
           }
@@ -399,6 +427,7 @@ int main(int argc, char* argv[]) {
             }
           }
         } else {
+          cerr << "request timed out\n";
           continue;
         }
       }
@@ -470,31 +499,35 @@ int main(int argc, char* argv[]) {
             }
           }
         }
-
-        /*for (auto it1 = ebs_tier_occupancy.begin(); it1 != ebs_tier_occupancy.end(); it1++) {
+        for (auto it1 = ebs_tier_occupancy.begin(); it1 != ebs_tier_occupancy.end(); it1++) {
           for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
             logger->info("ebs node ip {} thread {} occupancy is {} for epoch {}", it1->first, it2->first, it2->second, server_monitoring_epoch);
           }
-        }*/
-      }
+        }
+        logger->info("max occupancy is {}", to_string(max_occupancy));
+        if (adding_memory_node) {
+          logger->info("adding memory node flag is True");
+        } else {
+          logger->info("adding memory node flag is False");
+        }
+        if (max_occupancy > 0.1 && !adding_memory_node) {
+          logger->info("trigger add memory node");
+          string shell_command = "curl -X POST http://" + management_address + "/memory";
+          system(shell_command.c_str());
+          adding_memory_node = true;
+        }
 
-      if (max_occupancy > 0.1 && !adding_memory_node) {
-        logger->info("trigger add memory node");
-        string shell_command = "curl -X POST http://" + management_address + "/memory";
-        system(shell_command.c_str());
-        adding_memory_node = true;
-      }
-
-      if (max_occupancy < 0.05 && !removing_memory_node && global_hash_ring_map[1].size() > 3*VIRTUAL_THREAD_NUM) {
-        logger->info("sending remove memory node msg");
-        // pick a random memory node
-        auto node = next(begin(global_hash_ring_map[1]), rand() % global_hash_ring_map[1].size())->second;
-        auto connection_addr = node.get_self_depart_connect_addr();
-        auto ip = node.get_ip();
-        departing_node_map[ip] = tier_data_map[1].thread_number_;
-        auto ack_addr = mt.get_depart_done_connect_addr();
-        zmq_util::send_string(ack_addr, &pushers[connection_addr]);
-        removing_memory_node = true;
+        if (max_occupancy < 0.05 && !removing_memory_node && global_hash_ring_map[1].size() > 3*VIRTUAL_THREAD_NUM) {
+          logger->info("sending remove memory node msg");
+          // pick a random memory node
+          auto node = next(begin(global_hash_ring_map[1]), rand() % global_hash_ring_map[1].size())->second;
+          auto connection_addr = node.get_self_depart_connect_addr();
+          auto ip = node.get_ip();
+          departing_node_map[ip] = tier_data_map[1].thread_number_;
+          auto ack_addr = mt.get_depart_done_connect_addr();
+          zmq_util::send_string(ack_addr, &pushers[connection_addr]);
+          removing_memory_node = true;
+        }
       }
 
       report_start = std::chrono::system_clock::now();
