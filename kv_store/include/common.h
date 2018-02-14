@@ -466,6 +466,9 @@ void issue_replication_factor_request(
       threads.insert(server_thread_t(ip, *iter));
     }
   }
+  if (threads.size() == 0) {
+    cerr << "error!\n";
+  }
 
   string target_address = next(begin(threads), rand_r(&seed) % threads.size())->get_request_pulling_connect_addr();
 
