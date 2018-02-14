@@ -485,7 +485,7 @@ int main(int argc, char* argv[]) {
         adding_memory_node = true;
       }
 
-      if (max_occupancy < 0.05 && !removing_memory_node && global_hash_ring_map[1].size() >= 3*VIRTUAL_THREAD_NUM) {
+      if (max_occupancy < 0.05 && !removing_memory_node && global_hash_ring_map[1].size() > 3*VIRTUAL_THREAD_NUM) {
         logger->info("sending remove memory node msg");
         // pick a random memory node
         auto node = next(begin(global_hash_ring_map[1]), rand() % global_hash_ring_map[1].size())->second;
