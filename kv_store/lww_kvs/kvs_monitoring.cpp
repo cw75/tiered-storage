@@ -249,6 +249,8 @@ int main(int argc, char* argv[]) {
       string new_server_ip = v[2];
       if (type == "join") {
         logger->info("received join");
+        logger->info("new server ip is {}", new_server_ip);
+        logger->info("tier id is {}", to_string(tier));
         if (tier == 1) {
           insert_to_hash_ring<global_hash_t>(global_hash_ring_map[tier], new_server_ip, 0);
           adding_memory_node = false;
@@ -483,7 +485,7 @@ int main(int argc, char* argv[]) {
         adding_memory_node = true;
       }
 
-      if (max_occupancy < 0.05 && !removing_memory_node && global_hash_ring_map[1].size() >= 3) {
+      if (max_occupancy < 0.05 && !removing_memory_node && global_hash_ring_map[1].size() >= 3*VIRTUAL_THREAD_NUM) {
         logger->info("sending remove memory node msg");
         // pick a random memory node
         auto node = next(begin(global_hash_ring_map[1]), rand() % global_hash_ring_map[1].size())->second;
