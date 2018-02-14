@@ -786,7 +786,15 @@ void run(unsigned thread_id) {
       req.set_type("PUT");
       prepare_put_tuple(req, key, serialized_stat, 0);
 
-      auto threads = responsible_global(key, METADATA_REPLICATION_FACTOR, global_hash_ring_map[1]);
+      unordered_set<server_thread_t, thread_hash> threads;
+      auto mts = responsible_global(key, METADATA_REPLICATION_FACTOR, global_hash_ring_map[1]);
+      for (auto it = mts.begin(); it != mts.end(); it++) {
+        string ip = it->get_ip();
+        auto tids = responsible_local(key, DEFAULT_LOCAL_REPLICATION, local_hash_ring_map[1]);
+        for (auto iter = tids.begin(); iter != tids.end(); iter++) {
+          threads.insert(server_thread_t(ip, *iter));
+        }
+      }
       if (threads.size() != 0) {
         string target_address = next(begin(threads), rand_r(&seed) % threads.size())->get_request_pulling_connect_addr();
         push_request(req, pushers[target_address]);
@@ -813,7 +821,15 @@ void run(unsigned thread_id) {
       req.set_type("PUT");
       prepare_put_tuple(req, key, serialized_access, 0);
 
-      threads = responsible_global(key, METADATA_REPLICATION_FACTOR, global_hash_ring_map[1]);
+      threads.clear();
+      mts = responsible_global(key, METADATA_REPLICATION_FACTOR, global_hash_ring_map[1]);
+      for (auto it = mts.begin(); it != mts.end(); it++) {
+        string ip = it->get_ip();
+        auto tids = responsible_local(key, DEFAULT_LOCAL_REPLICATION, local_hash_ring_map[1]);
+        for (auto iter = tids.begin(); iter != tids.end(); iter++) {
+          threads.insert(server_thread_t(ip, *iter));
+        }
+      }
       if (threads.size() != 0) {
         string target_address = next(begin(threads), rand_r(&seed) % threads.size())->get_request_pulling_connect_addr();
         push_request(req, pushers[target_address]);
