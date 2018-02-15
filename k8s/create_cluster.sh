@@ -119,7 +119,7 @@ while [ ${#PROXY_IP_ARR[@]} -ne $3 ]; do
   PROXY_IP_ARR=($PROXY_IPS)
 done
 
-echo "Creating memory node(s), ebs node(s), and benchmark node(s)..."
+echo "Creating $1 memory node(s), $2 ebs node(s), and $4 benchmark node(s)..."
 
 add_nodes $1 $2 0 $4
 

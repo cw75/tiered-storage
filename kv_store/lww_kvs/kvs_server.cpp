@@ -355,6 +355,10 @@ void run(unsigned thread_id) {
   auto report_end = chrono::system_clock::now();
 
   unsigned long long working_time = 0;
+  unordered_map<unsigned, unsigned long long> working_time_map;
+  for (unsigned i = 0; i < 8; i++) {
+    working_time_map[i] = 0;
+  }
   unsigned epoch = 0;
   // enter event loop
   while (true) {
@@ -435,7 +439,9 @@ void run(unsigned thread_id) {
           }
         }
       }
-      working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+      auto time_elapsed = chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+      working_time += time_elapsed;
+      working_time_map[0] += time_elapsed;
       //cerr << "thread " + to_string(thread_id) + " leaving event 1\n";
     }
 
@@ -461,7 +467,9 @@ void run(unsigned thread_id) {
           logger->info("hash ring for tier {} size is {}", to_string(it->first), to_string(it->second.size()));
         }
       }
-      working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+      auto time_elapsed = chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+      working_time += time_elapsed;
+      working_time_map[1] += time_elapsed;
       //cerr << "thread " + to_string(thread_id) + " leaving event 2\n";
     }
 
@@ -519,7 +527,9 @@ void run(unsigned thread_id) {
 
       send_gossip(addr_keyset_map, pushers, serializer);
       zmq_util::send_string(ip + "_" + to_string(SELF_TIER_ID), &pushers[ack_addr]);
-      working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+      auto time_elapsed = chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+      working_time += time_elapsed;
+      working_time_map[2] += time_elapsed;
       //cerr << "thread " + to_string(thread_id) + " leaving event 3\n";
     }
 
@@ -538,7 +548,9 @@ void run(unsigned thread_id) {
         //  send response
         zmq_util::send_string(serialized_response, &pushers[req.respond_address()]);
       }
-      working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+      auto time_elapsed = chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+      working_time += time_elapsed;
+      working_time_map[3] += time_elapsed;
       //cerr << "thread " + to_string(thread_id) + " leaving event 4\n";
     }
 
@@ -551,7 +563,9 @@ void run(unsigned thread_id) {
       gossip.ParseFromString(serialized_gossip);
       //  Process distributed gossip
       process_gossip(gossip, wt, global_hash_ring_map, local_hash_ring_map, placement, pushers, serializer, key_stat_map, pending_gossip_map, seed);
-      working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+      auto time_elapsed = chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+      working_time += time_elapsed;
+      working_time_map[4] += time_elapsed;
       //cerr << "thread " + to_string(thread_id) + " leaving event 6\n";
     }
 
@@ -657,7 +671,9 @@ void run(unsigned thread_id) {
         }
         pending_gossip_map.erase(key);
       }
-      working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+      auto time_elapsed = chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+      working_time += time_elapsed;
+      working_time_map[5] += time_elapsed;
       //cerr << "thread " + to_string(thread_id) + " leaving event 6\n";
     }
 
@@ -723,7 +739,9 @@ void run(unsigned thread_id) {
         key_stat_map.erase(*it);
         serializer->remove(*it);
       }
-      working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+      auto time_elapsed = chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+      working_time += time_elapsed;
+      working_time_map[6] += time_elapsed;
       //cerr << "thread " + to_string(thread_id) + " leaving event 7\n";
     }
 
@@ -758,7 +776,9 @@ void run(unsigned thread_id) {
         local_changeset.clear();
       }
       gossip_start = chrono::system_clock::now();
-      working_time += chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+      auto time_elapsed = chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
+      working_time += time_elapsed;
+      working_time_map[7] += time_elapsed;
       //cerr << "thread " + to_string(thread_id) + " leaving event gossip\n";
     }
 
@@ -773,6 +793,10 @@ void run(unsigned thread_id) {
       unsigned long long consumption = 0;
       for (auto it = key_stat_map.begin(); it != key_stat_map.end(); it++) {
         consumption += it->second.size_;
+      }
+      // log time
+      for (auto it = working_time_map.begin(); it != working_time_map.end(); it++) {
+        logger->info("event {} percentage is {}", to_string(it->first), to_string((double) it->second / (double) duration));
       }
       // compute occupancy
       double occupancy = (double) working_time / (double) duration;
@@ -836,7 +860,11 @@ void run(unsigned thread_id) {
       }
 
       report_start = chrono::system_clock::now();
+      // reset
       working_time = 0;
+      for (unsigned i = 0; i < 8; i++) {
+        working_time_map[i] = 0;
+      }
       //cerr << "thread " + to_string(thread_id) + " leaving event report\n";
     }
 

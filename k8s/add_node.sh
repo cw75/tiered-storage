@@ -17,6 +17,12 @@ if [ -z "$2" ] || [ "$2" = "NULL" ]; then
   UUID=`tr -dc 'a-z0-9' < /dev/urandom | head -c 16`
 
   ./add_server.sh $1 $UUID
+  kops update cluster --name ${NAME} --yes > /dev/null 2>&1
+  kops validate cluster > /dev/null 2>&1
+  while [ $? -ne 0 ]
+  do
+    kops validate cluster > /dev/null 2>&1
+  done
 else
   UUID=$2
 fi
