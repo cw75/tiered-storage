@@ -25,19 +25,11 @@ unordered_map<unsigned, tier_data> tier_data_map;
 
 void prepare_metadata_get_request(
     string& key,
-    global_hash_t& global_hash_ring,
-    local_hash_t& local_hash_ring,
+    global_hash_t& global_memory_hash_ring,
+    local_hash_t& local_memory_hash_ring,
     unordered_map<address_t, communication::Request>& addr_request_map,
     monitoring_thread_t& mt) {
-  unordered_set<server_thread_t, thread_hash> threads;
-  auto mts = responsible_global(key, METADATA_REPLICATION_FACTOR, global_hash_ring);
-  for (auto it = mts.begin(); it != mts.end(); it++) {
-    string ip = it->get_ip();
-    auto tids = responsible_local(key, DEFAULT_LOCAL_REPLICATION, local_hash_ring);
-    for (auto iter = tids.begin(); iter != tids.end(); iter++) {
-      threads.insert(server_thread_t(ip, *iter));
-    }
-  }
+  auto threads = get_responsible_threads_metadata(key, global_memory_hash_ring, local_memory_hash_ring);
   if (threads.size() != 0) {
     string target_address = next(begin(threads), rand() % threads.size())->get_request_pulling_connect_addr();
     if (addr_request_map.find(target_address) == addr_request_map.end()) {
@@ -51,18 +43,10 @@ void prepare_metadata_get_request(
 void prepare_metadata_put_request(
     string& key,
     string& value,
-    global_hash_t& global_hash_ring,
-    local_hash_t& local_hash_ring,
+    global_hash_t& global_memory_hash_ring,
+    local_hash_t& local_memory_hash_ring,
     unordered_map<address_t, communication::Request>& addr_request_map) {
-  unordered_set<server_thread_t, thread_hash> threads;
-  auto mts = responsible_global(key, METADATA_REPLICATION_FACTOR, global_hash_ring);
-  for (auto it = mts.begin(); it != mts.end(); it++) {
-    string ip = it->get_ip();
-    auto tids = responsible_local(key, DEFAULT_LOCAL_REPLICATION, local_hash_ring);
-    for (auto iter = tids.begin(); iter != tids.end(); iter++) {
-      threads.insert(server_thread_t(ip, *iter));
-    }
-  }
+  auto threads = get_responsible_threads_metadata(key, global_memory_hash_ring, local_memory_hash_ring);
   if (threads.size() != 0) {
     string target_address = next(begin(threads), rand() % threads.size())->get_request_pulling_connect_addr();
     if (addr_request_map.find(target_address) == addr_request_map.end()) {
@@ -205,9 +189,9 @@ int main(int argc, char* argv[]) {
   // keep track of ebs tier storage consumption
   unordered_map<address_t, unordered_map<unsigned, unsigned long long>> ebs_tier_storage;
   // keep track of memory tier thread occupancy
-  unordered_map<address_t, unordered_map<unsigned, double>> memory_tier_occupancy;
+  unordered_map<address_t, unordered_map<unsigned, pair<double, unsigned>>> memory_tier_occupancy;
   // keep track of ebs tier thread occupancy
-  unordered_map<address_t, unordered_map<unsigned, double>> ebs_tier_occupancy;
+  unordered_map<address_t, unordered_map<unsigned, pair<double, unsigned>>> ebs_tier_occupancy;
   // read in the initial server addresses and build the hash ring
   string ip_line;
   ifstream address;
@@ -410,10 +394,10 @@ int main(int argc, char* argv[]) {
                 stat.ParseFromString(res.tuple(i).value());
                 if (tier_id == 1) {
                   memory_tier_storage[ip][tid] = stat.storage_consumption();
-                  memory_tier_occupancy[ip][tid] = stat.occupancy();
+                  memory_tier_occupancy[ip][tid] = pair<double, unsigned>(stat.occupancy(), stat.epoch());
                 } else {
                   ebs_tier_storage[ip][tid] = stat.storage_consumption();
-                  ebs_tier_occupancy[ip][tid] = stat.occupancy();
+                  ebs_tier_occupancy[ip][tid] = pair<double, unsigned>(stat.occupancy(), stat.epoch());
                 }
               } else if (metadata_type == "access") {
                 // deserialized the value
@@ -492,30 +476,36 @@ int main(int argc, char* argv[]) {
         adding_ebs_node = true;
       }*/
 
-      double max_occupancy = 0.0;
-
       if (server_monitoring_epoch % 5 == 1) {
+        double max_occupancy = 0.0;
+        double sum_occupancy = 0.0;
+        unsigned count = 0;
         for (auto it1 = memory_tier_occupancy.begin(); it1 != memory_tier_occupancy.end(); it1++) {
           for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
-            logger->info("memory node ip {} thread {} occupancy is {} for epoch {}", it1->first, it2->first, it2->second, server_monitoring_epoch);
-            if (it2->second > max_occupancy) {
-              max_occupancy = it2->second;
+            logger->info("memory node ip {} thread {} occupancy is {} at server epoch {} for monitoring epoch {}", it1->first, it2->first, it2->second.first, it2->second.second, server_monitoring_epoch);
+            if (it2->second.first > max_occupancy) {
+              max_occupancy = it2->second.first;
             }
+            sum_occupancy += it2->second.first;
+            count += 1;
           }
         }
+        double avg_occupancy = sum_occupancy / count;
+
         for (auto it1 = ebs_tier_occupancy.begin(); it1 != ebs_tier_occupancy.end(); it1++) {
           for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
-            logger->info("ebs node ip {} thread {} occupancy is {} for epoch {}", it1->first, it2->first, it2->second, server_monitoring_epoch);
+            logger->info("ebs node ip {} thread {} occupancy is {} at server epoch {} for monitoring epoch {}", it1->first, it2->first, it2->second.first, it2->second.second, server_monitoring_epoch);
           }
         }
         logger->info("max occupancy is {}", to_string(max_occupancy));
+        logger->info("avg occupancy is {}", to_string(avg_occupancy));
         logger->info("still adding {} memory node", to_string(adding_memory_node));
-        if (max_occupancy > 0.1 && adding_memory_node == 0) {
+        /*if (avg_occupancy > 0.08 && adding_memory_node == 0) {
           logger->info("trigger add {} memory node", to_string(NODE_ADD));
           string shell_command = "curl -X POST http://" + management_address + "/memory &";
           system(shell_command.c_str());
           adding_memory_node = NODE_ADD;
-        }
+        }*/
 
         /*if (max_occupancy < 0.05 && !removing_memory_node && global_hash_ring_map[1].size() > 3*VIRTUAL_THREAD_NUM) {
           logger->info("sending remove memory node msg");

@@ -796,13 +796,20 @@ void run(unsigned thread_id) {
       }
       // log time
       for (auto it = working_time_map.begin(); it != working_time_map.end(); it++) {
-        logger->info("event {} percentage is {}", to_string(it->first), to_string((double) it->second / (double) duration));
+        double event_occupancy = (double) it->second / (double) duration;
+        if (event_occupancy > 0.03) {
+          logger->info("event {} occupancy is {}", to_string(it->first), to_string(event_occupancy));
+        }
       }
       // compute occupancy
       double occupancy = (double) working_time / (double) duration;
+      if (occupancy > 0.03) {
+        logger->info("occupancy is {}", to_string(occupancy));
+      }
       communication::Server_Stat stat;
       stat.set_storage_consumption(consumption);
       stat.set_occupancy(occupancy);
+      stat.set_epoch(epoch);
       string serialized_stat;
       stat.SerializeToString(&serialized_stat);
 
@@ -810,15 +817,7 @@ void run(unsigned thread_id) {
       req.set_type("PUT");
       prepare_put_tuple(req, key, serialized_stat, 0);
 
-      unordered_set<server_thread_t, thread_hash> threads;
-      auto mts = responsible_global(key, METADATA_REPLICATION_FACTOR, global_hash_ring_map[1]);
-      for (auto it = mts.begin(); it != mts.end(); it++) {
-        string ip = it->get_ip();
-        auto tids = responsible_local(key, DEFAULT_LOCAL_REPLICATION, local_hash_ring_map[1]);
-        for (auto iter = tids.begin(); iter != tids.end(); iter++) {
-          threads.insert(server_thread_t(ip, *iter));
-        }
-      }
+      auto threads = get_responsible_threads_metadata(key, global_hash_ring_map[1], local_hash_ring_map[1]);
       if (threads.size() != 0) {
         string target_address = next(begin(threads), rand_r(&seed) % threads.size())->get_request_pulling_connect_addr();
         push_request(req, pushers[target_address]);
@@ -845,15 +844,7 @@ void run(unsigned thread_id) {
       req.set_type("PUT");
       prepare_put_tuple(req, key, serialized_access, 0);
 
-      threads.clear();
-      mts = responsible_global(key, METADATA_REPLICATION_FACTOR, global_hash_ring_map[1]);
-      for (auto it = mts.begin(); it != mts.end(); it++) {
-        string ip = it->get_ip();
-        auto tids = responsible_local(key, DEFAULT_LOCAL_REPLICATION, local_hash_ring_map[1]);
-        for (auto iter = tids.begin(); iter != tids.end(); iter++) {
-          threads.insert(server_thread_t(ip, *iter));
-        }
-      }
+      threads = get_responsible_threads_metadata(key, global_hash_ring_map[1], local_hash_ring_map[1]);
       if (threads.size() != 0) {
         string target_address = next(begin(threads), rand_r(&seed) % threads.size())->get_request_pulling_connect_addr();
         push_request(req, pushers[target_address]);
@@ -873,7 +864,7 @@ void run(unsigned thread_id) {
     for (auto it = pending_request_map.begin(); it != pending_request_map.end(); it++) {
       auto t = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now()-it->second.first).count();
       if (t > GARBAGE_COLLECTION_THRESHOLD) {
-        logger->info("GC {}", it->first);
+        logger->info("Request GC {}", it->first);
         remove_set.insert(it->first);
       }
     }
@@ -884,7 +875,7 @@ void run(unsigned thread_id) {
     for (auto it = pending_gossip_map.begin(); it != pending_gossip_map.end(); it++) {
       auto t = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now()-it->second.first).count();
       if (t > GARBAGE_COLLECTION_THRESHOLD) {
-        logger->info("GC {}", it->first);
+        logger->info("Gossip GC {}", it->first);
         remove_set.insert(it->first);
       }
     }

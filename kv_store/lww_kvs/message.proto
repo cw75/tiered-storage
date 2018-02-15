@@ -73,6 +73,7 @@ message Replication_Factor {
 message Server_Stat {
   required uint64 storage_consumption = 1;
   required double occupancy = 2;
+  required uint32 epoch = 3;
 }
 
 message Key_Access {
