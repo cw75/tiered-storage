@@ -6,27 +6,28 @@ import logging
 
 logging.basicConfig(filename='log.txt',level=logging.INFO)
 
+node_add = 2
 
 class KopsHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path == '/memory':
-            print('Adding a new memory node...')
-            logging.info('Adding a new memory node...')
-            if os.system('./add_node.sh m NULL') == 0:
+            print('Adding ' + str(node_add) + 'new memory node...')
+            logging.info('Adding ' + str(node_add) + ' new memory node...')
+            if os.system('./kops_add_node.sh m ' + str(node_add)) == 0:
                 self.send_response(200)
-                self.wfile.write(bytes('Successfully added a memory node.', 'utf-8'))
+                self.wfile.write(bytes('Successfully added ' + str(node_add) + ' memory node.', 'utf-8'))
             else:
                 self.send_response(500)
-                self.wfile.write(bytes('Unexpected error while adding a node.', 'utf-8'))
+                self.wfile.write(bytes('Unexpected error while adding nodes.', 'utf-8'))
         elif self.path == '/ebs':
-            print('Adding a new EBS node...')
-            logging.info('Adding a new EBS node...')
-            if os.system('./add_node.sh e NULL') == 0:
+            print('Adding ' + str(node_add) + 'new EBS node...')
+            logging.info('Adding ' + str(node_add) + ' new EBS node...')
+            if os.system('./kops_add_node.sh e ' + str(node_add)) == 0:
                 self.send_response(200)
-                self.wfile.write(bytes('Successfully added an EBS node.', 'utf-8'))
+                self.wfile.write(bytes('Successfully added ' + str(node_add) + ' EBS node.', 'utf-8'))
             else:
                 self.send_response(500)
-                self.wfile.write(bytes('Unexpected error while adding a node.', 'utf-8'))
+                self.wfile.write(bytes('Unexpected error while adding nodes.', 'utf-8'))
         elif '/remove/ebs' in self.path:
             print('Removing an EBS node...')
             logging.info('Removing an EBS node...')

@@ -62,7 +62,7 @@ void handle_request(
     // initialize the respond string
     if (res.tuple(0).err_number() == 2) {
       // update cache and retry
-      logger->info("cache invalidation");
+      //logger->info("cache invalidation");
       //cerr << "cache invalidation\n";
       key_address_cache.erase(key);
       for (int i = 0; i < res.tuple(0).addresses_size(); i++) {

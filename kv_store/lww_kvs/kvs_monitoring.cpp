@@ -15,6 +15,8 @@
 #include "consistent_hash_map.hpp"
 #include "common.h"
 
+#define NODE_ADD 2
+
 using namespace std;
 using address_t = string;
 
@@ -249,7 +251,7 @@ int main(int argc, char* argv[]) {
   auto report_start = std::chrono::system_clock::now();
   auto report_end = std::chrono::system_clock::now();
 
-  bool adding_memory_node = false;
+  unsigned adding_memory_node = 0;
   bool adding_ebs_node = false;
   bool removing_memory_node = false;
   bool removing_ebs_node = false;
@@ -280,7 +282,7 @@ int main(int argc, char* argv[]) {
         logger->info("tier id is {}", to_string(tier));
         if (tier == 1) {
           insert_to_hash_ring<global_hash_t>(global_hash_ring_map[tier], new_server_ip, 0);
-          adding_memory_node = false;
+          adding_memory_node -= 1;
           // reset timer
           report_start = std::chrono::system_clock::now();
           report_end = std::chrono::system_clock::now();
@@ -505,19 +507,15 @@ int main(int argc, char* argv[]) {
           }
         }
         logger->info("max occupancy is {}", to_string(max_occupancy));
-        if (adding_memory_node) {
-          logger->info("adding memory node flag is True");
-        } else {
-          logger->info("adding memory node flag is False");
-        }
-        if (max_occupancy > 0.1 && !adding_memory_node) {
-          logger->info("trigger add memory node");
-          string shell_command = "curl -X POST http://" + management_address + "/memory";
+        logger->info("still adding {} memory node", to_string(adding_memory_node));
+        if (max_occupancy > 0.1 && adding_memory_node == 0) {
+          logger->info("trigger add {} memory node", to_string(NODE_ADD));
+          string shell_command = "curl -X POST http://" + management_address + "/memory &";
           system(shell_command.c_str());
-          adding_memory_node = true;
+          adding_memory_node = NODE_ADD;
         }
 
-        if (max_occupancy < 0.05 && !removing_memory_node && global_hash_ring_map[1].size() > 3*VIRTUAL_THREAD_NUM) {
+        /*if (max_occupancy < 0.05 && !removing_memory_node && global_hash_ring_map[1].size() > 3*VIRTUAL_THREAD_NUM) {
           logger->info("sending remove memory node msg");
           // pick a random memory node
           auto node = next(begin(global_hash_ring_map[1]), rand() % global_hash_ring_map[1].size())->second;
@@ -527,7 +525,7 @@ int main(int argc, char* argv[]) {
           auto ack_addr = mt.get_depart_done_connect_addr();
           zmq_util::send_string(ack_addr, &pushers[connection_addr]);
           removing_memory_node = true;
-        }
+        }*/
       }
 
       report_start = std::chrono::system_clock::now();
