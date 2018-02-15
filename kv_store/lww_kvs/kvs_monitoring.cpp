@@ -500,12 +500,12 @@ int main(int argc, char* argv[]) {
         logger->info("max occupancy is {}", to_string(max_occupancy));
         logger->info("avg occupancy is {}", to_string(avg_occupancy));
         logger->info("still adding {} memory node", to_string(adding_memory_node));
-        /*if (avg_occupancy > 0.08 && adding_memory_node == 0) {
+        if (avg_occupancy > 0.08 && adding_memory_node == 0) {
           logger->info("trigger add {} memory node", to_string(NODE_ADD));
           string shell_command = "curl -X POST http://" + management_address + "/memory &";
           system(shell_command.c_str());
           adding_memory_node = NODE_ADD;
-        }*/
+        }
 
         /*if (max_occupancy < 0.05 && !removing_memory_node && global_hash_ring_map[1].size() > 3*VIRTUAL_THREAD_NUM) {
           logger->info("sending remove memory node msg");
