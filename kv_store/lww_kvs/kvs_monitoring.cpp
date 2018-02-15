@@ -282,7 +282,9 @@ int main(int argc, char* argv[]) {
         logger->info("tier id is {}", to_string(tier));
         if (tier == 1) {
           insert_to_hash_ring<global_hash_t>(global_hash_ring_map[tier], new_server_ip, 0);
-          adding_memory_node -= 1;
+          if (adding_memory_node > 0) {
+            adding_memory_node -= 1;
+          }
           // reset timer
           report_start = std::chrono::system_clock::now();
           report_end = std::chrono::system_clock::now();
