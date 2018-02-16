@@ -73,11 +73,18 @@ void handle_request(
   } else {
     logger->info("request timed out when querying worker, clearing cache due to possible node departure");
     // likely the node has departed. We clear the entries relavant to the worker_address
+    vector<string> tokens;
+    split(worker_address, ':', tokens);
+    string signature = tokens[1];
     unordered_set<string> remove_set;
     for (auto it = key_address_cache.begin(); it != key_address_cache.end(); it++) {
-      if (it->second.find(worker_address) != it->second.end()) {
-        remove_set.insert(it->first);
-      } 
+      for (auto iter = it->second.begin(); iter != it->second.end(); iter++) {
+        vector<string> v;
+        split(*iter, ':', v);
+        if (v[1] == signature) {
+          remove_set.insert(it->first);
+        }
+      }
     }
     for (auto it = remove_set.begin(); it != remove_set.end(); it++) {
       key_address_cache.erase(*it);
@@ -118,7 +125,7 @@ void run(unsigned thread_id) {
   zmq::context_t context(1);
   SocketCache pushers(&context, ZMQ_PUSH);
 
-  int timeout = 3000;
+  int timeout = 5000;
   // responsible for pulling response
   zmq::socket_t response_puller(context, ZMQ_PULL);
   response_puller.setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
