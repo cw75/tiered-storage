@@ -50,7 +50,7 @@ void handle_request(
       }
       worker_address = addresses[rand_r(&seed) % addresses.size()];
     } else {
-      cerr << "request timed out when querying proxy\n";
+      logger->info("request timed out when querying proxy");
       return;
     }
   } else {
@@ -71,7 +71,7 @@ void handle_request(
       handle_request(key, value, pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller);
     }
   } else {
-    cerr << "request timed out when querying worker\n";
+    logger->info("request timed out when querying worker");
   }
 }
 
@@ -128,7 +128,7 @@ void run(unsigned thread_id) {
     zmq_util::poll(-1, &pollitems);
 
     if (pollitems[0].revents & ZMQ_POLLIN) {
-      cout << "received benchmark command\n";
+      logger->info("received benchmark command");
       vector<string> v;
       split(zmq_util::recv_string(&command_puller), ':', v);
       string mode = v[0];
@@ -157,7 +157,7 @@ void run(unsigned thread_id) {
             key_address_cache[key_response.tuple(0).key()].insert(key_response.tuple(0).addresses(i));
           }
         } else {
-          cerr << "timeout during warmup\n";
+          logger->info("timeout during warmup");
         }
       }
 
@@ -192,7 +192,7 @@ void run(unsigned thread_id) {
               handle_request(key, "", pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller);
               count += 2;
             } else {
-              cerr << "invalid request type\n";
+              logger->info("invalid request type");
             }
 
             epoch_end = std::chrono::system_clock::now();
@@ -237,7 +237,7 @@ void run(unsigned thread_id) {
             handle_request(key, "", pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller);
             count += 2;
           } else {
-            cerr << "invalid request type\n";
+            logger->info("invalid request type");
           }
 
           epoch_end = std::chrono::system_clock::now();
@@ -257,10 +257,9 @@ void run(unsigned thread_id) {
           }
         }
       } else {
-        cerr << "invalid experiment mode\n";
+        logger->info("invalid experiment mode");
       }
       logger->info("Finished");
-      cout << "Finished\n";
     }
   }
 

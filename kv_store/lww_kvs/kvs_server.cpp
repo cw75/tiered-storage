@@ -245,7 +245,7 @@ void run(unsigned thread_id) {
   getline(address, ip_line);
   address.close();
 
-  cerr << "seed address is " + ip_line + "\n";
+  logger->info("seed address is {}", ip_line);
 
   // request server addresses from the seed node
   zmq::socket_t addr_requester(context, ZMQ_REQ);
@@ -309,7 +309,7 @@ void run(unsigned thread_id) {
   } else if (SELF_TIER_ID == 2) {
     serializer = new EBS_Serializer(thread_id);
   } else {
-    cerr << "Invalid node type\n";
+    logger->info("Invalid node type");
   }
 
   // the set of changes made on this thread since the last round of gossip
@@ -430,7 +430,7 @@ void run(unsigned thread_id) {
                 }
               }
             } else {
-              cerr << "Error: key missing replication factor in node join routine\n";
+              logger->info("Error: key missing replication factor in node join routine");
             }
           }
 
@@ -524,7 +524,7 @@ void run(unsigned thread_id) {
             addr_keyset_map[iter->get_gossip_connect_addr()].insert(key);
           }
         } else {
-          cerr << "Error: key missing replication factor in node depart routine\n";
+          logger->info("Error: key missing replication factor in node depart routine");
         }
       }
 
@@ -638,7 +638,7 @@ void run(unsigned thread_id) {
                   key_stat_map[key].access_ += 1;
                   local_changeset.insert(key);
                 } else {
-                  cerr << "Error: GET request with no respond address\n";
+                  logger->info("Error: GET request with no respond address");
                 }
               } else if (responsible && it->addr_ != "") {
                 communication::Response response;
@@ -664,7 +664,7 @@ void run(unsigned thread_id) {
               }
             }
           } else {
-            cerr << "Error: key missing replication factor in process pending request routine\n";
+            logger->info("Error: key missing replication factor in process pending request routine");
           }
           pending_request_map.erase(key);
         }
@@ -676,7 +676,7 @@ void run(unsigned thread_id) {
               process_put(key, it->ts_, it->value_, serializer, key_stat_map);
             }
           } else if (!succeed) {
-            cerr << "Error: key missing replication factor in process pending gossip routine\n";
+            logger->info("Error: key missing replication factor in process pending gossip routine");
           }
           pending_gossip_map.erase(key);
         }
@@ -737,7 +737,7 @@ void run(unsigned thread_id) {
               }
             }
           } else {
-            cerr << "Error: key missing replication factor in rep factor change routine\n";
+            logger->info("Error: key missing replication factor in rep factor change routine");
           }
         }
       }
@@ -778,7 +778,7 @@ void run(unsigned thread_id) {
               }
             }
           } else {
-            cerr << "Error: key missing replication factor in gossip send routine\n";
+            logger->info("Error: key missing replication factor in gossip send routine");
           }
         }
 

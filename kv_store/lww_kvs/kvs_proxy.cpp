@@ -53,7 +53,7 @@ void run(unsigned thread_id) {
     address.open("conf/proxy/monitoring_address.txt");
 
     while (getline(address, ip_line)) {
-      cerr << ip_line << "\n";
+      logger->info("monitoring address is {}", ip_line);
       monitoring_address.push_back(ip_line);
     }
     address.close();
@@ -147,7 +147,9 @@ void run(unsigned thread_id) {
       unsigned tier = stoi(v[1]);
       string new_server_ip = v[2];
       if (type == "join") {
-        cerr << "received join\n";
+        logger->info("received join");
+        logger->info("new server ip is {}", new_server_ip);
+        logger->info("tier id is {}", to_string(tier));
         // update hash ring
         bool inserted = insert_to_hash_ring<global_hash_t>(global_hash_ring_map[tier], new_server_ip, 0);
         // 
@@ -174,10 +176,11 @@ void run(unsigned thread_id) {
         }
 
         for (auto it = global_hash_ring_map.begin(); it != global_hash_ring_map.end(); it++) {
-          cerr << "hash ring for tier " + to_string(it->first) + " size is " + to_string(it->second.size()) + "\n";
+          logger->info("hash ring for tier {} size is {}", to_string(it->first), to_string(it->second.size()));
         }
       } else if (type == "depart") {
-        cerr << "received depart\n";
+        logger->info("received depart");
+        logger->info("departing server ip is {}", new_server_ip);
         // update hash ring
         remove_from_hash_ring<global_hash_t>(global_hash_ring_map[tier], new_server_ip, 0);
 
@@ -189,7 +192,7 @@ void run(unsigned thread_id) {
         }
 
         for (auto it = global_hash_ring_map.begin(); it != global_hash_ring_map.end(); it++) {
-          cerr << "hash ring for tier " + to_string(it->first) + " size is " + to_string(it->second.size()) + "\n";
+          logger->info("hash ring for tier {} size is {}", to_string(it->first), to_string(it->second.size()));
         }
       }
     }
@@ -249,7 +252,7 @@ void run(unsigned thread_id) {
               zmq_util::send_string(serialized_key_res, &pushers[*it]);
             }
           } else {
-            cerr << "Error: key missing replication factor in process pending key address routine\n";
+            logger->info("Error: key missing replication factor in process pending key address routine");
           }
           pending_key_request_map.erase(key);
         }
@@ -257,7 +260,7 @@ void run(unsigned thread_id) {
     }
 
     if (pollitems[3].revents & ZMQ_POLLIN) {
-      cerr << "received replication factor change\n";
+      logger->info("received replication factor change");
       string serialized_req = zmq_util::recv_string(&replication_factor_change_puller);
 
       if (thread_id == 0) {
