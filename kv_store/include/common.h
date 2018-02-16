@@ -470,7 +470,6 @@ void issue_replication_factor_request(
     string& key,
     global_hash_t& global_memory_hash_ring,
     local_hash_t& local_memory_hash_ring,
-    unordered_map<string, key_info>& placement,
     SocketCache& pushers,
     unsigned& seed) {
   string key_rep = key + "_replication";
@@ -507,7 +506,7 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads(
   } else {
     unordered_set<server_thread_t, thread_hash> result;
     if (placement.find(key) == placement.end()) {
-      issue_replication_factor_request(respond_address, key, global_hash_ring_map[1], local_hash_ring_map[1], placement, pushers, seed);
+      issue_replication_factor_request(respond_address, key, global_hash_ring_map[1], local_hash_ring_map[1], pushers, seed);
       succeed = false;
     } else {
       for (auto id_iter = tier_ids.begin(); id_iter != tier_ids.end(); id_iter++) {

@@ -102,6 +102,12 @@ void run(unsigned thread_id) {
     { static_cast<void *>(key_address_puller), 0, ZMQ_POLLIN, 0 }
   };
 
+  auto start_time = chrono::system_clock::now();
+  auto start_time_ms = chrono::time_point_cast<std::chrono::milliseconds>(start_time);
+
+  auto value = start_time_ms.time_since_epoch();
+  unsigned long long duration = value.count();
+
   while (true) {
     zmq_util::poll(-1, &pollitems);
 
@@ -111,6 +117,7 @@ void run(unsigned thread_id) {
       zmq_util::recv_string(&addr_responder);
 
       communication::Address address;
+      address.set_start_time(duration);
       for (auto it = global_hash_ring_map.begin(); it != global_hash_ring_map.end(); it++) {
         unsigned tier_id = it->first;
         auto hash_ring = &(it->second);
@@ -204,41 +211,48 @@ void run(unsigned thread_id) {
         for (int i = 0; i < rep_data.local_size(); i++) {
           placement[key].local_replication_map_[rep_data.local(i).ip()] = rep_data.local(i).local_replication();
         }
+      } else if (response.tuple(0).err_number() == 2) {
+        logger->info("Retrying rep factor query for key {}", key);
+        auto respond_address = pt.get_replication_factor_connect_addr();
+        issue_replication_factor_request(respond_address, key, global_hash_ring_map[1], local_hash_ring_map[1], pushers, seed);
       } else {
         for (unsigned i = MIN_TIER; i <= MAX_TIER; i++) {
           placement[key].global_replication_map_[i] = tier_data_map[i].default_replication_;
         }
       }
-      // process pending key address requests
-      if (pending_key_request_map.find(key) != pending_key_request_map.end()) {
-        bool succeed;
-        vector<unsigned> tier_ids;
-        // first check memory tier
-        tier_ids.push_back(1);
-        auto threads = get_responsible_threads(pt.get_replication_factor_connect_addr(), key, false, global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids, succeed, seed);
-        if (succeed) {
-          if (threads.size() == 0) {
-            tier_ids.clear();
-            // check ebs tier
-            tier_ids.push_back(2);
-            threads = get_responsible_threads(pt.get_replication_factor_connect_addr(), key, false, global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids, succeed, seed);
-          }
-          for (auto it = pending_key_request_map[key].second.begin(); it != pending_key_request_map[key].second.end(); it++) {
-            communication::Key_Response key_res;
-            communication::Key_Response_Tuple* tp = key_res.add_tuple();
-            tp->set_key(key);
-            for (auto iter = threads.begin(); iter != threads.end(); iter++) {
-              tp->add_addresses(iter->get_request_pulling_connect_addr());
+
+      if (response.tuple(0).err_number() != 2) {
+        // process pending key address requests
+        if (pending_key_request_map.find(key) != pending_key_request_map.end()) {
+          bool succeed;
+          vector<unsigned> tier_ids;
+          // first check memory tier
+          tier_ids.push_back(1);
+          auto threads = get_responsible_threads(pt.get_replication_factor_connect_addr(), key, false, global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids, succeed, seed);
+          if (succeed) {
+            if (threads.size() == 0) {
+              tier_ids.clear();
+              // check ebs tier
+              tier_ids.push_back(2);
+              threads = get_responsible_threads(pt.get_replication_factor_connect_addr(), key, false, global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids, succeed, seed);
             }
-            // send the key address response
-            string serialized_key_res;
-            key_res.SerializeToString(&serialized_key_res);
-            zmq_util::send_string(serialized_key_res, &pushers[*it]);
+            for (auto it = pending_key_request_map[key].second.begin(); it != pending_key_request_map[key].second.end(); it++) {
+              communication::Key_Response key_res;
+              communication::Key_Response_Tuple* tp = key_res.add_tuple();
+              tp->set_key(key);
+              for (auto iter = threads.begin(); iter != threads.end(); iter++) {
+                tp->add_addresses(iter->get_request_pulling_connect_addr());
+              }
+              // send the key address response
+              string serialized_key_res;
+              key_res.SerializeToString(&serialized_key_res);
+              zmq_util::send_string(serialized_key_res, &pushers[*it]);
+            }
+          } else {
+            cerr << "Error: key missing replication factor in process pending key address routine\n";
           }
-        } else {
-          cerr << "Error: key missing replication factor in process pending key address routine\n";
+          pending_key_request_map.erase(key);
         }
-        pending_key_request_map.erase(key);
       }
     }
 

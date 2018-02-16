@@ -89,5 +89,6 @@ message Address {
     required uint32 tier_id = 1;
     required string ip = 2;
   }
-  repeated Tuple tuple = 1;
+  required uint64 start_time = 1;
+  repeated Tuple tuple = 2;
 }

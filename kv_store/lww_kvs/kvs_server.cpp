@@ -256,6 +256,11 @@ void run(unsigned thread_id) {
   string serialized_addresses = zmq_util::recv_string(&addr_requester);
   communication::Address addresses;
   addresses.ParseFromString(serialized_addresses);
+  // populate start time
+  unsigned long long duration = addresses.start_time();
+  chrono::milliseconds dur(duration);
+  chrono::system_clock::time_point start_time(dur);
+  // populate addresses
   for (int i = 0; i < addresses.tuple_size(); i++) {
     insert_to_hash_ring<global_hash_t>(global_hash_ring_map[addresses.tuple(i).tier_id()], addresses.tuple(i).ip(), 0);
   }
@@ -346,8 +351,6 @@ void run(unsigned thread_id) {
     { static_cast<void *>(replication_factor_puller), 0, ZMQ_POLLIN, 0 },
     { static_cast<void *>(replication_factor_change_puller), 0, ZMQ_POLLIN, 0 }
   };
-
-  auto start_time = chrono::system_clock::now();
 
   auto gossip_start = chrono::system_clock::now();
   auto gossip_end = chrono::system_clock::now();
@@ -588,88 +591,95 @@ void run(unsigned thread_id) {
         for (int i = 0; i < rep_data.local_size(); i++) {
           placement[key].local_replication_map_[rep_data.local(i).ip()] = rep_data.local(i).local_replication();
         }
+      } else if (response.tuple(0).err_number() == 2) {
+        logger->info("Retrying rep factor query for key {}", key);
+        auto respond_address = wt.get_replication_factor_connect_addr();
+        issue_replication_factor_request(respond_address, key, global_hash_ring_map[1], local_hash_ring_map[1], pushers, seed);
       } else {
         for (unsigned i = MIN_TIER; i <= MAX_TIER; i++) {
           placement[key].global_replication_map_[i] = tier_data_map[i].default_replication_;
         }
       }
-      // process pending events
-      vector<unsigned> tier_ids;
-      tier_ids.push_back(SELF_TIER_ID);
-      bool succeed;
-      // pending requests
-      if (pending_request_map.find(key) != pending_request_map.end()) {
-        auto threads = get_responsible_threads(wt.get_replication_factor_connect_addr(), key, is_metadata(key), global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids, succeed, seed);
-        if (succeed) {
-          bool responsible;
-          if (threads.find(wt) != threads.end()) {
-            responsible = true;
-          } else {
-            responsible = false;
-          }
-          for (auto it = pending_request_map[key].second.begin(); it != pending_request_map[key].second.end(); it++) {
-            if (!responsible && it->addr_ != "") {
-              communication::Response response;
-              communication::Response_Tuple* tp = response.add_tuple();
-              tp->set_key(key);
-              tp->set_err_number(2);
-              for (auto iter = threads.begin(); iter != threads.end(); iter++) {
-                tp->add_addresses(iter->get_request_pulling_connect_addr());
-              }
-              string serialized_response;
-              response.SerializeToString(&serialized_response);
-              //  send response
-              zmq_util::send_string(serialized_response, &pushers[it->addr_]);
-            } else if (responsible && it->addr_ == "") {
-              // only put requests should fall into this category
-              if (it->type_ == "P") {
-                auto current_time = chrono::system_clock::now();
-                auto ts = generate_timestamp(chrono::duration_cast<chrono::milliseconds>(current_time-start_time).count(), wt.get_tid());
-                process_put(key, ts, it->value_, serializer, key_stat_map);
-                key_stat_map[key].access_ += 1;
-                local_changeset.insert(key);
-              } else {
-                cerr << "Error: GET request with no respond address\n";
-              }
-            } else if (responsible && it->addr_ != "") {
-              communication::Response response;
-              communication::Response_Tuple* tp = response.add_tuple();
-              tp->set_key(key);
-              if (it->type_ == "G") {
-                auto res = process_get(key, serializer);
-                tp->set_value(res.first.reveal().value);
-                tp->set_err_number(res.second);
-                key_stat_map[key].access_ += 1;
-              } else {
-                auto current_time = chrono::system_clock::now();
-                auto ts = generate_timestamp(chrono::duration_cast<chrono::milliseconds>(current_time-start_time).count(), wt.get_tid());
-                process_put(key, ts, it->value_, serializer, key_stat_map);
-                tp->set_err_number(0);
-                key_stat_map[key].access_ += 1;
-                local_changeset.insert(key);
-              }
-              string serialized_response;
-              response.SerializeToString(&serialized_response);
-              //  send response
-              zmq_util::send_string(serialized_response, &pushers[it->addr_]);
+
+      if (response.tuple(0).err_number() != 2) {
+        // process pending events
+        vector<unsigned> tier_ids;
+        tier_ids.push_back(SELF_TIER_ID);
+        bool succeed;
+        // pending requests
+        if (pending_request_map.find(key) != pending_request_map.end()) {
+          auto threads = get_responsible_threads(wt.get_replication_factor_connect_addr(), key, is_metadata(key), global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids, succeed, seed);
+          if (succeed) {
+            bool responsible;
+            if (threads.find(wt) != threads.end()) {
+              responsible = true;
+            } else {
+              responsible = false;
             }
+            for (auto it = pending_request_map[key].second.begin(); it != pending_request_map[key].second.end(); it++) {
+              if (!responsible && it->addr_ != "") {
+                communication::Response response;
+                communication::Response_Tuple* tp = response.add_tuple();
+                tp->set_key(key);
+                tp->set_err_number(2);
+                for (auto iter = threads.begin(); iter != threads.end(); iter++) {
+                  tp->add_addresses(iter->get_request_pulling_connect_addr());
+                }
+                string serialized_response;
+                response.SerializeToString(&serialized_response);
+                //  send response
+                zmq_util::send_string(serialized_response, &pushers[it->addr_]);
+              } else if (responsible && it->addr_ == "") {
+                // only put requests should fall into this category
+                if (it->type_ == "P") {
+                  auto current_time = chrono::system_clock::now();
+                  auto ts = generate_timestamp(chrono::duration_cast<chrono::milliseconds>(current_time-start_time).count(), wt.get_tid());
+                  process_put(key, ts, it->value_, serializer, key_stat_map);
+                  key_stat_map[key].access_ += 1;
+                  local_changeset.insert(key);
+                } else {
+                  cerr << "Error: GET request with no respond address\n";
+                }
+              } else if (responsible && it->addr_ != "") {
+                communication::Response response;
+                communication::Response_Tuple* tp = response.add_tuple();
+                tp->set_key(key);
+                if (it->type_ == "G") {
+                  auto res = process_get(key, serializer);
+                  tp->set_value(res.first.reveal().value);
+                  tp->set_err_number(res.second);
+                  key_stat_map[key].access_ += 1;
+                } else {
+                  auto current_time = chrono::system_clock::now();
+                  auto ts = generate_timestamp(chrono::duration_cast<chrono::milliseconds>(current_time-start_time).count(), wt.get_tid());
+                  process_put(key, ts, it->value_, serializer, key_stat_map);
+                  tp->set_err_number(0);
+                  key_stat_map[key].access_ += 1;
+                  local_changeset.insert(key);
+                }
+                string serialized_response;
+                response.SerializeToString(&serialized_response);
+                //  send response
+                zmq_util::send_string(serialized_response, &pushers[it->addr_]);
+              }
+            }
+          } else {
+            cerr << "Error: key missing replication factor in process pending request routine\n";
           }
-        } else {
-          cerr << "Error: key missing replication factor in process pending request routine\n";
+          pending_request_map.erase(key);
         }
-        pending_request_map.erase(key);
-      }
-      // pending gossip
-      if (pending_gossip_map.find(key) != pending_gossip_map.end()) {
-        auto threads = get_responsible_threads(wt.get_replication_factor_connect_addr(), key, is_metadata(key), global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids, succeed, seed);
-        if (succeed && threads.find(wt) != threads.end()) {
-          for (auto it = pending_gossip_map[key].second.begin(); it != pending_gossip_map[key].second.end(); it++) {
-            process_put(key, it->ts_, it->value_, serializer, key_stat_map);
+        // pending gossip
+        if (pending_gossip_map.find(key) != pending_gossip_map.end()) {
+          auto threads = get_responsible_threads(wt.get_replication_factor_connect_addr(), key, is_metadata(key), global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids, succeed, seed);
+          if (succeed && threads.find(wt) != threads.end()) {
+            for (auto it = pending_gossip_map[key].second.begin(); it != pending_gossip_map[key].second.end(); it++) {
+              process_put(key, it->ts_, it->value_, serializer, key_stat_map);
+            }
+          } else if (!succeed) {
+            cerr << "Error: key missing replication factor in process pending gossip routine\n";
           }
-        } else if (!succeed) {
-          cerr << "Error: key missing replication factor in process pending gossip routine\n";
+          pending_gossip_map.erase(key);
         }
-        pending_gossip_map.erase(key);
       }
       auto time_elapsed = chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
       working_time += time_elapsed;
