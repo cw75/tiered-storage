@@ -501,13 +501,13 @@ int main(int argc, char* argv[]) {
       logger->info("avg occupancy is {}", to_string(avg_occupancy));
       logger->info("adding {} memory node in progress", to_string(adding_memory_node));
       
-      if (avg_occupancy > 0.06 && adding_memory_node == 0) {
+      if (avg_occupancy > 0.10 && adding_memory_node == 0) {
         logger->info("trigger add {} memory node", to_string(NODE_ADD));
         string shell_command = "curl -X POST http://" + management_address + "/memory &";
         system(shell_command.c_str());
         adding_memory_node = NODE_ADD;
       }
-      if (avg_occupancy < 0.02 && !removing_memory_node && global_hash_ring_map[1].size() > 2*VIRTUAL_THREAD_NUM) {
+      if (avg_occupancy < 0.06 && !removing_memory_node && global_hash_ring_map[1].size() > 2*VIRTUAL_THREAD_NUM) {
         logger->info("sending remove memory node msg");
         // pick a random memory node
         auto node = next(begin(global_hash_ring_map[1]), rand() % global_hash_ring_map[1].size())->second;

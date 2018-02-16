@@ -71,9 +71,9 @@ void handle_request(
       handle_request(key, value, pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller);
     }
   } else {
-    logger->info("request timed out when querying worker");
-    // likely the node has departed
-    key_address_cache.erase(key);
+    logger->info("request timed out when querying worker, clearing cache due to possible node departure");
+    // likely the node has departed. For now, we clear the entire cache
+    key_address_cache.clear();
     handle_request(key, value, pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller);
   }
 }
