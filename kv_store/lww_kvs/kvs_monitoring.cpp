@@ -354,7 +354,7 @@ int main(int argc, char* argv[]) {
 
     report_end = std::chrono::system_clock::now();
 
-    if (chrono::duration_cast<std::chrono::microseconds>(report_end-report_start).count() >= SERVER_REPORT_THRESHOLD) {
+    if (chrono::duration_cast<std::chrono::microseconds>(report_end-report_start).count() >= MONITORING_THRESHOLD) {
       server_monitoring_epoch += 1;
 
       unordered_map<address_t, communication::Request> addr_request_map;
@@ -482,7 +482,7 @@ int main(int argc, char* argv[]) {
       unsigned count = 0;
       for (auto it1 = memory_tier_occupancy.begin(); it1 != memory_tier_occupancy.end(); it1++) {
         for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
-          //logger->info("memory node ip {} thread {} occupancy is {} at server epoch {} for monitoring epoch {}", it1->first, it2->first, it2->second.first, it2->second.second, server_monitoring_epoch);
+          logger->info("memory node ip {} thread {} occupancy is {} at server epoch {} for monitoring epoch {}", it1->first, it2->first, it2->second.first, it2->second.second, server_monitoring_epoch);
           if (it2->second.first > max_occupancy) {
             max_occupancy = it2->second.first;
           }
@@ -494,20 +494,20 @@ int main(int argc, char* argv[]) {
 
       for (auto it1 = ebs_tier_occupancy.begin(); it1 != ebs_tier_occupancy.end(); it1++) {
         for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
-          //logger->info("ebs node ip {} thread {} occupancy is {} at server epoch {} for monitoring epoch {}", it1->first, it2->first, it2->second.first, it2->second.second, server_monitoring_epoch);
+          logger->info("ebs node ip {} thread {} occupancy is {} at server epoch {} for monitoring epoch {}", it1->first, it2->first, it2->second.first, it2->second.second, server_monitoring_epoch);
         }
       }
       logger->info("max occupancy is {}", to_string(max_occupancy));
       logger->info("avg occupancy is {}", to_string(avg_occupancy));
       logger->info("adding {} memory node in progress", to_string(adding_memory_node));
+      
       if (avg_occupancy > 0.06 && adding_memory_node == 0) {
         logger->info("trigger add {} memory node", to_string(NODE_ADD));
         string shell_command = "curl -X POST http://" + management_address + "/memory &";
         system(shell_command.c_str());
         adding_memory_node = NODE_ADD;
       }
-
-      if (avg_occupancy < 0.01 && !removing_memory_node && global_hash_ring_map[1].size() > 2*VIRTUAL_THREAD_NUM) {
+      if (avg_occupancy < 0.02 && !removing_memory_node && global_hash_ring_map[1].size() > 2*VIRTUAL_THREAD_NUM) {
         logger->info("sending remove memory node msg");
         // pick a random memory node
         auto node = next(begin(global_hash_ring_map[1]), rand() % global_hash_ring_map[1].size())->second;
