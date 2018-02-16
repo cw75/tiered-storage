@@ -19,7 +19,7 @@ using namespace std;
 // Define monitoring constant
 #define SERVER_REPORT_THRESHOLD 10000000
 // Define garbage collection threshold for pending events (in millisecond)
-#define GARBAGE_COLLECTION_THRESHOLD 3000
+#define GARBAGE_COLLECTION_THRESHOLD 5500
 
 // Define the replication factor for the metadata
 #define METADATA_REPLICATION_FACTOR 1
