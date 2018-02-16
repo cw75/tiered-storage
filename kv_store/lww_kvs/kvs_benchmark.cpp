@@ -50,7 +50,7 @@ void handle_request(
       }
       worker_address = addresses[rand_r(&seed) % addresses.size()];
     } else {
-      logger->info("request timed out when querying proxy");
+      logger->info("request timed out when querying proxy, this should never happen");
       return;
     }
   } else {
@@ -72,6 +72,9 @@ void handle_request(
     }
   } else {
     logger->info("request timed out when querying worker");
+    // likely the node has departed
+    key_address_cache.erase(key);
+    handle_request(key, value, pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller);
   }
 }
 
