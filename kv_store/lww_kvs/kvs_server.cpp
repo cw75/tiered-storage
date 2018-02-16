@@ -592,7 +592,7 @@ void run(unsigned thread_id) {
           placement[key].local_replication_map_[rep_data.local(i).ip()] = rep_data.local(i).local_replication();
         }
       } else if (response.tuple(0).err_number() == 2) {
-        logger->info("Retrying rep factor query for key {}", key);
+        //logger->info("Retrying rep factor query for key {} due to invalidated address", key);
         auto respond_address = wt.get_replication_factor_connect_addr();
         issue_replication_factor_request(respond_address, key, global_hash_ring_map[1], local_hash_ring_map[1], pushers, seed);
       } else {
@@ -807,13 +807,13 @@ void run(unsigned thread_id) {
       // log time
       for (auto it = working_time_map.begin(); it != working_time_map.end(); it++) {
         double event_occupancy = (double) it->second / (double) duration;
-        if (event_occupancy > 0.03) {
+        if (event_occupancy > 0.02) {
           logger->info("event {} occupancy is {}", to_string(it->first), to_string(event_occupancy));
         }
       }
       // compute occupancy
       double occupancy = (double) working_time / (double) duration;
-      if (occupancy > 0.03) {
+      if (occupancy > 0.02) {
         logger->info("occupancy is {}", to_string(occupancy));
       }
       communication::Server_Stat stat;
@@ -884,7 +884,7 @@ void run(unsigned thread_id) {
     for (auto it = pending_gossip_map.begin(); it != pending_gossip_map.end(); it++) {
       auto t = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now()-it->second.first).count();
       if (t > RETRY_THRESHOLD) {
-        logger->info("Retrying rep factor query for key {}", it->first);
+        //logger->info("Retrying rep factor query for key {} due to timeout (gossip)", it->first);
         auto respond_address = wt.get_replication_factor_connect_addr();
         issue_replication_factor_request(respond_address, it->first, global_hash_ring_map[1], local_hash_ring_map[1], pushers, seed);
         // refresh time

@@ -21,9 +21,9 @@ using namespace std;
 // Define monitoring threshold (in microsecond)
 #define MONITORING_THRESHOLD 60000000
 // Define garbage collection threshold for pending events (in millisecond)
-#define GARBAGE_COLLECTION_THRESHOLD 3500
+#define GARBAGE_COLLECTION_THRESHOLD 4000
 // Define the threshold for retry rep factor query for gossip handling (in millisecond)
-#define RETRY_THRESHOLD 5000
+#define RETRY_THRESHOLD 8000
 
 // Define the replication factor for the metadata
 #define METADATA_REPLICATION_FACTOR 2
