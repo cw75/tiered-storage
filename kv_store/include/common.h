@@ -19,13 +19,15 @@ using namespace std;
 // Define monitoring constant
 #define SERVER_REPORT_THRESHOLD 10000000
 // Define garbage collection threshold for pending events (in millisecond)
-#define GARBAGE_COLLECTION_THRESHOLD 5500
+#define GARBAGE_COLLECTION_THRESHOLD 2000
+// Define the threshold for retry rep factor query for gossip handling
+#define RETRY_THRESHOLD 5000
 
 // Define the replication factor for the metadata
-#define METADATA_REPLICATION_FACTOR 1
+#define METADATA_REPLICATION_FACTOR 2
 
 // Define the default replication factor for the data
-#define DEFAULT_GLOBAL_MEMORY_REPLICATION 1
+#define DEFAULT_GLOBAL_MEMORY_REPLICATION 2
 #define DEFAULT_GLOBAL_EBS_REPLICATION 0
 // Define the default local replication factor
 #define DEFAULT_LOCAL_REPLICATION 1
@@ -466,8 +468,8 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads_metadata(
 }
 
 void issue_replication_factor_request(
-    string& respond_address,
-    string& key,
+    const string& respond_address,
+    const string& key,
     global_hash_t& global_memory_hash_ring,
     local_hash_t& local_memory_hash_ring,
     SocketCache& pushers,

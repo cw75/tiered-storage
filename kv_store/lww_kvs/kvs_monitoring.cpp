@@ -15,7 +15,8 @@
 #include "consistent_hash_map.hpp"
 #include "common.h"
 
-#define NODE_ADD 2
+// number of nodes to add concurrently
+#define NODE_ADD 3
 
 using namespace std;
 using address_t = string;
@@ -476,50 +477,47 @@ int main(int argc, char* argv[]) {
         adding_ebs_node = true;
       }*/
 
-      if (server_monitoring_epoch % 5 == 1) {
-        double max_occupancy = 0.0;
-        double sum_occupancy = 0.0;
-        unsigned count = 0;
-        for (auto it1 = memory_tier_occupancy.begin(); it1 != memory_tier_occupancy.end(); it1++) {
-          for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
-            logger->info("memory node ip {} thread {} occupancy is {} at server epoch {} for monitoring epoch {}", it1->first, it2->first, it2->second.first, it2->second.second, server_monitoring_epoch);
-            if (it2->second.first > max_occupancy) {
-              max_occupancy = it2->second.first;
-            }
-            sum_occupancy += it2->second.first;
-            count += 1;
+      double max_occupancy = 0.0;
+      double sum_occupancy = 0.0;
+      unsigned count = 0;
+      for (auto it1 = memory_tier_occupancy.begin(); it1 != memory_tier_occupancy.end(); it1++) {
+        for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
+          //logger->info("memory node ip {} thread {} occupancy is {} at server epoch {} for monitoring epoch {}", it1->first, it2->first, it2->second.first, it2->second.second, server_monitoring_epoch);
+          if (it2->second.first > max_occupancy) {
+            max_occupancy = it2->second.first;
           }
+          sum_occupancy += it2->second.first;
+          count += 1;
         }
-        double avg_occupancy = sum_occupancy / count;
+      }
+      double avg_occupancy = sum_occupancy / count;
 
-        for (auto it1 = ebs_tier_occupancy.begin(); it1 != ebs_tier_occupancy.end(); it1++) {
-          for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
-            logger->info("ebs node ip {} thread {} occupancy is {} at server epoch {} for monitoring epoch {}", it1->first, it2->first, it2->second.first, it2->second.second, server_monitoring_epoch);
-          }
+      for (auto it1 = ebs_tier_occupancy.begin(); it1 != ebs_tier_occupancy.end(); it1++) {
+        for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
+          //logger->info("ebs node ip {} thread {} occupancy is {} at server epoch {} for monitoring epoch {}", it1->first, it2->first, it2->second.first, it2->second.second, server_monitoring_epoch);
         }
-        logger->info("max occupancy is {}", to_string(max_occupancy));
-        logger->info("avg occupancy is {}", to_string(avg_occupancy));
-        logger->info("still adding {} memory node", to_string(adding_memory_node));
-        if (avg_occupancy > 0.08 && adding_memory_node == 0) {
-          logger->info("trigger add {} memory node", to_string(NODE_ADD));
-          string shell_command = "curl -X POST http://" + management_address + "/memory &";
-          system(shell_command.c_str());
-          adding_memory_node = NODE_ADD;
-        }
-
-        /*if (max_occupancy < 0.05 && !removing_memory_node && global_hash_ring_map[1].size() > 3*VIRTUAL_THREAD_NUM) {
-          logger->info("sending remove memory node msg");
-          // pick a random memory node
-          auto node = next(begin(global_hash_ring_map[1]), rand() % global_hash_ring_map[1].size())->second;
-          auto connection_addr = node.get_self_depart_connect_addr();
-          auto ip = node.get_ip();
-          departing_node_map[ip] = tier_data_map[1].thread_number_;
-          auto ack_addr = mt.get_depart_done_connect_addr();
-          zmq_util::send_string(ack_addr, &pushers[connection_addr]);
-          removing_memory_node = true;
-        }*/
+      }
+      logger->info("max occupancy is {}", to_string(max_occupancy));
+      logger->info("avg occupancy is {}", to_string(avg_occupancy));
+      logger->info("adding {} memory node in progress", to_string(adding_memory_node));
+      if (avg_occupancy > 0.06 && adding_memory_node == 0) {
+        logger->info("trigger add {} memory node", to_string(NODE_ADD));
+        string shell_command = "curl -X POST http://" + management_address + "/memory &";
+        system(shell_command.c_str());
+        adding_memory_node = NODE_ADD;
       }
 
+      if (avg_occupancy < 0.01 && !removing_memory_node && global_hash_ring_map[1].size() > 2*VIRTUAL_THREAD_NUM) {
+        logger->info("sending remove memory node msg");
+        // pick a random memory node
+        auto node = next(begin(global_hash_ring_map[1]), rand() % global_hash_ring_map[1].size())->second;
+        auto connection_addr = node.get_self_depart_connect_addr();
+        auto ip = node.get_ip();
+        departing_node_map[ip] = tier_data_map[1].thread_number_;
+        auto ack_addr = mt.get_depart_done_connect_addr();
+        zmq_util::send_string(ack_addr, &pushers[connection_addr]);
+        removing_memory_node = true;
+      }
       report_start = std::chrono::system_clock::now();
     }
   }

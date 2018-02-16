@@ -881,16 +881,15 @@ void run(unsigned thread_id) {
     for (auto it = remove_set.begin(); it != remove_set.end(); it++) {
       pending_request_map.erase(*it);
     }
-    remove_set.clear();
     for (auto it = pending_gossip_map.begin(); it != pending_gossip_map.end(); it++) {
       auto t = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now()-it->second.first).count();
-      if (t > GARBAGE_COLLECTION_THRESHOLD) {
-        logger->info("Gossip GC {}", it->first);
-        remove_set.insert(it->first);
+      if (t > RETRY_THRESHOLD) {
+        logger->info("Retrying rep factor query for key {}", it->first);
+        auto respond_address = wt.get_replication_factor_connect_addr();
+        issue_replication_factor_request(respond_address, it->first, global_hash_ring_map[1], local_hash_ring_map[1], pushers, seed);
+        // refresh time
+        it->second.first = chrono::system_clock::now();
       }
-    }
-    for (auto it = remove_set.begin(); it != remove_set.end(); it++) {
-      pending_gossip_map.erase(*it);
     }
   }
 }
