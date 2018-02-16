@@ -72,8 +72,16 @@ void handle_request(
     }
   } else {
     logger->info("request timed out when querying worker, clearing cache due to possible node departure");
-    // likely the node has departed. For now, we clear the entire cache
-    key_address_cache.clear();
+    // likely the node has departed. We clear the entries relavant to the worker_address
+    unordered_set<string> remove_set;
+    for (auto it = key_address_cache.begin(); it != key_address_cache.end(); it++) {
+      if (it->second.find(worker_address) != it->second.end()) {
+        remove_set.insert(it->first);
+      } 
+    }
+    for (auto it = remove_set.begin(); it != remove_set.end(); it++) {
+      key_address_cache.erase(*it);
+    }
     handle_request(key, value, pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller);
   }
 }
@@ -142,6 +150,7 @@ void run(unsigned thread_id) {
       unsigned time = stoi(v[5]);
 
       // warm up cache
+      auto warmup_start = std::chrono::system_clock::now();
       for (unsigned i = 1; i <= contention; i++) {
         // key is 8 bytes
         string key = string(8 - to_string(i).length(), '0') + to_string(i);
@@ -163,6 +172,8 @@ void run(unsigned thread_id) {
           logger->info("timeout during warmup");
         }
       }
+      auto warmup_time = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-warmup_start).count();
+      logger->info("warming took {} seconds", warmup_time);
 
       if (mode == "MOVEMENT") {
         int run = 0;
