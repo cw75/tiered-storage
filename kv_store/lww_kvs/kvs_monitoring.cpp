@@ -293,8 +293,10 @@ int main(int argc, char* argv[]) {
     { static_cast<void *>(depart_done_puller), 0, ZMQ_POLLIN, 0 }
   };
 
-  auto report_start = std::chrono::system_clock::now();
-  auto report_end = std::chrono::system_clock::now();
+  auto report_start = chrono::system_clock::now();
+  auto report_end = chrono::system_clock::now();
+
+  auto freeze_start = chrono::system_clock::now();
 
   unsigned adding_memory_node = 0;
   bool adding_ebs_node = false;
@@ -331,14 +333,12 @@ int main(int argc, char* argv[]) {
             adding_memory_node -= 1;
           }
           // reset timer
-          report_start = std::chrono::system_clock::now();
-          report_end = std::chrono::system_clock::now();
+          freeze_start = chrono::system_clock::now();
         } else if (tier == 2) {
           insert_to_hash_ring<global_hash_t>(global_hash_ring_map[tier], new_server_ip, 0);
           adding_ebs_node = false;
           // reset timer
-          report_start = std::chrono::system_clock::now();
-          report_end = std::chrono::system_clock::now();
+          freeze_start = chrono::system_clock::now();
         } else if (tier == 0) {
           proxy_address.push_back(new_server_ip);
         } else {
@@ -393,18 +393,14 @@ int main(int argc, char* argv[]) {
             string shell_command = "curl -X POST http://" + management_address + "/remove/memory/" + departed_ip;
             system(shell_command.c_str());
             removing_memory_node = false;
-            // reset timer
-            report_start = std::chrono::system_clock::now();
-            report_end = std::chrono::system_clock::now();
           } else {
             logger->info("removing ebs node {}", departed_ip);
             string shell_command = "curl -X POST http://" + management_address + "/remove/ebs/" + departed_ip;
             system(shell_command.c_str());
             removing_ebs_node = false;
-            // reset timer
-            report_start = std::chrono::system_clock::now();
-            report_end = std::chrono::system_clock::now();
           }
+          // reset timer
+          freeze_start = chrono::system_clock::now();
           departing_node_map.erase(departed_ip);
         }
       } else {
@@ -540,22 +536,31 @@ int main(int argc, char* argv[]) {
           auto latency = (double)chrono::duration_cast<std::chrono::microseconds>(ping_end-ping_start).count() / ping_count;
           logger->info("ping latency is {}", latency);
           // policy
-          if (latency > 2500 && adding_memory_node == 0) {
-            logger->info("trigger add {} memory node", to_string(NODE_ADD));
-            string shell_command = "curl -X POST http://" + management_address + "/memory &";
-            system(shell_command.c_str());
-            adding_memory_node = NODE_ADD;
+          auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-freeze_start).count();
+          if (latency > 1500 && adding_memory_node == 0) {
+            if (time_elapsed > FREEZE_PERIOD) {
+              logger->info("trigger add {} memory node", to_string(NODE_ADD));
+              string shell_command = "curl -X POST http://" + management_address + "/memory &";
+              system(shell_command.c_str());
+              adding_memory_node = NODE_ADD;
+            } else {
+              logger->info("freezing");
+            }
           }
-          if (latency < 1200 && !removing_memory_node && global_hash_ring_map[1].size() > 2*VIRTUAL_THREAD_NUM) {
-            logger->info("sending remove memory node msg");
-            // pick a random memory node
-            auto node = next(begin(global_hash_ring_map[1]), rand() % global_hash_ring_map[1].size())->second;
-            auto connection_addr = node.get_self_depart_connect_addr();
-            auto ip = node.get_ip();
-            departing_node_map[ip] = tier_data_map[1].thread_number_;
-            auto ack_addr = mt.get_depart_done_connect_addr();
-            zmq_util::send_string(ack_addr, &pushers[connection_addr]);
-            removing_memory_node = true;
+          if (latency < 800 && !removing_memory_node && global_hash_ring_map[1].size() > 2*VIRTUAL_THREAD_NUM) {
+            if (time_elapsed > FREEZE_PERIOD) {
+              logger->info("sending remove memory node msg");
+              // pick a random memory node
+              auto node = next(begin(global_hash_ring_map[1]), rand() % global_hash_ring_map[1].size())->second;
+              auto connection_addr = node.get_self_depart_connect_addr();
+              auto ip = node.get_ip();
+              departing_node_map[ip] = tier_data_map[1].thread_number_;
+              auto ack_addr = mt.get_depart_done_connect_addr();
+              zmq_util::send_string(ack_addr, &pushers[connection_addr]);
+              removing_memory_node = true;
+            } else {
+              logger->info("freezing");
+            }
           }
         } else {
           logger->info("ping failed");
