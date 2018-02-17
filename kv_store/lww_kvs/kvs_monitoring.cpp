@@ -571,7 +571,7 @@ int main(int argc, char* argv[]) {
         logger->info("avg latency is {}", avg_latency);
         // policy
         auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-freeze_start).count();
-        if (avg_latency != -1 && avg_latency > 1400 && adding_memory_node == 0) {
+        if (avg_latency != -1 && avg_latency > 1250 && adding_memory_node == 0) {
           if (time_elapsed > FREEZE_PERIOD) {
             logger->info("trigger add {} memory node", to_string(NODE_ADD));
             string shell_command = "curl -X POST http://" + management_address + "/memory &";
