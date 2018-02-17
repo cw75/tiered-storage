@@ -522,26 +522,27 @@ int main(int argc, char* argv[]) {
       }
 
       // ping the storage servers to measure latency
-      unsigned ping_count = 0;
-      bool succeed = true;
-      auto ping_start = std::chrono::system_clock::now();
-      while (ping_count < 100) {
-        string key_aux = to_string(rand() % (100000) + 1);
-        string key = string(8 - key_aux.length(), '0') + key_aux;
-        if (!ping(key, string(10000, 'a'), pushers, logger, mt, response_puller, global_hash_ring_map, local_hash_ring_map, placement)) {
-          succeed = false;
-          break;
+      if (global_hash_ring_map[1].size() >= 2*VIRTUAL_THREAD_NUM) {
+        unsigned ping_count = 0;
+        bool succeed = true;
+        auto ping_start = std::chrono::system_clock::now();
+        while (ping_count < 100) {
+          string key_aux = to_string(rand() % (100000) + 1);
+          string key = string(8 - key_aux.length(), '0') + key_aux;
+          if (!ping(key, string(10000, 'a'), pushers, logger, mt, response_puller, global_hash_ring_map, local_hash_ring_map, placement)) {
+            succeed = false;
+            break;
+          }
+          ping_count++;
         }
-        ping_count++;
+        auto ping_end = std::chrono::system_clock::now();
+        if (succeed) {
+          auto latency = (double)chrono::duration_cast<std::chrono::microseconds>(ping_end-ping_start).count() / ping_count;
+          logger->info("ping latency is {}", latency);
+        } else {
+          logger->info("ping failed");
+        }
       }
-      auto ping_end = std::chrono::system_clock::now();
-      if (succeed) {
-        auto latency = (double)chrono::duration_cast<std::chrono::microseconds>(ping_end-ping_start).count() / ping_count;
-        logger->info("ping latency is {}", latency);
-      } else {
-        logger->info("ping failed");
-      }
-
 
       /*if (average_memory_consumption >= 1000 && !adding_memory_node) {
         logger->info("trigger add memory node");
