@@ -122,6 +122,15 @@ void run(unsigned thread_id) {
   }
   address.close();
 
+  string monitoring_address;
+
+  address.open("conf/user/monitoring_address.txt");
+  getline(address, ip_line);
+  monitoring_address = ip_line;
+  address.close();
+
+  monitoring_thread_t mt = monitoring_thread_t(monitoring_address);
+
   zmq::context_t context(1);
   SocketCache pushers(&context, ZMQ_PUSH);
 
@@ -220,8 +229,15 @@ void run(unsigned thread_id) {
             auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(epoch_end-epoch_start).count();
             // report throughput every report_period seconds
             if (time_elapsed >= report_period) {
-              logger->info("Throughput is {} ops/seconds", to_string((double)count / (double)time_elapsed));
-              //cout << "Throughput is " + to_string((double)count / (double)time_elapsed) + " ops/seconds\n";
+              double throughput = (double)count / (double)time_elapsed;
+              logger->info("Throughput is {} ops/seconds", throughput);
+              auto latency = (double)1000000 / throughput;
+              communication::Latency l;
+              l.set_uid(ip + ":" + to_string(thread_id));
+              l.set_latency(latency);
+              string serialized_latency;
+              l.SerializeToString(&serialized_latency);
+              zmq_util::send_string(serialized_latency, &pushers[mt.get_latency_report_connect_addr()]);
               count = 0;
               epoch_start = std::chrono::system_clock::now();
             }
@@ -265,8 +281,15 @@ void run(unsigned thread_id) {
           auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(epoch_end-epoch_start).count();
           // report throughput every report_period seconds
           if (time_elapsed >= report_period) {
-            logger->info("Throughput is {} ops/seconds", to_string((double)count / (double)time_elapsed));
-            //cout << "Throughput is " + to_string((double)count / (double)time_elapsed) + " ops/seconds\n";
+            double throughput = (double)count / (double)time_elapsed;
+            logger->info("Throughput is {} ops/seconds", throughput);
+            auto latency = (double)1000000 / throughput;
+            communication::Latency l;
+            l.set_uid(ip + ":" + to_string(thread_id));
+            l.set_latency(latency);
+            string serialized_latency;
+            l.SerializeToString(&serialized_latency);
+            zmq_util::send_string(serialized_latency, &pushers[mt.get_latency_report_connect_addr()]);
             count = 0;
             epoch_start = std::chrono::system_clock::now();
           }
@@ -281,6 +304,12 @@ void run(unsigned thread_id) {
         logger->info("invalid experiment mode");
       }
       logger->info("Finished");
+      communication::Latency l;
+      l.set_uid(ip + ":" + to_string(thread_id));
+      l.set_finish(true);
+      string serialized_latency;
+      l.SerializeToString(&serialized_latency);
+      zmq_util::send_string(serialized_latency, &pushers[mt.get_latency_report_connect_addr()]);
     }
   }
 

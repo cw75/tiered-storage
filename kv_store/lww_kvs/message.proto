@@ -92,3 +92,9 @@ message Address {
   required uint64 start_time = 1;
   repeated Tuple tuple = 2;
 }
+
+message Latency {
+  required string uid = 1;
+  optional double latency = 2;
+  optional bool finish = 3;
+}

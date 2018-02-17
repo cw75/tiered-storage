@@ -72,6 +72,7 @@ using namespace std;
 
 // used by monitoring nodes
 #define DEPART_DONE_BASE_PORT 6760
+#define LATENCY_REPORT_BASE_PORT 6860
 
 // used by benchmark threads
 #define COMMAND_BASE_PORT 6560
@@ -270,6 +271,12 @@ public:
   }
   string get_depart_done_bind_addr() const {
     return "tcp://*:" + to_string(DEPART_DONE_BASE_PORT);
+  }
+  string get_latency_report_connect_addr() const {
+    return "tcp://" + ip_ + ":" + to_string(LATENCY_REPORT_BASE_PORT);
+  }
+  string get_latency_report_bind_addr() const {
+    return "tcp://*:" + to_string(LATENCY_REPORT_BASE_PORT);
   }
 };
 
