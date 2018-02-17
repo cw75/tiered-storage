@@ -161,7 +161,7 @@ void run(unsigned thread_id) {
       for (unsigned i = 1; i <= contention; i++) {
         // key is 8 bytes
         string key = string(8 - to_string(i).length(), '0') + to_string(i);
-        if (i % 2000 == 0) {
+        if (i % 10000 == 0) {
           logger->info("warming up key {}", key);
         }
         communication::Key_Request key_req;

@@ -526,7 +526,7 @@ int main(int argc, char* argv[]) {
         unsigned ping_count = 0;
         bool succeed = true;
         auto ping_start = std::chrono::system_clock::now();
-        while (ping_count < 100) {
+        while (ping_count < 1000) {
           string key_aux = to_string(rand() % (100000) + 1);
           string key = string(8 - key_aux.length(), '0') + key_aux;
           if (!ping(key, string(10000, 'a'), pushers, logger, mt, response_puller, global_hash_ring_map, local_hash_ring_map, placement)) {
@@ -539,6 +539,24 @@ int main(int argc, char* argv[]) {
         if (succeed) {
           auto latency = (double)chrono::duration_cast<std::chrono::microseconds>(ping_end-ping_start).count() / ping_count;
           logger->info("ping latency is {}", latency);
+          // policy
+          if (latency > 2500 && adding_memory_node == 0) {
+            logger->info("trigger add {} memory node", to_string(NODE_ADD));
+            string shell_command = "curl -X POST http://" + management_address + "/memory &";
+            system(shell_command.c_str());
+            adding_memory_node = NODE_ADD;
+          }
+          if (latency < 1200 && !removing_memory_node && global_hash_ring_map[1].size() > 2*VIRTUAL_THREAD_NUM) {
+            logger->info("sending remove memory node msg");
+            // pick a random memory node
+            auto node = next(begin(global_hash_ring_map[1]), rand() % global_hash_ring_map[1].size())->second;
+            auto connection_addr = node.get_self_depart_connect_addr();
+            auto ip = node.get_ip();
+            departing_node_map[ip] = tier_data_map[1].thread_number_;
+            auto ack_addr = mt.get_depart_done_connect_addr();
+            zmq_util::send_string(ack_addr, &pushers[connection_addr]);
+            removing_memory_node = true;
+          }
         } else {
           logger->info("ping failed");
         }
