@@ -71,7 +71,7 @@ void handle_request(
       handle_request(key, value, pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller);
     }
   } else {
-    logger->info("request timed out when querying worker, clearing cache due to possible node departure");
+    logger->info("request timed out when querying worker, clearing cache due to possible node membership change");
     // likely the node has departed. We clear the entries relavant to the worker_address
     vector<string> tokens;
     split(worker_address, ':', tokens);

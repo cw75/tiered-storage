@@ -220,6 +220,8 @@ void run(unsigned thread_id) {
   unordered_map<string, pair<chrono::system_clock::time_point, vector<pending_gossip>>> pending_gossip_map;
 
   unordered_map<string, key_info> placement;
+  // warm up for benchmark
+  warmup(placement);
 
   vector<string> proxy_address;
 

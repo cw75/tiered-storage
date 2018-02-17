@@ -24,6 +24,63 @@ using address_t = string;
 // read-only per-tier metadata
 unordered_map<unsigned, tier_data> tier_data_map;
 
+bool ping(
+    string key,
+    string value,
+    SocketCache& pushers,
+    shared_ptr<spdlog::logger> logger,
+    monitoring_thread_t& mt,
+    zmq::socket_t& response_puller,
+    unordered_map<unsigned, global_hash_t>& global_hash_ring_map,
+    unordered_map<unsigned, local_hash_t>& local_hash_ring_map,
+    unordered_map<string, key_info>& placement) {
+  communication::Request req;
+  req.set_respond_address(mt.get_request_pulling_connect_addr());
+  if (value == "") {
+    // get request
+    req.set_type("GET");
+    prepare_get_tuple(req, key);
+  } else {
+    // put request
+    req.set_type("PUT");
+    prepare_put_tuple(req, key, value, 0);
+  }
+  if (placement.find(key) != placement.end()) {
+    unordered_set<server_thread_t, thread_hash> threads;
+    // hard code memory tier for now
+    unsigned tier_id = 1;
+    auto mts = responsible_global(key, placement[key].global_replication_map_[tier_id], global_hash_ring_map[tier_id]);
+    for (auto it = mts.begin(); it != mts.end(); it++) {
+      string ip = it->get_ip();
+      if (placement[key].local_replication_map_.find(ip) == placement[key].local_replication_map_.end()) {
+        placement[key].local_replication_map_[ip] = DEFAULT_LOCAL_REPLICATION;
+      }
+      auto tids = responsible_local(key, placement[key].local_replication_map_[ip], local_hash_ring_map[tier_id]);
+      for (auto iter = tids.begin(); iter != tids.end(); iter++) {
+        threads.insert(server_thread_t(ip, *iter));
+      }
+    }
+    auto rand_thread = *(next(begin(threads), rand() % threads.size()));
+    string worker_address = rand_thread.get_request_pulling_connect_addr();
+    bool succeed;
+    auto res = send_request<communication::Request, communication::Response>(req, pushers[worker_address], response_puller, succeed);
+    if (succeed) {
+      if (res.tuple(0).err_number() == 2) {
+        logger->info("hash ring inconsistency");
+        return false;
+      } else {
+        return true;
+      }
+    } else {
+      logger->info("request timed out when querying worker");
+      return false;
+    }
+  } else {
+    logger->info("Error: missing replication factor for monitoring node");
+    return false;
+  }
+}
+
 void prepare_metadata_get_request(
     string& key,
     global_hash_t& global_memory_hash_ring,
@@ -181,6 +238,9 @@ int main(int argc, char* argv[]) {
 
   // keep track of the keys' replication info
   unordered_map<string, key_info> placement;
+  // warm up for benchmark
+  warmup(placement);
+
   // keep track of the keys' access by worker address
   unordered_map<string, unordered_map<address_t, unsigned>> key_access_frequency;
   // keep track of the keys' access summary
@@ -460,6 +520,28 @@ int main(int argc, char* argv[]) {
           average_ebs_consumption = average_ebs_consumption_new;
         }
       }
+
+      // ping the storage servers to measure latency
+      unsigned ping_count = 0;
+      bool succeed = true;
+      auto ping_start = std::chrono::system_clock::now();
+      while (ping_count < 100) {
+        string key_aux = to_string(rand() % (100000) + 1);
+        string key = string(8 - key_aux.length(), '0') + key_aux;
+        if (!ping(key, string(10000, 'a'), pushers, logger, mt, response_puller, global_hash_ring_map, local_hash_ring_map, placement)) {
+          succeed = false;
+          break;
+        }
+        ping_count++;
+      }
+      auto ping_end = std::chrono::system_clock::now();
+      if (succeed) {
+        auto latency = (double)chrono::duration_cast<std::chrono::microseconds>(ping_end-ping_start).count() / ping_count;
+        logger->info("ping latency is {}", latency);
+      } else {
+        logger->info("ping failed");
+      }
+
 
       /*if (average_memory_consumption >= 1000 && !adding_memory_node) {
         logger->info("trigger add memory node");

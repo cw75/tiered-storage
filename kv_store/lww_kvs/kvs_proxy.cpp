@@ -43,6 +43,8 @@ void run(unsigned thread_id) {
   SocketCache pushers(&context, ZMQ_PUSH);
 
   unordered_map<string, key_info> placement;
+  // warm up for benchmark
+  warmup(placement);
 
   if (thread_id == 0) {
     string ip_line;

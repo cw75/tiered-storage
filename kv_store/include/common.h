@@ -560,4 +560,13 @@ proxy_thread_t get_random_proxy_thread(vector<string>& proxy_address, unsigned& 
   return proxy_thread_t(proxy_ip, tid);
 }
 
+void warmup(unordered_map<string, key_info>& placement) {
+  for (unsigned i = 1; i <= 100000; i++) {
+    // key is 8 bytes
+    string key = string(8 - to_string(i).length(), '0') + to_string(i);
+    placement[key].global_replication_map_[1] = DEFAULT_GLOBAL_MEMORY_REPLICATION;
+    placement[key].global_replication_map_[2] = DEFAULT_GLOBAL_EBS_REPLICATION;
+  }
+}
+
 #endif
