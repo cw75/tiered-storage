@@ -276,12 +276,12 @@ int main(int argc, char* argv[]) {
   vector<address_t> proxy_address;
 
   // read address of management node from conf file
-  /*address_t management_address;
+  address_t management_address;
 
   address.open("conf/monitoring/management_ip.txt");
   getline(address, ip_line);
   management_address = ip_line;
-  address.close();*/
+  address.close();
 
   monitoring_thread_t mt = monitoring_thread_t(ip);
 
@@ -410,13 +410,13 @@ int main(int argc, char* argv[]) {
         if (departing_node_map[departed_ip] == 0) {
           if (tier_id == 1) {
             logger->info("removing memory node {}", departed_ip);
-            //string shell_command = "curl -X POST http://" + management_address + "/remove/memory/" + departed_ip;
-            //system(shell_command.c_str());
+            string shell_command = "curl -X POST http://" + management_address + "/remove/memory/" + departed_ip;
+            system(shell_command.c_str());
             removing_memory_node = false;
           } else {
             logger->info("removing ebs node {}", departed_ip);
-            //string shell_command = "curl -X POST http://" + management_address + "/remove/ebs/" + departed_ip;
-            //system(shell_command.c_str());
+            string shell_command = "curl -X POST http://" + management_address + "/remove/ebs/" + departed_ip;
+            system(shell_command.c_str());
             removing_ebs_node = false;
           }
           // reset timer
@@ -678,7 +678,7 @@ int main(int argc, char* argv[]) {
         if (min_node_occupancy > 0.1) {
           logger->info("all nodes are busy, adding new nodes");
           // trigger elasticity
-          /*auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
+          auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
           if (time_elapsed > GRACE_PERIOD) {
             logger->info("trigger add {} memory node", to_string(NODE_ADD));
             string shell_command = "curl -X POST http://" + management_address + "/memory &";
@@ -686,7 +686,7 @@ int main(int argc, char* argv[]) {
             adding_memory_node = NODE_ADD;
           } else {
             logger->info("in grace period");
-          }*/
+          }
         } else {
           // hot key replication
           // loop through busy nodes to find hot keys

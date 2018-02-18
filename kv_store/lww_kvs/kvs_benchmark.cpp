@@ -80,12 +80,12 @@ void handle_request(
     // initialize the respond string
     if (res.tuple(0).err_number() == 2) {
       // update cache and retry
-      logger->info("cache invalidation due to wrong address");
+      //logger->info("cache invalidation due to wrong address");
       key_address_cache.erase(key);
       handle_request(key, value, pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller);
     } else {
       if (res.tuple(0).has_invalidate() && res.tuple(0).invalidate()) {
-        logger->info("cache invalidation of key {} due to address number mismatch", key);
+        //logger->info("cache invalidation of key {} due to address number mismatch", key);
         // update cache
         key_address_cache.erase(key);
       }
