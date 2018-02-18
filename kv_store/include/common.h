@@ -25,7 +25,7 @@ using namespace std;
 // Define the threshold for retry rep factor query for gossip handling (in millisecond)
 #define RETRY_THRESHOLD 8000
 // Define the freeze period for triggering elasticity action (in second)
-#define FREEZE_PERIOD 90
+#define FREEZE_PERIOD 120
 
 // Define the replication factor for the metadata
 #define METADATA_REPLICATION_FACTOR 1
