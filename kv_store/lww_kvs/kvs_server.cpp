@@ -230,8 +230,6 @@ void run(unsigned thread_id) {
   unordered_map<string, pair<chrono::system_clock::time_point, vector<pending_gossip>>> pending_gossip_map;
 
   unordered_map<string, key_info> placement;
-  // warm up for benchmark
-  warmup(placement);
 
   vector<string> proxy_address;
 
@@ -451,6 +449,7 @@ void run(unsigned thread_id) {
           for (auto it = remove_set.begin(); it != remove_set.end(); it++) {
             key_stat_map.erase(*it);
             serializer->remove(*it);
+            placement.erase(*it);
           }
         }
       }
@@ -760,6 +759,7 @@ void run(unsigned thread_id) {
       for (auto it = remove_set.begin(); it != remove_set.end(); it++) {
         key_stat_map.erase(*it);
         serializer->remove(*it);
+        placement.erase(*it);
       }
       auto time_elapsed = chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
       working_time += time_elapsed;
