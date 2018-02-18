@@ -634,11 +634,12 @@ int main(int argc, char* argv[]) {
         // first check ebs tier key access stat
         unordered_map<string, key_info> requests;
         unordered_set<string> rep_change_set;
+        unsigned total_rep_changed = 0;
         for (auto it = ebs_tier_key_access.begin(); it != ebs_tier_key_access.end(); it++) {
           string key = it->first;
           unsigned access = it->second;
           if (!is_metadata(key)) {
-            logger->info("key {} accessed {} times in the last {} seconds in ebs tier", key, access, SERVER_REPORT_THRESHOLD/1000000);
+            //logger->info("key {} accessed {} times in the last {} seconds in ebs tier", key, access, SERVER_REPORT_THRESHOLD/1000000);
             if (access > 100) {
               unsigned max_memory_replica = global_hash_ring_map[1].size() / VIRTUAL_THREAD_NUM;
               unsigned current_memory_replica = placement[key].global_replication_map_[1];
@@ -648,12 +649,15 @@ int main(int argc, char* argv[]) {
                 new_rep_factor.global_replication_map_[1] = current_memory_replica + 1;
                 new_rep_factor.global_replication_map_[2] = current_ebs_replica - 1;
                 requests[key] = new_rep_factor;
-                logger->info("data movement for key {}. M: {}->{}. E: {}->{}", key, current_memory_replica, current_memory_replica + 1, current_ebs_replica, current_ebs_replica - 1);
+                //logger->info("data movement for key {}. M: {}->{}. E: {}->{}", key, current_memory_replica, current_memory_replica + 1, current_ebs_replica, current_ebs_replica - 1);
                 rep_change_set.insert(key);
+                total_rep_changed += 1;
               }
             }
           }
         }
+        logger->info("a total of {} keys are promoted to the memory tier", total_rep_changed);
+
         change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger);
         requests.clear();
         rep_change_set.clear();
@@ -693,7 +697,7 @@ int main(int argc, char* argv[]) {
               string key = iter->first;
               unsigned access = iter->second;
               if (!is_metadata(key)) {
-                logger->info("key {} accessed {} times in the last {} seconds in memory node ip {}", key, access, SERVER_REPORT_THRESHOLD/1000000, it->first);
+                //logger->info("key {} accessed {} times in the last {} seconds in memory node ip {}", key, access, SERVER_REPORT_THRESHOLD/1000000, it->first);
                 if (access > 10000) {
                   unsigned max_memory_replica = global_hash_ring_map[1].size() / VIRTUAL_THREAD_NUM;
                   unsigned current_memory_replica = placement[key].global_replication_map_[1];
@@ -732,7 +736,7 @@ int main(int argc, char* argv[]) {
         for (auto iter = it->second.begin(); iter != it->second.end(); iter++) {
           total_access += iter->second;
         }
-        if (total_access < 10) {
+        if (total_access == 0) {
           if (placement[key].global_replication_map_[1] > 0) {
             key_info new_rep_factor;
             new_rep_factor.global_replication_map_[1] = 0;
