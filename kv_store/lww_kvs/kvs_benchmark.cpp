@@ -15,6 +15,18 @@
 
 using namespace std;
 
+double get_base(unsigned N, double skew) {
+  double base = 0;
+  for (unsigned k = 1; k <= N; k++) {
+          base += pow(k, -1*skew);
+  }
+  return base;
+}
+
+double get_zipf_prob(unsigned rank, double skew, double base) {
+  return pow(rank, -1*skew) / base;
+}
+
 void handle_request(
     string key,
     string value,
@@ -26,17 +38,6 @@ void handle_request(
     user_thread_t& ut,
     zmq::socket_t& response_puller,
     zmq::socket_t& key_address_puller) {
-  communication::Request req;
-  req.set_respond_address(ut.get_request_pulling_connect_addr());
-  if (value == "") {
-    // get request
-    req.set_type("GET");
-    prepare_get_tuple(req, key);
-  } else {
-    // put request
-    req.set_type("PUT");
-    prepare_put_tuple(req, key, value, 0);
-  }
   // get worker address
   string worker_address;
   if (key_address_cache.find(key) == key_address_cache.end()) {
@@ -56,6 +57,23 @@ void handle_request(
   } else {
     worker_address = *(next(begin(key_address_cache[key]), rand_r(&seed) % key_address_cache[key].size()));
   }
+  communication::Request req;
+  req.set_respond_address(ut.get_request_pulling_connect_addr());
+  if (value == "") {
+    // get request
+    req.set_type("GET");
+    communication::Request_Tuple* tp = req.add_tuple();
+    tp->set_key(key);
+    tp->set_num_address(key_address_cache[key].size());
+  } else {
+    // put request
+    req.set_type("PUT");
+    communication::Request_Tuple* tp = req.add_tuple();
+    tp->set_key(key);
+    tp->set_value(value);
+    tp->set_timestamp(0);
+    tp->set_num_address(key_address_cache[key].size());
+  }
   bool succeed;
   auto res = send_request<communication::Request, communication::Response>(req, pushers[worker_address], response_puller, succeed);
   if (succeed) {
@@ -63,12 +81,20 @@ void handle_request(
     if (res.tuple(0).err_number() == 2) {
       // update cache and retry
       //logger->info("cache invalidation");
-      //cerr << "cache invalidation\n";
       key_address_cache.erase(key);
       for (int i = 0; i < res.tuple(0).addresses_size(); i++) {
         key_address_cache[key].insert(res.tuple(0).addresses(i));
       }
       handle_request(key, value, pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller);
+    } else {
+      if (res.tuple(0).addresses_size() > 0) {
+        logger->info("cache invalidation of key {} due to address number mismatch", key);
+        // update cache
+        key_address_cache.erase(key);
+        for (int i = 0; i < res.tuple(0).addresses_size(); i++) {
+          key_address_cache[key].insert(res.tuple(0).addresses(i));
+        }
+      }
     }
   } else {
     logger->info("request timed out when querying worker, clearing cache due to possible node membership change");
@@ -160,14 +186,23 @@ void run(unsigned thread_id) {
       split(zmq_util::recv_string(&command_puller), ':', v);
       string mode = v[0];
       string type = v[1];
-      unsigned contention = stoi(v[2]);
+      unsigned num_keys = stoi(v[2]);
       unsigned length = stoi(v[3]);
       unsigned report_period = stoi(v[4]);
       unsigned time = stoi(v[5]);
+      string contention = v[6];
+      // prepare for zipfian workload with coefficient 4 (for high contention)
+      unsigned zipf = 4;
+      double base = get_base(num_keys, zipf);
+      unordered_map<unsigned, double> probability;
+
+      for (unsigned i = 1; i <= num_keys; i++) {
+          probability[i] = get_zipf_prob(i, zipf, base);
+      }
 
       // warm up cache
       auto warmup_start = std::chrono::system_clock::now();
-      for (unsigned i = 1; i <= contention; i++) {
+      for (unsigned i = 1; i <= num_keys; i++) {
         // key is 8 bytes
         string key = string(8 - to_string(i).length(), '0') + to_string(i);
         if (i % 10000 == 0) {
@@ -206,9 +241,9 @@ void run(unsigned thread_id) {
             string key_aux;
             string key;
             if (run % 2 == 0) {
-              key_aux = to_string(rand_r(&seed) % (contention/2) + 1);
+              key_aux = to_string(rand_r(&seed) % (num_keys/2) + 1);
             } else {
-              key_aux = to_string(rand_r(&seed) % (contention/2) + (contention/2) + 1);
+              key_aux = to_string(rand_r(&seed) % (num_keys/2) + (num_keys/2) + 1);
             }
             key = string(8 - key_aux.length(), '0') + key_aux;
             if (type == "G") {
@@ -259,10 +294,19 @@ void run(unsigned thread_id) {
         auto total_time = chrono::duration_cast<std::chrono::seconds>(benchmark_end-benchmark_start).count();
 
         while (true) {
-          string key_aux;
           string key;
-          key_aux = to_string(rand_r(&seed) % (contention) + 1);
-          key = string(8 - key_aux.length(), '0') + key_aux;
+          if (contention == "L") {
+            string key_aux = to_string(rand_r(&seed) % (num_keys) + 1);
+            key = string(8 - key_aux.length(), '0') + key_aux;
+          } else if (contention == "H") {
+            double p = rand_r(&seed) / static_cast<double>(RAND_MAX);
+            unsigned k = 1;
+            while ((p - probability[k]) >= 0) {
+                    p -= probability[k];
+                    k++;
+            }
+            key = string(8 - to_string(k).length(), '0') + to_string(k);
+          }
           if (type == "G") {
             handle_request(key, "", pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller);
             count += 1;

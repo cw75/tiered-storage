@@ -253,6 +253,10 @@ int main(int argc, char* argv[]) {
   unordered_map<address_t, unordered_map<unsigned, pair<double, unsigned>>> memory_tier_occupancy;
   // keep track of ebs tier thread occupancy
   unordered_map<address_t, unordered_map<unsigned, pair<double, unsigned>>> ebs_tier_occupancy;
+  // keep track of memory tier key access frequency
+  unordered_map<address_t, unordered_map<unsigned, unordered_map<string, unsigned>>> memory_tier_key_access;
+  // keep track of ebs tier key access frequency
+  unordered_map<address_t, unordered_map<unsigned, unordered_map<string, unsigned>>> ebs_tier_key_access;
   // keep track of user latency info
   unordered_map<address_t, double> user_latency;
   // read in the initial server addresses and build the hash ring
@@ -477,8 +481,16 @@ int main(int argc, char* argv[]) {
                 // deserialized the value
                 communication::Key_Access access;
                 access.ParseFromString(res.tuple(i).value());
-                for (int j = 0; j < access.tuple_size(); j++) {
-                  key_access_frequency[access.tuple(j).key()][ip + ":" + to_string(tid)] = access.tuple(j).access();
+                if (tier_id == 1) {
+                  for (int j = 0; j < access.tuple_size(); j++) {
+                    memory_tier_key_access[ip][tid][access.tuple(j).key()] = access.tuple(j).access();
+                    key_access_frequency[access.tuple(j).key()][ip + ":" + to_string(tid)] = access.tuple(j).access();
+                  }
+                } else {
+                  for (int j = 0; j < access.tuple_size(); j++) {
+                    ebs_tier_key_access[ip][tid][access.tuple(j).key()] = access.tuple(j).access();
+                    key_access_frequency[access.tuple(j).key()][ip + ":" + to_string(tid)] = access.tuple(j).access();
+                  }
                 }
               }
             } else if (res.tuple(i).err_number() == 1) {
@@ -534,6 +546,40 @@ int main(int argc, char* argv[]) {
         }
       }
 
+      double max_memory_occupancy = 0.0;
+      double sum_memory_occupancy = 0.0;
+      unsigned count = 0;
+      for (auto it1 = memory_tier_occupancy.begin(); it1 != memory_tier_occupancy.end(); it1++) {
+        for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
+          logger->info("memory node ip {} thread {} occupancy is {} at server epoch {} for monitoring epoch {}", it1->first, it2->first, it2->second.first, it2->second.second, server_monitoring_epoch);
+          if (it2->second.first > max_memory_occupancy) {
+            max_memory_occupancy = it2->second.first;
+          }
+          sum_memory_occupancy += it2->second.first;
+          count += 1;
+        }
+      }
+      double avg_memory_occupancy = sum_memory_occupancy / count;
+      logger->info("max memory node occupancy is {}", to_string(max_memory_occupancy));
+      logger->info("avg memory node occupancy is {}", to_string(avg_memory_occupancy));
+
+      double max_ebs_occupancy = 0.0;
+      double sum_ebs_occupancy = 0.0;
+      count = 0;
+      for (auto it1 = ebs_tier_occupancy.begin(); it1 != ebs_tier_occupancy.end(); it1++) {
+        for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
+          logger->info("ebs node ip {} thread {} occupancy is {} at server epoch {} for monitoring epoch {}", it1->first, it2->first, it2->second.first, it2->second.second, server_monitoring_epoch);
+          if (it2->second.first > max_ebs_occupancy) {
+            max_ebs_occupancy = it2->second.first;
+          }
+          sum_ebs_occupancy += it2->second.first;
+          count += 1;
+        }
+      }
+      double avg_ebs_occupancy = sum_ebs_occupancy / count;
+      logger->info("max ebs node occupancy is {}", to_string(max_ebs_occupancy));
+      logger->info("avg ebs node occupancy is {}", to_string(avg_ebs_occupancy));
+
       if (global_hash_ring_map[1].size() >= 2*VIRTUAL_THREAD_NUM) {
         double avg_latency = -1;
         if (user_latency.size() > 0) {
@@ -571,18 +617,47 @@ int main(int argc, char* argv[]) {
         logger->info("avg latency is {}", avg_latency);
         // policy
         auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-freeze_start).count();
-        if (avg_latency != -1 && avg_latency > 1250 && adding_memory_node == 0) {
-          if (time_elapsed > FREEZE_PERIOD) {
+        if (avg_latency != -1 && avg_latency > 1400 && adding_memory_node == 0) {
+          logger->info("latency is too high");
+          bool action = false;
+          // first check ebs tier key access stat
+          for (auto it = ebs_tier_key_access.begin(); it != ebs_tier_key_access.end(); it++) {
+            string ip = it->first;
+            for (auto iter = it->second.begin(); iter != it->second.end(); iter++) {
+              unsigned tid = iter->first;
+              for (auto key_iter = iter->second.begin(); key_iter != iter->second.end(); key_iter++) {
+                string key = key_iter->first;
+                if (!is_metadata(key)) {
+                  logger->info("key {} accessed {} times in the last {} seconds in memory node ip {} thread {}", key, key_iter->second, SERVER_REPORT_THRESHOLD/1000000, ip, tid);
+                }
+              }
+            }
+          }
+          // then check memory tier key access stat
+          for (auto it = memory_tier_key_access.begin(); it != memory_tier_key_access.end(); it++) {
+            string ip = it->first;
+            for (auto iter = it->second.begin(); iter != it->second.end(); iter++) {
+              unsigned tid = iter->first;
+              for (auto key_iter = iter->second.begin(); key_iter != iter->second.end(); key_iter++) {
+                string key = key_iter->first;
+                if (!is_metadata(key)) {
+                  logger->info("key {} accessed {} times in the last {} seconds in ebs node ip {} thread {}", key, key_iter->second, SERVER_REPORT_THRESHOLD/1000000, ip, tid);
+                }
+              }
+            }
+          }
+          /*if (time_elapsed > FREEZE_PERIOD) {
             logger->info("trigger add {} memory node", to_string(NODE_ADD));
             string shell_command = "curl -X POST http://" + management_address + "/memory &";
             system(shell_command.c_str());
             adding_memory_node = NODE_ADD;
           } else {
             logger->info("freezing");
-          }
+          }*/
         }
-        if (avg_latency != -1 && avg_latency < 800 && !removing_memory_node && global_hash_ring_map[1].size() > 2*VIRTUAL_THREAD_NUM) {
-          if (time_elapsed > FREEZE_PERIOD) {
+        if (avg_latency != -1 && avg_latency < 900 && !removing_memory_node && global_hash_ring_map[1].size() > 2*VIRTUAL_THREAD_NUM) {
+          logger->info("latency is too low");
+          /*if (time_elapsed > FREEZE_PERIOD) {
             logger->info("sending remove memory node msg");
             // pick a random memory node
             auto node = next(begin(global_hash_ring_map[1]), rand() % global_hash_ring_map[1].size())->second;
@@ -594,7 +669,7 @@ int main(int argc, char* argv[]) {
             removing_memory_node = true;
           } else {
             logger->info("freezing");
-          }
+          }*/
         }
       }
 
@@ -613,48 +688,7 @@ int main(int argc, char* argv[]) {
         system(shell_command.c_str());
         adding_ebs_node = true;
       }*/
-
-      double max_occupancy = 0.0;
-      double sum_occupancy = 0.0;
-      unsigned count = 0;
-      for (auto it1 = memory_tier_occupancy.begin(); it1 != memory_tier_occupancy.end(); it1++) {
-        for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
-          logger->info("memory node ip {} thread {} occupancy is {} at server epoch {} for monitoring epoch {}", it1->first, it2->first, it2->second.first, it2->second.second, server_monitoring_epoch);
-          if (it2->second.first > max_occupancy) {
-            max_occupancy = it2->second.first;
-          }
-          sum_occupancy += it2->second.first;
-          count += 1;
-        }
-      }
-      double avg_occupancy = sum_occupancy / count;
-
-      for (auto it1 = ebs_tier_occupancy.begin(); it1 != ebs_tier_occupancy.end(); it1++) {
-        for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
-          logger->info("ebs node ip {} thread {} occupancy is {} at server epoch {} for monitoring epoch {}", it1->first, it2->first, it2->second.first, it2->second.second, server_monitoring_epoch);
-        }
-      }
-      logger->info("max occupancy is {}", to_string(max_occupancy));
-      logger->info("avg occupancy is {}", to_string(avg_occupancy));
-      logger->info("adding {} memory node in progress", to_string(adding_memory_node));
       
-      /*if (avg_occupancy > 0.12 && adding_memory_node == 0) {
-        logger->info("trigger add {} memory node", to_string(NODE_ADD));
-        string shell_command = "curl -X POST http://" + management_address + "/memory &";
-        system(shell_command.c_str());
-        adding_memory_node = NODE_ADD;
-      }
-      if (avg_occupancy < 0.02 && !removing_memory_node && global_hash_ring_map[1].size() > 2*VIRTUAL_THREAD_NUM) {
-        logger->info("sending remove memory node msg");
-        // pick a random memory node
-        auto node = next(begin(global_hash_ring_map[1]), rand() % global_hash_ring_map[1].size())->second;
-        auto connection_addr = node.get_self_depart_connect_addr();
-        auto ip = node.get_ip();
-        departing_node_map[ip] = tier_data_map[1].thread_number_;
-        auto ack_addr = mt.get_depart_done_connect_addr();
-        zmq_util::send_string(ack_addr, &pushers[connection_addr]);
-        removing_memory_node = true;
-      }*/
       report_start = std::chrono::system_clock::now();
     }
   }

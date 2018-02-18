@@ -90,6 +90,11 @@ communication::Response process_request(
           auto res = process_get(key, serializer);
           tp->set_value(res.first.reveal().value);
           tp->set_err_number(res.second);
+          if (req.tuple(i).has_num_address() && req.tuple(i).num_address() != threads.size()) {
+            for (auto it = threads.begin(); it != threads.end(); it++) {
+              tp->add_addresses(it->get_request_pulling_connect_addr());
+            }
+          }
           //cerr << "error number is " + to_string(res.second) + "\n";
           key_stat_map[key].access_ += 1;
         }
@@ -123,6 +128,11 @@ communication::Response process_request(
           auto ts = generate_timestamp(chrono::duration_cast<chrono::milliseconds>(current_time-start_time).count(), wt.get_tid());
           process_put(key, ts, req.tuple(i).value(), serializer, key_stat_map);
           tp->set_err_number(0);
+          if (req.tuple(i).has_num_address() && req.tuple(i).num_address() != threads.size()) {
+            for (auto it = threads.begin(); it != threads.end(); it++) {
+              tp->add_addresses(it->get_request_pulling_connect_addr());
+            }
+          }
           key_stat_map[key].access_ += 1;
           local_changeset.insert(key);
         }
@@ -849,6 +859,8 @@ void run(unsigned thread_id) {
         communication::Key_Access_Tuple* tp = access.add_tuple();
         tp->set_key(it->first);
         tp->set_access(it->second.access_);
+        // reset access stat
+        it->second.access_ = 0;
       }
       string serialized_access;
       access.SerializeToString(&serialized_access);

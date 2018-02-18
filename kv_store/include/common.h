@@ -17,7 +17,7 @@
 using namespace std;
 
 // Define server report threshold (in microsecond)
-#define SERVER_REPORT_THRESHOLD 5000000
+#define SERVER_REPORT_THRESHOLD 10000000
 // Define monitoring threshold (in microsecond)
 #define MONITORING_THRESHOLD 30000000
 // Define garbage collection threshold for pending events (in millisecond)
