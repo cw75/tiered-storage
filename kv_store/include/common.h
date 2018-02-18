@@ -28,11 +28,11 @@ using namespace std;
 #define FREEZE_PERIOD 90
 
 // Define the replication factor for the metadata
-#define METADATA_REPLICATION_FACTOR 2
+#define METADATA_REPLICATION_FACTOR 1
 
 // Define the default replication factor for the data
-#define DEFAULT_GLOBAL_MEMORY_REPLICATION 2
-#define DEFAULT_GLOBAL_EBS_REPLICATION 0
+#define DEFAULT_GLOBAL_MEMORY_REPLICATION 0
+#define DEFAULT_GLOBAL_EBS_REPLICATION 2
 // Define the default local replication factor
 #define DEFAULT_LOCAL_REPLICATION 1
 
