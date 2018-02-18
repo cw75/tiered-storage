@@ -640,7 +640,7 @@ int main(int argc, char* argv[]) {
           unsigned access = it->second;
           if (!is_metadata(key)) {
             //logger->info("key {} accessed {} times in the last {} seconds in ebs tier", key, access, SERVER_REPORT_THRESHOLD/1000000);
-            if (access > 100) {
+            if (access > 0) {
               unsigned max_memory_replica = global_hash_ring_map[1].size() / VIRTUAL_THREAD_NUM;
               unsigned current_memory_replica = placement[key].global_replication_map_[1];
               unsigned current_ebs_replica = placement[key].global_replication_map_[2];
