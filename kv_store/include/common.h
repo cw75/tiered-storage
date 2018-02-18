@@ -24,8 +24,8 @@ using namespace std;
 #define GARBAGE_COLLECTION_THRESHOLD 4000
 // Define the threshold for retry rep factor query for gossip handling (in millisecond)
 #define RETRY_THRESHOLD 8000
-// Define the freeze period for triggering elasticity action (in second)
-#define FREEZE_PERIOD 120
+// Define the grace period for triggering elasticity action (in second)
+#define GRACE_PERIOD 120
 
 // Define the replication factor for the metadata
 #define METADATA_REPLICATION_FACTOR 1
@@ -33,6 +33,7 @@ using namespace std;
 // Define the default replication factor for the data
 #define DEFAULT_GLOBAL_MEMORY_REPLICATION 0
 #define DEFAULT_GLOBAL_EBS_REPLICATION 3
+#define MINIMUM_REPLICA_NUMBER 3
 // Define the default local replication factor
 #define DEFAULT_LOCAL_REPLICATION 1
 
@@ -55,7 +56,7 @@ using namespace std;
 #define MAX_TIER 2
 
 #define MINIMUM_MEMORY_NODE 1
-#define MINIMUM_EBS_NODE 2
+#define MINIMUM_EBS_NODE 3
 
 // Define port offset
 // used by servers
@@ -363,7 +364,7 @@ unordered_set<server_thread_t, thread_hash> responsible_global(string key, unsig
   if (pos != global_hash_ring.end()) {
     // iterate for every value in the replication factor
     unsigned i = 0;
-    while (i < global_rep) {
+    while (i < global_rep && i != global_hash_ring.size() / VIRTUAL_THREAD_NUM) {
       bool succeed = threads.insert(pos->second).second;
       if (++pos == global_hash_ring.end()) {
         pos = global_hash_ring.begin();
@@ -384,7 +385,7 @@ unordered_set<unsigned> responsible_local(string key, unsigned local_rep, local_
   if (pos != local_hash_ring.end()) {
     // iterate for every value in the replication factor
     unsigned i = 0;
-    while (i < local_rep) {
+    while (i < local_rep && i != local_hash_ring.size() / VIRTUAL_THREAD_NUM) {
       bool succeed = tids.insert(pos->second.get_tid()).second;
       if (++pos == local_hash_ring.end()) {
         pos = local_hash_ring.begin();

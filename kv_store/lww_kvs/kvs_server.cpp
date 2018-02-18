@@ -714,16 +714,15 @@ void run(unsigned thread_id) {
       bool succeed;
       for (int i = 0; i < req.tuple_size(); i++) {
         string key = req.tuple(i).key();
-        // update the replication factor
-        for (int j = 0; j < req.tuple(i).global_size(); j++) {
-          placement[key].global_replication_map_[req.tuple(i).global(j).tier_id()] = req.tuple(i).global(j).global_replication();
-        }
-        for (int j = 0; j < req.tuple(i).local_size(); j++) {
-          placement[key].local_replication_map_[req.tuple(i).local(j).ip()] = req.tuple(i).local(j).local_replication();
-        }
-
         // proceed only if it is originally responsible for the key
         if (key_stat_map.find(key) != key_stat_map.end()) {
+          // update the replication factor
+          for (int j = 0; j < req.tuple(i).global_size(); j++) {
+            placement[key].global_replication_map_[req.tuple(i).global(j).tier_id()] = req.tuple(i).global(j).global_replication();
+          }
+          for (int j = 0; j < req.tuple(i).local_size(); j++) {
+            placement[key].local_replication_map_[req.tuple(i).local(j).ip()] = req.tuple(i).local(j).local_replication();
+          }
           auto threads = get_responsible_threads(wt.get_replication_factor_connect_addr(), key, is_metadata(key), global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids, succeed, seed);
           if (succeed) {
             if (threads.find(wt) == threads.end()) {
