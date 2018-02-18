@@ -32,7 +32,7 @@ using namespace std;
 
 // Define the default replication factor for the data
 #define DEFAULT_GLOBAL_MEMORY_REPLICATION 0
-#define DEFAULT_GLOBAL_EBS_REPLICATION 2
+#define DEFAULT_GLOBAL_EBS_REPLICATION 3
 // Define the default local replication factor
 #define DEFAULT_LOCAL_REPLICATION 1
 

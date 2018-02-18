@@ -254,9 +254,9 @@ int main(int argc, char* argv[]) {
   // keep track of ebs tier thread occupancy
   unordered_map<address_t, unordered_map<unsigned, pair<double, unsigned>>> ebs_tier_occupancy;
   // keep track of memory tier key access frequency
-  unordered_map<address_t, unordered_map<unsigned, unordered_map<string, unsigned>>> memory_tier_key_access;
+  unordered_map<address_t, unordered_map<string, unsigned>> memory_tier_key_access;
   // keep track of ebs tier key access frequency
-  unordered_map<address_t, unordered_map<unsigned, unordered_map<string, unsigned>>> ebs_tier_key_access;
+  unordered_map<string, unsigned> ebs_tier_key_access;
   // keep track of user latency info
   unordered_map<address_t, double> user_latency;
   // read in the initial server addresses and build the hash ring
@@ -433,6 +433,15 @@ int main(int argc, char* argv[]) {
 
     if (chrono::duration_cast<std::chrono::microseconds>(report_end-report_start).count() >= MONITORING_THRESHOLD) {
       server_monitoring_epoch += 1;
+      // clear stats
+      key_access_frequency.clear();
+      key_access_summary.clear();
+      memory_tier_storage.clear();
+      ebs_tier_storage.clear();
+      memory_tier_occupancy.clear();
+      ebs_tier_occupancy.clear();
+      memory_tier_key_access.clear();
+      ebs_tier_key_access.clear();
 
       unordered_map<address_t, communication::Request> addr_request_map;
 
@@ -483,13 +492,23 @@ int main(int argc, char* argv[]) {
                 access.ParseFromString(res.tuple(i).value());
                 if (tier_id == 1) {
                   for (int j = 0; j < access.tuple_size(); j++) {
-                    memory_tier_key_access[ip][tid][access.tuple(j).key()] = access.tuple(j).access();
-                    key_access_frequency[access.tuple(j).key()][ip + ":" + to_string(tid)] = access.tuple(j).access();
+                    string key = access.tuple(j).key();
+                    if (memory_tier_key_access[ip].find(key) == memory_tier_key_access[ip].end()) {
+                      memory_tier_key_access[ip][key] = access.tuple(j).access();
+                    } else {
+                      memory_tier_key_access[ip][key] += access.tuple(j).access();
+                    }
+                    key_access_frequency[key][ip + ":" + to_string(tid)] = access.tuple(j).access();
                   }
                 } else {
                   for (int j = 0; j < access.tuple_size(); j++) {
-                    ebs_tier_key_access[ip][tid][access.tuple(j).key()] = access.tuple(j).access();
-                    key_access_frequency[access.tuple(j).key()][ip + ":" + to_string(tid)] = access.tuple(j).access();
+                    string key = access.tuple(j).key();
+                    if (ebs_tier_key_access.find(key) == ebs_tier_key_access.end()) {
+                      ebs_tier_key_access[key] = access.tuple(j).access();
+                    } else {
+                      ebs_tier_key_access[key] += access.tuple(j).access();
+                    }
+                    key_access_frequency[key][ip + ":" + to_string(tid)] = access.tuple(j).access();
                   }
                 }
               }
@@ -603,50 +622,50 @@ int main(int argc, char* argv[]) {
         bool action = false;
         // first check ebs tier key access stat
         unordered_map<string, key_info> requests;
+        unordered_set<string> rep_change_set;
         for (auto it = ebs_tier_key_access.begin(); it != ebs_tier_key_access.end(); it++) {
-          string ip = it->first;
-          for (auto iter = it->second.begin(); iter != it->second.end(); iter++) {
-            unsigned tid = iter->first;
-            for (auto key_iter = iter->second.begin(); key_iter != iter->second.end(); key_iter++) {
-              string key = key_iter->first;
-              unsigned access = key_iter->second;
-              if (!is_metadata(key)) {
-                logger->info("key {} accessed {} times in the last {} seconds in ebs node ip {} thread {}", key, access, SERVER_REPORT_THRESHOLD/1000000, ip, tid);
-                if (access > 10) {
-                  unsigned max_memory_replica = global_hash_ring_map[1].size() / VIRTUAL_THREAD_NUM;
-                  unsigned current_memory_replica = placement[key].global_replication_map_[1];
-                  unsigned current_ebs_replica = placement[key].global_replication_map_[2];
-                  if (max_memory_replica - current_memory_replica > 0 && current_ebs_replica > 0) {
-                    key_info new_rep_factor;
-                    new_rep_factor.global_replication_map_[1] = current_memory_replica + 1;
-                    new_rep_factor.global_replication_map_[2] = current_ebs_replica - 1;
-                    requests[key] = new_rep_factor;
-                    logger->info("data movement for key {}. M: {}->{}. E: {}->{}", key, current_memory_replica, current_memory_replica + 1, current_ebs_replica, current_ebs_replica - 1);
-                  }
-                }
+          string key = it->first;
+          unsigned access = it->second;
+          if (!is_metadata(key)) {
+            logger->info("key {} accessed {} times in the last {} seconds in ebs tier", key, access, SERVER_REPORT_THRESHOLD/1000000);
+            if (access > 100) {
+              unsigned max_memory_replica = global_hash_ring_map[1].size() / VIRTUAL_THREAD_NUM;
+              unsigned current_memory_replica = placement[key].global_replication_map_[1];
+              unsigned current_ebs_replica = placement[key].global_replication_map_[2];
+              if (max_memory_replica - current_memory_replica > 0 && current_ebs_replica > 0 && rep_change_set.find(key) == rep_change_set.end()) {
+                key_info new_rep_factor;
+                new_rep_factor.global_replication_map_[1] = current_memory_replica + 1;
+                new_rep_factor.global_replication_map_[2] = current_ebs_replica - 1;
+                requests[key] = new_rep_factor;
+                logger->info("data movement for key {}. M: {}->{}. E: {}->{}", key, current_memory_replica, current_memory_replica + 1, current_ebs_replica, current_ebs_replica - 1);
+                rep_change_set.insert(key);
               }
             }
           }
         }
         change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers);
         requests.clear();
+        rep_change_set.clear();
         // then check memory tier
-        unsigned busy_thread_count = 0;
-        unsigned total_thread_count = 0;
-        vector<pair<string, unsigned>> busy_thread_vector;
+        unsigned busy_node_count = 0;
+        unsigned total_node_count = 0;
+        vector<string> busy_node_vector;
         for (auto it1 = memory_tier_occupancy.begin(); it1 != memory_tier_occupancy.end(); it1++) {
+          string ip = it1->first;
+          double sum_thread_occupancy = 0;
+          unsigned count_thread = 0;
           for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
-            string ip = it1->first;
-            unsigned tid = it2->first;
-            double occupancy = it2->second.first;
-            if (occupancy > 0.06) {
-              busy_thread_count += 1;
-              busy_thread_vector.push_back(pair<string, unsigned>(ip, tid));
-            }
-            total_thread_count += 1;
+            sum_thread_occupancy += it2->second.first;
+            count_thread += 1;
           }
+          double avg_thread_occupancy = sum_thread_occupancy / count_thread;
+          if (avg_thread_occupancy > 0.1) {
+            busy_node_count += 1;
+            busy_node_vector.push_back(ip);
+          }
+          total_node_count += 1;
         }
-        if ((double)busy_thread_count / (double)total_thread_count > 0.5) {
+        if ((double)busy_node_count / (double)total_node_count > 0.5) {
           logger->info("more then half of nodes are busy, but node join is disabled");
           // trigger elasticity
           /*auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-freeze_start).count();
@@ -660,45 +679,49 @@ int main(int argc, char* argv[]) {
           }*/
         } else {
           // hot key replication
-          // loop through busy threads to find hot keys
-          for (auto it = busy_thread_vector.begin(); it != busy_thread_vector.end(); it++) {
-            auto key_access_map = memory_tier_key_access[it->first][it->second];
+          // loop through busy nodes to find hot keys
+          for (auto it = busy_node_vector.begin(); it != busy_node_vector.end(); it++) {
+            auto key_access_map = memory_tier_key_access[*it];
             for (auto iter = key_access_map.begin(); iter != key_access_map.end(); iter++) {
               string key = iter->first;
               unsigned access = iter->second;
               if (!is_metadata(key)) {
-                logger->info("key {} accessed {} times in the last {} seconds in memory node ip {} thread {}", key, access, SERVER_REPORT_THRESHOLD/1000000, it->first, it->second);
+                logger->info("key {} accessed {} times in the last {} seconds in memory node ip {}", key, access, SERVER_REPORT_THRESHOLD/1000000, *it);
                 if (access > 10000) {
                   unsigned max_memory_replica = global_hash_ring_map[1].size() / VIRTUAL_THREAD_NUM;
                   unsigned current_memory_replica = placement[key].global_replication_map_[1];
                   unsigned current_ebs_replica = placement[key].global_replication_map_[2];
                   // first check if we can perform global hot key replication
-                  if (max_memory_replica - current_memory_replica > 0 && current_ebs_replica > 0) {
+                  if (max_memory_replica - current_memory_replica > 0 && current_ebs_replica > 0 && rep_change_set.find(key) == rep_change_set.end()) {
                     key_info new_rep_factor;
                     new_rep_factor.global_replication_map_[1] = current_memory_replica + 1;
                     new_rep_factor.global_replication_map_[2] = current_ebs_replica - 1;
                     requests[key] = new_rep_factor;
                     logger->info("global hot key replication for key {}. M: {}->{}. E: {}->{}", key, current_memory_replica, current_memory_replica + 1, current_ebs_replica, current_ebs_replica - 1);
-                  } else if (max_memory_replica - current_memory_replica > 0 && current_ebs_replica == 0) {
+                    rep_change_set.insert(key);
+                  } else if (max_memory_replica - current_memory_replica > 0 && current_ebs_replica == 0 && rep_change_set.find(key) == rep_change_set.end()) {
                     key_info new_rep_factor;
                     new_rep_factor.global_replication_map_[1] = current_memory_replica + 1;
                     new_rep_factor.global_replication_map_[2] = current_ebs_replica;
                     requests[key] = new_rep_factor;
                     logger->info("global hot key replication for key {}. M: {}->{}. E: {}->{}", key, current_memory_replica, current_memory_replica + 1, current_ebs_replica, current_ebs_replica);
+                    rep_change_set.insert(key);
                   } else {
+                    logger->info("local hot key replication is disabled");
                     // local hot key replication
-                    key_info new_rep_factor;
+                    /*key_info new_rep_factor;
                     new_rep_factor.global_replication_map_[1] = current_memory_replica;
                     new_rep_factor.global_replication_map_[2] = current_ebs_replica;
                     auto threads = responsible_global(key, placement[key].global_replication_map_[1], global_hash_ring_map[1]);
                     for (auto thread_iter = threads.begin(); thread_iter != threads.end(); thread_iter++) {
                       string ip = thread_iter->get_ip();
-                      if (placement[key].local_replication_map_.find(ip) == placement[key].local_replication_map_.end() || placement[key].local_replication_map_[ip] < MEMORY_THREAD_NUM) {
+                      if (placement[key].local_replication_map_.find(ip) == placement[key].local_replication_map_.end() || placement[key].local_replication_map_[ip] < MEMORY_THREAD_NUM && rep_change_set.find(key) == rep_change_set.end()) {
                         new_rep_factor.local_replication_map_[ip] = MEMORY_THREAD_NUM;
                         logger->info("local hot key replication for key {}. ip: {}", key, ip);
+                        rep_change_set.insert(key);
                       }
                     }
-                    requests[key] = new_rep_factor;
+                    requests[key] = new_rep_factor;*/
                   }
                 }
               }
