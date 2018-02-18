@@ -657,8 +657,8 @@ int main(int argc, char* argv[]) {
           }
         }
         logger->info("a total of {} keys are promoted to the memory tier", total_rep_changed);
-
         change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger);
+
         requests.clear();
         rep_change_set.clear();
         // then check memory tier
@@ -730,6 +730,7 @@ int main(int argc, char* argv[]) {
 
       // move cold keys to ebs tier
       unordered_map<string, key_info> requests;
+      unsigned total_rep_changed = 0;
       for (auto it = key_access_frequency.begin(); it != key_access_frequency.end(); it++) {
         string key = it->first;
         unsigned total_access = 0;
@@ -742,10 +743,12 @@ int main(int argc, char* argv[]) {
             new_rep_factor.global_replication_map_[1] = 0;
             new_rep_factor.global_replication_map_[2] = MINIMUM_REPLICA_NUMBER;
             requests[key] = new_rep_factor;
-            logger->info("evict cold key {} to EBS tier", key);
+            //logger->info("evict cold key {} to EBS tier", key);
+            total_rep_changed += 1;
           }
         }
       }
+      logger->info("a total of {} keys are demoted to the ebs tier", total_rep_changed);
       change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger);
 
       // remove node
