@@ -54,6 +54,9 @@ using namespace std;
 #define MIN_TIER 1
 #define MAX_TIER 2
 
+#define MINIMUM_MEMORY_NODE 1
+#define MINIMUM_EBS_NODE 2
+
 // Define port offset
 // used by servers
 #define SERVER_PORT 6560

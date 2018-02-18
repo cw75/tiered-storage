@@ -580,97 +580,77 @@ int main(int argc, char* argv[]) {
       logger->info("max ebs node occupancy is {}", to_string(max_ebs_occupancy));
       logger->info("avg ebs node occupancy is {}", to_string(avg_ebs_occupancy));
 
-      if (global_hash_ring_map[1].size() >= 2*VIRTUAL_THREAD_NUM) {
-        double avg_latency = -1;
-        if (user_latency.size() > 0) {
-          // compute latency from users
-          logger->info("computing latency from user feedback");
-          double sum_latency = 0;
-          unsigned count = 0;
-          for (auto it = user_latency.begin(); it != user_latency.end(); it++) {
-            sum_latency += it->second;
-            count += 1;
+      // first check ebs tier key access stat
+      for (auto it = ebs_tier_key_access.begin(); it != ebs_tier_key_access.end(); it++) {
+        string ip = it->first;
+        for (auto iter = it->second.begin(); iter != it->second.end(); iter++) {
+          unsigned tid = iter->first;
+          for (auto key_iter = iter->second.begin(); key_iter != iter->second.end(); key_iter++) {
+            string key = key_iter->first;
+            if (!is_metadata(key)) {
+              logger->info("key {} accessed {} times in the last {} seconds in memory node ip {} thread {}", key, key_iter->second, SERVER_REPORT_THRESHOLD/1000000, ip, tid);
+            }
           }
-          avg_latency = sum_latency / count;
+        }
+      }
+      // then check memory tier key access stat
+      for (auto it = memory_tier_key_access.begin(); it != memory_tier_key_access.end(); it++) {
+        string ip = it->first;
+        for (auto iter = it->second.begin(); iter != it->second.end(); iter++) {
+          unsigned tid = iter->first;
+          for (auto key_iter = iter->second.begin(); key_iter != iter->second.end(); key_iter++) {
+            string key = key_iter->first;
+            if (!is_metadata(key)) {
+              logger->info("key {} accessed {} times in the last {} seconds in ebs node ip {} thread {}", key, key_iter->second, SERVER_REPORT_THRESHOLD/1000000, ip, tid);
+            }
+          }
+        }
+      }
+
+      // gather latency info
+      double avg_latency = -1;
+      if (user_latency.size() > 0) {
+        // compute latency from users
+        logger->info("computing latency from user feedback");
+        double sum_latency = 0;
+        unsigned count = 0;
+        for (auto it = user_latency.begin(); it != user_latency.end(); it++) {
+          sum_latency += it->second;
+          count += 1;
+        }
+        avg_latency = sum_latency / count;
+      } else {
+        avg_latency = 0;
+      }
+      logger->info("avg latency is {}", avg_latency);
+      // policy
+      auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-freeze_start).count();
+      if (avg_latency != -1 && avg_latency > 1400 && adding_memory_node == 0) {
+        logger->info("latency is too high");
+        /*if (time_elapsed > FREEZE_PERIOD) {
+          logger->info("trigger add {} memory node", to_string(NODE_ADD));
+          string shell_command = "curl -X POST http://" + management_address + "/memory &";
+          system(shell_command.c_str());
+          adding_memory_node = NODE_ADD;
         } else {
-          // do ping
-          logger->info("pinging latency");
-          unsigned ping_count = 0;
-          bool succeed = true;
-          auto ping_start = std::chrono::system_clock::now();
-          while (ping_count < 1000) {
-            string key_aux = to_string(rand() % (100000) + 1);
-            string key = string(8 - key_aux.length(), '0') + key_aux;
-            if (!ping(key, string(10000, 'a'), pushers, logger, mt, response_puller, global_hash_ring_map, local_hash_ring_map, placement)) {
-              succeed = false;
-              break;
-            }
-            ping_count++;
-          }
-          auto ping_end = std::chrono::system_clock::now();
-          if (succeed) {
-            avg_latency = (double)chrono::duration_cast<std::chrono::microseconds>(ping_end-ping_start).count() / ping_count;
-          } else {
-            logger->info("ping failed");
-          }
-        }
-        logger->info("avg latency is {}", avg_latency);
-        // policy
-        auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-freeze_start).count();
-        if (avg_latency != -1 && avg_latency > 1400 && adding_memory_node == 0) {
-          logger->info("latency is too high");
-          bool action = false;
-          // first check ebs tier key access stat
-          for (auto it = ebs_tier_key_access.begin(); it != ebs_tier_key_access.end(); it++) {
-            string ip = it->first;
-            for (auto iter = it->second.begin(); iter != it->second.end(); iter++) {
-              unsigned tid = iter->first;
-              for (auto key_iter = iter->second.begin(); key_iter != iter->second.end(); key_iter++) {
-                string key = key_iter->first;
-                if (!is_metadata(key)) {
-                  logger->info("key {} accessed {} times in the last {} seconds in memory node ip {} thread {}", key, key_iter->second, SERVER_REPORT_THRESHOLD/1000000, ip, tid);
-                }
-              }
-            }
-          }
-          // then check memory tier key access stat
-          for (auto it = memory_tier_key_access.begin(); it != memory_tier_key_access.end(); it++) {
-            string ip = it->first;
-            for (auto iter = it->second.begin(); iter != it->second.end(); iter++) {
-              unsigned tid = iter->first;
-              for (auto key_iter = iter->second.begin(); key_iter != iter->second.end(); key_iter++) {
-                string key = key_iter->first;
-                if (!is_metadata(key)) {
-                  logger->info("key {} accessed {} times in the last {} seconds in ebs node ip {} thread {}", key, key_iter->second, SERVER_REPORT_THRESHOLD/1000000, ip, tid);
-                }
-              }
-            }
-          }
-          /*if (time_elapsed > FREEZE_PERIOD) {
-            logger->info("trigger add {} memory node", to_string(NODE_ADD));
-            string shell_command = "curl -X POST http://" + management_address + "/memory &";
-            system(shell_command.c_str());
-            adding_memory_node = NODE_ADD;
-          } else {
-            logger->info("freezing");
-          }*/
-        }
-        if (avg_latency != -1 && avg_latency < 900 && !removing_memory_node && global_hash_ring_map[1].size() > 2*VIRTUAL_THREAD_NUM) {
-          logger->info("latency is too low");
-          /*if (time_elapsed > FREEZE_PERIOD) {
-            logger->info("sending remove memory node msg");
-            // pick a random memory node
-            auto node = next(begin(global_hash_ring_map[1]), rand() % global_hash_ring_map[1].size())->second;
-            auto connection_addr = node.get_self_depart_connect_addr();
-            auto ip = node.get_ip();
-            departing_node_map[ip] = tier_data_map[1].thread_number_;
-            auto ack_addr = mt.get_depart_done_connect_addr();
-            zmq_util::send_string(ack_addr, &pushers[connection_addr]);
-            removing_memory_node = true;
-          } else {
-            logger->info("freezing");
-          }*/
-        }
+          logger->info("freezing");
+        }*/
+      }
+      if (avg_latency != -1 && avg_latency < 900 && !removing_memory_node && global_hash_ring_map[1].size() > MINIMUM_MEMORY_NODE*VIRTUAL_THREAD_NUM) {
+        logger->info("latency is too low");
+        /*if (time_elapsed > FREEZE_PERIOD) {
+          logger->info("sending remove memory node msg");
+          // pick a random memory node
+          auto node = next(begin(global_hash_ring_map[1]), rand() % global_hash_ring_map[1].size())->second;
+          auto connection_addr = node.get_self_depart_connect_addr();
+          auto ip = node.get_ip();
+          departing_node_map[ip] = tier_data_map[1].thread_number_;
+          auto ack_addr = mt.get_depart_done_connect_addr();
+          zmq_util::send_string(ack_addr, &pushers[connection_addr]);
+          removing_memory_node = true;
+        } else {
+          logger->info("freezing");
+        }*/
       }
 
       /*if (average_memory_consumption >= 1000 && !adding_memory_node) {
