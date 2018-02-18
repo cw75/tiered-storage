@@ -580,33 +580,6 @@ int main(int argc, char* argv[]) {
       logger->info("max ebs node occupancy is {}", to_string(max_ebs_occupancy));
       logger->info("avg ebs node occupancy is {}", to_string(avg_ebs_occupancy));
 
-      // first check ebs tier key access stat
-      for (auto it = ebs_tier_key_access.begin(); it != ebs_tier_key_access.end(); it++) {
-        string ip = it->first;
-        for (auto iter = it->second.begin(); iter != it->second.end(); iter++) {
-          unsigned tid = iter->first;
-          for (auto key_iter = iter->second.begin(); key_iter != iter->second.end(); key_iter++) {
-            string key = key_iter->first;
-            if (!is_metadata(key)) {
-              logger->info("key {} accessed {} times in the last {} seconds in memory node ip {} thread {}", key, key_iter->second, SERVER_REPORT_THRESHOLD/1000000, ip, tid);
-            }
-          }
-        }
-      }
-      // then check memory tier key access stat
-      for (auto it = memory_tier_key_access.begin(); it != memory_tier_key_access.end(); it++) {
-        string ip = it->first;
-        for (auto iter = it->second.begin(); iter != it->second.end(); iter++) {
-          unsigned tid = iter->first;
-          for (auto key_iter = iter->second.begin(); key_iter != iter->second.end(); key_iter++) {
-            string key = key_iter->first;
-            if (!is_metadata(key)) {
-              logger->info("key {} accessed {} times in the last {} seconds in ebs node ip {} thread {}", key, key_iter->second, SERVER_REPORT_THRESHOLD/1000000, ip, tid);
-            }
-          }
-        }
-      }
-
       // gather latency info
       double avg_latency = -1;
       if (user_latency.size() > 0) {
@@ -623,10 +596,130 @@ int main(int argc, char* argv[]) {
         avg_latency = 0;
       }
       logger->info("avg latency is {}", avg_latency);
+
       // policy
-      auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-freeze_start).count();
       if (avg_latency != -1 && avg_latency > 1400 && adding_memory_node == 0) {
-        logger->info("latency is too high");
+        logger->info("latency is too high!");
+        bool action = false;
+        // first check ebs tier key access stat
+        unordered_map<string, key_info> requests;
+        for (auto it = ebs_tier_key_access.begin(); it != ebs_tier_key_access.end(); it++) {
+          string ip = it->first;
+          for (auto iter = it->second.begin(); iter != it->second.end(); iter++) {
+            unsigned tid = iter->first;
+            for (auto key_iter = iter->second.begin(); key_iter != iter->second.end(); key_iter++) {
+              string key = key_iter->first;
+              unsigned access = key_iter->second;
+              if (!is_metadata(key)) {
+                logger->info("key {} accessed {} times in the last {} seconds in ebs node ip {} thread {}", key, access, SERVER_REPORT_THRESHOLD/1000000, ip, tid);
+                if (access > 10) {
+                  unsigned max_memory_replica = global_hash_ring_map[1].size() / VIRTUAL_THREAD_NUM;
+                  unsigned current_memory_replica = placement[key].global_replication_map_[1];
+                  unsigned current_ebs_replica = placement[key].global_replication_map_[2];
+                  if (max_memory_replica - current_memory_replica > 0 && current_ebs_replica > 0) {
+                    key_info new_rep_factor;
+                    new_rep_factor.global_replication_map_[1] = current_memory_replica + 1;
+                    new_rep_factor.global_replication_map_[2] = current_ebs_replica - 1;
+                    requests[key] = new_rep_factor;
+                  }
+                }
+              }
+            }
+          }
+        }
+        change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers);
+        requests.clear();
+        // then check memory tier
+        unsigned busy_thread_count = 0;
+        unsigned total_thread_count = 0;
+        vector<pair<string, unsigned>> busy_thread_vector;
+        for (auto it1 = memory_tier_occupancy.begin(); it1 != memory_tier_occupancy.end(); it1++) {
+          for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
+            string ip = it1->first;
+            unsigned tid = it2->first;
+            double occupancy = it2->second.first;
+            if (occupancy > 0.06) {
+              busy_thread_count += 1;
+              busy_thread_vector.push_back(pair<string, unsigned>(ip, tid));
+            }
+            total_thread_count += 1;
+          }
+        }
+        if ((double)busy_thread_count / (double)total_thread_count > 0.5) {
+          logger->info("more then half of nodes are busy, but node join is disabled");
+          // trigger elasticity
+          /*auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-freeze_start).count();
+          if (time_elapsed > FREEZE_PERIOD) {
+            logger->info("trigger add {} memory node", to_string(NODE_ADD));
+            string shell_command = "curl -X POST http://" + management_address + "/memory &";
+            system(shell_command.c_str());
+            adding_memory_node = NODE_ADD;
+          } else {
+            logger->info("freezing");
+          }*/
+        } else {
+          // hot key replication
+          // loop through busy threads to find hot keys
+          for (auto it = busy_thread_vector.begin(); it != busy_thread_vector.end(); it++) {
+            auto key_access_map = memory_tier_key_access[it->first][it->second];
+            for (auto iter = key_access_map.begin(); iter != key_access_map.end(); iter++) {
+              string key = iter->first;
+              unsigned access = iter->second;
+              if (!is_metadata(key)) {
+                logger->info("key {} accessed {} times in the last {} seconds in memory node ip {} thread {}", key, access, SERVER_REPORT_THRESHOLD/1000000, it->first, it->second);
+                if (access > 10000) {
+                  unsigned max_memory_replica = global_hash_ring_map[1].size() / VIRTUAL_THREAD_NUM;
+                  unsigned current_memory_replica = placement[key].global_replication_map_[1];
+                  unsigned current_ebs_replica = placement[key].global_replication_map_[2];
+                  // first check if we can perform global hot key replication
+                  if (max_memory_replica - current_memory_replica > 0 && current_ebs_replica > 0) {
+                    key_info new_rep_factor;
+                    new_rep_factor.global_replication_map_[1] = current_memory_replica + 1;
+                    new_rep_factor.global_replication_map_[2] = current_ebs_replica - 1;
+                    requests[key] = new_rep_factor;
+                    logger->info("global hot key replication for key {}. M: {}->{}. E: {}->{}", key, current_memory_replica, current_memory_replica + 1, current_ebs_replica, current_ebs_replica - 1);
+                  } else if (max_memory_replica - current_memory_replica > 0 && current_ebs_replica == 0) {
+                    key_info new_rep_factor;
+                    new_rep_factor.global_replication_map_[1] = current_memory_replica + 1;
+                    new_rep_factor.global_replication_map_[2] = current_ebs_replica;
+                    requests[key] = new_rep_factor;
+                    logger->info("global hot key replication for key {}. M: {}->{}. E: {}->{}", key, current_memory_replica, current_memory_replica + 1, current_ebs_replica, current_ebs_replica);
+                  } else {
+                    // local hot key replication
+                    key_info new_rep_factor;
+                    new_rep_factor.global_replication_map_[1] = current_memory_replica;
+                    new_rep_factor.global_replication_map_[2] = current_ebs_replica;
+                    auto threads = responsible_global(key, placement[key].global_replication_map_[1], global_hash_ring_map[1]);
+                    for (auto thread_iter = threads.begin(); thread_iter != threads.end(); thread_iter++) {
+                      string ip = thread_iter->get_ip();
+                      if (placement[key].local_replication_map_.find(ip) == placement[key].local_replication_map_.end() || placement[key].local_replication_map_[ip] < MEMORY_THREAD_NUM) {
+                        new_rep_factor.local_replication_map_[ip] = MEMORY_THREAD_NUM;
+                        logger->info("local hot key replication for key {}. ip: {}", key, ip);
+                      }
+                    }
+                    requests[key] = new_rep_factor;
+                  }
+                }
+              }
+            }
+          }
+          change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers);
+        }
+
+
+        /*for (auto it = memory_tier_key_access.begin(); it != memory_tier_key_access.end(); it++) {
+          string ip = it->first;
+          for (auto iter = it->second.begin(); iter != it->second.end(); iter++) {
+            unsigned tid = iter->first;
+            for (auto key_iter = iter->second.begin(); key_iter != iter->second.end(); key_iter++) {
+              string key = key_iter->first;
+              unsigned access = key_iter->second;
+              if (!is_metadata(key)) {
+                logger->info("key {} accessed {} times in the last {} seconds in memory node ip {} thread {}", key, access, SERVER_REPORT_THRESHOLD/1000000, ip, tid);
+              }
+            }
+          }
+        }*/
         /*if (time_elapsed > FREEZE_PERIOD) {
           logger->info("trigger add {} memory node", to_string(NODE_ADD));
           string shell_command = "curl -X POST http://" + management_address + "/memory &";
@@ -637,7 +730,7 @@ int main(int argc, char* argv[]) {
         }*/
       }
       if (avg_latency != -1 && avg_latency < 900 && !removing_memory_node && global_hash_ring_map[1].size() > MINIMUM_MEMORY_NODE*VIRTUAL_THREAD_NUM) {
-        logger->info("latency is too low");
+        logger->info("latency is too low!");
         /*if (time_elapsed > FREEZE_PERIOD) {
           logger->info("sending remove memory node msg");
           // pick a random memory node
