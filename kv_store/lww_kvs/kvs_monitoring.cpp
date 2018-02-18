@@ -148,10 +148,24 @@ void change_replication_factor(
     monitoring_thread_t& mt,
     zmq::socket_t& response_puller,
     shared_ptr<spdlog::logger> logger) {
+  // used to keep track of the original replication factors for the requested keys
+  unordered_map<string, key_info> orig_placement_info;
   // store the new replication factor synchronously in storage servers
   unordered_map<address_t, communication::Request> addr_request_map;
+  // form the placement request map
+  unordered_map<address_t, communication::Replication_Factor_Request> replication_factor_map;
+
   for (auto it = requests.begin(); it != requests.end(); it++) {
     string key = it->first;
+    orig_placement_info[key] = placement[key];
+    // update the placement map
+    for (auto iter = it->second.global_replication_map_.begin(); iter != it->second.global_replication_map_.end(); iter++) {
+      placement[key].global_replication_map_[iter->first] = iter->second;
+    }
+    for (auto iter = it->second.local_replication_map_.begin(); iter != it->second.local_replication_map_.end(); iter++) {
+      placement[key].local_replication_map_[iter->first] = iter->second;
+    }
+    // prepare data to be stored in the storage tier
     communication::Replication_Factor rep_data;
     for (auto iter = placement[key].global_replication_map_.begin(); iter != placement[key].global_replication_map_.end(); iter++) {
       communication::Replication_Factor_Global* g = rep_data.add_global();
@@ -167,36 +181,8 @@ void change_replication_factor(
     string serialized_rep_data;
     rep_data.SerializeToString(&serialized_rep_data);
     prepare_metadata_put_request(rep_key, serialized_rep_data, global_hash_ring_map[1], local_hash_ring_map[1], addr_request_map, mt);
-  }
 
-  for (auto it = addr_request_map.begin(); it != addr_request_map.end(); it++) {
-    bool succeed;
-    auto res = send_request<communication::Request, communication::Response>(it->second, pushers[it->first], response_puller, succeed);
-    if (!succeed) {
-      logger->info("rep factor put timed out!");
-    } else {
-      for (int i = 0; i < res.tuple_size(); i++) {
-        if (res.tuple(i).err_number() == 2) {
-          logger->info("rep factor put for key {} rejected due to wrong address!", res.tuple(i).key());
-        }
-      }
-    }
-  }
-
-  // used to keep track of the original replication factors for the requested keys
-  unordered_map<string, key_info> orig_placement_info;
-  // form the placement request map
-  unordered_map<address_t, communication::Replication_Factor_Request> replication_factor_map;
-  for (auto it = requests.begin(); it != requests.end(); it++) {
-    string key = it->first;
-    orig_placement_info[key] = placement[key];
-    // update the placement map
-    for (auto iter = it->second.global_replication_map_.begin(); iter != it->second.global_replication_map_.end(); iter++) {
-      placement[key].global_replication_map_[iter->first] = iter->second;
-    }
-    for (auto iter = it->second.local_replication_map_.begin(); iter != it->second.local_replication_map_.end(); iter++) {
-      placement[key].local_replication_map_[iter->first] = iter->second;
-    }
+    // prepare data for notifying relevant nodes
     // form rep factor change requests for all tiers
     for (unsigned tier = MIN_TIER; tier <= MAX_TIER; tier++) {
       auto threads = responsible_global(key, orig_placement_info[key].global_replication_map_[tier], global_hash_ring_map[tier]);
@@ -212,7 +198,20 @@ void change_replication_factor(
       prepare_replication_factor_update(key, replication_factor_map, proxy_thread_t(*proxy_iter, 0).get_replication_factor_change_connect_addr(), placement, it->second.local_replication_map_);
     }
   }
-
+  // send updates to storage nodes
+  for (auto it = addr_request_map.begin(); it != addr_request_map.end(); it++) {
+    bool succeed;
+    auto res = send_request<communication::Request, communication::Response>(it->second, pushers[it->first], response_puller, succeed);
+    if (!succeed) {
+      logger->info("rep factor put timed out!");
+    } else {
+      for (int i = 0; i < res.tuple_size(); i++) {
+        if (res.tuple(i).err_number() == 2) {
+          logger->info("rep factor put for key {} rejected due to wrong address!", res.tuple(i).key());
+        }
+      }
+    }
+  }
   // send placement info update to all relevant nodes
   for (auto it = replication_factor_map.begin(); it != replication_factor_map.end(); it++) {
     string serialized_msg;
@@ -277,12 +276,12 @@ int main(int argc, char* argv[]) {
   vector<address_t> proxy_address;
 
   // read address of management node from conf file
-  address_t management_address;
+  /*address_t management_address;
 
   address.open("conf/monitoring/management_ip.txt");
   getline(address, ip_line);
   management_address = ip_line;
-  address.close();
+  address.close();*/
 
   monitoring_thread_t mt = monitoring_thread_t(ip);
 
@@ -411,13 +410,13 @@ int main(int argc, char* argv[]) {
         if (departing_node_map[departed_ip] == 0) {
           if (tier_id == 1) {
             logger->info("removing memory node {}", departed_ip);
-            string shell_command = "curl -X POST http://" + management_address + "/remove/memory/" + departed_ip;
-            system(shell_command.c_str());
+            //string shell_command = "curl -X POST http://" + management_address + "/remove/memory/" + departed_ip;
+            //system(shell_command.c_str());
             removing_memory_node = false;
           } else {
             logger->info("removing ebs node {}", departed_ip);
-            string shell_command = "curl -X POST http://" + management_address + "/remove/ebs/" + departed_ip;
-            system(shell_command.c_str());
+            //string shell_command = "curl -X POST http://" + management_address + "/remove/ebs/" + departed_ip;
+            //system(shell_command.c_str());
             removing_ebs_node = false;
           }
           // reset timer
@@ -679,7 +678,7 @@ int main(int argc, char* argv[]) {
         if (min_node_occupancy > 0.1) {
           logger->info("all nodes are busy, adding new nodes");
           // trigger elasticity
-          auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
+          /*auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
           if (time_elapsed > GRACE_PERIOD) {
             logger->info("trigger add {} memory node", to_string(NODE_ADD));
             string shell_command = "curl -X POST http://" + management_address + "/memory &";
@@ -687,7 +686,7 @@ int main(int argc, char* argv[]) {
             adding_memory_node = NODE_ADD;
           } else {
             logger->info("in grace period");
-          }
+          }*/
         } else {
           // hot key replication
           // loop through busy nodes to find hot keys
