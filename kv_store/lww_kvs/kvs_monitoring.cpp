@@ -185,7 +185,8 @@ void change_replication_factor(
     // prepare data for notifying relevant nodes
     // form rep factor change requests for all tiers
     for (unsigned tier = MIN_TIER; tier <= MAX_TIER; tier++) {
-      auto threads = responsible_global(key, orig_placement_info[key].global_replication_map_[tier], global_hash_ring_map[tier]);
+      unsigned rep = max(placement[key].global_replication_map_[tier], orig_placement_info[key].global_replication_map_[tier]);
+      auto threads = responsible_global(key, rep, global_hash_ring_map[tier]);
       for (auto server_iter = threads.begin(); server_iter != threads.end(); server_iter++) {
         prepare_replication_factor_update(key, replication_factor_map, server_iter->get_replication_factor_change_connect_addr(), placement, it->second.local_replication_map_);
       }
