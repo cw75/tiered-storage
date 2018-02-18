@@ -82,18 +82,13 @@ communication::Response process_request(
         if (threads.find(wt) == threads.end()) {
           //cerr << "wrong address by thread " + to_string(wt.get_tid()) + " on key " + req.tuple(i).key() + "\n";
           tp->set_err_number(2);
-          for (auto it = threads.begin(); it != threads.end(); it++) {
-            tp->add_addresses(it->get_request_pulling_connect_addr());
-          }
         } else {
           //cerr << "correct address by thread " + to_string(wt.get_tid()) + " on key " + req.tuple(i).key() + "\n";
           auto res = process_get(key, serializer);
           tp->set_value(res.first.reveal().value);
           tp->set_err_number(res.second);
           if (req.tuple(i).has_num_address() && req.tuple(i).num_address() != threads.size()) {
-            for (auto it = threads.begin(); it != threads.end(); it++) {
-              tp->add_addresses(it->get_request_pulling_connect_addr());
-            }
+            tp->set_invalidate(true);
           }
           //cerr << "error number is " + to_string(res.second) + "\n";
           key_stat_map[key].access_ += 1;
@@ -119,9 +114,6 @@ communication::Response process_request(
         if (threads.find(wt) == threads.end()) {
           //cerr << "wrong address by thread " + to_string(wt.get_tid()) + " on key " + req.tuple(i).key() + "\n";
           tp->set_err_number(2);
-          for (auto it = threads.begin(); it != threads.end(); it++) {
-            tp->add_addresses(it->get_request_pulling_connect_addr());
-          }
         } else {
           //cerr << "correct address by thread " + to_string(wt.get_tid()) + " on key " + req.tuple(i).key() + "\n";
           auto current_time = chrono::system_clock::now();
@@ -129,9 +121,7 @@ communication::Response process_request(
           process_put(key, ts, req.tuple(i).value(), serializer, key_stat_map);
           tp->set_err_number(0);
           if (req.tuple(i).has_num_address() && req.tuple(i).num_address() != threads.size()) {
-            for (auto it = threads.begin(); it != threads.end(); it++) {
-              tp->add_addresses(it->get_request_pulling_connect_addr());
-            }
+            tp->set_invalidate(true);
           }
           key_stat_map[key].access_ += 1;
           local_changeset.insert(key);
@@ -633,9 +623,6 @@ void run(unsigned thread_id) {
                 communication::Response_Tuple* tp = response.add_tuple();
                 tp->set_key(key);
                 tp->set_err_number(2);
-                for (auto iter = threads.begin(); iter != threads.end(); iter++) {
-                  tp->add_addresses(iter->get_request_pulling_connect_addr());
-                }
                 string serialized_response;
                 response.SerializeToString(&serialized_response);
                 //  send response

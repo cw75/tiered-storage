@@ -72,9 +72,6 @@ string handle_request(
           // update cache and retry
           cerr << "cache invalidation\n";
           key_address_cache.erase(key);
-          for (int i = 0; i < res.tuple(0).addresses_size(); i++) {
-            key_address_cache[key].insert(res.tuple(0).addresses(i));
-          }
           return handle_request(input, pushers, proxy_address, key_address_cache, seed, ut, response_puller, key_address_puller);
         }
       } else {
@@ -84,9 +81,6 @@ string handle_request(
           // update cache and retry
           cerr << "cache invalidation\n";
           key_address_cache.erase(key);
-          for (int i = 0; i < res.tuple(0).addresses_size(); i++) {
-            key_address_cache[key].insert(res.tuple(0).addresses(i));
-          }
           return handle_request(input, pushers, proxy_address, key_address_cache, seed, ut, response_puller, key_address_puller);
         }
       }

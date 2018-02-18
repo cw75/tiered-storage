@@ -82,18 +82,12 @@ void handle_request(
       // update cache and retry
       //logger->info("cache invalidation");
       key_address_cache.erase(key);
-      for (int i = 0; i < res.tuple(0).addresses_size(); i++) {
-        key_address_cache[key].insert(res.tuple(0).addresses(i));
-      }
       handle_request(key, value, pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller);
     } else {
-      if (res.tuple(0).addresses_size() > 0) {
-        logger->info("cache invalidation of key {} due to address number mismatch", key);
+      if (res.tuple(0).has_invalidate() && res.tuple(0).invalidate()) {
+        //logger->info("cache invalidation of key {} due to address number mismatch", key);
         // update cache
         key_address_cache.erase(key);
-        for (int i = 0; i < res.tuple(0).addresses_size(); i++) {
-          key_address_cache[key].insert(res.tuple(0).addresses(i));
-        }
       }
     }
   } else {

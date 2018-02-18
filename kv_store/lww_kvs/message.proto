@@ -18,7 +18,7 @@ message Response {
     required string key = 2;
     optional string value = 3;
     optional uint64 timestamp = 4;
-    repeated string addresses = 5;
+    optional bool invalidate = 5;
   }
   repeated Tuple tuple = 1;
 }

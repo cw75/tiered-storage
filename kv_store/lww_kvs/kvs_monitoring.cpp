@@ -621,6 +621,7 @@ int main(int argc, char* argv[]) {
                     new_rep_factor.global_replication_map_[1] = current_memory_replica + 1;
                     new_rep_factor.global_replication_map_[2] = current_ebs_replica - 1;
                     requests[key] = new_rep_factor;
+                    logger->info("data movement for key {}. M: {}->{}. E: {}->{}", key, current_memory_replica, current_memory_replica + 1, current_ebs_replica, current_ebs_replica - 1);
                   }
                 }
               }
