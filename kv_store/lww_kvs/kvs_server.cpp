@@ -77,8 +77,6 @@ communication::Response process_request(
       // first check if the thread is responsible for the key
       auto threads = get_responsible_threads(wt.get_replication_factor_connect_addr(), key, is_metadata(key), global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids, succeed, seed);
       if (succeed) {
-        communication::Response_Tuple* tp = response.add_tuple();
-        tp->set_key(key);
         if (threads.find(wt) == threads.end()) {
           //cerr << "wrong address by thread " + to_string(wt.get_tid()) + " on key " + req.tuple(i).key() + "\n";
           if (is_metadata(key)) {
