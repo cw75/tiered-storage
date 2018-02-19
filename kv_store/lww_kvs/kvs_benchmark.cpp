@@ -215,19 +215,12 @@ void run(unsigned thread_id) {
         if (i % 10000 == 0) {
           logger->info("warming up key {}", key);
         }
-        communication::Key_Request key_req;
-        key_req.set_respond_address(ut.get_key_address_connect_addr());
-        key_req.add_keys(key);
-        string req_id = ip + ":" + to_string(thread_id) + "_" + to_string(rid);
-        key_req.set_request_id(req_id);
-        rid += 1;
         string target_proxy_address = get_random_proxy_thread(proxy_address, seed).get_key_address_connect_addr();
         bool succeed;
-        auto key_response = send_request<communication::Key_Request, communication::Key_Response>(key_req, pushers[target_proxy_address], key_address_puller, succeed);
+        auto addresses = get_address_from_proxy(ut, key, pushers[target_proxy_address], key_address_puller, succeed, ip, thread_id, rid);
         if (succeed) {
-          // update cache
-          for (int i = 0; i < key_response.tuple(0).addresses_size(); i++) {
-            key_address_cache[key_response.tuple(0).key()].insert(key_response.tuple(0).addresses(i));
+          for (auto it = addresses.begin(); it != addresses.end(); it++) {
+            key_address_cache[key].insert(*it);
           }
         } else {
           logger->info("timeout during warmup");
