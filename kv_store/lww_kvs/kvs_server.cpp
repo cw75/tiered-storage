@@ -103,7 +103,7 @@ communication::Response process_request(
             tp->set_invalidate(true);
           }
           //cerr << "error number is " + to_string(res.second) + "\n";
-          key_stat_map[key].access_ += 1;
+          key_stat_map[key].monitoring_set_.insert(std::chrono::system_clock::now());
         }
       } else {
         string val = "";
@@ -150,7 +150,7 @@ communication::Response process_request(
           if (req.tuple(i).has_num_address() && req.tuple(i).num_address() != threads.size()) {
             tp->set_invalidate(true);
           }
-          key_stat_map[key].access_ += 1;
+          key_stat_map[key].monitoring_set_.insert(std::chrono::system_clock::now());
           local_changeset.insert(key);
         }
       } else {
@@ -659,7 +659,7 @@ void run(unsigned thread_id) {
                   auto current_time = chrono::system_clock::now();
                   auto ts = generate_timestamp(chrono::duration_cast<chrono::milliseconds>(current_time-start_time).count(), wt.get_tid());
                   process_put(key, ts, it->value_, serializer, key_stat_map);
-                  key_stat_map[key].access_ += 1;
+                  key_stat_map[key].monitoring_set_.insert(std::chrono::system_clock::now());
                   local_changeset.insert(key);
                 } else {
                   logger->info("Error: GET request with no respond address");
@@ -672,13 +672,13 @@ void run(unsigned thread_id) {
                   auto res = process_get(key, serializer);
                   tp->set_value(res.first.reveal().value);
                   tp->set_err_number(res.second);
-                  key_stat_map[key].access_ += 1;
+                  key_stat_map[key].monitoring_set_.insert(std::chrono::system_clock::now());
                 } else {
                   auto current_time = chrono::system_clock::now();
                   auto ts = generate_timestamp(chrono::duration_cast<chrono::milliseconds>(current_time-start_time).count(), wt.get_tid());
                   process_put(key, ts, it->value_, serializer, key_stat_map);
                   tp->set_err_number(0);
-                  key_stat_map[key].access_ += 1;
+                  key_stat_map[key].monitoring_set_.insert(std::chrono::system_clock::now());
                   local_changeset.insert(key);
                 }
                 string serialized_response;
@@ -862,7 +862,21 @@ void run(unsigned thread_id) {
           cerr << "thread " + to_string(thread_id) + " epoch " + to_string(epoch) + " key " + it->first + " has length " + to_string(it->second.size_) + "\n";
         }
       }*/
-
+      // compute key access stats
+      auto current_time = chrono::system_clock::now();
+      for (auto it = key_stat_map.begin(); it != key_stat_map.end(); it++) {
+        string key = it->first;
+        auto mset = &(it->second.monitoring_set_);
+        // garbage collect
+        for (auto set_iter = mset->rbegin(); set_iter != mset->rend(); set_iter++) {
+          if (chrono::duration_cast<std::chrono::microseconds>(current_time-*set_iter).count() >= KEY_MONITORING_THRESHOLD) {
+            mset->erase(mset->begin(), set_iter.base());
+            break;
+          }
+        }
+        // update key_access_frequency
+        key_stat_map[key].access_ = mset->size();
+      }
       // report key access stats
       key = wt.get_ip() + "_" + to_string(wt.get_tid()) + "_" + to_string(SELF_TIER_ID) + "_access";
       // prepare key access stat

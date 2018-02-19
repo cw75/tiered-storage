@@ -133,6 +133,7 @@ struct key_stat {
     : size_(size), access_(access) {}
   unsigned size_;
   unsigned access_;
+  multiset<std::chrono::time_point<std::chrono::system_clock>> monitoring_set_;
 };
 
 struct pending_request {

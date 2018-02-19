@@ -176,6 +176,10 @@ void change_replication_factor(
     it->second.SerializeToString(&serialized_msg);
     zmq_util::send_string(serialized_msg, &pushers[it->first]);
   }
+  // restore rep factor for failed keys
+  for (auto it = failed_keys.begin(); it != failed_keys.end(); it++) {
+    placement[*it] = orig_placement_info[*it];
+  }
 }
 
 int main(int argc, char* argv[]) {
@@ -562,7 +566,7 @@ int main(int argc, char* argv[]) {
       logger->info("avg ebs node occupancy is {}", to_string(avg_ebs_occupancy));
 
       // gather latency info
-      double avg_latency = -1;
+      double avg_latency;
       if (user_latency.size() > 0) {
         // compute latency from users
         logger->info("computing latency from user feedback");
@@ -632,7 +636,7 @@ int main(int argc, char* argv[]) {
         }
       }
       // 3.1 if latency is too high
-      if (avg_latency != -1 && avg_latency > SLO_WORST && adding_memory_node == 0) {
+      if (avg_latency > SLO_WORST && adding_memory_node == 0) {
         logger->info("latency is too high!");
         // figure out if we should do hot key replication or add nodes
         if (min_node_occupancy > 0.08) {
@@ -681,7 +685,7 @@ int main(int argc, char* argv[]) {
       logger->info("adding {} memory nodes in progress", adding_memory_node);
 
       // 3.2 if latency is too low, consider removing a node
-      if (avg_latency != -1 && avg_latency < SLO_BEST && !removing_memory_node && global_hash_ring_map[1].size() > MINIMUM_MEMORY_NODE*VIRTUAL_THREAD_NUM) {
+      if (avg_latency < SLO_BEST && !removing_memory_node && global_hash_ring_map[1].size() > MINIMUM_MEMORY_NODE*VIRTUAL_THREAD_NUM) {
         logger->info("latency is too low!");
         auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
         if (time_elapsed > GRACE_PERIOD) {
