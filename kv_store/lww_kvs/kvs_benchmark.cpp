@@ -95,6 +95,7 @@ void handle_request(
     }
   } else {
     logger->info("request timed out when querying worker, clearing cache due to possible node membership change");
+    cerr << "request timed out when querying worker, clearing cache due to possible node membership change\n";
     // likely the node has departed. We clear the entries relavant to the worker_address
     vector<string> tokens;
     split(worker_address, ':', tokens);
