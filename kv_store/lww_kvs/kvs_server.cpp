@@ -921,7 +921,7 @@ void run(unsigned thread_id) {
     }
 
     // check pending events and garbage collect
-    unordered_set<string> remove_set;
+    /*unordered_set<string> remove_set;
     for (auto it = pending_request_map.begin(); it != pending_request_map.end(); it++) {
       auto t = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now()-it->second.first).count();
       if (t > GARBAGE_COLLECTION_THRESHOLD) {
@@ -931,7 +931,7 @@ void run(unsigned thread_id) {
     }
     for (auto it = remove_set.begin(); it != remove_set.end(); it++) {
       pending_request_map.erase(*it);
-    }
+    }*/
     for (auto it = pending_gossip_map.begin(); it != pending_gossip_map.end(); it++) {
       auto t = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now()-it->second.first).count();
       if (t > RETRY_THRESHOLD) {
