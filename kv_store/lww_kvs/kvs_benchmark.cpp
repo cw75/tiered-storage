@@ -40,7 +40,12 @@ void handle_request(
     zmq::socket_t& key_address_puller,
     string& ip,
     unsigned& thread_id,
-    unsigned& rid) {
+    unsigned& rid,
+    unsigned& trial) {
+  if (trial > 2) {
+    logger->info("trial is {} for request for key {}", trial, key);
+    cerr << "trial is " + to_string(trial) + " for key " + key + "\n";
+  }
   // get worker address
   string worker_address;
   if (key_address_cache.find(key) == key_address_cache.end()) {
@@ -91,7 +96,8 @@ void handle_request(
       // update cache and retry
       //logger->info("cache invalidation due to wrong address");
       key_address_cache.erase(key);
-      handle_request(key, value, pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid);
+      trial += 1;
+      handle_request(key, value, pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
     } else {
       if (res.tuple(0).has_invalidate() && res.tuple(0).invalidate()) {
         //logger->info("cache invalidation of key {} due to address number mismatch", key);
@@ -119,7 +125,8 @@ void handle_request(
     for (auto it = remove_set.begin(); it != remove_set.end(); it++) {
       key_address_cache.erase(*it);
     }
-    handle_request(key, value, pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid);
+    trial += 1;
+    handle_request(key, value, pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
   }
 }
 
@@ -311,15 +318,17 @@ void run(unsigned thread_id) {
             }
             key = string(8 - to_string(k).length(), '0') + to_string(k);
           }
+          unsigned trial = 1;
           if (type == "G") {
-            handle_request(key, "", pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid);
+            handle_request(key, "", pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
             count += 1;
           } else if (type == "P") {
-            handle_request(key, string(length, 'a'), pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid);
+            handle_request(key, string(length, 'a'), pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
             count += 1;
           } else if (type == "M") {
-            handle_request(key, string(length, 'a'), pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid);
-            handle_request(key, "", pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid);
+            handle_request(key, string(length, 'a'), pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
+            trial = 1;
+            handle_request(key, "", pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
             count += 2;
           } else {
             logger->info("invalid request type");
