@@ -138,11 +138,12 @@ struct key_stat {
 
 struct pending_request {
   pending_request() {}
-  pending_request(string type, const string& value, string addr)
-    : type_(type), value_(value), addr_(addr) {}
+  pending_request(string type, const string& value, string addr, string respond_id)
+    : type_(type), value_(value), addr_(addr), respond_id_(respond_id) {}
   string type_;
   string value_;
   string addr_;
+  string respond_id_;
 };
 
 struct pending_gossip {

@@ -10,6 +10,7 @@ message Request {
   required string type = 1;
   optional string respond_address = 2;
   repeated Tuple tuple = 3;
+  optional string request_id = 4;
 }
 
 message Response {
@@ -21,11 +22,13 @@ message Response {
     optional bool invalidate = 5;
   }
   repeated Tuple tuple = 1;
+  optional string response_id = 2;
 }
 
 message Key_Request {
   required string respond_address = 1;
   repeated string keys = 2;
+  optional string request_id = 3;
 }
 
 message Key_Response {
@@ -34,6 +37,7 @@ message Key_Response {
     repeated string addresses = 2;
   }
   repeated Tuple tuple = 1;
+  optional string response_id = 2;
 }
 
 message Payload {

@@ -29,13 +29,17 @@ void prepare_metadata_get_request(
     global_hash_t& global_memory_hash_ring,
     local_hash_t& local_memory_hash_ring,
     unordered_map<address_t, communication::Request>& addr_request_map,
-    monitoring_thread_t& mt) {
+    monitoring_thread_t& mt,
+    unsigned& rid) {
   auto threads = get_responsible_threads_metadata(key, global_memory_hash_ring, local_memory_hash_ring);
   if (threads.size() != 0) {
     string target_address = next(begin(threads), rand() % threads.size())->get_request_pulling_connect_addr();
     if (addr_request_map.find(target_address) == addr_request_map.end()) {
       addr_request_map[target_address].set_type("GET");
       addr_request_map[target_address].set_respond_address(mt.get_request_pulling_connect_addr());
+      string req_id = mt.get_ip() + ":" + to_string(rid);
+      addr_request_map[target_address].set_request_id(req_id);
+      rid += 1;
     }
     prepare_get_tuple(addr_request_map[target_address], key);
   }
@@ -47,13 +51,17 @@ void prepare_metadata_put_request(
     global_hash_t& global_memory_hash_ring,
     local_hash_t& local_memory_hash_ring,
     unordered_map<address_t, communication::Request>& addr_request_map,
-    monitoring_thread_t& mt) {
+    monitoring_thread_t& mt,
+    unsigned& rid) {
   auto threads = get_responsible_threads_metadata(key, global_memory_hash_ring, local_memory_hash_ring);
   if (threads.size() != 0) {
     string target_address = next(begin(threads), rand() % threads.size())->get_request_pulling_connect_addr();
     if (addr_request_map.find(target_address) == addr_request_map.end()) {
       addr_request_map[target_address].set_type("PUT");
       addr_request_map[target_address].set_respond_address(mt.get_request_pulling_connect_addr());
+      string req_id = mt.get_ip() + ":" + to_string(rid);
+      addr_request_map[target_address].set_request_id(req_id);
+      rid += 1;
     }
     prepare_put_tuple(addr_request_map[target_address], key, value, 0);
   }
@@ -90,7 +98,8 @@ void change_replication_factor(
     SocketCache& pushers,
     monitoring_thread_t& mt,
     zmq::socket_t& response_puller,
-    shared_ptr<spdlog::logger> logger) {
+    shared_ptr<spdlog::logger> logger,
+    unsigned& rid) {
   // used to keep track of the original replication factors for the requested keys
   unordered_map<string, key_info> orig_placement_info;
   // store the new replication factor synchronously in storage servers
@@ -123,7 +132,7 @@ void change_replication_factor(
     string rep_key = key + "_replication";
     string serialized_rep_data;
     rep_data.SerializeToString(&serialized_rep_data);
-    prepare_metadata_put_request(rep_key, serialized_rep_data, global_hash_ring_map[1], local_hash_ring_map[1], addr_request_map, mt);
+    prepare_metadata_put_request(rep_key, serialized_rep_data, global_hash_ring_map[1], local_hash_ring_map[1], addr_request_map, mt, rid);
   }
   // send updates to storage nodes
   unordered_set<string> failed_keys;
@@ -249,7 +258,7 @@ int main(int argc, char* argv[]) {
 
   // responsible for both node join and departure
   zmq::socket_t response_puller(context, ZMQ_PULL);
-  int timeout = 15000;
+  int timeout = 8000;
   response_puller.setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
   response_puller.bind(mt.get_request_pulling_bind_addr());
 
@@ -287,6 +296,8 @@ int main(int argc, char* argv[]) {
   double average_ebs_consumption = 0;
   double average_memory_consumption_new = 0;
   double average_ebs_consumption_new = 0;
+
+  unsigned rid = 0;
 
   while (true) {
     // listen for ZMQ events
@@ -419,9 +430,9 @@ int main(int argc, char* argv[]) {
           if (observed_ip.find(iter->second.get_ip()) == observed_ip.end()) {
             for (unsigned i = 0; i < tier_data_map[tier_id].thread_number_; i++) {
               string key = iter->second.get_ip() + "_" + to_string(i) + "_" + to_string(tier_id) + "_stat";
-              prepare_metadata_get_request(key, global_hash_ring_map[1], local_hash_ring_map[1], addr_request_map, mt);
+              prepare_metadata_get_request(key, global_hash_ring_map[1], local_hash_ring_map[1], addr_request_map, mt, rid);
               key = iter->second.get_ip() + "_" + to_string(i) + "_" + to_string(tier_id) + "_access";
-              prepare_metadata_get_request(key, global_hash_ring_map[1], local_hash_ring_map[1], addr_request_map, mt);
+              prepare_metadata_get_request(key, global_hash_ring_map[1], local_hash_ring_map[1], addr_request_map, mt, rid);
             }
             observed_ip.insert(iter->second.get_ip());
           }
@@ -598,7 +609,7 @@ int main(int argc, char* argv[]) {
         }
       }
       logger->info("a total of {} keys are promoted to the memory tier", total_rep_changed);
-      change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger);
+      change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
       requests.clear();
       total_rep_changed = 0;
 
@@ -615,7 +626,7 @@ int main(int argc, char* argv[]) {
         }
       }
       logger->info("a total of {} keys are demoted to the ebs tier", total_rep_changed);
-      change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger);
+      change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
       requests.clear();
 
       // 3. check latency to see if the SLO has been violated
@@ -678,7 +689,7 @@ int main(int argc, char* argv[]) {
               }
             }
           }
-          change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger);
+          change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
         }
       }
       requests.clear();
@@ -707,7 +718,7 @@ int main(int argc, char* argv[]) {
               logger->info("reduce replication for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], new_rep_factor.global_replication_map_[1], placement[key].global_replication_map_[2], new_rep_factor.global_replication_map_[2]);
             }
           }
-          change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger);
+          change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
           // pick a random memory node and send remove node command
           auto node = next(begin(global_hash_ring_map[1]), rand() % global_hash_ring_map[1].size())->second;
           auto ip = node.get_ip();
@@ -747,7 +758,7 @@ int main(int argc, char* argv[]) {
                 logger->info("reduce replication for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], new_rep_factor.global_replication_map_[1], placement[key].global_replication_map_[2], new_rep_factor.global_replication_map_[2]);
               }
             }
-            change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger);
+            change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
             // pick a random memory node and send remove node command
             server_thread_t node = server_thread_t(min_node_ip, 0);
             auto connection_addr = node.get_self_depart_connect_addr();

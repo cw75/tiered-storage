@@ -23,7 +23,7 @@ using namespace std;
 // Define monitoring threshold (in microsecond)
 #define MONITORING_THRESHOLD 30000000
 // Define garbage collection threshold for pending events (in millisecond)
-#define GARBAGE_COLLECTION_THRESHOLD 8000
+#define GARBAGE_COLLECTION_THRESHOLD 5000
 // Define the threshold for retry rep factor query for gossip handling (in millisecond)
 #define RETRY_THRESHOLD 8000
 // Define the grace period for triggering elasticity action (in second)
@@ -416,17 +416,19 @@ void prepare_put_tuple(communication::Request& req, string key, string value, un
 }
 
 template<typename REQ, typename RES>
-RES send_request(REQ& req, zmq::socket_t& sending_socket, zmq::socket_t& receiving_socket, bool& succeed) {
-  string serialized_req;
-  req.SerializeToString(&serialized_req);
-  zmq_util::send_string(serialized_req, &sending_socket);
-  RES response;
-  zmq::message_t message;
+bool recursive_receive(zmq::socket_t& receiving_socket, zmq::message_t& message, REQ& req, RES& response, bool& succeed) {
   bool rc = receiving_socket.recv(&message);
   if (rc) {
-    succeed = true;
+    //succeed = true;
     auto serialized_resp = zmq_util::message_to_string(message);
     response.ParseFromString(serialized_resp);
+    if (req.request_id() == response.response_id()) {
+      succeed = true;
+      return false;
+    } else {
+      cerr << "id mismatch!\n";
+      return true;
+    }
   } else {
     // timeout
     if (errno == EAGAIN) {
@@ -435,6 +437,22 @@ RES send_request(REQ& req, zmq::socket_t& sending_socket, zmq::socket_t& receivi
       cerr << "Unexpected error type\n";
       succeed = false;
     }
+    return false;
+  }
+}
+
+template<typename REQ, typename RES>
+RES send_request(REQ& req, zmq::socket_t& sending_socket, zmq::socket_t& receiving_socket, bool& succeed) {
+  string serialized_req;
+  req.SerializeToString(&serialized_req);
+  zmq_util::send_string(serialized_req, &sending_socket);
+  RES response;
+  zmq::message_t message;
+  bool recurse = recursive_receive<REQ, RES>(receiving_socket, message, req, response, succeed);
+  while (recurse) {
+    response.Clear();
+    zmq::message_t message;
+    recurse = recursive_receive<REQ, RES>(receiving_socket, message, req, response, succeed);
   }
   return response;
 }
@@ -557,10 +575,16 @@ vector<string> get_address_from_proxy(
     string key,
     zmq::socket_t& sending_socket,
     zmq::socket_t& receiving_socket,
-    bool& succeed) {
+    bool& succeed,
+    string& ip,
+    unsigned& thread_id,
+    unsigned& rid) {
   communication::Key_Request key_req;
   key_req.set_respond_address(ut.get_key_address_connect_addr());
   key_req.add_keys(key);
+  string req_id = ip + ":" + to_string(thread_id) + "_" + to_string(rid);
+  key_req.set_request_id(req_id);
+  rid += 1;
   // query proxy for addresses on the other tier
   auto key_response = send_request<communication::Key_Request, communication::Key_Response>(key_req, sending_socket, receiving_socket, succeed);
   vector<string> result;

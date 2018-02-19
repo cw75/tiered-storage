@@ -66,6 +66,11 @@ communication::Response process_request(
     unordered_map<string, pair<chrono::system_clock::time_point, vector<pending_request>>>& pending_request_map,
     unsigned& seed) {
   communication::Response response;
+  string respond_id = "";
+  if (req.has_request_id()) {
+    respond_id = req.request_id();
+    response.set_response_id(respond_id);
+  }
   vector<unsigned> tier_ids;
   tier_ids.push_back(SELF_TIER_ID);
   bool succeed;
@@ -90,7 +95,7 @@ communication::Response process_request(
             if (pending_request_map.find(key) == pending_request_map.end()) {
               pending_request_map[key].first = chrono::system_clock::now();
             }
-            pending_request_map[key].second.push_back(pending_request("G", val, req.respond_address()));
+            pending_request_map[key].second.push_back(pending_request("G", val, req.respond_address(), respond_id));
           }
         } else {
           communication::Response_Tuple* tp = response.add_tuple();
@@ -110,7 +115,7 @@ communication::Response process_request(
         if (pending_request_map.find(key) == pending_request_map.end()) {
           pending_request_map[key].first = chrono::system_clock::now();
         }
-        pending_request_map[key].second.push_back(pending_request("G", val, req.respond_address()));
+        pending_request_map[key].second.push_back(pending_request("G", val, req.respond_address(), respond_id));
       }
     }
   } else if (req.type() == "PUT") {
@@ -134,9 +139,9 @@ communication::Response process_request(
               pending_request_map[key].first = chrono::system_clock::now();
             }
             if (req.has_respond_address()) {
-              pending_request_map[key].second.push_back(pending_request("P", req.tuple(i).value(), req.respond_address()));
+              pending_request_map[key].second.push_back(pending_request("P", req.tuple(i).value(), req.respond_address(), respond_id));
             } else {
-              pending_request_map[key].second.push_back(pending_request("P", req.tuple(i).value(), ""));
+              pending_request_map[key].second.push_back(pending_request("P", req.tuple(i).value(), "", respond_id));
             }
           }
         } else {
@@ -158,9 +163,9 @@ communication::Response process_request(
           pending_request_map[key].first = chrono::system_clock::now();
         }
         if (req.has_respond_address()) {
-          pending_request_map[key].second.push_back(pending_request("P", req.tuple(i).value(), req.respond_address()));
+          pending_request_map[key].second.push_back(pending_request("P", req.tuple(i).value(), req.respond_address(), respond_id));
         } else {
-          pending_request_map[key].second.push_back(pending_request("P", req.tuple(i).value(), ""));
+          pending_request_map[key].second.push_back(pending_request("P", req.tuple(i).value(), "", respond_id));
         }
       }
     }
@@ -646,6 +651,9 @@ void run(unsigned thread_id) {
             for (auto it = pending_request_map[key].second.begin(); it != pending_request_map[key].second.end(); it++) {
               if (!responsible && it->addr_ != "") {
                 communication::Response response;
+                if (it->respond_id_ != "") {
+                  response.set_response_id(it->respond_id_);
+                }
                 communication::Response_Tuple* tp = response.add_tuple();
                 tp->set_key(key);
                 tp->set_err_number(2);
@@ -666,6 +674,9 @@ void run(unsigned thread_id) {
                 }
               } else if (responsible && it->addr_ != "") {
                 communication::Response response;
+                if (it->respond_id_ != "") {
+                  response.set_response_id(it->respond_id_);
+                }
                 communication::Response_Tuple* tp = response.add_tuple();
                 tp->set_key(key);
                 if (it->type_ == "G") {

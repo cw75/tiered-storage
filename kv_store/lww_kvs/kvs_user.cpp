@@ -15,7 +15,7 @@
 
 using namespace std;
 
-string handle_request(
+/*string handle_request(
     string input,
     SocketCache& pushers,
     vector<string>& proxy_address,
@@ -23,7 +23,10 @@ string handle_request(
     unsigned& seed,
     user_thread_t& ut,
     zmq::socket_t& response_puller,
-    zmq::socket_t& key_address_puller) {
+    zmq::socket_t& key_address_puller,
+    string& ip,
+    unsigned& thread_id,
+    unsigned& rid) {
   vector<string> v;
   split(input, ' ', v);
 
@@ -47,7 +50,7 @@ string handle_request(
       // query the proxy and update the cache
       string target_proxy_address = get_random_proxy_thread(proxy_address, seed).get_key_address_connect_addr();
       bool succeed;
-      auto addresses = get_address_from_proxy(ut, key, pushers[target_proxy_address], key_address_puller, succeed);
+      auto addresses = get_address_from_proxy(ut, key, pushers[target_proxy_address], key_address_puller, succeed, ip, thread_id, rid);
       if (succeed) {
         for (auto it = addresses.begin(); it != addresses.end(); it++) {
           key_address_cache[key].insert(*it);
@@ -88,7 +91,7 @@ string handle_request(
       return "request timed out when querying worker\n";
     }
   }
-}
+}*/
 
 int main(int argc, char* argv[]) {
 
@@ -102,7 +105,7 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  string ip = get_ip("user");
+  /*string ip = get_ip("user");
 
   // read in the proxy addresses
   vector<string> proxy_address;
@@ -151,5 +154,5 @@ int main(int argc, char* argv[]) {
     while (getline(request_reader, request)) {
       cout << handle_request(request, pushers, proxy_address, key_address_cache, seed, ut, response_puller, key_address_puller);
     }
-  }
+  }*/
 }
