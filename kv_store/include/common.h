@@ -17,7 +17,7 @@
 using namespace std;
 
 // Define server report threshold (in microsecond)
-#define SERVER_REPORT_THRESHOLD 10000000
+#define SERVER_REPORT_THRESHOLD 15000000
 // Define monitoring threshold (in microsecond)
 #define MONITORING_THRESHOLD 30000000
 // Define garbage collection threshold for pending events (in millisecond)
@@ -57,6 +57,9 @@ using namespace std;
 
 #define MINIMUM_MEMORY_NODE 1
 #define MINIMUM_EBS_NODE 3
+
+#define SLO_WORST 1400
+#define SLO_BEST 900
 
 // Define port offset
 // used by servers
