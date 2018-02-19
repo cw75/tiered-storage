@@ -249,7 +249,7 @@ int main(int argc, char* argv[]) {
 
   // responsible for both node join and departure
   zmq::socket_t response_puller(context, ZMQ_PULL);
-  int timeout = 5000;
+  int timeout = 10000;
   response_puller.setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
   response_puller.bind(mt.get_request_pulling_bind_addr());
 
@@ -659,7 +659,7 @@ int main(int argc, char* argv[]) {
             string key = it->first;
             unsigned total_access = it->second;
             if (!is_metadata(key) && total_access > 10000) {
-              logger->info("key {} accessed more than 10000 times", key);
+              logger->info("key {} accessed more than 10000 times. Accessed {} times", key, total_access);
               unsigned max_memory_replica = global_hash_ring_map[1].size() / VIRTUAL_THREAD_NUM;
               if (max_memory_replica - placement[key].global_replication_map_[1] > 0 && placement[key].global_replication_map_[2] > 0) {
                 key_info new_rep_factor;

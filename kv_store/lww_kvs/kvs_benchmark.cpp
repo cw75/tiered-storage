@@ -18,7 +18,7 @@ using namespace std;
 double get_base(unsigned N, double skew) {
   double base = 0;
   for (unsigned k = 1; k <= N; k++) {
-          base += pow(k, -1*skew);
+    base += pow(k, -1*skew);
   }
   return base;
 }
@@ -55,6 +55,9 @@ void handle_request(
       return;
     }
   } else {
+    if (key_address_cache[key].size() == 0) {
+      cerr << "address cache for key " + key + " has size 0\n";
+    }
     worker_address = *(next(begin(key_address_cache[key]), rand_r(&seed) % key_address_cache[key].size()));
   }
   communication::Request req;
@@ -154,7 +157,7 @@ void run(unsigned thread_id) {
   zmq::context_t context(1);
   SocketCache pushers(&context, ZMQ_PUSH);
 
-  int timeout = 5000;
+  int timeout = 10000;
   // responsible for pulling response
   zmq::socket_t response_puller(context, ZMQ_PULL);
   response_puller.setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
