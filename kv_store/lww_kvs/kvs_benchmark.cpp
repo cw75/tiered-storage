@@ -99,10 +99,18 @@ void handle_request(
   if (succeed) {
     // initialize the respond string
     if (res.tuple(0).err_number() == 2) {
+      trial += 1;
+      if (trial > 5) {
+        for (int i = 0; i < res.tuple(0).addresses_size(); i++) {
+          logger->info("server think the address for key {} is {}", key, res.tuple(0).addresses(i));
+        }
+        for (auto it = key_address_cache[key].begin(); it != key_address_cache[key].end(); it++) {
+          logger->info("I think the address for key {} is {}", key, *it);
+        }
+      }
       // update cache and retry
       //logger->info("cache invalidation due to wrong address");
       key_address_cache.erase(key);
-      trial += 1;
       handle_request(key, value, pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
     } else {
       if (res.tuple(0).has_invalidate() && res.tuple(0).invalidate()) {
