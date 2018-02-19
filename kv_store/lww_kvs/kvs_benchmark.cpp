@@ -42,9 +42,15 @@ void handle_request(
     unsigned& thread_id,
     unsigned& rid,
     unsigned& trial) {
-  if (trial > 2) {
+  if (trial > 5) {
     logger->info("trial is {} for request for key {}", trial, key);
     cerr << "trial is " + to_string(trial) + " for key " + key + "\n";
+    logger->info("Waiting for 5 seconds");
+    cerr << "Waiting for 5 seconds\n";
+    chrono::seconds dura(5);
+    this_thread::sleep_for(dura);
+    logger->info("Waited 5s");
+    cout << "Waited 5s\n";
   }
   // get worker address
   string worker_address;
