@@ -24,63 +24,6 @@ using address_t = string;
 // read-only per-tier metadata
 unordered_map<unsigned, tier_data> tier_data_map;
 
-bool ping(
-    string key,
-    string value,
-    SocketCache& pushers,
-    shared_ptr<spdlog::logger> logger,
-    monitoring_thread_t& mt,
-    zmq::socket_t& response_puller,
-    unordered_map<unsigned, global_hash_t>& global_hash_ring_map,
-    unordered_map<unsigned, local_hash_t>& local_hash_ring_map,
-    unordered_map<string, key_info>& placement) {
-  communication::Request req;
-  req.set_respond_address(mt.get_request_pulling_connect_addr());
-  if (value == "") {
-    // get request
-    req.set_type("GET");
-    prepare_get_tuple(req, key);
-  } else {
-    // put request
-    req.set_type("PUT");
-    prepare_put_tuple(req, key, value, 0);
-  }
-  if (placement.find(key) != placement.end()) {
-    unordered_set<server_thread_t, thread_hash> threads;
-    // hard code memory tier for now
-    unsigned tier_id = 1;
-    auto mts = responsible_global(key, placement[key].global_replication_map_[tier_id], global_hash_ring_map[tier_id]);
-    for (auto it = mts.begin(); it != mts.end(); it++) {
-      string ip = it->get_ip();
-      if (placement[key].local_replication_map_.find(ip) == placement[key].local_replication_map_.end()) {
-        placement[key].local_replication_map_[ip] = DEFAULT_LOCAL_REPLICATION;
-      }
-      auto tids = responsible_local(key, placement[key].local_replication_map_[ip], local_hash_ring_map[tier_id]);
-      for (auto iter = tids.begin(); iter != tids.end(); iter++) {
-        threads.insert(server_thread_t(ip, *iter));
-      }
-    }
-    auto rand_thread = *(next(begin(threads), rand() % threads.size()));
-    string worker_address = rand_thread.get_request_pulling_connect_addr();
-    bool succeed;
-    auto res = send_request<communication::Request, communication::Response>(req, pushers[worker_address], response_puller, succeed);
-    if (succeed) {
-      if (res.tuple(0).err_number() == 2) {
-        logger->info("hash ring inconsistency");
-        return false;
-      } else {
-        return true;
-      }
-    } else {
-      logger->info("request timed out when querying worker");
-      return false;
-    }
-  } else {
-    logger->info("Error: missing replication factor for monitoring node");
-    return false;
-  }
-}
-
 void prepare_metadata_get_request(
     string& key,
     global_hash_t& global_memory_hash_ring,
@@ -181,35 +124,49 @@ void change_replication_factor(
     string serialized_rep_data;
     rep_data.SerializeToString(&serialized_rep_data);
     prepare_metadata_put_request(rep_key, serialized_rep_data, global_hash_ring_map[1], local_hash_ring_map[1], addr_request_map, mt);
-
-    // prepare data for notifying relevant nodes
-    // form rep factor change requests for all tiers
-    for (unsigned tier = MIN_TIER; tier <= MAX_TIER; tier++) {
-      unsigned rep = max(placement[key].global_replication_map_[tier], orig_placement_info[key].global_replication_map_[tier]);
-      auto threads = responsible_global(key, rep, global_hash_ring_map[tier]);
-      for (auto server_iter = threads.begin(); server_iter != threads.end(); server_iter++) {
-        prepare_replication_factor_update(key, replication_factor_map, server_iter->get_replication_factor_change_connect_addr(), placement, it->second.local_replication_map_);
-      }
-    }
-
-    //TODO: check the local_replication map again in case we have missing entry for global rep factors?
-
-    // form placement requests for proxy nodes
-    for (auto proxy_iter = proxy_address.begin(); proxy_iter != proxy_address.end(); proxy_iter++) {
-      prepare_replication_factor_update(key, replication_factor_map, proxy_thread_t(*proxy_iter, 0).get_replication_factor_change_connect_addr(), placement, it->second.local_replication_map_);
-    }
   }
   // send updates to storage nodes
+  unordered_set<string> failed_keys;
   for (auto it = addr_request_map.begin(); it != addr_request_map.end(); it++) {
     bool succeed;
     auto res = send_request<communication::Request, communication::Response>(it->second, pushers[it->first], response_puller, succeed);
     if (!succeed) {
       logger->info("rep factor put timed out!");
+      for (int i = 0; i < it->second.tuple_size(); i++) {
+        vector<string> tokens;
+        split(it->second.tuple(i).key(), '_', tokens);
+        failed_keys.insert(tokens[0]);
+      }
     } else {
       for (int i = 0; i < res.tuple_size(); i++) {
         if (res.tuple(i).err_number() == 2) {
           logger->info("rep factor put for key {} rejected due to wrong address!", res.tuple(i).key());
+          vector<string> tokens;
+          split(res.tuple(i).key(), '_', tokens);
+          failed_keys.insert(tokens[0]);
         }
+      }
+    }
+  }
+
+  for (auto it = requests.begin(); it != requests.end(); it++) {
+    string key = it->first;
+    if (failed_keys.find(key) == failed_keys.end()) {
+      // prepare data for notifying relevant nodes
+      // form rep factor change requests for all tiers
+      for (unsigned tier = MIN_TIER; tier <= MAX_TIER; tier++) {
+        unsigned rep = max(placement[key].global_replication_map_[tier], orig_placement_info[key].global_replication_map_[tier]);
+        auto threads = responsible_global(key, rep, global_hash_ring_map[tier]);
+        for (auto server_iter = threads.begin(); server_iter != threads.end(); server_iter++) {
+          prepare_replication_factor_update(key, replication_factor_map, server_iter->get_replication_factor_change_connect_addr(), placement, it->second.local_replication_map_);
+        }
+      }
+
+      //TODO: check the local_replication map again in case we have missing entry for global rep factors?
+
+      // form placement requests for proxy nodes
+      for (auto proxy_iter = proxy_address.begin(); proxy_iter != proxy_address.end(); proxy_iter++) {
+        prepare_replication_factor_update(key, replication_factor_map, proxy_thread_t(*proxy_iter, 0).get_replication_factor_change_connect_addr(), placement, it->second.local_replication_map_);
       }
     }
   }
@@ -757,7 +714,7 @@ int main(int argc, char* argv[]) {
         auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
         if (time_elapsed > GRACE_PERIOD) {
           logger->info("node departure is disabled");
-          /*// pick a random memory node
+          // pick a random memory node
           auto node = next(begin(global_hash_ring_map[1]), rand() % global_hash_ring_map[1].size())->second;
           auto ip = node.get_ip();
           // before sending remove command, first adjust relevant key's replication factor
@@ -786,7 +743,7 @@ int main(int argc, char* argv[]) {
           auto ack_addr = mt.get_depart_done_connect_addr();
           logger->info("sending remove memory node msg");
           zmq_util::send_string(ack_addr, &pushers[connection_addr]);
-          removing_memory_node = true;*/
+          removing_memory_node = true;
         } else {
           logger->info("in grace period");
         }

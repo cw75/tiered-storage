@@ -81,8 +81,22 @@ communication::Response process_request(
         tp->set_key(key);
         if (threads.find(wt) == threads.end()) {
           //cerr << "wrong address by thread " + to_string(wt.get_tid()) + " on key " + req.tuple(i).key() + "\n";
-          tp->set_err_number(2);
+          if (is_metadata(key)) {
+            communication::Response_Tuple* tp = response.add_tuple();
+            tp->set_key(key);
+            tp->set_err_number(2);
+          } else {
+            placement.erase(key);
+            issue_replication_factor_request(wt.get_replication_factor_connect_addr(), key, global_hash_ring_map[1], local_hash_ring_map[1], pushers, seed);
+            string val = "";
+            if (pending_request_map.find(key) == pending_request_map.end()) {
+              pending_request_map[key].first = chrono::system_clock::now();
+            }
+            pending_request_map[key].second.push_back(pending_request("G", val, req.respond_address()));
+          }
         } else {
+          communication::Response_Tuple* tp = response.add_tuple();
+          tp->set_key(key);
           //cerr << "correct address by thread " + to_string(wt.get_tid()) + " on key " + req.tuple(i).key() + "\n";
           auto res = process_get(key, serializer);
           tp->set_value(res.first.reveal().value);
@@ -109,13 +123,28 @@ communication::Response process_request(
       // first check if the thread is responsible for the key
       auto threads = get_responsible_threads(wt.get_replication_factor_connect_addr(), key, is_metadata(key), global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids, succeed, seed);
       if (succeed) {
-        communication::Response_Tuple* tp = response.add_tuple();
-        tp->set_key(key);
         if (threads.find(wt) == threads.end()) {
           //cerr << "wrong address by thread " + to_string(wt.get_tid()) + " on key " + req.tuple(i).key() + "\n";
-          tp->set_err_number(2);
+          if (is_metadata(key)) {
+            communication::Response_Tuple* tp = response.add_tuple();
+            tp->set_key(key);
+            tp->set_err_number(2);
+          } else {
+            placement.erase(key);
+            issue_replication_factor_request(wt.get_replication_factor_connect_addr(), key, global_hash_ring_map[1], local_hash_ring_map[1], pushers, seed);
+            if (pending_request_map.find(key) == pending_request_map.end()) {
+              pending_request_map[key].first = chrono::system_clock::now();
+            }
+            if (req.has_respond_address()) {
+              pending_request_map[key].second.push_back(pending_request("P", req.tuple(i).value(), req.respond_address()));
+            } else {
+              pending_request_map[key].second.push_back(pending_request("P", req.tuple(i).value(), ""));
+            }
+          }
         } else {
           //cerr << "correct address by thread " + to_string(wt.get_tid()) + " on key " + req.tuple(i).key() + "\n";
+          communication::Response_Tuple* tp = response.add_tuple();
+          tp->set_key(key);
           auto current_time = chrono::system_clock::now();
           auto ts = generate_timestamp(chrono::duration_cast<chrono::milliseconds>(current_time-start_time).count(), wt.get_tid());
           process_put(key, ts, req.tuple(i).value(), serializer, key_stat_map);
