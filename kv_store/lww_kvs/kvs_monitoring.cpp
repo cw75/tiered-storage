@@ -756,7 +756,8 @@ int main(int argc, char* argv[]) {
         logger->info("latency is too low!");
         auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
         if (time_elapsed > GRACE_PERIOD) {
-          // pick a random memory node
+          logger->info("node departure is disabled");
+          /*// pick a random memory node
           auto node = next(begin(global_hash_ring_map[1]), rand() % global_hash_ring_map[1].size())->second;
           auto ip = node.get_ip();
           // before sending remove command, first adjust relevant key's replication factor
@@ -785,11 +786,12 @@ int main(int argc, char* argv[]) {
           auto ack_addr = mt.get_depart_done_connect_addr();
           logger->info("sending remove memory node msg");
           zmq_util::send_string(ack_addr, &pushers[connection_addr]);
-          removing_memory_node = true;
+          removing_memory_node = true;*/
         } else {
           logger->info("in grace period");
         }
       }
+      user_latency.clear();
       
       report_start = std::chrono::system_clock::now();
     }
