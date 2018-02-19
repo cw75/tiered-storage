@@ -158,7 +158,7 @@ void run(unsigned thread_id) {
   zmq::context_t context(1);
   SocketCache pushers(&context, ZMQ_PUSH);
 
-  int timeout = 10000;
+  int timeout = 15000;
   // responsible for pulling response
   zmq::socket_t response_puller(context, ZMQ_PULL);
   response_puller.setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));

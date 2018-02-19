@@ -249,7 +249,7 @@ int main(int argc, char* argv[]) {
 
   // responsible for both node join and departure
   zmq::socket_t response_puller(context, ZMQ_PULL);
-  int timeout = 10000;
+  int timeout = 15000;
   response_puller.setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
   response_puller.bind(mt.get_request_pulling_bind_addr());
 

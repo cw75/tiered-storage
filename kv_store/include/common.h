@@ -23,7 +23,7 @@ using namespace std;
 // Define monitoring threshold (in microsecond)
 #define MONITORING_THRESHOLD 30000000
 // Define garbage collection threshold for pending events (in millisecond)
-#define GARBAGE_COLLECTION_THRESHOLD 6000
+#define GARBAGE_COLLECTION_THRESHOLD 8000
 // Define the threshold for retry rep factor query for gossip handling (in millisecond)
 #define RETRY_THRESHOLD 8000
 // Define the grace period for triggering elasticity action (in second)
