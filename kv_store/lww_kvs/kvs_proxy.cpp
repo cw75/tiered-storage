@@ -71,7 +71,7 @@ void run(unsigned thread_id) {
   unordered_map<unsigned, local_hash_t> local_hash_ring_map;
 
   // pending events for asynchrony
-  unordered_map<string, pair<chrono::system_clock::time_point, vector<string>>> pending_key_request_map;
+  unordered_map<string, pair<chrono::system_clock::time_point, vector<pair<string, string>>>> pending_key_request_map;
 
   // form local hash rings
   for (auto it = tier_data_map.begin(); it != tier_data_map.end(); it++) {
@@ -243,6 +243,7 @@ void run(unsigned thread_id) {
             }
             for (auto it = pending_key_request_map[key].second.begin(); it != pending_key_request_map[key].second.end(); it++) {
               communication::Key_Response key_res;
+              key_res.set_response_id(it->second);
               communication::Key_Response_Tuple* tp = key_res.add_tuple();
               tp->set_key(key);
               for (auto iter = threads.begin(); iter != threads.end(); iter++) {
@@ -251,7 +252,7 @@ void run(unsigned thread_id) {
               // send the key address response
               string serialized_key_res;
               key_res.SerializeToString(&serialized_key_res);
-              zmq_util::send_string(serialized_key_res, &pushers[*it]);
+              zmq_util::send_string(serialized_key_res, &pushers[it->first]);
             }
           } else {
             logger->info("Error: key missing replication factor in process pending key address routine");
@@ -294,6 +295,7 @@ void run(unsigned thread_id) {
       key_req.ParseFromString(serialized_key_req);
 
       communication::Key_Response key_res;
+      key_res.set_response_id(key_req.request_id());
       bool succeed;
 
       for (int i = 0; i < key_req.keys_size(); i++) {
@@ -318,7 +320,7 @@ void run(unsigned thread_id) {
           if (pending_key_request_map.find(key) == pending_key_request_map.end()) {
             pending_key_request_map[key].first = chrono::system_clock::now();
           }
-          pending_key_request_map[key].second.push_back(key_req.respond_address());
+          pending_key_request_map[key].second.push_back(pair<string, string>(key_req.respond_address(), key_req.request_id()));
         }
       }
       if (key_res.tuple_size() > 0) {
@@ -330,7 +332,7 @@ void run(unsigned thread_id) {
     }
 
     // check pending events and garbage collect
-    unordered_set<string> remove_set;
+    /*unordered_set<string> remove_set;
     for (auto it = pending_key_request_map.begin(); it != pending_key_request_map.end(); it++) {
       auto t = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now()-it->second.first).count();
       if (t > GARBAGE_COLLECTION_THRESHOLD) {
@@ -339,7 +341,7 @@ void run(unsigned thread_id) {
     }
     for (auto it = remove_set.begin(); it != remove_set.end(); it++) {
       pending_key_request_map.erase(*it);
-    }
+    }*/
   }
 }
 

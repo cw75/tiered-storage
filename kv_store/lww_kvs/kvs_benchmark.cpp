@@ -207,6 +207,7 @@ void run(unsigned thread_id) {
       }
 
       // warm up cache
+      key_address_cache.clear();
       auto warmup_start = std::chrono::system_clock::now();
       for (unsigned i = 1; i <= num_keys; i++) {
         // key is 8 bytes
