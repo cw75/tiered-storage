@@ -21,3 +21,4 @@ spec:
       value: MON_IP_DUMMY
   nodeSelector:
     role: memory-UNIQUE
+  restartPolicy: Never

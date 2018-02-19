@@ -17,3 +17,4 @@ spec:
       value: MON_IP_DUMMY
   nodeSelector:
     role: proxy-UNIQUE
+  restartPolicy: Never

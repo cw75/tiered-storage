@@ -15,3 +15,4 @@ spec:
       value: MGMT_IP_DUMMY
   nodeSelector:
     role: general
+  restartPolicy: Never

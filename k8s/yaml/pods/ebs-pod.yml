@@ -39,3 +39,4 @@ spec:
     awsElasticBlockStore:
       volumeID: VOLUME_DUMMY_3
       fsType: ext4
+  restartPolicy: Never
