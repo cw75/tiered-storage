@@ -614,20 +614,25 @@ int main(int argc, char* argv[]) {
       total_rep_changed = 0;
 
       // 2. check key access summary to demote cold keys to ebs tier
-      for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
-        string key = it->first;
-        unsigned total_access = it->second;
-        if (!is_metadata(key) && total_access == 0 && placement[key].global_replication_map_[1] > 0) {
-          key_info new_rep_factor;
-          new_rep_factor.global_replication_map_[1] = 0;
-          new_rep_factor.global_replication_map_[2] = MINIMUM_REPLICA_NUMBER;
-          requests[key] = new_rep_factor;
-          total_rep_changed += 1;
+      auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
+      if (time_elapsed > GRACE_PERIOD) {
+        for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
+          string key = it->first;
+          unsigned total_access = it->second;
+          if (!is_metadata(key) && total_access == 0 && placement[key].global_replication_map_[1] > 0) {
+            key_info new_rep_factor;
+            new_rep_factor.global_replication_map_[1] = 0;
+            new_rep_factor.global_replication_map_[2] = MINIMUM_REPLICA_NUMBER;
+            requests[key] = new_rep_factor;
+            total_rep_changed += 1;
+          }
         }
+        logger->info("a total of {} keys are demoted to the ebs tier", total_rep_changed);
+        change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
+        requests.clear();
+      } else {
+        logger->info("in grace period, not demoting keys");
       }
-      logger->info("a total of {} keys are demoted to the ebs tier", total_rep_changed);
-      change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
-      requests.clear();
 
       // 3. check latency to see if the SLO has been violated
       double min_node_occupancy = 1.0;
@@ -661,11 +666,12 @@ int main(int argc, char* argv[]) {
             system(shell_command.c_str());
             adding_memory_node = NODE_ADD;
           } else {
-            logger->info("in grace period");
+            logger->info("in grace period, not adding nodes");
           }
         } else {
           // hot key replication
           // find hot keys
+          logger->info("not all nodes are busy, finding hot keys...");
           for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
             string key = it->first;
             unsigned total_access = it->second;
@@ -729,7 +735,7 @@ int main(int argc, char* argv[]) {
           zmq_util::send_string(ack_addr, &pushers[connection_addr]);
           removing_memory_node = true;
         } else {
-          logger->info("in grace period");
+          logger->info("in grace period, not removing node");
         }
       }
       requests.clear();
