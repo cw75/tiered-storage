@@ -89,7 +89,7 @@ communication::Response process_request(
             tp->set_key(key);
             tp->set_err_number(2);
           } else {
-            placement.erase(key);
+            //placement.erase(key);
             issue_replication_factor_request(wt.get_replication_factor_connect_addr(), key, global_hash_ring_map[1], local_hash_ring_map[1], pushers, seed);
             string val = "";
             if (pending_request_map.find(key) == pending_request_map.end()) {
@@ -133,7 +133,7 @@ communication::Response process_request(
             tp->set_key(key);
             tp->set_err_number(2);
           } else {
-            placement.erase(key);
+            //placement.erase(key);
             issue_replication_factor_request(wt.get_replication_factor_connect_addr(), key, global_hash_ring_map[1], local_hash_ring_map[1], pushers, seed);
             if (pending_request_map.find(key) == pending_request_map.end()) {
               pending_request_map[key].first = chrono::system_clock::now();
@@ -173,7 +173,8 @@ communication::Response process_request(
   return response;
 }
 
-void process_gossip(communication::Request& gossip,
+void process_gossip(
+    communication::Request& gossip,
     server_thread_t& wt,
     unordered_map<unsigned, global_hash_t>& global_hash_ring_map,
     unordered_map<unsigned, local_hash_t>& local_hash_ring_map,
@@ -186,6 +187,8 @@ void process_gossip(communication::Request& gossip,
   vector<unsigned> tier_ids;
   tier_ids.push_back(SELF_TIER_ID);
   bool succeed;
+  // for gossip forwarding
+  unordered_map<string, communication::Request> gossip_map;
   for (int i = 0; i < gossip.tuple_size(); i++) {
     // first check if the thread is responsible for the key
     string key = gossip.tuple(i).key();
@@ -193,6 +196,22 @@ void process_gossip(communication::Request& gossip,
     if (succeed) {
       if (threads.find(wt) != threads.end()) {
         process_put(gossip.tuple(i).key(), gossip.tuple(i).timestamp(), gossip.tuple(i).value(), serializer, key_stat_map);
+      } else {
+        if (is_metadata(key)) {
+        // forward the gossip
+          for (auto it = threads.begin(); it != threads.end(); it++) {
+            if (gossip_map.find(it->get_gossip_connect_addr()) == gossip_map.end()) {
+              gossip_map[it->get_gossip_connect_addr()].set_type("PUT");
+            }
+            prepare_put_tuple(gossip_map[it->get_gossip_connect_addr()], key, gossip.tuple(i).value(), gossip.tuple(i).timestamp());
+          }
+        } else {
+          issue_replication_factor_request(wt.get_replication_factor_connect_addr(), key, global_hash_ring_map[1], local_hash_ring_map[1], pushers, seed);
+          if (pending_gossip_map.find(key) == pending_gossip_map.end()) {
+            pending_gossip_map[key].first = chrono::system_clock::now();
+          }
+          pending_gossip_map[key].second.push_back(pending_gossip(gossip.tuple(i).value(), gossip.tuple(i).timestamp()));
+        }
       }
     } else {
       if (pending_gossip_map.find(key) == pending_gossip_map.end()) {
@@ -200,6 +219,10 @@ void process_gossip(communication::Request& gossip,
       }
       pending_gossip_map[key].second.push_back(pending_gossip(gossip.tuple(i).value(), gossip.tuple(i).timestamp()));
     }
+  }
+  // redirect gossip
+  for (auto it = gossip_map.begin(); it != gossip_map.end(); it++) {
+    push_request(it->second, pushers[it->first]);
   }
 }
 
@@ -456,9 +479,7 @@ void run(unsigned thread_id) {
               if (threads.find(wt) == threads.end()) {
                 remove_set.insert(key);
                 for (auto iter = threads.begin(); iter != threads.end(); iter++) {
-                  if (iter->get_ip() == new_server_ip) {
-                    addr_keyset_map[iter->get_gossip_connect_addr()].insert(key);
-                  }
+                  addr_keyset_map[iter->get_gossip_connect_addr()].insert(key);
                 }
               }
             } else {
@@ -709,11 +730,26 @@ void run(unsigned thread_id) {
         // pending gossip
         if (pending_gossip_map.find(key) != pending_gossip_map.end()) {
           auto threads = get_responsible_threads(wt.get_replication_factor_connect_addr(), key, is_metadata(key), global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids, succeed, seed);
-          if (succeed && threads.find(wt) != threads.end()) {
-            for (auto it = pending_gossip_map[key].second.begin(); it != pending_gossip_map[key].second.end(); it++) {
-              process_put(key, it->ts_, it->value_, serializer, key_stat_map);
+          if (succeed) {
+            if (threads.find(wt) != threads.end()) {
+              for (auto it = pending_gossip_map[key].second.begin(); it != pending_gossip_map[key].second.end(); it++) {
+                process_put(key, it->ts_, it->value_, serializer, key_stat_map);
+              }
+            } else {
+              unordered_map<string, communication::Request> gossip_map;
+              // forward the gossip
+              for (auto it = threads.begin(); it != threads.end(); it++) {
+                gossip_map[it->get_gossip_connect_addr()].set_type("PUT");
+                for (auto iter = pending_gossip_map[key].second.begin(); iter != pending_gossip_map[key].second.end(); iter++) {
+                  prepare_put_tuple(gossip_map[it->get_gossip_connect_addr()], key, iter->value_, iter->ts_);
+                }
+              }
+              // redirect gossip
+              for (auto it = gossip_map.begin(); it != gossip_map.end(); it++) {
+                push_request(it->second, pushers[it->first]);
+              }
             }
-          } else if (!succeed) {
+          } else {
             logger->info("Error: key missing replication factor in process pending gossip routine");
           }
           pending_gossip_map.erase(key);
