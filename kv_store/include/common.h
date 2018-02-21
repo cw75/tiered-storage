@@ -43,7 +43,7 @@ using namespace std;
 #define MEMORY_THREAD_NUM 4
 
 // Define the number of ebs threads
-#define EBS_THREAD_NUM 6
+#define EBS_THREAD_NUM 3
 
 // Define the number of proxy worker threads
 #define PROXY_THREAD_NUM 16
