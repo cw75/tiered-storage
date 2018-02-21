@@ -29,10 +29,13 @@ int main(int argc, char* argv[]) {
   string ip_line;
   ifstream address;
   address.open("conf/user/benchmark_address.txt");
-  while (getline(address, ip_line)) {
-    benchmark_address.push_back(ip_line);
-  }
+  getline(address, ip_line);
   address.close();
+  vector<string> ips;
+  split(ip_line, ' ', ips);
+  for (auto it = ips.begin(); it != ips.end(); it++) {
+    benchmark_address.push_back(*it);
+  }
 
   zmq::context_t context(1);
   SocketCache pushers(&context, ZMQ_PUSH);
