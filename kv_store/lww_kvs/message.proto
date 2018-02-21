@@ -99,8 +99,9 @@ message Address {
   repeated Tuple tuple = 2;
 }
 
-message Latency {
+message Feedback {
   required string uid = 1;
   optional double latency = 2;
   optional bool finish = 3;
+  optional double throughput = 4;
 }

@@ -358,6 +358,7 @@ void run(unsigned thread_id) {
             communication::Latency l;
             l.set_uid(ip + ":" + to_string(thread_id));
             l.set_latency(latency);
+            l.set_throughput(throughput);
             string serialized_latency;
             l.SerializeToString(&serialized_latency);
             zmq_util::send_string(serialized_latency, &pushers[mt.get_latency_report_connect_addr()]);

@@ -16,7 +16,7 @@
 #include "common.h"
 
 // number of nodes to add concurrently
-#define NODE_ADD 3
+#define NODE_ADD 10
 
 using namespace std;
 using address_t = string;
@@ -236,6 +236,9 @@ int main(int argc, char* argv[]) {
   unordered_map<address_t, unordered_map<unsigned, pair<double, unsigned>>> ebs_tier_occupancy;
   // keep track of user latency info
   unordered_map<address_t, double> user_latency;
+  // keep track of user throughput info
+  unordered_map<address_t, double> user_throughput;
+
   // read in the initial server addresses and build the hash ring
   string ip_line;
   ifstream address;
@@ -406,6 +409,11 @@ int main(int argc, char* argv[]) {
       } else {
         user_latency[l.uid()] = l.latency();
       }
+      if (l.has_finish() && l.finish()) {
+        user_throughput.erase(l.uid());
+      } else {
+        user_throughput[l.uid()] = l.throughput();
+      }
     }
 
     report_end = std::chrono::system_clock::now();
@@ -543,6 +551,7 @@ int main(int argc, char* argv[]) {
       }
 
       double max_memory_occupancy = 0.0;
+      double min_memory_occupancy = 0.0;
       double sum_memory_occupancy = 0.0;
       unsigned count = 0;
       for (auto it1 = memory_tier_occupancy.begin(); it1 != memory_tier_occupancy.end(); it1++) {
@@ -551,15 +560,20 @@ int main(int argc, char* argv[]) {
           if (it2->second.first > max_memory_occupancy) {
             max_memory_occupancy = it2->second.first;
           }
+          if (it2->second.first < min_memory_occupancy) {
+            min_memory_occupancy = it2->second.first;
+          }
           sum_memory_occupancy += it2->second.first;
           count += 1;
         }
       }
       double avg_memory_occupancy = sum_memory_occupancy / count;
       logger->info("max memory node occupancy is {}", to_string(max_memory_occupancy));
+      logger->info("min memory node occupancy is {}", to_string(min_memory_occupancy));
       logger->info("avg memory node occupancy is {}", to_string(avg_memory_occupancy));
 
       double max_ebs_occupancy = 0.0;
+      double min_ebs_occupancy = 0.0;
       double sum_ebs_occupancy = 0.0;
       count = 0;
       for (auto it1 = ebs_tier_occupancy.begin(); it1 != ebs_tier_occupancy.end(); it1++) {
@@ -568,16 +582,20 @@ int main(int argc, char* argv[]) {
           if (it2->second.first > max_ebs_occupancy) {
             max_ebs_occupancy = it2->second.first;
           }
+          if (it2->second.first < min_ebs_occupancy) {
+            min_ebs_occupancy = it2->second.first;
+          }
           sum_ebs_occupancy += it2->second.first;
           count += 1;
         }
       }
       double avg_ebs_occupancy = sum_ebs_occupancy / count;
       logger->info("max ebs node occupancy is {}", to_string(max_ebs_occupancy));
+      logger->info("min ebs node occupancy is {}", to_string(min_ebs_occupancy));
       logger->info("avg ebs node occupancy is {}", to_string(avg_ebs_occupancy));
 
       // gather latency info
-      double avg_latency;
+      double avg_latency = 0;
       if (user_latency.size() > 0) {
         // compute latency from users
         logger->info("computing latency from user feedback");
@@ -588,13 +606,21 @@ int main(int argc, char* argv[]) {
           count += 1;
         }
         avg_latency = sum_latency / count;
-      } else {
-        avg_latency = 0;
       }
       logger->info("avg latency is {}", avg_latency);
+      // gather throughput info
+      double total_throughput = 0;
+      if (user_throughput.size() > 0) {
+        // compute latency from users
+        logger->info("computing throughput from user feedback");
+        for (auto it = user_throughput.begin(); it != user_throughput.end(); it++) {
+          total_throughput += it->second;
+        }
+      }
+      logger->info("total throughput is {}", total_throughput);      
 
       // Policy Start Here:
-      /*unordered_map<string, key_info> requests;
+      unordered_map<string, key_info> requests;
       unsigned total_rep_changed = 0;
       // 1. check key access summary to promote hot keys to memory tier
       for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
@@ -655,7 +681,7 @@ int main(int argc, char* argv[]) {
       if (avg_latency > SLO_WORST && adding_memory_node == 0) {
         logger->info("latency is too high!");
         // figure out if we should do hot key replication or add nodes
-        if (min_node_occupancy > 0.08) {
+        if (min_node_occupancy > 0.15) {
           // add nodes
           logger->info("all nodes are busy, adding new nodes");
           // trigger elasticity
@@ -742,7 +768,7 @@ int main(int argc, char* argv[]) {
 
       // 3.3 if latency is fine, check if there is underutilized memory node
       if (avg_latency >= SLO_BEST && avg_latency <= SLO_WORST && !removing_memory_node && global_hash_ring_map[1].size() > MINIMUM_MEMORY_NODE*VIRTUAL_THREAD_NUM) {
-        if (min_node_occupancy < 0.005) {
+        if (min_node_occupancy < 0.03) {
           logger->info("node {} is severely underutilized, consider removing", min_node_ip);
           auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
           if (time_elapsed > GRACE_PERIOD) {
@@ -778,9 +804,10 @@ int main(int argc, char* argv[]) {
           }
         }
       }
-      requests.clear();*/
+      requests.clear();
 
       user_latency.clear();
+      user_throughput.clear();
       
       report_start = std::chrono::system_clock::now();
     }

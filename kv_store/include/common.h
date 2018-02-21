@@ -30,17 +30,17 @@ using namespace std;
 #define GRACE_PERIOD 120
 
 // Define the replication factor for the metadata
-#define METADATA_REPLICATION_FACTOR 1
+#define METADATA_REPLICATION_FACTOR 2
 
 // Define the default replication factor for the data
-#define DEFAULT_GLOBAL_MEMORY_REPLICATION 3
-#define DEFAULT_GLOBAL_EBS_REPLICATION 0
+#define DEFAULT_GLOBAL_MEMORY_REPLICATION 0
+#define DEFAULT_GLOBAL_EBS_REPLICATION 3
 #define MINIMUM_REPLICA_NUMBER 3
 // Define the default local replication factor
 #define DEFAULT_LOCAL_REPLICATION 1
 
 // Define the number of memory threads
-#define MEMORY_THREAD_NUM 1
+#define MEMORY_THREAD_NUM 2
 
 // Define the number of ebs threads
 #define EBS_THREAD_NUM 1
@@ -49,7 +49,7 @@ using namespace std;
 #define PROXY_THREAD_NUM 16
 
 // Define the number of benchmark threads
-#define BENCHMARK_THREAD_NUM 16
+#define BENCHMARK_THREAD_NUM 32
 
 // Define the number of virtual thread per each physical thread
 #define VIRTUAL_THREAD_NUM 200
@@ -57,11 +57,11 @@ using namespace std;
 #define MIN_TIER 1
 #define MAX_TIER 2
 
-#define MINIMUM_MEMORY_NODE 3
-#define MINIMUM_EBS_NODE 0
+#define MINIMUM_MEMORY_NODE 150
+#define MINIMUM_EBS_NODE 100
 
-#define SLO_WORST 1400
-#define SLO_BEST 900
+#define SLO_WORST 20000
+#define SLO_BEST 10000
 
 // Define port offset
 // used by servers
