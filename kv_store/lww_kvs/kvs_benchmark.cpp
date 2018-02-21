@@ -291,7 +291,7 @@ void run(unsigned thread_id) {
               double throughput = (double)count / (double)time_elapsed;
               logger->info("Throughput is {} ops/seconds", throughput);
               auto latency = (double)1000000 / throughput;
-              communication::Latency l;
+              communication::Feedback l;
               l.set_uid(ip + ":" + to_string(thread_id));
               l.set_latency(latency);
               string serialized_latency;
@@ -355,7 +355,7 @@ void run(unsigned thread_id) {
             double throughput = (double)count / (double)time_elapsed;
             logger->info("Throughput is {} ops/seconds", throughput);
             auto latency = (double)1000000 / throughput;
-            communication::Latency l;
+            communication::Feedback l;
             l.set_uid(ip + ":" + to_string(thread_id));
             l.set_latency(latency);
             l.set_throughput(throughput);
@@ -380,7 +380,7 @@ void run(unsigned thread_id) {
         logger->info("invalid experiment mode");
       }
       logger->info("Finished");
-      communication::Latency l;
+      communication::Feedback l;
       l.set_uid(ip + ":" + to_string(thread_id));
       l.set_finish(true);
       string serialized_latency;

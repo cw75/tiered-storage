@@ -402,16 +402,12 @@ int main(int argc, char* argv[]) {
 
     if (pollitems[2].revents & ZMQ_POLLIN) {
       string serialized_latency = zmq_util::recv_string(&latency_puller);
-      communication::Latency l;
+      communication::Feedback l;
       l.ParseFromString(serialized_latency);
       if (l.has_finish() && l.finish()) {
         user_latency.erase(l.uid());
       } else {
         user_latency[l.uid()] = l.latency();
-      }
-      if (l.has_finish() && l.finish()) {
-        user_throughput.erase(l.uid());
-      } else {
         user_throughput[l.uid()] = l.throughput();
       }
     }
