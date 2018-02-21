@@ -18,8 +18,8 @@ using namespace std;
 
 // Define server report threshold (in microsecond)
 #define SERVER_REPORT_THRESHOLD 15000000
-// Define server report threshold (in microsecond)
-#define KEY_MONITORING_THRESHOLD 120000000
+// Define server's key monitoring threshold (in microsecond)
+#define KEY_MONITORING_THRESHOLD 150000000
 // Define monitoring threshold (in microsecond)
 #define MONITORING_THRESHOLD 30000000
 // Define garbage collection threshold for pending events (in millisecond)
@@ -43,7 +43,7 @@ using namespace std;
 #define MEMORY_THREAD_NUM 4
 
 // Define the number of ebs threads
-#define EBS_THREAD_NUM 3
+#define EBS_THREAD_NUM 6
 
 // Define the number of proxy worker threads
 #define PROXY_THREAD_NUM 16

@@ -258,7 +258,7 @@ int main(int argc, char* argv[]) {
 
   // responsible for both node join and departure
   zmq::socket_t response_puller(context, ZMQ_PULL);
-  int timeout = 8000;
+  int timeout = 10000;
   response_puller.setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
   response_puller.bind(mt.get_request_pulling_bind_addr());
 
@@ -594,7 +594,7 @@ int main(int argc, char* argv[]) {
       logger->info("avg latency is {}", avg_latency);
 
       // Policy Start Here:
-      unordered_map<string, key_info> requests;
+      /*unordered_map<string, key_info> requests;
       unsigned total_rep_changed = 0;
       // 1. check key access summary to promote hot keys to memory tier
       for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
@@ -778,7 +778,7 @@ int main(int argc, char* argv[]) {
           }
         }
       }
-      requests.clear();
+      requests.clear();*/
 
       user_latency.clear();
       
