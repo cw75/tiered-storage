@@ -53,10 +53,6 @@ elif [ "$1" = "e" ]; then
   # create new EBS volumes; we have 3 per server by default
   EBS_V0=`aws ec2 create-volume --availability-zone=us-east-1a --size=64 --volume-type=gp2 | grep VolumeId | cut -d\" -f4`
   aws ec2 create-tags --resources $EBS_V0 --tags Key=KubernetesCluster,Value=$NAME
-  EBS_V1=`aws ec2 create-volume --availability-zone=us-east-1a --size=64 --volume-type=gp2 | grep VolumeId | cut -d\" -f4`
-  aws ec2 create-tags --resources $EBS_V1 --tags Key=KubernetesCluster,Value=$NAME
-  EBS_V2=`aws ec2 create-volume --availability-zone=us-east-1a --size=64 --volume-type=gp2 | grep VolumeId | cut -d\" -f4`
-  aws ec2 create-tags --resources $EBS_V2 --tags Key=KubernetesCluster,Value=$NAME
 elif [ "$1" = "p" ]; then
   YML_FILE=yaml/pods/proxy-pod.yml
   SERVERS=""
@@ -79,8 +75,6 @@ fi
 
 # set EBS volume IDs
 sed -i "s|VOLUME_DUMMY_0|$EBS_V0|g" tmp.yml
-sed -i "s|VOLUME_DUMMY_1|$EBS_V1|g" tmp.yml
-sed -i "s|VOLUME_DUMMY_2|$EBS_V2|g" tmp.yml
  
 # set the IPs of other system components
 sed -i "s|PROXY_IPS_DUMMY|\"$PROXY_IPS\"|g" tmp.yml

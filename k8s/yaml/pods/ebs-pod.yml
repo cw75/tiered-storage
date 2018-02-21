@@ -20,23 +20,11 @@ spec:
       volumeMounts:
       - mountPath: /ebs/ebs_0
         name: ebs0
-      - mountPath: /ebs/ebs_1
-        name: ebs1
-      - mountPath: /ebs/ebs_2
-        name: ebs2
   nodeSelector:
     role: ebs-UNIQUE
   volumes:
   - name: ebs0
     awsElasticBlockStore:
       volumeID: VOLUME_DUMMY_0
-      fsType: ext4
-  - name: ebs1
-    awsElasticBlockStore:
-      volumeID: VOLUME_DUMMY_1
-      fsType: ext4
-  - name: ebs2
-    awsElasticBlockStore:
-      volumeID: VOLUME_DUMMY_2
       fsType: ext4
   restartPolicy: Never
