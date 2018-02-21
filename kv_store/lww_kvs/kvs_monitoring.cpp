@@ -16,7 +16,7 @@
 #include "common.h"
 
 // number of nodes to add concurrently
-#define NODE_ADD 10
+#define NODE_ADD 5
 
 using namespace std;
 using address_t = string;
