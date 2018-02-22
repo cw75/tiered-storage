@@ -547,7 +547,7 @@ int main(int argc, char* argv[]) {
       }
 
       double max_memory_occupancy = 0.0;
-      double min_memory_occupancy = 0.0;
+      double min_memory_occupancy = 1.0;
       double sum_memory_occupancy = 0.0;
       unsigned count = 0;
       for (auto it1 = memory_tier_occupancy.begin(); it1 != memory_tier_occupancy.end(); it1++) {
