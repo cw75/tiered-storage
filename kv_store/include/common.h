@@ -38,7 +38,7 @@ using namespace std;
 #define DEFAULT_LOCAL_REPLICATION 1
 
 // Define the number of memory threads
-#define MEMORY_THREAD_NUM 4
+#define MEMORY_THREAD_NUM 2
 
 // Define the number of ebs threads
 #define EBS_THREAD_NUM 1
@@ -58,8 +58,8 @@ using namespace std;
 #define MINIMUM_MEMORY_NODE 10
 #define MINIMUM_EBS_NODE 5
 
-#define SLO_WORST 20000
-#define SLO_BEST 10000
+#define SLO_WORST 2000
+#define SLO_BEST 1000
 
 // Define port offset
 // used by servers
@@ -601,7 +601,7 @@ proxy_thread_t get_random_proxy_thread(vector<string>& proxy_address, unsigned& 
 }
 
 void warmup(unordered_map<string, key_info>& placement) {
-  for (unsigned i = 1; i <= 100000; i++) {
+  for (unsigned i = 1; i <= 1000000; i++) {
     // key is 8 bytes
     string key = string(8 - to_string(i).length(), '0') + to_string(i);
     placement[key].global_replication_map_[1] = DEFAULT_GLOBAL_MEMORY_REPLICATION;

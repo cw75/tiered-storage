@@ -233,7 +233,7 @@ void run(unsigned thread_id) {
       for (unsigned i = 1; i <= num_keys; i++) {
         // key is 8 bytes
         string key = string(8 - to_string(i).length(), '0') + to_string(i);
-        if (i % 10000 == 0) {
+        if (i % 50000 == 0) {
           logger->info("warming up key {}", key);
         }
         string target_proxy_address = get_random_proxy_thread(proxy_address, seed).get_key_address_connect_addr();

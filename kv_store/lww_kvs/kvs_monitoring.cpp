@@ -569,7 +569,7 @@ int main(int argc, char* argv[]) {
       logger->info("avg memory node occupancy is {}", to_string(avg_memory_occupancy));
 
       double max_ebs_occupancy = 0.0;
-      double min_ebs_occupancy = 0.0;
+      double min_ebs_occupancy = 1.0;
       double sum_ebs_occupancy = 0.0;
       count = 0;
       for (auto it1 = ebs_tier_occupancy.begin(); it1 != ebs_tier_occupancy.end(); it1++) {
@@ -677,7 +677,7 @@ int main(int argc, char* argv[]) {
       if (avg_latency > SLO_WORST && adding_memory_node == 0) {
         logger->info("latency is too high!");
         // figure out if we should do hot key replication or add nodes
-        if (min_node_occupancy > 0.15) {
+        if (min_node_occupancy > 0.08) {
           // add nodes
           logger->info("all nodes are busy, adding new nodes");
           // trigger elasticity
