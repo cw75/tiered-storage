@@ -109,7 +109,15 @@ kubectl create -f tmp.yml > /dev/null 2>&1
 rm tmp.yml
 
 echo "Creating $3 proxy node(s)..."
-add_nodes 0 0 $3 0
+LOOP=$(( $3 / 40 ))
+REMAINDER=$(( $3 - ($LOOP * 40) ))
+for ((n=0;n<$LOOP;n++))
+do
+  echo "Batch creating 40 proxy node(s)..."
+  add_nodes 0 0 40 0
+done
+echo "Batch creating $REMAINDER proxy node(s)..."
+add_nodes 0 0 $REMAINDER 0
 
 # wait for all proxies to be ready
 PROXY_IPS=`kubectl get pods -l role=proxy -o jsonpath='{.items[*].status.podIP}'`
@@ -119,9 +127,38 @@ while [ ${#PROXY_IP_ARR[@]} -ne $3 ]; do
   PROXY_IP_ARR=($PROXY_IPS)
 done
 
-echo "Creating $1 memory node(s), $2 ebs node(s), and $4 benchmark node(s)..."
+echo "Creating $1 memory node(s)..."
+LOOP=$(( $1 / 40 ))
+REMAINDER=$(( $1 - ($LOOP * 40) ))
+for ((n=0;n<$LOOP;n++))
+do
+  echo "Batch creating 40 memory node(s)..."
+  add_nodes 40 0 0 0
+done
+echo "Batch creating $REMAINDER memory node(s)..."
+add_nodes $REMAINDER 0 0 0
 
-add_nodes $1 $2 0 $4
+echo "Creating $2 ebs node(s)..."
+LOOP=$(( $2 / 40 ))
+REMAINDER=$(( $2 - ($LOOP * 40) ))
+for ((n=0;n<$LOOP;n++))
+do
+  echo "Batch creating 40 ebs node(s)..."
+  add_nodes 0 40 0 0
+done
+echo "Batch creating $REMAINDER ebs node(s)..."
+add_nodes 0 $REMAINDER 0 0
+
+echo "Creating $4 benchmark node(s)..."
+LOOP=$(( $4 / 40 ))
+REMAINDER=$(( $4 - ($LOOP * 40) ))
+for ((n=0;n<$LOOP;n++))
+do
+  echo "Batch creating 40 benchmark node(s)..."
+  add_nodes 0 0 0 40
+done
+echo "Batch creating $REMAINDER benchmark node(s)..."
+add_nodes 0 0 0 $REMAINDER
 
 # copy the SSH key into the management node... doing this later because we need
 # to wait for the pod to come up
