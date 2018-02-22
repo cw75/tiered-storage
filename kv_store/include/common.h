@@ -22,8 +22,6 @@ using namespace std;
 #define KEY_MONITORING_THRESHOLD 150000000
 // Define monitoring threshold (in microsecond)
 #define MONITORING_THRESHOLD 30000000
-// Define garbage collection threshold for pending events (in millisecond)
-#define GARBAGE_COLLECTION_THRESHOLD 5000
 // Define the threshold for retry rep factor query for gossip handling (in millisecond)
 #define RETRY_THRESHOLD 8000
 // Define the grace period for triggering elasticity action (in second)
@@ -33,14 +31,14 @@ using namespace std;
 #define METADATA_REPLICATION_FACTOR 2
 
 // Define the default replication factor for the data
-#define DEFAULT_GLOBAL_MEMORY_REPLICATION 0
-#define DEFAULT_GLOBAL_EBS_REPLICATION 3
+#define DEFAULT_GLOBAL_MEMORY_REPLICATION 3
+#define DEFAULT_GLOBAL_EBS_REPLICATION 0
 #define MINIMUM_REPLICA_NUMBER 3
 // Define the default local replication factor
 #define DEFAULT_LOCAL_REPLICATION 1
 
 // Define the number of memory threads
-#define MEMORY_THREAD_NUM 2
+#define MEMORY_THREAD_NUM 4
 
 // Define the number of ebs threads
 #define EBS_THREAD_NUM 1
@@ -49,7 +47,7 @@ using namespace std;
 #define PROXY_THREAD_NUM 16
 
 // Define the number of benchmark threads
-#define BENCHMARK_THREAD_NUM 32
+#define BENCHMARK_THREAD_NUM 16
 
 // Define the number of virtual thread per each physical thread
 #define VIRTUAL_THREAD_NUM 200
@@ -57,8 +55,8 @@ using namespace std;
 #define MIN_TIER 1
 #define MAX_TIER 2
 
-#define MINIMUM_MEMORY_NODE 150
-#define MINIMUM_EBS_NODE 100
+#define MINIMUM_MEMORY_NODE 10
+#define MINIMUM_EBS_NODE 5
 
 #define SLO_WORST 20000
 #define SLO_BEST 10000

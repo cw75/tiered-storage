@@ -6,7 +6,7 @@ import logging
 
 logging.basicConfig(filename='log.txt',level=logging.INFO)
 
-node_add = 5
+node_add = 2
 
 class KopsHandler(BaseHTTPRequestHandler):
     def do_POST(self):

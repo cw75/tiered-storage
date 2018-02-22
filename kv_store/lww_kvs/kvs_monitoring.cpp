@@ -16,7 +16,7 @@
 #include "common.h"
 
 // number of nodes to add concurrently
-#define NODE_ADD 5
+#define NODE_ADD 2
 
 using namespace std;
 using address_t = string;
@@ -616,7 +616,7 @@ int main(int argc, char* argv[]) {
       logger->info("total throughput is {}", total_throughput);      
 
       // Policy Start Here:
-      unordered_map<string, key_info> requests;
+      /*unordered_map<string, key_info> requests;
       unsigned total_rep_changed = 0;
       // 1. check key access summary to promote hot keys to memory tier
       for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
@@ -800,7 +800,7 @@ int main(int argc, char* argv[]) {
           }
         }
       }
-      requests.clear();
+      requests.clear();*/
 
       user_latency.clear();
       user_throughput.clear();
