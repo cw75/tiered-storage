@@ -6,6 +6,11 @@ if [ -z "$1" ] && [ -z "$2"] && [ -z "$3"] && [ -z "$4" ]; then
   echo "If no SSH key is specified, it is assumed that we are using the default SSH key (/home/ubuntu/.ssh/id_rsa). We assume that the corresponding public key has the same name and ends in .pub."
   exit 1
 fi
+if [ -z "$5" ]; then
+  SSH_KEY=/home/ubuntu/.ssh/id_rsa
+else 
+  SSH_KEY=$5
+fi
 
 add_nodes() {
   if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ]; then 
@@ -52,18 +57,10 @@ add_nodes() {
   done
 
   for i in ${!IDS[@]}; do
-    echo $i
-    echo ${NODE_TYPE[$i]}
-    echo ${IDS[$i]}
     ./add_node.sh ${NODE_TYPE[$i]} ${IDS[$i]}
   done
 }
 
-if [ -z "$5" ]; then
-  SSH_KEY=/home/ubuntu/.ssh/id_rsa
-else 
-  SSH_KEY=$5
-fi
 
 export NAME=kvs.k8s.local
 export KOPS_STATE_STORE=s3://tiered-storage-state-store
@@ -108,18 +105,9 @@ sed "s|MGMT_IP_DUMMY|$MGMT_IP|g" yaml/pods/monitoring-pod.yml > tmp.yml
 kubectl create -f tmp.yml > /dev/null 2>&1
 rm tmp.yml
 
-echo "Creating $3 proxy node(s)..."
-LOOP=$(( $3 / 40 ))
-REMAINDER=$(( $3 - ($LOOP * 40) ))
-for ((n=0;n<$LOOP;n++))
-do
-  echo "Batch creating 40 proxy node(s)..."
-  add_nodes 0 0 40 0
-done
-echo "Batch creating $REMAINDER proxy node(s)..."
-add_nodes 0 0 $REMAINDER 0
+add_nodes 0 0 $3 0 
 
-# wait for all proxies to be ready
+wait for all proxies to be ready
 PROXY_IPS=`kubectl get pods -l role=proxy -o jsonpath='{.items[*].status.podIP}'`
 PROXY_IP_ARR=($PROXY_IPS)
 while [ ${#PROXY_IP_ARR[@]} -ne $3 ]; do
@@ -127,38 +115,7 @@ while [ ${#PROXY_IP_ARR[@]} -ne $3 ]; do
   PROXY_IP_ARR=($PROXY_IPS)
 done
 
-echo "Creating $1 memory node(s)..."
-LOOP=$(( $1 / 40 ))
-REMAINDER=$(( $1 - ($LOOP * 40) ))
-for ((n=0;n<$LOOP;n++))
-do
-  echo "Batch creating 40 memory node(s)..."
-  add_nodes 40 0 0 0
-done
-echo "Batch creating $REMAINDER memory node(s)..."
-add_nodes $REMAINDER 0 0 0
-
-echo "Creating $2 ebs node(s)..."
-LOOP=$(( $2 / 40 ))
-REMAINDER=$(( $2 - ($LOOP * 40) ))
-for ((n=0;n<$LOOP;n++))
-do
-  echo "Batch creating 40 ebs node(s)..."
-  add_nodes 0 40 0 0
-done
-echo "Batch creating $REMAINDER ebs node(s)..."
-add_nodes 0 $REMAINDER 0 0
-
-echo "Creating $4 benchmark node(s)..."
-LOOP=$(( $4 / 40 ))
-REMAINDER=$(( $4 - ($LOOP * 40) ))
-for ((n=0;n<$LOOP;n++))
-do
-  echo "Batch creating 40 benchmark node(s)..."
-  add_nodes 0 0 0 40
-done
-echo "Batch creating $REMAINDER benchmark node(s)..."
-add_nodes 0 0 0 $REMAINDER
+add_nodes $1 $2 0 $4
 
 # copy the SSH key into the management node... doing this later because we need
 # to wait for the pod to come up
