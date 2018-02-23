@@ -19,7 +19,7 @@ using namespace std;
 // Define server report threshold (in microsecond)
 #define SERVER_REPORT_THRESHOLD 15000000
 // Define server's key monitoring threshold (in microsecond)
-#define KEY_MONITORING_THRESHOLD 150000000
+#define KEY_MONITORING_THRESHOLD 300000000
 // Define monitoring threshold (in microsecond)
 #define MONITORING_THRESHOLD 30000000
 // Define the threshold for retry rep factor query for gossip handling (in millisecond)
@@ -31,8 +31,8 @@ using namespace std;
 #define METADATA_REPLICATION_FACTOR 2
 
 // Define the default replication factor for the data
-#define DEFAULT_GLOBAL_MEMORY_REPLICATION 3
-#define DEFAULT_GLOBAL_EBS_REPLICATION 0
+#define DEFAULT_GLOBAL_MEMORY_REPLICATION 0
+#define DEFAULT_GLOBAL_EBS_REPLICATION 3
 #define MINIMUM_REPLICA_NUMBER 3
 // Define the default local replication factor
 #define DEFAULT_LOCAL_REPLICATION 1
@@ -55,11 +55,17 @@ using namespace std;
 #define MIN_TIER 1
 #define MAX_TIER 2
 
-#define MINIMUM_MEMORY_NODE 10
+#define MINIMUM_MEMORY_NODE 1
 #define MINIMUM_EBS_NODE 5
 
 #define SLO_WORST 2000
 #define SLO_BEST 1000
+
+// node capacity in KB
+#define MEM_NODE_CAPACITY 32000000
+#define EBS_NODE_CAPACITY 64000000
+// value size in KB
+#define VALUE_SIZE 100
 
 // Define port offset
 // used by servers
@@ -322,11 +328,12 @@ struct key_info {
 
 // read-only per-tier metadata
 struct tier_data {
-  tier_data() : thread_number_(1), default_replication_(1) {}
-  tier_data(unsigned t_num, unsigned rep)
-    : thread_number_(t_num), default_replication_(rep) {}
+  tier_data() : thread_number_(1), default_replication_(1), node_capacity_(0) {}
+  tier_data(unsigned t_num, unsigned rep, unsigned long long node_capacity)
+    : thread_number_(t_num), default_replication_(rep), node_capacity_(node_capacity) {}
   unsigned thread_number_;
   unsigned default_replication_;
+  unsigned long long node_capacity_;
 };
 
 typedef consistent_hash_map<server_thread_t, global_hasher> global_hash_t;

@@ -891,7 +891,7 @@ void run(unsigned thread_id) {
         logger->info("occupancy is {}", to_string(occupancy));
       }
       communication::Server_Stat stat;
-      stat.set_storage_consumption(consumption);
+      stat.set_storage_consumption(consumption/1000);
       stat.set_occupancy(occupancy);
       stat.set_epoch(epoch);
       string serialized_stat;
@@ -997,8 +997,8 @@ int main(int argc, char* argv[]) {
   // debugging
   cerr << "tier id is " + to_string(SELF_TIER_ID) + "\n";
 
-  tier_data_map[1] = tier_data(MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION);
-  tier_data_map[2] = tier_data(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION);
+  tier_data_map[1] = tier_data(MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION, MEM_NODE_CAPACITY);
+  tier_data_map[2] = tier_data(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION, EBS_NODE_CAPACITY);
 
   THREAD_NUM = tier_data_map[SELF_TIER_ID].thread_number_;
 

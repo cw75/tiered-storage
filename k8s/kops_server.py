@@ -6,25 +6,25 @@ import logging
 
 logging.basicConfig(filename='log.txt',level=logging.INFO)
 
-node_add = 2
-
 class KopsHandler(BaseHTTPRequestHandler):
     def do_POST(self):
-        if self.path == '/memory':
-            print('Adding ' + str(node_add) + 'new memory node...')
-            logging.info('Adding ' + str(node_add) + ' new memory node...')
-            if os.system('./kops_add_node.sh m ' + str(node_add)) == 0:
+        if '/add/memory' in self.path:
+            num = list(filter(lambda a: a != '', self.path.split('/')))[-1]
+            print('Adding ' + num + 'new memory node...')
+            logging.info('Adding ' + num + ' new memory node...')
+            if os.system('./kops_add_node.sh m ' + num) == 0:
                 self.send_response(200)
-                self.wfile.write(bytes('Successfully added ' + str(node_add) + ' memory node.', 'utf-8'))
+                self.wfile.write(bytes('Successfully added ' + num + ' memory node.', 'utf-8'))
             else:
                 self.send_response(500)
                 self.wfile.write(bytes('Unexpected error while adding nodes.', 'utf-8'))
-        elif self.path == '/ebs':
-            print('Adding ' + str(node_add) + 'new EBS node...')
-            logging.info('Adding ' + str(node_add) + ' new EBS node...')
-            if os.system('./kops_add_node.sh e ' + str(node_add)) == 0:
+        elif '/add/ebs' in self.path:
+            num = list(filter(lambda a: a != '', self.path.split('/')))[-1]
+            print('Adding ' + num + 'new EBS node...')
+            logging.info('Adding ' + num + ' new EBS node...')
+            if os.system('./kops_add_node.sh e ' + num) == 0:
                 self.send_response(200)
-                self.wfile.write(bytes('Successfully added ' + str(node_add) + ' EBS node.', 'utf-8'))
+                self.wfile.write(bytes('Successfully added ' + num + ' EBS node.', 'utf-8'))
             else:
                 self.send_response(500)
                 self.wfile.write(bytes('Unexpected error while adding nodes.', 'utf-8'))
