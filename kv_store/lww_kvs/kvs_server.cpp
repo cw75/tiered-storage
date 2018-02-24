@@ -880,7 +880,8 @@ void run(unsigned thread_id) {
       }
       // log time
       for (auto it = working_time_map.begin(); it != working_time_map.end(); it++) {
-        double event_occupancy = (double) it->second / (double) duration;
+        // cast to microsecond
+        double event_occupancy = (double) it->second / ((double) duration * 1000000);
         if (event_occupancy > 0.02) {
           logger->info("event {} occupancy is {}", to_string(it->first), to_string(event_occupancy));
         }
@@ -891,6 +892,7 @@ void run(unsigned thread_id) {
         logger->info("occupancy is {}", to_string(occupancy));
       }
       communication::Server_Stat stat;
+      // cast to KB
       stat.set_storage_consumption(consumption/1000);
       stat.set_occupancy(occupancy);
       stat.set_epoch(epoch);
