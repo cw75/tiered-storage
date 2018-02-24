@@ -608,7 +608,7 @@ int main(int argc, char* argv[]) {
       logger->info("total throughput is {}", total_throughput);      
 
       unsigned required_memory_node = ceil(total_memory_consumption / (CAPACITY_MAX * tier_data_map[1].node_capacity_));
-      unsigned required_ebs_node = ceil(total_memory_consumption / (CAPACITY_MAX * tier_data_map[2].node_capacity_));
+      unsigned required_ebs_node = ceil(total_ebs_consumption / (CAPACITY_MAX * tier_data_map[2].node_capacity_));
       logger->info("required memory node is {}", required_memory_node);
       logger->info("required ebs node is {}", required_ebs_node);
 
@@ -627,7 +627,7 @@ int main(int argc, char* argv[]) {
             system(shell_command.c_str());
             adding_memory_node = NODE_ADD;
           } else {
-            logger->info("in grace period, not adding nodes");
+            logger->info("in grace period, not adding memory nodes");
           }
         }
 
@@ -640,7 +640,7 @@ int main(int argc, char* argv[]) {
             system(shell_command.c_str());
             adding_ebs_node = NODE_ADD;
           } else {
-            logger->info("in grace period, not adding nodes");
+            logger->info("in grace period, not adding ebs nodes");
           }
         }
 

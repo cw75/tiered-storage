@@ -241,7 +241,7 @@ void run(unsigned thread_id) {
           }
         }
         auto warmup_time = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-warmup_start).count();
-        logger->info("warming cache took {} seconds", warmup_time);
+        logger->info("warming up cache took {} seconds", warmup_time);
 
         // prepare for zipfian workload with coefficient 4 (for high contention)
         double base = get_base(num_keys, 4);
@@ -396,7 +396,8 @@ void run(unsigned thread_id) {
         unsigned start = thread_id * range + 1;
         unsigned end = thread_id * range + 1 + range;
         string key;
-        logger->info("Warming up");
+        logger->info("Warming up data");
+        auto warmup_start = std::chrono::system_clock::now();
         for (unsigned i = start; i < end; i++) {
           unsigned trial = 1;
           key = string(8 - to_string(i).length(), '0') + to_string(i);
@@ -410,6 +411,8 @@ void run(unsigned thread_id) {
           }
         }
         logger->info("Finished warming up");
+        auto warmup_time = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-warmup_start).count();
+        logger->info("warming up data took {} seconds", warmup_time);
         if (thread_id == 0) {
         communication::Feedback f;
           f.set_uid(ip + ":" + to_string(thread_id));
