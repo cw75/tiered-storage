@@ -887,7 +887,8 @@ void run(unsigned thread_id) {
         }
       }
       // compute occupancy
-      double occupancy = (double) working_time / (double) duration;
+      // cast to microsecond
+      double occupancy = (double) working_time / ((double) duration * 1000000);
       if (occupancy > 0.02) {
         logger->info("occupancy is {}", to_string(occupancy));
       }
