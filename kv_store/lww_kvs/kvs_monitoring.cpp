@@ -542,18 +542,23 @@ int main(int argc, char* argv[]) {
       string min_node_ip;
       unsigned count = 0;
       for (auto it1 = memory_tier_occupancy.begin(); it1 != memory_tier_occupancy.end(); it1++) {
+        double sum_thread_occupancy = 0.0;
+        unsigned thread_count = 0;
         for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
           logger->info("memory node ip {} thread {} occupancy is {} at server epoch {} for monitoring epoch {}", it1->first, it2->first, it2->second.first, it2->second.second, server_monitoring_epoch);
-          if (it2->second.first > max_memory_occupancy) {
-            max_memory_occupancy = it2->second.first;
-          }
-          if (it2->second.first < min_memory_occupancy) {
-            min_memory_occupancy = it2->second.first;
-            min_node_ip = it1->first;
-          }
-          sum_memory_occupancy += it2->second.first;
-          count += 1;
+          sum_thread_occupancy += it2->second.first;
+          thread_count += 1;
         }
+        double node_occupancy = sum_thread_occupancy / thread_count;
+        sum_memory_occupancy += node_occupancy;
+        if (node_occupancy > max_memory_occupancy) {
+          max_memory_occupancy = node_occupancy;
+        }
+        if (node_occupancy < min_memory_occupancy) {
+          min_memory_occupancy = node_occupancy;
+          min_node_ip = it1->first;
+        }
+        count += 1;
       }
       double avg_memory_occupancy = sum_memory_occupancy / count;
       logger->info("max memory node occupancy is {}", to_string(max_memory_occupancy));
@@ -565,17 +570,22 @@ int main(int argc, char* argv[]) {
       double sum_ebs_occupancy = 0.0;
       count = 0;
       for (auto it1 = ebs_tier_occupancy.begin(); it1 != ebs_tier_occupancy.end(); it1++) {
+        double sum_thread_occupancy = 0.0;
+        unsigned thread_count = 0;
         for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
           logger->info("ebs node ip {} thread {} occupancy is {} at server epoch {} for monitoring epoch {}", it1->first, it2->first, it2->second.first, it2->second.second, server_monitoring_epoch);
-          if (it2->second.first > max_ebs_occupancy) {
-            max_ebs_occupancy = it2->second.first;
-          }
-          if (it2->second.first < min_ebs_occupancy) {
-            min_ebs_occupancy = it2->second.first;
-          }
-          sum_ebs_occupancy += it2->second.first;
-          count += 1;
+          sum_thread_occupancy += it2->second.first;
+          thread_count += 1;
         }
+        double node_occupancy = sum_thread_occupancy / thread_count;
+        sum_ebs_occupancy += node_occupancy;
+        if (node_occupancy > max_ebs_occupancy) {
+          max_ebs_occupancy = node_occupancy;
+        }
+        if (node_occupancy < min_ebs_occupancy) {
+          min_ebs_occupancy = node_occupancy;
+        }
+        count += 1;
       }
       double avg_ebs_occupancy = sum_ebs_occupancy / count;
       logger->info("max ebs node occupancy is {}", to_string(max_ebs_occupancy));
