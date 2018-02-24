@@ -55,6 +55,9 @@ using namespace std;
 #define CAPACITY_MAX 0.8
 #define CAPACITY_MIN 0.4
 
+#define PROMOTE_THRESHOLD 1
+#define DEMOTE_THRESHOLD 1
+
 #define MIN_TIER 1
 #define MAX_TIER 2
 

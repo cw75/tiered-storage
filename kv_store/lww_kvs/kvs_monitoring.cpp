@@ -670,7 +670,7 @@ int main(int argc, char* argv[]) {
         for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
           string key = it->first;
           unsigned total_access = it->second;
-          if (!is_metadata(key) && total_access > 0 && placement[key].global_replication_map_[1] == 0) {
+          if (!is_metadata(key) && total_access > PROMOTE_THRESHOLD && placement[key].global_replication_map_[1] == 0) {
             total_rep_to_change += 1;
             if (total_rep_to_change > slot) {
               overflow = true;
@@ -712,7 +712,7 @@ int main(int argc, char* argv[]) {
           for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
             string key = it->first;
             unsigned total_access = it->second;
-            if (!is_metadata(key) && total_access == 0 && placement[key].global_replication_map_[1] > 0) {
+            if (!is_metadata(key) && total_access < DEMOTE_THRESHOLD && placement[key].global_replication_map_[1] > 0) {
               total_rep_to_change += 1;
               if (total_rep_to_change > slot) {
                 overflow = true;
