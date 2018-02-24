@@ -212,105 +212,45 @@ void run(unsigned thread_id) {
       vector<string> v;
       split(zmq_util::recv_string(&command_puller), ':', v);
       string mode = v[0];
-      string type = v[1];
-      unsigned num_keys = stoi(v[2]);
-      unsigned length = stoi(v[3]);
-      unsigned report_period = stoi(v[4]);
-      unsigned time = stoi(v[5]);
-      string contention = v[6];
-      // prepare for zipfian workload with coefficient 4 (for high contention)
-      unsigned zipf = 4;
-      double base = get_base(num_keys, zipf);
-      unordered_map<unsigned, double> probability;
 
-      for (unsigned i = 1; i <= num_keys; i++) {
-          probability[i] = get_zipf_prob(i, zipf, base);
-      }
-
-      // warm up cache
-      key_address_cache.clear();
-      auto warmup_start = std::chrono::system_clock::now();
-      for (unsigned i = 1; i <= num_keys; i++) {
-        // key is 8 bytes
-        string key = string(8 - to_string(i).length(), '0') + to_string(i);
-        if (i % 50000 == 0) {
-          logger->info("warming up key {}", key);
-        }
-        string target_proxy_address = get_random_proxy_thread(proxy_address, seed).get_key_address_connect_addr();
-        bool succeed;
-        auto addresses = get_address_from_proxy(ut, key, pushers[target_proxy_address], key_address_puller, succeed, ip, thread_id, rid);
-        if (succeed) {
-          for (auto it = addresses.begin(); it != addresses.end(); it++) {
-            key_address_cache[key].insert(*it);
-          }
-        } else {
-          logger->info("timeout during warmup");
-        }
-      }
-      auto warmup_time = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-warmup_start).count();
-      logger->info("warming took {} seconds", warmup_time);
-
-      /*if (mode == "MOVEMENT") {
-        int run = 0;
-
-        while (run < 5) {
-          size_t count = 0;
-          auto benchmark_start = std::chrono::system_clock::now();
-          auto benchmark_end = std::chrono::system_clock::now();
-          auto epoch_start = std::chrono::system_clock::now();
-          auto epoch_end = std::chrono::system_clock::now();
-          auto total_time = chrono::duration_cast<std::chrono::seconds>(benchmark_end-benchmark_start).count();
-
-          while (true) {
-            string key_aux;
-            string key;
-            if (run % 2 == 0) {
-              key_aux = to_string(rand_r(&seed) % (num_keys/2) + 1);
-            } else {
-              key_aux = to_string(rand_r(&seed) % (num_keys/2) + (num_keys/2) + 1);
-            }
-            key = string(8 - key_aux.length(), '0') + key_aux;
-            if (type == "G") {
-              handle_request(key, "", pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller);
-              count += 1;
-            } else if (type == "P") {
-              handle_request(key, string(length, 'a'), pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller);
-              count += 1;
-            } else if (type == "M") {
-              handle_request(key, string(length, 'a'), pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller);
-              handle_request(key, "", pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller);
-              count += 2;
-            } else {
-              logger->info("invalid request type");
-            }
-
-            epoch_end = std::chrono::system_clock::now();
-            auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(epoch_end-epoch_start).count();
-            // report throughput every report_period seconds
-            if (time_elapsed >= report_period) {
-              double throughput = (double)count / (double)time_elapsed;
-              logger->info("Throughput is {} ops/seconds", throughput);
-              auto latency = (double)1000000 / throughput;
-              communication::Feedback l;
-              l.set_uid(ip + ":" + to_string(thread_id));
-              l.set_latency(latency);
-              string serialized_latency;
-              l.SerializeToString(&serialized_latency);
-              zmq_util::send_string(serialized_latency, &pushers[mt.get_latency_report_connect_addr()]);
-              count = 0;
-              epoch_start = std::chrono::system_clock::now();
-            }
-
-            benchmark_end = std::chrono::system_clock::now();
-            total_time = chrono::duration_cast<std::chrono::seconds>(benchmark_end-benchmark_start).count();
-            if (total_time > time) {
-              break;
-            }
-          }
-          run += 1;
-        }
-      }*/
       if (mode == "LOAD") {
+        string type = v[1];
+        unsigned num_keys = stoi(v[2]);
+        unsigned length = stoi(v[3]);
+        unsigned report_period = stoi(v[4]);
+        unsigned time = stoi(v[5]);
+
+        // warm up cache
+        key_address_cache.clear();
+        auto warmup_start = std::chrono::system_clock::now();
+        for (unsigned i = 1; i <= num_keys; i++) {
+          // key is 8 bytes
+          string key = string(8 - to_string(i).length(), '0') + to_string(i);
+          if (i % 50000 == 0) {
+            logger->info("warming up cache for key {}", key);
+          }
+          string target_proxy_address = get_random_proxy_thread(proxy_address, seed).get_key_address_connect_addr();
+          bool succeed;
+          auto addresses = get_address_from_proxy(ut, key, pushers[target_proxy_address], key_address_puller, succeed, ip, thread_id, rid);
+          if (succeed) {
+            for (auto it = addresses.begin(); it != addresses.end(); it++) {
+              key_address_cache[key].insert(*it);
+            }
+          } else {
+            logger->info("timeout during cache warmup");
+          }
+        }
+        auto warmup_time = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-warmup_start).count();
+        logger->info("warming cache took {} seconds", warmup_time);
+
+        // prepare for zipfian workload with coefficient 4 (for high contention)
+        double base = get_base(num_keys, 4);
+        unordered_map<unsigned, double> probability;
+
+        for (unsigned i = 1; i <= num_keys; i++) {
+            probability[i] = get_zipf_prob(i, 4, base);
+        }
+
         size_t count = 0;
         auto benchmark_start = std::chrono::system_clock::now();
         auto benchmark_end = std::chrono::system_clock::now();
@@ -320,18 +260,13 @@ void run(unsigned thread_id) {
 
         while (true) {
           string key;
-          if (contention == "L") {
-            string key_aux = to_string(rand_r(&seed) % (num_keys) + 1);
-            key = string(8 - key_aux.length(), '0') + key_aux;
-          } else if (contention == "H") {
-            double p = rand_r(&seed) / static_cast<double>(RAND_MAX);
-            unsigned k = 1;
-            while ((p - probability[k]) >= 0) {
-                    p -= probability[k];
-                    k++;
-            }
-            key = string(8 - to_string(k).length(), '0') + to_string(k);
+          double p = rand_r(&seed) / static_cast<double>(RAND_MAX);
+          unsigned k = 1;
+          while ((p - probability[k]) >= 0) {
+            p -= probability[k];
+            k++;
           }
+          key = string(8 - to_string(k).length(), '0') + to_string(k);
           unsigned trial = 1;
           if (type == "G") {
             handle_request(key, "", pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
@@ -376,16 +311,116 @@ void run(unsigned thread_id) {
             rid = 0;
           }
         }
+
+        // prepare for zipfian workload with coefficient 0.5 (for low contention)
+        base = get_base(num_keys, 0.5);
+        probability.clear();
+
+        for (unsigned i = 1; i <= num_keys; i++) {
+            probability[i] = get_zipf_prob(i, 0.5, base);
+        }
+
+        count = 0;
+        benchmark_start = std::chrono::system_clock::now();
+        benchmark_end = std::chrono::system_clock::now();
+        epoch_start = std::chrono::system_clock::now();
+        epoch_end = std::chrono::system_clock::now();
+        total_time = chrono::duration_cast<std::chrono::seconds>(benchmark_end-benchmark_start).count();
+
+        while (true) {
+          string key;
+          double p = rand_r(&seed) / static_cast<double>(RAND_MAX);
+          unsigned k = 1;
+          while ((p - probability[k]) >= 0) {
+            p -= probability[k];
+            k++;
+          }
+          key = string(8 - to_string(k).length(), '0') + to_string(k);
+          unsigned trial = 1;
+          if (type == "G") {
+            handle_request(key, "", pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
+            count += 1;
+          } else if (type == "P") {
+            handle_request(key, string(length, 'a'), pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
+            count += 1;
+          } else if (type == "M") {
+            handle_request(key, string(length, 'a'), pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
+            trial = 1;
+            handle_request(key, "", pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
+            count += 2;
+          } else {
+            logger->info("invalid request type");
+          }
+
+          epoch_end = std::chrono::system_clock::now();
+          auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(epoch_end-epoch_start).count();
+          // report throughput every report_period seconds
+          if (time_elapsed >= report_period) {
+            double throughput = (double)count / (double)time_elapsed;
+            logger->info("Throughput is {} ops/seconds", throughput);
+            auto latency = (double)1000000 / throughput;
+            communication::Feedback l;
+            l.set_uid(ip + ":" + to_string(thread_id));
+            l.set_latency(latency);
+            l.set_throughput(throughput);
+            string serialized_latency;
+            l.SerializeToString(&serialized_latency);
+            zmq_util::send_string(serialized_latency, &pushers[mt.get_latency_report_connect_addr()]);
+            count = 0;
+            epoch_start = std::chrono::system_clock::now();
+          }
+
+          benchmark_end = std::chrono::system_clock::now();
+          total_time = chrono::duration_cast<std::chrono::seconds>(benchmark_end-benchmark_start).count();
+          if (total_time > time) {
+            break;
+          }
+          // reset rid
+          if (rid > 10000000) {
+            rid = 0;
+          }
+        }
+
+        logger->info("Finished");
+        communication::Feedback l;
+        l.set_uid(ip + ":" + to_string(thread_id));
+        l.set_finish(true);
+        string serialized_latency;
+        l.SerializeToString(&serialized_latency);
+        zmq_util::send_string(serialized_latency, &pushers[mt.get_latency_report_connect_addr()]);
+      } else if (mode == "WARM") {
+        unsigned num_keys = stoi(v[1]);
+        unsigned length = stoi(v[2]);
+        unsigned total_threads = stoi(v[3]);
+        unsigned range = num_keys / total_threads;
+        unsigned start = thread_id * range + 1;
+        unsigned end = thread_id * range + 1 + range;
+        string key;
+        logger->info("Warming up");
+        for (unsigned i = start; i < end; i++) {
+          unsigned trial = 1;
+          key = string(8 - to_string(i).length(), '0') + to_string(i);
+          handle_request(key, string(length, 'a'), pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
+          // reset rid
+          if (rid > 10000000) {
+            rid = 0;
+          }
+          if (i == (end - start)/2) {
+            logger->info("Warmed up half");
+          }
+        }
+        logger->info("Finished warming up");
+        if (thread_id == 0) {
+        communication::Feedback f;
+          f.set_uid(ip + ":" + to_string(thread_id));
+          f.set_warmup(true);
+          string serialized_feedback;
+          f.SerializeToString(&serialized_feedback);
+          zmq_util::send_string(serialized_feedback, &pushers[mt.get_latency_report_connect_addr()]);
+        }
       } else {
-        logger->info("invalid experiment mode");
+        logger->info("Invalid mode");
       }
-      logger->info("Finished");
-      communication::Feedback l;
-      l.set_uid(ip + ":" + to_string(thread_id));
-      l.set_finish(true);
-      string serialized_latency;
-      l.SerializeToString(&serialized_latency);
-      zmq_util::send_string(serialized_latency, &pushers[mt.get_latency_report_connect_addr()]);
     }
   }
 

@@ -867,7 +867,7 @@ void run(unsigned thread_id) {
     }
 
     report_end = chrono::system_clock::now();
-    auto duration = chrono::duration_cast<chrono::microseconds>(report_end-report_start).count();
+    auto duration = chrono::duration_cast<chrono::seconds>(report_end-report_start).count();
     if (duration >= SERVER_REPORT_THRESHOLD) {
       //cerr << "thread " + to_string(thread_id) + " entering event report\n";
       // report server stats
@@ -919,7 +919,7 @@ void run(unsigned thread_id) {
         auto mset = &(it->second.monitoring_set_);
         // garbage collect
         for (auto set_iter = mset->rbegin(); set_iter != mset->rend(); set_iter++) {
-          if (chrono::duration_cast<std::chrono::microseconds>(current_time-*set_iter).count() >= KEY_MONITORING_THRESHOLD) {
+          if (chrono::duration_cast<std::chrono::seconds>(current_time-*set_iter).count() >= KEY_MONITORING_THRESHOLD) {
             mset->erase(mset->begin(), set_iter.base());
             break;
           }
@@ -972,7 +972,7 @@ void run(unsigned thread_id) {
       pending_request_map.erase(*it);
     }*/
     for (auto it = pending_gossip_map.begin(); it != pending_gossip_map.end(); it++) {
-      auto t = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now()-it->second.first).count();
+      auto t = chrono::duration_cast<chrono::seconds>(chrono::system_clock::now()-it->second.first).count();
       if (t > RETRY_THRESHOLD) {
         //logger->info("Retrying rep factor query for key {} due to timeout (gossip)", it->first);
         auto respond_address = wt.get_replication_factor_connect_addr();

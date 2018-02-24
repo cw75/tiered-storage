@@ -104,4 +104,5 @@ message Feedback {
   optional double latency = 2;
   optional bool finish = 3;
   optional double throughput = 4;
+  optional bool warmup = 5;
 }

@@ -16,14 +16,14 @@
 
 using namespace std;
 
-// Define server report threshold (in microsecond)
-#define SERVER_REPORT_THRESHOLD 15000000
-// Define server's key monitoring threshold (in microsecond)
-#define KEY_MONITORING_THRESHOLD 300000000
-// Define monitoring threshold (in microsecond)
-#define MONITORING_THRESHOLD 30000000
-// Define the threshold for retry rep factor query for gossip handling (in millisecond)
-#define RETRY_THRESHOLD 8000
+// Define server report threshold (in second)
+#define SERVER_REPORT_THRESHOLD 15
+// Define server's key monitoring threshold (in second)
+#define KEY_MONITORING_THRESHOLD 300
+// Define monitoring threshold (in second)
+#define MONITORING_THRESHOLD 30
+// Define the threshold for retry rep factor query for gossip handling (in second)
+#define RETRY_THRESHOLD 8
 // Define the grace period for triggering elasticity action (in second)
 #define GRACE_PERIOD 120
 
@@ -52,18 +52,21 @@ using namespace std;
 // Define the number of virtual thread per each physical thread
 #define VIRTUAL_THREAD_NUM 200
 
+#define CAPACITY_MAX 0.8
+#define CAPACITY_MIN 0.4
+
 #define MIN_TIER 1
 #define MAX_TIER 2
 
-#define MINIMUM_MEMORY_NODE 1
-#define MINIMUM_EBS_NODE 5
+#define MINIMUM_MEMORY_NODE 2
+#define MINIMUM_EBS_NODE 3
 
 #define SLO_WORST 2000
 #define SLO_BEST 1000
 
 // node capacity in KB
-#define MEM_NODE_CAPACITY 32000000
-#define EBS_NODE_CAPACITY 64000000
+unsigned MEM_NODE_CAPACITY = 32000000;
+unsigned EBS_NODE_CAPACITY = 64000000;
 // value size in KB
 #define VALUE_SIZE 100
 
