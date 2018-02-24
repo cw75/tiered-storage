@@ -893,8 +893,8 @@ void run(unsigned thread_id) {
         logger->info("occupancy is {}", to_string(occupancy));
       }
       communication::Server_Stat stat;
-      // cast to KB
-      stat.set_storage_consumption(consumption/1000);
+      // cast to MB
+      stat.set_storage_consumption(consumption/1000000);
       stat.set_occupancy(occupancy);
       stat.set_epoch(epoch);
       string serialized_stat;

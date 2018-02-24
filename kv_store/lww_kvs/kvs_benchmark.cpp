@@ -20,11 +20,45 @@ double get_base(unsigned N, double skew) {
   for (unsigned k = 1; k <= N; k++) {
     base += pow(k, -1*skew);
   }
-  return base;
+  return (1/ base);
 }
 
 double get_zipf_prob(unsigned rank, double skew, double base) {
   return pow(rank, -1*skew) / base;
+}
+
+int sample(int n, unsigned& seed, double base, unordered_map<unsigned, double>& sum_probs)
+{
+  double z;                     // Uniform random number (0 < z < 1)
+  int zipf_value;               // Computed exponential value to be returned
+  int    i;                     // Loop counter
+  int low, high, mid;           // Binary-search bounds
+
+  // Pull a uniform random number (0 < z < 1)
+  do
+  {
+    z = rand_r(&seed) / static_cast<double>(RAND_MAX);
+  }
+  while ((z == 0) || (z == 1));
+
+  // Map z to the value
+  low = 1, high = n;
+  do {
+    mid = floor((low+high)/2);
+    if (sum_probs[mid] >= z && sum_probs[mid-1] < z) {
+      zipf_value = mid;
+      break;
+    } else if (sum_probs[mid] >= z) {
+      high = mid-1;
+    } else {
+      low = mid+1;
+    }
+  } while (low <= high);
+
+  // Assert that zipf_value is between 1 and N
+  assert((zipf_value >=1) && (zipf_value <= n));
+
+  return(zipf_value);
 }
 
 void handle_request(
@@ -243,12 +277,13 @@ void run(unsigned thread_id) {
         auto warmup_time = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-warmup_start).count();
         logger->info("warming up cache took {} seconds", warmup_time);
 
-        // prepare for zipfian workload with coefficient 4 (for high contention)
-        double base = get_base(num_keys, 4);
-        unordered_map<unsigned, double> probability;
-
+        // prepare for zipfian workload with coefficient 1.4 (for high contention)
+        double zipf = 1.4;
+        double base = get_base(num_keys, zipf);
+        unordered_map<unsigned, double> sum_probs;
+        sum_probs[0] = 0;
         for (unsigned i = 1; i <= num_keys; i++) {
-            probability[i] = get_zipf_prob(i, 4, base);
+          sum_probs[i] = sum_probs[i-1] + base / pow((double) i, zipf);
         }
 
         size_t count = 0;
@@ -259,14 +294,8 @@ void run(unsigned thread_id) {
         auto total_time = chrono::duration_cast<std::chrono::seconds>(benchmark_end-benchmark_start).count();
 
         while (true) {
-          string key;
-          double p = rand_r(&seed) / static_cast<double>(RAND_MAX);
-          unsigned k = 1;
-          while ((p - probability[k]) >= 0) {
-            p -= probability[k];
-            k++;
-          }
-          key = string(8 - to_string(k).length(), '0') + to_string(k);
+          unsigned k = sample(num_keys, seed, base, sum_probs);
+          string key = string(8 - to_string(k).length(), '0') + to_string(k);
           unsigned trial = 1;
           if (type == "G") {
             handle_request(key, "", pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
@@ -312,12 +341,13 @@ void run(unsigned thread_id) {
           }
         }
 
-        // prepare for zipfian workload with coefficient 0.5 (for low contention)
-        base = get_base(num_keys, 0.5);
-        probability.clear();
-
+        // prepare for zipfian workload with coefficient 0.95 (for low contention)
+        zipf = 0.95;
+        base = get_base(num_keys, zipf);
+        sum_probs.clear();
+        sum_probs[0] = 0;
         for (unsigned i = 1; i <= num_keys; i++) {
-            probability[i] = get_zipf_prob(i, 0.5, base);
+          sum_probs[i] = sum_probs[i-1] + base / pow((double) i, zipf);
         }
 
         count = 0;
@@ -326,16 +356,11 @@ void run(unsigned thread_id) {
         epoch_start = std::chrono::system_clock::now();
         epoch_end = std::chrono::system_clock::now();
         total_time = chrono::duration_cast<std::chrono::seconds>(benchmark_end-benchmark_start).count();
+        logger->info("entering low contention");
 
         while (true) {
-          string key;
-          double p = rand_r(&seed) / static_cast<double>(RAND_MAX);
-          unsigned k = 1;
-          while ((p - probability[k]) >= 0) {
-            p -= probability[k];
-            k++;
-          }
-          key = string(8 - to_string(k).length(), '0') + to_string(k);
+          unsigned k = sample(num_keys, seed, base, sum_probs);
+          string key = string(8 - to_string(k).length(), '0') + to_string(k);
           unsigned trial = 1;
           if (type == "G") {
             handle_request(key, "", pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
@@ -414,7 +439,11 @@ void run(unsigned thread_id) {
         auto warmup_time = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-warmup_start).count();
         logger->info("warming up data took {} seconds", warmup_time);
         if (thread_id == 0) {
-        communication::Feedback f;
+          logger->info("Waiting for 12 minutes");
+          chrono::seconds dura(720);
+          this_thread::sleep_for(dura);
+          logger->info("Waited 12 minutes");
+          communication::Feedback f;
           f.set_uid(ip + ":" + to_string(thread_id));
           f.set_warmup(true);
           string serialized_feedback;
