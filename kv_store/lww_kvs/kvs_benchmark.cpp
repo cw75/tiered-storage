@@ -278,7 +278,7 @@ void run(unsigned thread_id) {
         logger->info("warming up cache took {} seconds", warmup_time);
 
         // prepare for zipfian workload with coefficient 1.4 (for high contention)
-        double zipf = 1.4;
+        double zipf = 1.5;
         double base = get_base(num_keys, zipf);
         unordered_map<unsigned, double> sum_probs;
         sum_probs[0] = 0;
@@ -342,7 +342,7 @@ void run(unsigned thread_id) {
         }
 
         // prepare for zipfian workload with coefficient 0.95 (for low contention)
-        zipf = 0.95;
+        zipf = 1;
         base = get_base(num_keys, zipf);
         sum_probs.clear();
         sum_probs[0] = 0;
