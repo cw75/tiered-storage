@@ -128,12 +128,10 @@ public:
 
 // used for key stat monitoring
 struct key_stat {
-  key_stat() : size_(0), access_(0) {}
-  key_stat(unsigned size, unsigned access)
-    : size_(size), access_(access) {}
+  key_stat() : size_(0) {}
+  key_stat(unsigned size)
+    : size_(size) {}
   unsigned size_;
-  unsigned access_;
-  multiset<std::chrono::time_point<std::chrono::system_clock>> monitoring_set_;
 };
 
 struct pending_request {
