@@ -8,7 +8,7 @@ metadata:
   name: memory-instance-UNIQUE
 spec:
   image: kope.io/k8s-1.6-debian-jessie-amd64-hvm-ebs-2017-05-02
-  machineType: m4.2xlarge
+  machineType: m4.xlarge
   maxSize: 1
   minSize: 1
   rootVolumeSize: 32

@@ -52,7 +52,7 @@ using namespace std;
 // Define the number of virtual thread per each physical thread
 #define VIRTUAL_THREAD_NUM 200
 
-#define CAPACITY_MAX 0.85
+#define CAPACITY_MAX 0.8
 #define CAPACITY_MIN 0.6
 
 #define PROMOTE_THRESHOLD 0
@@ -64,14 +64,14 @@ using namespace std;
 #define MINIMUM_MEMORY_NODE 2
 #define MINIMUM_EBS_NODE 3
 
-#define SLO_WORST 20000
-#define SLO_BEST 10000
+#define SLO_WORST 5000
+#define SLO_BEST 3000
 
-// node capacity in MB
-unsigned MEM_NODE_CAPACITY = 32000;
-unsigned EBS_NODE_CAPACITY = 128000;
-// value size in MB
-#define VALUE_SIZE 1
+// node capacity in KB
+unsigned MEM_NODE_CAPACITY = 16000000;
+unsigned EBS_NODE_CAPACITY = 64000000;
+// value size in KB
+#define VALUE_SIZE 256
 
 // Define port offset
 // used by servers

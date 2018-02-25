@@ -51,7 +51,7 @@ elif [ "$1" = "e" ]; then
   SERVERS=$PROXY_IPS
 
   # create new EBS volumes; we have 3 per server by default
-  EBS_V0=`aws ec2 create-volume --availability-zone=us-east-1a --size=128 --volume-type=gp2 | grep VolumeId | cut -d\" -f4`
+  EBS_V0=`aws ec2 create-volume --availability-zone=us-east-1a --size=64 --volume-type=gp2 | grep VolumeId | cut -d\" -f4`
   aws ec2 create-tags --resources $EBS_V0 --tags Key=KubernetesCluster,Value=$NAME
 elif [ "$1" = "p" ]; then
   YML_FILE=yaml/pods/proxy-pod.yml
