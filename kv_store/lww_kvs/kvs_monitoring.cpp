@@ -887,6 +887,24 @@ int main(int argc, char* argv[]) {
           }
         }
         requests.clear();
+
+        // finally, consider reducing the replication factor of some keys that are not so hot anymore
+        if (avg_latency <= SLO_WORST) {
+          for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
+            string key = it->first;
+            unsigned total_access = it->second;
+            if (!is_metadata(key) && total_access <= 10000 && placement[key].global_replication_map_[1] > 1) {
+              logger->info("key {} accessed less than 10000 times. Accessed {} times", key, total_access);
+              key_info new_rep_factor;
+              new_rep_factor.global_replication_map_[1] = placement[key].global_replication_map_[1] - 1;
+              new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2] + 1;
+              requests[key] = new_rep_factor;
+              logger->info("reducing replication factor for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], placement[key].global_replication_map_[1] - 1, placement[key].global_replication_map_[2], placement[key].global_replication_map_[2] + 1);
+            }
+          }
+          change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
+        }
+        requests.clear();
       } else {
         logger->info("policy not started");
       }
