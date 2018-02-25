@@ -19,7 +19,7 @@ using namespace std;
 // Define server report threshold (in second)
 #define SERVER_REPORT_THRESHOLD 15
 // Define server's key monitoring threshold (in second)
-#define KEY_MONITORING_THRESHOLD 600
+#define KEY_MONITORING_THRESHOLD 900
 // Define monitoring threshold (in second)
 #define MONITORING_THRESHOLD 30
 // Define the threshold for retry rep factor query for gossip handling (in second)
@@ -64,8 +64,8 @@ using namespace std;
 #define MINIMUM_MEMORY_NODE 2
 #define MINIMUM_EBS_NODE 3
 
-#define SLO_WORST 5000
-#define SLO_BEST 3000
+#define SLO_WORST 3000
+#define SLO_BEST 1500
 
 // node capacity in KB
 unsigned MEM_NODE_CAPACITY = 16000000;

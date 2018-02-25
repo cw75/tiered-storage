@@ -763,7 +763,7 @@ int main(int argc, char* argv[]) {
         if (avg_latency > SLO_WORST && adding_memory_node == 0) {
           logger->info("latency is too high!");
           // figure out if we should do hot key replication or add nodes
-          if (min_memory_occupancy > 0.06) {
+          if (min_memory_occupancy > 0.08) {
             // add nodes
             logger->info("all nodes are busy, adding new nodes");
             // trigger elasticity

@@ -292,6 +292,7 @@ void run(unsigned thread_id) {
         auto epoch_start = std::chrono::system_clock::now();
         auto epoch_end = std::chrono::system_clock::now();
         auto total_time = chrono::duration_cast<std::chrono::seconds>(benchmark_end-benchmark_start).count();
+        unsigned epoch = 1;
 
         while (true) {
           unsigned k = sample(num_keys, seed, base, sum_probs);
@@ -318,6 +319,8 @@ void run(unsigned thread_id) {
           if (time_elapsed >= report_period) {
             double throughput = (double)count / (double)time_elapsed;
             logger->info("Throughput is {} ops/seconds", throughput);
+            logger->info("epoch is {}", epoch);
+            epoch += 1;
             auto latency = (double)1000000 / throughput;
             communication::Feedback l;
             l.set_uid(ip + ":" + to_string(thread_id));
@@ -341,7 +344,7 @@ void run(unsigned thread_id) {
           }
         }
 
-        // prepare for zipfian workload with coefficient 0.95 (for low contention)
+        // prepare for zipfian workload with coefficient 1 (for low contention)
         zipf = 1;
         base = get_base(num_keys, zipf);
         sum_probs.clear();
@@ -356,11 +359,12 @@ void run(unsigned thread_id) {
         epoch_start = std::chrono::system_clock::now();
         epoch_end = std::chrono::system_clock::now();
         total_time = chrono::duration_cast<std::chrono::seconds>(benchmark_end-benchmark_start).count();
+        epoch = 1;
         logger->info("entering low contention");
 
         while (true) {
-          unsigned k = sample(num_keys, seed, base, sum_probs);
-          string key = string(8 - to_string(k).length(), '0') + to_string(k);
+          string key_aux = to_string(rand_r(&seed) % (unsigned)(num_keys * 0.4) + 1);
+          string key = string(8 - key_aux.length(), '0') + key_aux;
           unsigned trial = 1;
           if (type == "G") {
             handle_request(key, "", pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
@@ -383,6 +387,8 @@ void run(unsigned thread_id) {
           if (time_elapsed >= report_period) {
             double throughput = (double)count / (double)time_elapsed;
             logger->info("Throughput is {} ops/seconds", throughput);
+            logger->info("epoch is {}", epoch);
+            epoch += 1;
             auto latency = (double)1000000 / throughput;
             communication::Feedback l;
             l.set_uid(ip + ":" + to_string(thread_id));
