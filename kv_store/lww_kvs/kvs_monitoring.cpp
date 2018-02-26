@@ -634,8 +634,8 @@ int main(int argc, char* argv[]) {
       }
       logger->info("total throughput is {}", total_throughput);      
 
-      unsigned required_memory_node = ceil(total_memory_consumption / (CAPACITY_MAX * tier_data_map[1].node_capacity_));
-      unsigned required_ebs_node = ceil(total_ebs_consumption / (CAPACITY_MAX * tier_data_map[2].node_capacity_));
+      unsigned required_memory_node = ceil(total_memory_consumption / (MEM_CAPACITY_MAX * tier_data_map[1].node_capacity_));
+      unsigned required_ebs_node = ceil(total_ebs_consumption / (EBS_CAPACITY_MAX * tier_data_map[2].node_capacity_));
       logger->info("required memory node is {}", required_memory_node);
       logger->info("required ebs node is {}", required_ebs_node);
 
@@ -643,9 +643,9 @@ int main(int argc, char* argv[]) {
       unsigned ebs_node_number = global_hash_ring_map[2].size() / VIRTUAL_THREAD_NUM;
 
       // Policy Start Here:
-      /*if (policy_start) {
+      if (true) {
         // 1. first check storage consumption and trigger elasticity if necessary
-        if (memory_node_number != 0 && adding_memory_node == 0 && required_memory_node > memory_node_number) {
+        /*if (memory_node_number != 0 && adding_memory_node == 0 && required_memory_node > memory_node_number) {
           logger->info("memory consumption exceeds threshold!");
           auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
           if (time_elapsed > GRACE_PERIOD) {
@@ -671,7 +671,7 @@ int main(int argc, char* argv[]) {
           }
         }
 
-        if (ebs_node_number != 0 && average_ebs_consumption_percentage < CAPACITY_MIN && !removing_ebs_node && ebs_node_number > max(required_ebs_node, (unsigned)MINIMUM_EBS_NODE)) {
+        if (ebs_node_number != 0 && average_ebs_consumption_percentage < EBS_CAPACITY_MIN && !removing_ebs_node && ebs_node_number > max(required_ebs_node, (unsigned)MINIMUM_EBS_NODE)) {
           logger->info("removing ebs node to save cost");
           auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
           if (time_elapsed > GRACE_PERIOD) {
@@ -687,12 +687,12 @@ int main(int argc, char* argv[]) {
           } else {
             logger->info("in grace period, not removing node");
           }
-        }
+        }*/
 
         unordered_map<string, key_info> requests;
         unsigned total_rep_to_change = 0;
         // 2. check key access summary to promote hot keys to memory tier
-        unsigned slot = (CAPACITY_MAX * tier_data_map[1].node_capacity_ * memory_node_number - total_memory_consumption) / VALUE_SIZE;
+        /*unsigned slot = (MEM_CAPACITY_MAX * tier_data_map[1].node_capacity_ * memory_node_number - total_memory_consumption) / VALUE_SIZE;
         bool overflow = false;
         for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
           string key = it->first;
@@ -715,7 +715,7 @@ int main(int argc, char* argv[]) {
         auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
         if (overflow && adding_memory_node == 0 && time_elapsed > GRACE_PERIOD) {
           unsigned long long promote_data_size = total_rep_to_change * VALUE_SIZE;
-          unsigned total_memory_node_needed = ceil((total_memory_consumption + promote_data_size) / (CAPACITY_MAX * tier_data_map[1].node_capacity_));
+          unsigned total_memory_node_needed = ceil((total_memory_consumption + promote_data_size) / (MEM_CAPACITY_MAX * tier_data_map[1].node_capacity_));
           if (total_memory_node_needed > memory_node_number) {
             logger->info("memory node insufficient to promote keys!");
             unsigned node_to_add = ceil(1.5 * (total_memory_node_needed - memory_node_number));
@@ -734,7 +734,7 @@ int main(int argc, char* argv[]) {
         // 3. check key access summary to demote cold keys to ebs tier
         time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
         if (time_elapsed > GRACE_PERIOD) {
-          unsigned slot = (CAPACITY_MAX * tier_data_map[2].node_capacity_ * ebs_node_number - total_ebs_consumption) / VALUE_SIZE;
+          unsigned slot = (EBS_CAPACITY_MAX * tier_data_map[2].node_capacity_ * ebs_node_number - total_ebs_consumption) / VALUE_SIZE;
           bool overflow = false;
           for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
             string key = it->first;
@@ -756,7 +756,7 @@ int main(int argc, char* argv[]) {
           logger->info("available ebs slot is {}", slot);
           if (overflow && adding_ebs_node == 0) {
             unsigned long long demote_data_size = total_rep_to_change * VALUE_SIZE;
-            unsigned total_ebs_node_needed = ceil((total_ebs_consumption + demote_data_size) / (CAPACITY_MAX * tier_data_map[2].node_capacity_));
+            unsigned total_ebs_node_needed = ceil((total_ebs_consumption + demote_data_size) / (EBS_CAPACITY_MAX * tier_data_map[2].node_capacity_));
             if (total_ebs_node_needed > ebs_node_number) {
               logger->info("ebs node insufficient to demote keys!");
               unsigned node_to_add = ceil(1.5 * (total_ebs_node_needed - ebs_node_number));
@@ -773,7 +773,7 @@ int main(int argc, char* argv[]) {
         }
 
         requests.clear();
-        total_rep_to_change = 0;
+        total_rep_to_change = 0;*/
 
         // 4. check latency to see if the SLO has been violated
         // 4.1 if latency is too high
@@ -867,7 +867,7 @@ int main(int argc, char* argv[]) {
 
         // 4.3 if latency is fine, check if there is underutilized memory node
         if (avg_latency >= SLO_BEST && avg_latency <= SLO_WORST && !removing_memory_node && memory_node_number > max(required_memory_node, (unsigned)MINIMUM_MEMORY_NODE)) {
-          if (min_memory_occupancy < 0.01) {
+          if (min_memory_occupancy < 0.02) {
             logger->info("node {} is severely underutilized, consider removing", min_node_ip);
             auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
             if (time_elapsed > GRACE_PERIOD) {
@@ -914,7 +914,14 @@ int main(int argc, char* argv[]) {
               logger->info("key {} accessed less than 5000 times. Accessed {} times", key, total_access);
               key_info new_rep_factor;
               new_rep_factor.global_replication_map_[1] = placement[key].global_replication_map_[1] - 1;
-              new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2] + 1;
+              if (new_rep_factor.global_replication_map_[1] + placement[key].global_replication_map_[2] < MINIMUM_REPLICA_NUMBER) {
+                new_rep_factor.global_replication_map_[2] = MINIMUM_REPLICA_NUMBER - new_rep_factor.global_replication_map_[1];
+                if (new_rep_factor.global_replication_map_[2] > (global_hash_ring_map[2].size() / VIRTUAL_THREAD_NUM)) {
+                  logger->info("Error: number of ebs replica exceed number of ebs nodes");
+                }
+              } else {
+                new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
+              }
               requests[key] = new_rep_factor;
               logger->info("reducing replication factor for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], placement[key].global_replication_map_[1] - 1, placement[key].global_replication_map_[2], placement[key].global_replication_map_[2] + 1);
             }
@@ -924,7 +931,7 @@ int main(int argc, char* argv[]) {
         requests.clear();
       } else {
         logger->info("policy not started");
-      }*/
+      }
 
       user_latency.clear();
       user_throughput.clear();

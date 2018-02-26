@@ -31,9 +31,9 @@ using namespace std;
 #define METADATA_REPLICATION_FACTOR 2
 
 // Define the default replication factor for the data
-#define DEFAULT_GLOBAL_MEMORY_REPLICATION 0
-#define DEFAULT_GLOBAL_EBS_REPLICATION 3
-#define MINIMUM_REPLICA_NUMBER 3
+#define DEFAULT_GLOBAL_MEMORY_REPLICATION 1
+#define DEFAULT_GLOBAL_EBS_REPLICATION 0
+#define MINIMUM_REPLICA_NUMBER 1
 // Define the default local replication factor
 #define DEFAULT_LOCAL_REPLICATION 1
 
@@ -52,8 +52,10 @@ using namespace std;
 // Define the number of virtual thread per each physical thread
 #define VIRTUAL_THREAD_NUM 300
 
-#define CAPACITY_MAX 0.75
-#define CAPACITY_MIN 0.5
+#define MEM_CAPACITY_MAX 0.6
+#define MEM_CAPACITY_MIN 0.3
+#define EBS_CAPACITY_MAX 0.75
+#define EBS_CAPACITY_MIN 0.5
 
 #define PROMOTE_THRESHOLD 0
 #define DEMOTE_THRESHOLD 1
@@ -61,8 +63,8 @@ using namespace std;
 #define MIN_TIER 1
 #define MAX_TIER 2
 
-#define MINIMUM_MEMORY_NODE 2
-#define MINIMUM_EBS_NODE 3
+#define MINIMUM_MEMORY_NODE 3
+#define MINIMUM_EBS_NODE 0
 
 #define SLO_WORST 3000
 #define SLO_BEST 1500

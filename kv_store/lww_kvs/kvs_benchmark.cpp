@@ -253,6 +253,7 @@ void run(unsigned thread_id) {
         unsigned length = stoi(v[3]);
         unsigned report_period = stoi(v[4]);
         unsigned time = stoi(v[5]);
+        string contention = v[6];
 
         // warm up cache
         key_address_cache.clear();
@@ -278,7 +279,7 @@ void run(unsigned thread_id) {
         logger->info("warming up cache took {} seconds", warmup_time);
 
         // prepare for zipfian workload with coefficient 1.4 (for high contention)
-        double zipf = 1.5;
+        double zipf = 2;
         double base = get_base(num_keys, zipf);
         unordered_map<unsigned, double> sum_probs;
         sum_probs[0] = 0;
@@ -295,8 +296,14 @@ void run(unsigned thread_id) {
         unsigned epoch = 1;
 
         while (true) {
-          string key_aux = to_string(rand_r(&seed) % (unsigned)(num_keys) + 1);
-          string key = string(8 - key_aux.length(), '0') + key_aux;
+          string key;
+          if (contention == "H") {
+            unsigned k = sample(num_keys, seed, base, sum_probs);
+            key = string(8 - to_string(k).length(), '0') + to_string(k);
+          } else if (contention == "L") {
+            string key_aux = to_string(rand_r(&seed) % (unsigned)(num_keys) + 1);
+            key = string(8 - key_aux.length(), '0') + key_aux;
+          }
           unsigned trial = 1;
           if (type == "G") {
             handle_request(key, "", pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
@@ -444,7 +451,7 @@ void run(unsigned thread_id) {
         logger->info("Finished warming up");
         auto warmup_time = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-warmup_start).count();
         logger->info("warming up data took {} seconds", warmup_time);
-        /*if (thread_id == 0) {
+        if (thread_id == 0) {
           logger->info("Waiting for 16 minutes");
           chrono::seconds dura(960);
           this_thread::sleep_for(dura);
@@ -455,7 +462,7 @@ void run(unsigned thread_id) {
           string serialized_feedback;
           f.SerializeToString(&serialized_feedback);
           zmq_util::send_string(serialized_feedback, &pushers[mt.get_latency_report_connect_addr()]);
-        }*/
+        }
       } else {
         logger->info("Invalid mode");
       }
