@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: ebs-instance-UNIQUE
+  name: ebs-pod-NUM_DUMMY
   labels: 
     role: ebs
 spec:
@@ -21,7 +21,7 @@ spec:
       - mountPath: /ebs/ebs_0
         name: ebs0
   nodeSelector:
-    role: ebs-UNIQUE
+    role: ebs
   volumes:
   - name: ebs0
     awsElasticBlockStore:

@@ -3,7 +3,7 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: proxy-instance-UNIQUE
+  name: proxy-pod-NUM_DUMMY
   labels: 
     role: proxy
 spec:
@@ -16,5 +16,5 @@ spec:
     - name: MON_IP
       value: MON_IP_DUMMY
   nodeSelector:
-    role: proxy-UNIQUE
+    role: proxy
   restartPolicy: Never

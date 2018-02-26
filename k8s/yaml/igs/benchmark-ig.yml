@@ -3,16 +3,16 @@ kind: InstanceGroup
 metadata:
   labels:
     kops.k8s.io/cluster: CLUSTER_NAME
-  name: benchmark-instance-UNIQUE
+  name: benchmark-instances
 spec:
   image: kope.io/k8s-1.6-debian-jessie-amd64-hvm-ebs-2017-05-02
   machineType: m4.4xlarge
-  maxSize: 1
-  minSize: 1
+  maxSize: NUM_DUMMY
+  minSize: NUM_DUMMY
   role: Node
   rootVolumeSize: 32
   nodeLabels:
-    role: benchmark-UNIQUE
+    role: benchmark
   subnets:
     - us-east-1a
 
