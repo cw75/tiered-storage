@@ -107,7 +107,6 @@ rm tmp.yml
 
 add_nodes 0 0 $3 0 
 
-wait for all proxies to be ready
 PROXY_IPS=`kubectl get pods -l role=proxy -o jsonpath='{.items[*].status.podIP}'`
 PROXY_IP_ARR=($PROXY_IPS)
 while [ ${#PROXY_IP_ARR[@]} -ne $3 ]; do
