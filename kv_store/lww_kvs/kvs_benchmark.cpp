@@ -295,8 +295,8 @@ void run(unsigned thread_id) {
         unsigned epoch = 1;
 
         while (true) {
-          unsigned k = sample(num_keys, seed, base, sum_probs);
-          string key = string(8 - to_string(k).length(), '0') + to_string(k);
+          string key_aux = to_string(rand_r(&seed) % (unsigned)(num_keys) + 1);
+          string key = string(8 - key_aux.length(), '0') + key_aux;
           unsigned trial = 1;
           if (type == "G") {
             handle_request(key, "", pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
@@ -345,7 +345,7 @@ void run(unsigned thread_id) {
         }
 
         // prepare for zipfian workload with coefficient 1 (for low contention)
-        zipf = 1;
+        /*zipf = 1;
         base = get_base(num_keys, zipf);
         sum_probs.clear();
         sum_probs[0] = 0;
@@ -410,7 +410,7 @@ void run(unsigned thread_id) {
           if (rid > 10000000) {
             rid = 0;
           }
-        }
+        }*/
 
         logger->info("Finished");
         communication::Feedback l;
@@ -444,7 +444,7 @@ void run(unsigned thread_id) {
         logger->info("Finished warming up");
         auto warmup_time = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-warmup_start).count();
         logger->info("warming up data took {} seconds", warmup_time);
-        if (thread_id == 0) {
+        /*if (thread_id == 0) {
           logger->info("Waiting for 16 minutes");
           chrono::seconds dura(960);
           this_thread::sleep_for(dura);
@@ -455,7 +455,7 @@ void run(unsigned thread_id) {
           string serialized_feedback;
           f.SerializeToString(&serialized_feedback);
           zmq_util::send_string(serialized_feedback, &pushers[mt.get_latency_report_connect_addr()]);
-        }
+        }*/
       } else {
         logger->info("Invalid mode");
       }

@@ -643,7 +643,7 @@ int main(int argc, char* argv[]) {
       unsigned ebs_node_number = global_hash_ring_map[2].size() / VIRTUAL_THREAD_NUM;
 
       // Policy Start Here:
-      if (policy_start) {
+      /*if (policy_start) {
         // 1. first check storage consumption and trigger elasticity if necessary
         if (memory_node_number != 0 && adding_memory_node == 0 && required_memory_node > memory_node_number) {
           logger->info("memory consumption exceeds threshold!");
@@ -924,7 +924,7 @@ int main(int argc, char* argv[]) {
         requests.clear();
       } else {
         logger->info("policy not started");
-      }
+      }*/
 
       user_latency.clear();
       user_throughput.clear();

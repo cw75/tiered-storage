@@ -52,8 +52,8 @@ using namespace std;
 // Define the number of virtual thread per each physical thread
 #define VIRTUAL_THREAD_NUM 300
 
-#define CAPACITY_MAX 0.8
-#define CAPACITY_MIN 0.6
+#define CAPACITY_MAX 0.75
+#define CAPACITY_MIN 0.5
 
 #define PROMOTE_THRESHOLD 0
 #define DEMOTE_THRESHOLD 1
