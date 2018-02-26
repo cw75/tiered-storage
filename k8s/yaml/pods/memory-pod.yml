@@ -3,7 +3,7 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: memory-instance-UNIQUE
+  name: memory-pod-NUM_DUMMY
   labels: 
     role: memory
 spec:
@@ -20,5 +20,5 @@ spec:
     - name: MON_IP
       value: MON_IP_DUMMY
   nodeSelector:
-    role: memory-UNIQUE
+    role: memory
   restartPolicy: Never

@@ -3,7 +3,7 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: benchmark-instance-UNIQUE
+  name: benchmark-pod-NUM_DUMMY
   labels: 
     role: benchmark
 spec:
@@ -18,4 +18,4 @@ spec:
     - name: MON_IP
       value: MON_IP_DUMMY
   nodeSelector:
-    role: benchmark-UNIQUE
+    role: benchmark

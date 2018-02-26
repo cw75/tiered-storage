@@ -3,16 +3,16 @@ kind: InstanceGroup
 metadata:
   labels:
     kops.k8s.io/cluster: CLUSTER_NAME
-  name: proxy-instance-UNIQUE
+  name: proxy-instances
 spec:
   image: kope.io/k8s-1.6-debian-jessie-amd64-hvm-ebs-2017-05-02
   machineType: m4.2xlarge
-  maxSize: 1
-  minSize: 1
+  maxSize: NUM_DUMMY
+  minSize: NUM_DUMMY
   role: Node
   rootVolumeSize: 32
   nodeLabels:
-    role: proxy-UNIQUE
+    role: proxy
   subnets:
     - us-east-1a
 

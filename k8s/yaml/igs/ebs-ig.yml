@@ -5,15 +5,15 @@ kind: InstanceGroup
 metadata:
   labels:
     kops.k8s.io/cluster: CLUSTER_NAME
-  name: ebs-instance-UNIQUE
+  name: ebs-instances
 spec:
   image: kope.io/k8s-1.6-debian-jessie-amd64-hvm-ebs-2017-05-02
   machineType: m4.large
-  maxSize: 1
-  minSize: 1
+  maxSize: NUM_DUMMY
+  minSize: NUM_DUMMY
   rootVolumeSize: 32
   role: Node
   nodeLabels:
-    role: ebs-UNIQUE
+    role: ebs
   subnets:
     - us-east-1a

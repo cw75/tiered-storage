@@ -10,9 +10,9 @@ class KopsHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         if '/add/memory' in self.path:
             num = list(filter(lambda a: a != '', self.path.split('/')))[-1]
-            print('Adding ' + num + 'new memory node...')
-            logging.info('Adding ' + num + ' new memory node...')
-            if os.system('./kops_add_node.sh m ' + num) == 0:
+            print('Adding ' + num + 'new memory nodes...')
+            logging.info('Adding ' + num + ' new memory nodes...')
+            if os.system('./add_nodes.sh ' + num + ' 0 0 0') == 0:
                 self.send_response(200)
                 self.wfile.write(bytes('Successfully added ' + num + ' memory node.', 'utf-8'))
             else:
@@ -20,9 +20,9 @@ class KopsHandler(BaseHTTPRequestHandler):
                 self.wfile.write(bytes('Unexpected error while adding nodes.', 'utf-8'))
         elif '/add/ebs' in self.path:
             num = list(filter(lambda a: a != '', self.path.split('/')))[-1]
-            print('Adding ' + num + 'new EBS node...')
-            logging.info('Adding ' + num + ' new EBS node...')
-            if os.system('./kops_add_node.sh e ' + num) == 0:
+            print('Adding ' + num + 'new EBS nodes...')
+            logging.info('Adding ' + num + ' new EBS nodes...')
+            if os.system('./add_nodes.sh 0 ' + num + ' 0 0') == 0:
                 self.send_response(200)
                 self.wfile.write(bytes('Successfully added ' + num + ' EBS node.', 'utf-8'))
             else:

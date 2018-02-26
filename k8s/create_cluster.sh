@@ -12,56 +12,6 @@ else
   SSH_KEY=$5
 fi
 
-add_nodes() {
-  if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ]; then 
-    echo "Expected usage: add_nodes <num-memory-nodes> <num-ebs-nodes> <num-proxy-nodes> <num-benchmark-nodes>."
-    exit 1
-  fi
-
-  IDS=()
-  NODE_TYPE=()
-  # memory node(s)
-  for i in $(seq 1 $1); do
-    UUID=`tr -dc 'a-z0-9' < /dev/urandom | head -c 16`
-    ./add_server.sh m $UUID
-    IDS+=( $UUID )
-    NODE_TYPE+=( m )
-  done
-  # ebs node(s)
-  for i in $(seq 1 $2); do
-    UUID=`tr -dc 'a-z0-9' < /dev/urandom | head -c 16`
-    ./add_server.sh e $UUID
-    IDS+=( $UUID )
-    NODE_TYPE+=( e )
-  done
-  # proxy node(s)
-  for i in $(seq 1 $3); do
-    UUID=`tr -dc 'a-z0-9' < /dev/urandom | head -c 16`
-    ./add_server.sh p $UUID
-    IDS+=( $UUID )
-    NODE_TYPE+=( p )
-  done
-  # benchmark node(s)
-  for i in $(seq 1 $4); do
-    UUID=`tr -dc 'a-z0-9' < /dev/urandom | head -c 16`
-    ./add_server.sh b $UUID
-    IDS+=( $UUID )
-    NODE_TYPE+=( b )
-  done
-
-  kops update cluster --name ${NAME} --yes > /dev/null 2>&1
-  kops validate cluster > /dev/null 2>&1
-  while [ $? -ne 0 ]
-  do
-    kops validate cluster > /dev/null 2>&1
-  done
-
-  for i in ${!IDS[@]}; do
-    ./add_node.sh ${NODE_TYPE[$i]} ${IDS[$i]}
-  done
-}
-
-
 export NAME=kvs.k8s.local
 export KOPS_STATE_STORE=s3://tiered-storage-state-store
 
@@ -101,12 +51,14 @@ MGMT_IP=`kubectl get pods -l role=kops -o jsonpath='{.items[*].status.podIP}' | 
 while [ "$MGMT_IP" = "" ]; do
   MGMT_IP=`kubectl get pods -l role=kops -o jsonpath='{.items[*].status.podIP}' | tr -d '[:space:]'`
 done
+
 sed "s|MGMT_IP_DUMMY|$MGMT_IP|g" yaml/pods/monitoring-pod.yml > tmp.yml
 kubectl create -f tmp.yml > /dev/null 2>&1
 rm tmp.yml
 
-add_nodes 0 0 $3 0 
+./add_nodes.sh 0 0 $3 0
 
+# wait for all proxies to be ready
 PROXY_IPS=`kubectl get pods -l role=proxy -o jsonpath='{.items[*].status.podIP}'`
 PROXY_IP_ARR=($PROXY_IPS)
 while [ ${#PROXY_IP_ARR[@]} -ne $3 ]; do
@@ -114,7 +66,7 @@ while [ ${#PROXY_IP_ARR[@]} -ne $3 ]; do
   PROXY_IP_ARR=($PROXY_IPS)
 done
 
-add_nodes $1 $2 0 $4
+./add_nodes.sh $1 $2 0 $4
 
 # copy the SSH key into the management node... doing this later because we need
 # to wait for the pod to come up
