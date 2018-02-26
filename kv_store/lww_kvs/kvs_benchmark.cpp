@@ -445,10 +445,10 @@ void run(unsigned thread_id) {
         auto warmup_time = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-warmup_start).count();
         logger->info("warming up data took {} seconds", warmup_time);
         if (thread_id == 0) {
-          logger->info("Waiting for 12 minutes");
-          chrono::seconds dura(720);
+          logger->info("Waiting for 16 minutes");
+          chrono::seconds dura(960);
           this_thread::sleep_for(dura);
-          logger->info("Waited 12 minutes");
+          logger->info("Waited 16 minutes");
           communication::Feedback f;
           f.set_uid(ip + ":" + to_string(thread_id));
           f.set_warmup(true);
