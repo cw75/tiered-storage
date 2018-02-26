@@ -793,27 +793,62 @@ void run(unsigned thread_id) {
       bool succeed;
       for (int i = 0; i < req.tuple_size(); i++) {
         string key = req.tuple(i).key();
-        // update the replication factor
-        for (int j = 0; j < req.tuple(i).global_size(); j++) {
-          placement[key].global_replication_map_[req.tuple(i).global(j).tier_id()] = req.tuple(i).global(j).global_replication();
-        }
-        for (int j = 0; j < req.tuple(i).local_size(); j++) {
-          placement[key].local_replication_map_[req.tuple(i).local(j).ip()] = req.tuple(i).local(j).local_replication();
-        }
-        // proceed only if it is originally responsible for the key
         if (key_stat_map.find(key) != key_stat_map.end()) {
-          auto threads = get_responsible_threads(wt.get_replication_factor_connect_addr(), key, is_metadata(key), global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids, succeed, seed);
+          auto orig_threads = get_responsible_threads(wt.get_replication_factor_connect_addr(), key, is_metadata(key), global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids, succeed, seed);
           if (succeed) {
-            if (threads.find(wt) == threads.end()) {
-              remove_set.insert(key);
-            }
-            for (auto it = threads.begin(); it != threads.end(); it++) {
-              if (it->get_id() != wt.get_id()) {
-                addr_keyset_map[it->get_gossip_connect_addr()].insert(key);
+            bool decrement = false;
+            // update the replication factor
+            for (int j = 0; j < req.tuple(i).global_size(); j++) {
+              if (req.tuple(i).global(j).global_replication() < placement[key].global_replication_map_[req.tuple(i).global(j).tier_id()]) {
+                decrement = true;
               }
+              placement[key].global_replication_map_[req.tuple(i).global(j).tier_id()] = req.tuple(i).global(j).global_replication();
+            }
+            for (int j = 0; j < req.tuple(i).local_size(); j++) {
+              if (req.tuple(i).local(j).local_replication() < placement[key].local_replication_map_[req.tuple(i).local(j).ip()]) {
+                decrement = true;
+              }
+              placement[key].local_replication_map_[req.tuple(i).local(j).ip()] = req.tuple(i).local(j).local_replication();
+            }
+            auto threads = get_responsible_threads(wt.get_replication_factor_connect_addr(), key, is_metadata(key), global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids, succeed, seed);
+            if (succeed) {
+              if (threads.find(wt) == threads.end()) {
+                remove_set.insert(key);
+                for (auto it = threads.begin(); it != threads.end(); it++) {
+                  addr_keyset_map[it->get_gossip_connect_addr()].insert(key);
+                }
+              }
+              if (!decrement && orig_threads.begin()->get_id() == wt.get_id()) {
+                unordered_set<server_thread_t, thread_hash> new_threads;
+                for (auto it = threads.begin(); it != threads.end(); it++) {
+                  if (orig_threads.find(*it) == orig_threads.end()) {
+                    new_threads.insert(*it);
+                  }
+                }
+                for (auto it = new_threads.begin(); it != new_threads.end(); it++) {
+                  addr_keyset_map[it->get_gossip_connect_addr()].insert(key);
+                }
+              }
+            } else {
+              logger->info("Error: key missing replication factor in rep factor change routine");
             }
           } else {
             logger->info("Error: key missing replication factor in rep factor change routine");
+            // just update the replication factor
+            for (int j = 0; j < req.tuple(i).global_size(); j++) {
+              placement[key].global_replication_map_[req.tuple(i).global(j).tier_id()] = req.tuple(i).global(j).global_replication();
+            }
+            for (int j = 0; j < req.tuple(i).local_size(); j++) {
+              placement[key].local_replication_map_[req.tuple(i).local(j).ip()] = req.tuple(i).local(j).local_replication();
+            }
+          }
+        } else {
+          // just update the replication factor
+          for (int j = 0; j < req.tuple(i).global_size(); j++) {
+            placement[key].global_replication_map_[req.tuple(i).global(j).tier_id()] = req.tuple(i).global(j).global_replication();
+          }
+          for (int j = 0; j < req.tuple(i).local_size(); j++) {
+            placement[key].local_replication_map_[req.tuple(i).local(j).ip()] = req.tuple(i).local(j).local_replication();
           }
         }
       }
