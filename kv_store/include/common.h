@@ -63,11 +63,13 @@ using namespace std;
 #define MIN_TIER 1
 #define MAX_TIER 2
 
-#define MINIMUM_MEMORY_NODE 3
+#define MINIMUM_MEMORY_NODE 10
 #define MINIMUM_EBS_NODE 0
 
 #define SLO_WORST 3000
 #define SLO_BEST 1500
+
+#define HOT_KEY_THRESHOLD 10000
 
 // node capacity in KB
 unsigned MEM_NODE_CAPACITY = 16000000;

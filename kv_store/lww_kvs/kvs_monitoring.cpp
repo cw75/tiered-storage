@@ -800,8 +800,8 @@ int main(int argc, char* argv[]) {
             for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
               string key = it->first;
               unsigned total_access = it->second;
-              if (!is_metadata(key) && total_access > 5000) {
-                logger->info("key {} accessed more than 5000 times. Accessed {} times", key, total_access);
+              if (!is_metadata(key) && total_access > HOT_KEY_THRESHOLD) {
+                logger->info("key {} accessed more than {} times. Accessed {} times", key, HOT_KEY_THRESHOLD, total_access);
                 if (memory_node_number - placement[key].global_replication_map_[1] > 0 && placement[key].global_replication_map_[2] > 0) {
                   key_info new_rep_factor;
                   new_rep_factor.global_replication_map_[1] = placement[key].global_replication_map_[1] + 1;
@@ -910,8 +910,8 @@ int main(int argc, char* argv[]) {
           for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
             string key = it->first;
             unsigned total_access = it->second;
-            if (!is_metadata(key) && total_access <= 5000 && placement[key].global_replication_map_[1] > 1) {
-              logger->info("key {} accessed less than 5000 times. Accessed {} times", key, total_access);
+            if (!is_metadata(key) && total_access <= HOT_KEY_THRESHOLD && placement[key].global_replication_map_[1] > 1) {
+              logger->info("key {} accessed less than {} times. Accessed {} times", key, HOT_KEY_THRESHOLD, total_access);
               key_info new_rep_factor;
               new_rep_factor.global_replication_map_[1] = placement[key].global_replication_map_[1] - 1;
               if (new_rep_factor.global_replication_map_[1] + placement[key].global_replication_map_[2] < MINIMUM_REPLICA_NUMBER) {
