@@ -515,25 +515,42 @@ int main(int argc, char* argv[]) {
       unsigned m_count = 0;
       unsigned e_count = 0;
 
+      double max_memory_consumption_percentage = 0;
+      double max_ebs_consumption_percentage = 0;
+
       for (auto it1 = memory_tier_storage.begin(); it1 != memory_tier_storage.end(); it1++) {
+        unsigned total_thread_consumption = 0;
         for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
           total_memory_consumption += it2->second;
+          total_thread_consumption += it2->second;
+        }
+        double percentage = (double)total_thread_consumption / (double)tier_data_map[1].node_capacity_;
+        if (percentage > max_memory_consumption_percentage) {
+          max_memory_consumption_percentage = percentage;
         }
         m_count += 1;
       }
       for (auto it1 = ebs_tier_storage.begin(); it1 != ebs_tier_storage.end(); it1++) {
+        unsigned total_thread_consumption = 0;
         for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
           total_ebs_consumption += it2->second;
+          total_thread_consumption += it2->second;
+        }
+        double percentage = (double)total_thread_consumption / (double)tier_data_map[2].node_capacity_;
+        if (percentage > max_ebs_consumption_percentage) {
+          max_ebs_consumption_percentage = percentage;
         }
         e_count += 1;
       }
       if (m_count != 0) {
         average_memory_consumption_percentage = (double)total_memory_consumption / ((double)m_count * tier_data_map[1].node_capacity_);
         logger->info("average memory node consumption percentage is {}", average_memory_consumption_percentage);
+        logger->info("max memory node consumption percentage is {}", max_memory_consumption_percentage);
       }
       if (e_count != 0) {
         average_ebs_consumption_percentage = (double)total_ebs_consumption / ((double)e_count * tier_data_map[2].node_capacity_);
         logger->info("average ebs node consumption percentage is {}", average_ebs_consumption_percentage);
+        logger->info("max ebs node consumption percentage is {}", max_ebs_consumption_percentage);
       }
 
       double max_memory_occupancy = 0.0;
