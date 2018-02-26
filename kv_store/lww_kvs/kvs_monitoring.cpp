@@ -906,28 +906,26 @@ int main(int argc, char* argv[]) {
         requests.clear();
 
         // finally, consider reducing the replication factor of some keys that are not so hot anymore
-        if (avg_latency <= SLO_WORST) {
-          for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
-            string key = it->first;
-            unsigned total_access = it->second;
-            if (!is_metadata(key) && total_access <= HOT_KEY_THRESHOLD && placement[key].global_replication_map_[1] > 1) {
-              logger->info("key {} accessed less than {} times. Accessed {} times", key, HOT_KEY_THRESHOLD, total_access);
-              key_info new_rep_factor;
-              new_rep_factor.global_replication_map_[1] = placement[key].global_replication_map_[1] - 1;
-              if (new_rep_factor.global_replication_map_[1] + placement[key].global_replication_map_[2] < MINIMUM_REPLICA_NUMBER) {
-                new_rep_factor.global_replication_map_[2] = MINIMUM_REPLICA_NUMBER - new_rep_factor.global_replication_map_[1];
-                if (new_rep_factor.global_replication_map_[2] > (global_hash_ring_map[2].size() / VIRTUAL_THREAD_NUM)) {
-                  logger->info("Error: number of ebs replica exceed number of ebs nodes");
-                }
-              } else {
-                new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
+        for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
+          string key = it->first;
+          unsigned total_access = it->second;
+          if (!is_metadata(key) && total_access <= HOT_KEY_THRESHOLD && placement[key].global_replication_map_[1] > 1) {
+            logger->info("key {} accessed less than {} times. Accessed {} times", key, HOT_KEY_THRESHOLD, total_access);
+            key_info new_rep_factor;
+            new_rep_factor.global_replication_map_[1] = placement[key].global_replication_map_[1] - 1;
+            if (new_rep_factor.global_replication_map_[1] + placement[key].global_replication_map_[2] < MINIMUM_REPLICA_NUMBER) {
+              new_rep_factor.global_replication_map_[2] = MINIMUM_REPLICA_NUMBER - new_rep_factor.global_replication_map_[1];
+              if (new_rep_factor.global_replication_map_[2] > (global_hash_ring_map[2].size() / VIRTUAL_THREAD_NUM)) {
+                logger->info("Error: number of ebs replica exceed number of ebs nodes");
               }
-              requests[key] = new_rep_factor;
-              logger->info("reducing replication factor for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], placement[key].global_replication_map_[1] - 1, placement[key].global_replication_map_[2], placement[key].global_replication_map_[2] + 1);
+            } else {
+              new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
             }
+            requests[key] = new_rep_factor;
+            logger->info("reducing replication factor for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], placement[key].global_replication_map_[1] - 1, placement[key].global_replication_map_[2], placement[key].global_replication_map_[2] + 1);
           }
-          change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
         }
+        change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
         requests.clear();
       } else {
         logger->info("policy not started");
