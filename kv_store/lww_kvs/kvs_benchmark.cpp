@@ -451,7 +451,7 @@ void run(unsigned thread_id) {
         logger->info("Finished warming up");
         auto warmup_time = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-warmup_start).count();
         logger->info("warming up data took {} seconds", warmup_time);
-        if (thread_id == 0) {
+        /*if (thread_id == 0) {
           logger->info("Waiting for 16 minutes");
           chrono::seconds dura(960);
           this_thread::sleep_for(dura);
@@ -462,7 +462,7 @@ void run(unsigned thread_id) {
           string serialized_feedback;
           f.SerializeToString(&serialized_feedback);
           zmq_util::send_string(serialized_feedback, &pushers[mt.get_latency_report_connect_addr()]);
-        }
+        }*/
       } else {
         logger->info("Invalid mode");
       }
