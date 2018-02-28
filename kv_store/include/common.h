@@ -72,7 +72,7 @@ using namespace std;
 #define HOT_KEY_THRESHOLD 10000
 
 // node capacity in KB
-unsigned MEM_NODE_CAPACITY = 4000000;
+unsigned MEM_NODE_CAPACITY = 16000000;
 unsigned EBS_NODE_CAPACITY = 64000000;
 // value size in KB
 #define VALUE_SIZE 256
