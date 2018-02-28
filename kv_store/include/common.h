@@ -28,7 +28,7 @@ using namespace std;
 #define GRACE_PERIOD 120
 
 // Define the replication factor for the metadata
-#define METADATA_REPLICATION_FACTOR 2
+#define METADATA_REPLICATION_FACTOR 1
 
 // Define the default replication factor for the data
 #define DEFAULT_GLOBAL_MEMORY_REPLICATION 1
@@ -38,7 +38,7 @@ using namespace std;
 #define DEFAULT_LOCAL_REPLICATION 1
 
 // Define the number of memory threads
-#define MEMORY_THREAD_NUM 4
+#define MEMORY_THREAD_NUM 1
 
 // Define the number of ebs threads
 #define EBS_THREAD_NUM 1
@@ -72,7 +72,7 @@ using namespace std;
 #define HOT_KEY_THRESHOLD 10000
 
 // node capacity in KB
-unsigned MEM_NODE_CAPACITY = 16000000;
+unsigned MEM_NODE_CAPACITY = 4000000;
 unsigned EBS_NODE_CAPACITY = 64000000;
 // value size in KB
 #define VALUE_SIZE 256
