@@ -6,7 +6,7 @@ metadata:
   name: benchmark-instances
 spec:
   image: 889180461196/k8s-1.7-debian-jessie-amd64-hvm-ebs-2017-08-21
-  machineType: m4.4xlarge
+  machineType: r4.16xlarge
   maxSize: NUM_DUMMY
   minSize: NUM_DUMMY
   role: Node

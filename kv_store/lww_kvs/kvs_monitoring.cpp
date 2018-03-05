@@ -643,9 +643,9 @@ int main(int argc, char* argv[]) {
       unsigned ebs_node_number = global_hash_ring_map[2].size() / VIRTUAL_THREAD_NUM;
 
       // Policy Start Here:
-      if (true) {
+      /*if (true) {
         // 1. first check storage consumption and trigger elasticity if necessary
-        /*if (memory_node_number != 0 && adding_memory_node == 0 && required_memory_node > memory_node_number) {
+        if (memory_node_number != 0 && adding_memory_node == 0 && required_memory_node > memory_node_number) {
           logger->info("memory consumption exceeds threshold!");
           auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
           if (time_elapsed > GRACE_PERIOD) {
@@ -687,12 +687,12 @@ int main(int argc, char* argv[]) {
           } else {
             logger->info("in grace period, not removing node");
           }
-        }*/
+        }
 
         unordered_map<string, key_info> requests;
         unsigned total_rep_to_change = 0;
         // 2. check key access summary to promote hot keys to memory tier
-        /*unsigned slot = (MEM_CAPACITY_MAX * tier_data_map[1].node_capacity_ * memory_node_number - total_memory_consumption) / VALUE_SIZE;
+        unsigned slot = (MEM_CAPACITY_MAX * tier_data_map[1].node_capacity_ * memory_node_number - total_memory_consumption) / VALUE_SIZE;
         bool overflow = false;
         for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
           string key = it->first;
@@ -773,7 +773,7 @@ int main(int argc, char* argv[]) {
         }
 
         requests.clear();
-        total_rep_to_change = 0;*/
+        total_rep_to_change = 0;
 
         // 4. check latency to see if the SLO has been violated
         // 4.1 if latency is too high
@@ -929,7 +929,7 @@ int main(int argc, char* argv[]) {
         requests.clear();
       } else {
         logger->info("policy not started");
-      }
+      }*/
 
       user_latency.clear();
       user_throughput.clear();
