@@ -77,7 +77,7 @@ add_pods() {
 
     if [ "$1" = "ebs" ]; then
       # create new EBS volume
-      EBS_V0=`aws ec2 create-volume --availability-zone=us-east-1a --size=64 --volume-type=gp2 | grep VolumeId | cut -d\" -f4`
+      EBS_V0=`aws ec2 create-volume --availability-zone=us-east-1a --size=128 --volume-type=gp2 | grep VolumeId | cut -d\" -f4`
       aws ec2 create-tags --resources $EBS_V0 --tags Key=KubernetesCluster,Value=$NAME
 
       # set EBS volume IDs
