@@ -75,7 +75,7 @@ add_pods() {
   for i in $(seq $NUM_PREV $FINAL_NUM); do
     sed "s|NUM_DUMMY|$i|g" $YML_FILE > tmp.yml
 
-    if [ "$1" = "e" ]; then
+    if [ "$1" = "ebs" ]; then
       # create new EBS volume
       EBS_V0=`aws ec2 create-volume --availability-zone=us-east-1a --size=64 --volume-type=gp2 | grep VolumeId | cut -d\" -f4`
       aws ec2 create-tags --resources $EBS_V0 --tags Key=KubernetesCluster,Value=$NAME
