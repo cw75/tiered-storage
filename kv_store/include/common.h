@@ -50,7 +50,7 @@ using namespace std;
 #define BENCHMARK_THREAD_NUM 16
 
 // Define the number of virtual thread per each physical thread
-#define VIRTUAL_THREAD_NUM 300
+#define VIRTUAL_THREAD_NUM 1000
 
 #define MEM_CAPACITY_MAX 0.6
 #define MEM_CAPACITY_MIN 0.3
