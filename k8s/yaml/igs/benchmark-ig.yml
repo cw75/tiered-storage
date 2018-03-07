@@ -15,4 +15,3 @@ spec:
     role: benchmark
   subnets:
     - us-east-1a
-

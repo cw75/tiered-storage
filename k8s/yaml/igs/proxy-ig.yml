@@ -6,7 +6,7 @@ metadata:
   name: proxy-instances
 spec:
   image: kope.io/k8s-1.8-debian-jessie-amd64-hvm-ebs-2018-01-14
-  machineType: m4.4xlarge
+  machineType: r4.4xlarge
   maxSize: NUM_DUMMY
   minSize: NUM_DUMMY
   role: Node
@@ -15,4 +15,3 @@ spec:
     role: proxy
   subnets:
     - us-east-1a
-

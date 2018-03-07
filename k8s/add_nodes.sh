@@ -77,11 +77,20 @@ add_pods() {
 
     if [ "$1" = "ebs" ]; then
       # create new EBS volume
-      EBS_V0=`aws ec2 create-volume --availability-zone=us-east-1a --size=128 --volume-type=gp2 | grep VolumeId | cut -d\" -f4`
+      EBS_V0=`aws ec2 create-volume --availability-zone=us-east-1a --size=32 --volume-type=gp2 | grep VolumeId | cut -d\" -f4`
       aws ec2 create-tags --resources $EBS_V0 --tags Key=KubernetesCluster,Value=$NAME
+      EBS_V1=`aws ec2 create-volume --availability-zone=us-east-1a --size=32 --volume-type=gp2 | grep VolumeId | cut -d\" -f4`
+      aws ec2 create-tags --resources $EBS_V1 --tags Key=KubernetesCluster,Value=$NAME
+      EBS_V2=`aws ec2 create-volume --availability-zone=us-east-1a --size=32 --volume-type=gp2 | grep VolumeId | cut -d\" -f4`
+      aws ec2 create-tags --resources $EBS_V2 --tags Key=KubernetesCluster,Value=$NAME
+      EBS_V3=`aws ec2 create-volume --availability-zone=us-east-1a --size=32 --volume-type=gp2 | grep VolumeId | cut -d\" -f4`
+      aws ec2 create-tags --resources $EBS_V3 --tags Key=KubernetesCluster,Value=$NAME
 
       # set EBS volume IDs
       sed -i "s|VOLUME_DUMMY_0|$EBS_V0|g" tmp.yml
+      sed -i "s|VOLUME_DUMMY_1|$EBS_V1|g" tmp.yml
+      sed -i "s|VOLUME_DUMMY_2|$EBS_V2|g" tmp.yml
+      sed -i "s|VOLUME_DUMMY_3|$EBS_V3|g" tmp.yml
     fi
      
     # set the IPs of other system components
