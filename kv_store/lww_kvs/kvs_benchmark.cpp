@@ -185,10 +185,13 @@ void run(unsigned thread_id) {
   auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
   logger->flush_on(spdlog::level::info);
 
-  unsigned seed = time(NULL);
-  seed += thread_id;
-
   string ip = get_ip("user");
+
+  hash<string> hasher;
+  unsigned seed = time(NULL);
+  seed += hasher(ip);
+  seed += thread_id;
+  logger->info("seed is {}", seed);
 
   // read in the proxy addresses
   vector<string> proxy_address;
