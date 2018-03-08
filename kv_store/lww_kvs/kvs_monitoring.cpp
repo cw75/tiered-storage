@@ -525,6 +525,7 @@ int main(int argc, char* argv[]) {
           total_thread_consumption += it2->second;
         }
         double percentage = (double)total_thread_consumption / (double)tier_data_map[1].node_capacity_;
+        logger->info("memory node {} storage consumption is {}", it1->first, percentage);
         if (percentage > max_memory_consumption_percentage) {
           max_memory_consumption_percentage = percentage;
         }
@@ -537,6 +538,7 @@ int main(int argc, char* argv[]) {
           total_thread_consumption += it2->second;
         }
         double percentage = (double)total_thread_consumption / (double)tier_data_map[2].node_capacity_;
+        logger->info("ebs node {} storage consumption is {}", it1->first, percentage);
         if (percentage > max_ebs_consumption_percentage) {
           max_ebs_consumption_percentage = percentage;
         }
