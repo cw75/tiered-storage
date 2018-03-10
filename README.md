@@ -15,7 +15,6 @@ Clang/Clang++ is assumed to reside in `/usr/bin/`. Therefore, run:<br />
 
 To build the KVS in debug mode, run `bash ./scripts/build_debug.sh`.<br />
 To build the KVS in release mode, run `bash ./scripts/build_release.sh`.<br />
-To clear the EBS storage, run `bash ./scripts/clear_storage.sh`.<br />
 
 To run the KVS,
 
