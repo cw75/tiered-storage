@@ -1,6 +1,6 @@
 # Tiered Storage
 
-An elastic, tiered KVS.
+A cloud-native, elastic, tiered KVS.
 
 ## Build Instructions:
 
@@ -19,9 +19,9 @@ To clear the EBS storage, run `bash ./scripts/clear_storage.sh`.<br />
 
 To run the KVS,
 
-1. Start a memory node by running `./build/kv_store/lww_kvs/kvs_memory_server <server_ip_addr> n`.
-2. Start a proxy node by running `./build/kv_store/lww_kvs/kvs_client <proxy_ip_addr>`.
-3. Start the monitoring node by running `./build/kv_store/lww_kvs/kvs_monitoring <monitoring_ip_addr>`.
-4. Start a user node by running `./build/kv_store/lww_kvs/kvs_user <user_ip_addr>`.
+1. Start a storage node by running `./build/kv_store/lww_kvs/kvs_server`.
+2. Start a proxy node by running `./build/kv_store/lww_kvs/kvs_proxy`.
+3. Start the monitoring node by running `./build/kv_store/lww_kvs/kvs_monitoring`.
+4. Start a benchmark node by running `./build/kv_store/lww_kvs/kvs_benchmark`.
 
-Meanwhile, the accepted input formats are `GET $key1,$key2,...` and `PUT $key1:$value1,$key2:$value2,...`.
+Meanwhile, the accepted input formats are `GET $key` and `PUT $key $value`.
