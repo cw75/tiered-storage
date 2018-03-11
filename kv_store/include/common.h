@@ -38,7 +38,7 @@ using namespace std;
 #define DEFAULT_LOCAL_REPLICATION 1
 
 // Define the number of memory threads
-#define MEMORY_THREAD_NUM 2
+#define MEMORY_THREAD_NUM 3
 
 // Define the number of ebs threads
 #define EBS_THREAD_NUM 4
