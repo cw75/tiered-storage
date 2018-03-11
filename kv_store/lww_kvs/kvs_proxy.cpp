@@ -254,7 +254,9 @@ void run(unsigned thread_id) {
               // send the key address response
               string serialized_key_res;
               key_res.SerializeToString(&serialized_key_res);
-              zmq_util::send_string(serialized_key_res, &pushers[it->first]);
+              zmq::socket_t push_socket(context, ZMQ_PUSH);
+              push_socket.connect(it->first);
+              zmq_util::send_string(serialized_key_res, &push_socket);
             }
           } else {
             logger->info("Error: key missing replication factor in process pending key address routine");
@@ -329,7 +331,9 @@ void run(unsigned thread_id) {
         // send the key address response
         string serialized_key_res;
         key_res.SerializeToString(&serialized_key_res);
-        zmq_util::send_string(serialized_key_res, &pushers[key_req.respond_address()]);
+        zmq::socket_t push_socket(context, ZMQ_PUSH);
+        push_socket.connect(key_req.respond_address());
+        zmq_util::send_string(serialized_key_res, &push_socket);
       }
     }
 
