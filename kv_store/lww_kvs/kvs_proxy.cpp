@@ -20,6 +20,8 @@
 
 using namespace std;
 
+zmq::context_t context(1);
+
 // read-only per-tier metadata
 unordered_map<unsigned, tier_data> tier_data_map;
 
@@ -38,7 +40,7 @@ void run(unsigned thread_id) {
   seed += thread_id;
 
   // prepare the zmq context
-  zmq::context_t context(1);
+  //zmq::context_t context(1);
 
   SocketCache pushers(&context, ZMQ_PUSH);
 

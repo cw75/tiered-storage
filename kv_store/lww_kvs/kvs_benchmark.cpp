@@ -15,6 +15,8 @@
 
 using namespace std;
 
+zmq::context_t context(1);
+
 double get_base(unsigned N, double skew) {
   double base = 0;
   for (unsigned k = 1; k <= N; k++) {
@@ -219,7 +221,7 @@ void run(unsigned thread_id) {
 
   monitoring_thread_t mt = monitoring_thread_t(monitoring_address);
 
-  zmq::context_t context(1);
+  //zmq::context_t context(1);
   SocketCache pushers(&context, ZMQ_PUSH);
 
   int timeout = 10000;
