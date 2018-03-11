@@ -23,6 +23,8 @@
 // TODO: Everything that's currently writing to cout and cerr should be replaced with a logfile.
 using namespace std;
 
+zmq::context_t context(1);
+
 unsigned SELF_TIER_ID;
 
 // worker thread number
@@ -263,7 +265,7 @@ void run(unsigned thread_id) {
   seed += thread_id;
 
   // prepare the zmq context
-  zmq::context_t context(1);
+  //zmq::context_t context(1);
   //zmq_ctx_set(&context, ZMQ_IO_THREADS, 2);
 
   SocketCache pushers(&context, ZMQ_PUSH);
@@ -1029,6 +1031,8 @@ int main(int argc, char* argv[]) {
 
   // populate metadata
   SELF_TIER_ID = atoi(getenv("SERVER_TYPE"));
+
+  zmq_ctx_set(&context, ZMQ_IO_THREADS, 4);
 
   // debugging
   cerr << "tier id is " + to_string(SELF_TIER_ID) + "\n";
