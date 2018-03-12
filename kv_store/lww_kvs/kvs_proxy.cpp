@@ -20,7 +20,7 @@
 
 using namespace std;
 
-zmq::context_t context(1);
+//zmq::context_t context(1);
 
 // read-only per-tier metadata
 unordered_map<unsigned, tier_data> tier_data_map;
@@ -40,7 +40,8 @@ void run(unsigned thread_id) {
   seed += thread_id;
 
   // prepare the zmq context
-  //zmq::context_t context(1);
+  zmq::context_t context(1);
+  zmq_ctx_set(&context, ZMQ_IO_THREADS, 3);
 
   SocketCache pushers(&context, ZMQ_PUSH);
 
@@ -357,7 +358,7 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  zmq_ctx_set(&context, ZMQ_IO_THREADS, PROXY_THREAD_NUM);
+  //zmq_ctx_set(&context, ZMQ_IO_THREADS, PROXY_THREAD_NUM);
 
   tier_data_map[1] = tier_data(MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION, MEM_NODE_CAPACITY);
   tier_data_map[2] = tier_data(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION, EBS_NODE_CAPACITY);

@@ -15,7 +15,7 @@
 
 using namespace std;
 
-zmq::context_t context(1);
+//zmq::context_t context(1);
 
 double get_base(unsigned N, double skew) {
   double base = 0;
@@ -221,7 +221,9 @@ void run(unsigned thread_id) {
 
   monitoring_thread_t mt = monitoring_thread_t(monitoring_address);
 
-  //zmq::context_t context(1);
+  zmq::context_t context(1);
+  zmq_ctx_set(&context, ZMQ_IO_THREADS, 3);
+
   SocketCache pushers(&context, ZMQ_PUSH);
 
   int timeout = 10000;
@@ -482,7 +484,7 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  zmq_ctx_set(&context, ZMQ_IO_THREADS, BENCHMARK_THREAD_NUM);
+  //zmq_ctx_set(&context, ZMQ_IO_THREADS, BENCHMARK_THREAD_NUM);
 
   vector<thread> benchmark_threads;
 
