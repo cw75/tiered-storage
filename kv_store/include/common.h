@@ -44,10 +44,10 @@ using namespace std;
 #define EBS_THREAD_NUM 4
 
 // Define the number of proxy worker threads
-#define PROXY_THREAD_NUM 8
+#define PROXY_THREAD_NUM 16
 
 // Define the number of benchmark threads
-#define BENCHMARK_THREAD_NUM 8
+#define BENCHMARK_THREAD_NUM 16
 
 // Define the number of virtual thread per each physical thread
 #define VIRTUAL_THREAD_NUM 3000
