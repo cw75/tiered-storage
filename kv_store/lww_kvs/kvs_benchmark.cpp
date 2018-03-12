@@ -222,7 +222,7 @@ void run(unsigned thread_id) {
   monitoring_thread_t mt = monitoring_thread_t(monitoring_address);
 
   zmq::context_t context(1);
-  //zmq_ctx_set(&context, ZMQ_IO_THREADS, 3);
+  zmq_ctx_set(&context, ZMQ_IO_THREADS, 3);
 
   SocketCache pushers(&context, ZMQ_PUSH);
 
