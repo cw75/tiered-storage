@@ -1038,7 +1038,7 @@ int main(int argc, char* argv[]) {
   // populate metadata
   SELF_TIER_ID = atoi(getenv("SERVER_TYPE"));
 
-  //zmq_ctx_set(&context, ZMQ_IO_THREADS, 4);
+  zmq_ctx_set(&context, ZMQ_IO_THREADS, MEMORY_THREAD_NUM);
 
   // debugging
   cerr << "tier id is " + to_string(SELF_TIER_ID) + "\n";

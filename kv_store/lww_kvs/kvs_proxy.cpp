@@ -357,6 +357,8 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
+  zmq_ctx_set(&context, ZMQ_IO_THREADS, PROXY_THREAD_NUM);
+
   tier_data_map[1] = tier_data(MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION, MEM_NODE_CAPACITY);
   tier_data_map[2] = tier_data(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION, EBS_NODE_CAPACITY);
 
