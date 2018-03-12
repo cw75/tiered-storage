@@ -608,9 +608,10 @@ void run(unsigned thread_id) {
         string serialized_response;
         response.SerializeToString(&serialized_response);
         //  send response
-        zmq::socket_t push_socket(context, ZMQ_PUSH);
-        push_socket.connect(req.respond_address());
-        zmq_util::send_string(serialized_response, &push_socket);
+        //zmq::socket_t push_socket(context, ZMQ_PUSH);
+        //push_socket.connect(req.respond_address());
+        //zmq_util::send_string(serialized_response, &push_socket);
+        zmq_util::send_string(serialized_response, &pushers[req.respond_address()]);
       }
       auto time_elapsed = chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
       working_time += time_elapsed;
@@ -692,9 +693,10 @@ void run(unsigned thread_id) {
                 string serialized_response;
                 response.SerializeToString(&serialized_response);
                 //  send response
-                zmq::socket_t push_socket(context, ZMQ_PUSH);
-                push_socket.connect(it->addr_);
-                zmq_util::send_string(serialized_response, &push_socket);
+                //zmq::socket_t push_socket(context, ZMQ_PUSH);
+                //push_socket.connect(it->addr_);
+                //zmq_util::send_string(serialized_response, &push_socket);
+                zmq_util::send_string(serialized_response, &pushers[it->addr_]);
               } else if (responsible && it->addr_ == "") {
                 // only put requests should fall into this category
                 if (it->type_ == "P") {
@@ -729,9 +731,10 @@ void run(unsigned thread_id) {
                 string serialized_response;
                 response.SerializeToString(&serialized_response);
                 //  send response
-                zmq::socket_t push_socket(context, ZMQ_PUSH);
-                push_socket.connect(it->addr_);
-                zmq_util::send_string(serialized_response, &push_socket);
+                //zmq::socket_t push_socket(context, ZMQ_PUSH);
+                //push_socket.connect(it->addr_);
+                //zmq_util::send_string(serialized_response, &push_socket);
+                zmq_util::send_string(serialized_response, &pushers[it->addr_]);
               }
             }
           } else {
