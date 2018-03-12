@@ -266,7 +266,7 @@ void run(unsigned thread_id) {
 
   // prepare the zmq context
   zmq::context_t context(1);
-  zmq_ctx_set(&context, ZMQ_IO_THREADS, 2);
+  //zmq_ctx_set(&context, ZMQ_IO_THREADS, 2);
 
   SocketCache pushers(&context, ZMQ_PUSH);
 
