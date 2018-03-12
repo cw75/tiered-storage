@@ -19,7 +19,7 @@ using namespace std;
 // Define server report threshold (in second)
 #define SERVER_REPORT_THRESHOLD 15
 // Define server's key monitoring threshold (in second)
-#define KEY_MONITORING_THRESHOLD 900
+#define KEY_MONITORING_THRESHOLD 60
 // Define monitoring threshold (in second)
 #define MONITORING_THRESHOLD 30
 // Define the threshold for retry rep factor query for gossip handling (in second)
@@ -28,17 +28,17 @@ using namespace std;
 #define GRACE_PERIOD 120
 
 // Define the replication factor for the metadata
-#define METADATA_REPLICATION_FACTOR 1
+#define METADATA_REPLICATION_FACTOR 2
 
 // Define the default replication factor for the data
-#define DEFAULT_GLOBAL_MEMORY_REPLICATION 1
+#define DEFAULT_GLOBAL_MEMORY_REPLICATION 3
 #define DEFAULT_GLOBAL_EBS_REPLICATION 0
-#define MINIMUM_REPLICA_NUMBER 1
+#define MINIMUM_REPLICA_NUMBER 3
 // Define the default local replication factor
 #define DEFAULT_LOCAL_REPLICATION 1
 
 // Define the number of memory threads
-#define MEMORY_THREAD_NUM 16
+#define MEMORY_THREAD_NUM 4
 
 // Define the number of ebs threads
 #define EBS_THREAD_NUM 4
@@ -50,7 +50,7 @@ using namespace std;
 #define BENCHMARK_THREAD_NUM 16
 
 // Define the number of virtual thread per each physical thread
-#define VIRTUAL_THREAD_NUM 3000
+#define VIRTUAL_THREAD_NUM 1000
 
 #define MEM_CAPACITY_MAX 0.6
 #define MEM_CAPACITY_MIN 0.3
@@ -63,7 +63,7 @@ using namespace std;
 #define MIN_TIER 1
 #define MAX_TIER 2
 
-#define MINIMUM_MEMORY_NODE 10
+#define MINIMUM_MEMORY_NODE 12
 #define MINIMUM_EBS_NODE 0
 
 #define SLO_WORST 3000
@@ -72,8 +72,8 @@ using namespace std;
 #define HOT_KEY_THRESHOLD 10000
 
 // node capacity in KB
-unsigned MEM_NODE_CAPACITY = 1000000;
-unsigned EBS_NODE_CAPACITY = 64000000;
+unsigned MEM_NODE_CAPACITY = 60000000;
+unsigned EBS_NODE_CAPACITY = 128000000;
 // value size in KB
 #define VALUE_SIZE 256
 
