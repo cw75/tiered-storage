@@ -482,6 +482,8 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
+  zmq_ctx_set(&context, ZMQ_IO_THREADS, BENCHMARK_THREAD_NUM);
+
   vector<thread> benchmark_threads;
 
   for (unsigned thread_id = 1; thread_id < BENCHMARK_THREAD_NUM; thread_id++) {
