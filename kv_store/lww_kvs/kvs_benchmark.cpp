@@ -286,12 +286,20 @@ void run(unsigned thread_id) {
         logger->info("warming up cache took {} seconds", warmup_time);
 
         // prepare for zipfian workload with coefficient 1.4 (for high contention)
-        double zipf = 2;
-        double base = get_base(num_keys, zipf);
-        unordered_map<unsigned, double> sum_probs;
-        sum_probs[0] = 0;
+        double zipf_high = 2;
+        double base_high = get_base(num_keys, zipf_high);
+        unordered_map<unsigned, double> sum_probs_high;
+        sum_probs_high[0] = 0;
         for (unsigned i = 1; i <= num_keys; i++) {
-          sum_probs[i] = sum_probs[i-1] + base / pow((double) i, zipf);
+          sum_probs_high[i] = sum_probs_high[i-1] + base_high / pow((double) i, zipf_high);
+        }
+
+        double zipf_low = 1;
+        double base_low = get_base(num_keys, zipf_low);
+        unordered_map<unsigned, double> sum_probs_low;
+        sum_probs_low[0] = 0;
+        for (unsigned i = 1; i <= num_keys; i++) {
+          sum_probs_low[i] = sum_probs_low[i-1] + base_low / pow((double) i, zipf_low);
         }
 
         size_t count = 0;
@@ -305,11 +313,13 @@ void run(unsigned thread_id) {
         while (true) {
           string key;
           if (contention == "H") {
-            unsigned k = sample(num_keys, seed, base, sum_probs);
+            unsigned k = sample(num_keys, seed, base_high, sum_probs_high);
             key = string(8 - to_string(k).length(), '0') + to_string(k);
           } else if (contention == "L") {
-            string key_aux = to_string(rand_r(&seed) % (unsigned)(num_keys) + 1);
-            key = string(8 - key_aux.length(), '0') + key_aux;
+            unsigned k = sample(num_keys, seed, base_low, sum_probs_low);
+            key = string(8 - to_string(k).length(), '0') + to_string(k);
+            //string key_aux = to_string(rand_r(&seed) % (unsigned)(num_keys) + 1);
+            //key = string(8 - key_aux.length(), '0') + key_aux;
           }
           unsigned trial = 1;
           if (type == "G") {
