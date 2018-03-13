@@ -31,9 +31,9 @@ using namespace std;
 #define METADATA_REPLICATION_FACTOR 2
 
 // Define the default replication factor for the data
-#define DEFAULT_GLOBAL_MEMORY_REPLICATION 3
+#define DEFAULT_GLOBAL_MEMORY_REPLICATION 1
 #define DEFAULT_GLOBAL_EBS_REPLICATION 0
-#define MINIMUM_REPLICA_NUMBER 3
+#define MINIMUM_REPLICA_NUMBER 1
 // Define the default local replication factor
 #define DEFAULT_LOCAL_REPLICATION 1
 
@@ -66,7 +66,7 @@ using namespace std;
 #define MINIMUM_MEMORY_NODE 12
 #define MINIMUM_EBS_NODE 0
 
-#define SLO_WORST 3000
+#define SLO_WORST 2500
 #define SLO_BEST 1500
 
 #define HOT_KEY_THRESHOLD 10000
