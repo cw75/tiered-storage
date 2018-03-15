@@ -782,7 +782,7 @@ int main(int argc, char* argv[]) {
         if (avg_latency > SLO_WORST && adding_memory_node == 0) {
           logger->info("latency is too high!");
           // figure out if we should do hot key replication or add nodes
-          if (min_memory_occupancy > 0.15) {
+          if (min_memory_occupancy > 0.20) {
             // add nodes
             logger->info("all nodes are busy, adding new nodes");
             // trigger elasticity
@@ -924,7 +924,7 @@ int main(int argc, char* argv[]) {
               new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
             }
             requests[key] = new_rep_factor;
-            logger->info("reducing replication factor for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], placement[key].global_replication_map_[1] - 1, placement[key].global_replication_map_[2], placement[key].global_replication_map_[2] + 1);
+            logger->info("reducing replication factor for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], new_rep_factor.global_replication_map_[1], placement[key].global_replication_map_[2], new_rep_factor.global_replication_map_[2]);
           }
         }
         change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);

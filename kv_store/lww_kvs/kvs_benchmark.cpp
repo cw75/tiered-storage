@@ -260,7 +260,7 @@ void run(unsigned thread_id) {
         unsigned length = stoi(v[3]);
         unsigned report_period = stoi(v[4]);
         unsigned time = stoi(v[5]);
-        string contention = v[6];
+        unsigned contention = stoi(v[6]);
 
         // warm up cache
         key_address_cache.clear();
@@ -286,7 +286,7 @@ void run(unsigned thread_id) {
         logger->info("warming up cache took {} seconds", warmup_time);
 
         // prepare for zipfian workload with coefficient 1.4 (for high contention)
-        double zipf_high = 2;
+        /*double zipf_high = 2;
         double base_high = get_base(num_keys, zipf_high);
         unordered_map<unsigned, double> sum_probs_high;
         sum_probs_high[0] = 0;
@@ -300,6 +300,14 @@ void run(unsigned thread_id) {
         sum_probs_low[0] = 0;
         for (unsigned i = 1; i <= num_keys; i++) {
           sum_probs_low[i] = sum_probs_low[i-1] + base_low / pow((double) i, zipf_low);
+        }*/
+
+        double zipf = contention;
+        double base = get_base(num_keys, zipf);
+        unordered_map<unsigned, double> sum_probs;
+        sum_probs[0] = 0;
+        for (unsigned i = 1; i <= num_keys; i++) {
+          sum_probs[i] = sum_probs[i-1] + base / pow((double) i, zipf);
         }
 
         size_t count = 0;
@@ -312,7 +320,7 @@ void run(unsigned thread_id) {
 
         while (true) {
           string key;
-          if (contention == "H") {
+          /*if (contention == "H") {
             unsigned k = sample(num_keys, seed, base_high, sum_probs_high);
             key = string(8 - to_string(k).length(), '0') + to_string(k);
           } else if (contention == "L") {
@@ -320,7 +328,9 @@ void run(unsigned thread_id) {
             //key = string(8 - to_string(k).length(), '0') + to_string(k);
             string key_aux = to_string(rand_r(&seed) % (unsigned)(num_keys) + 1);
             key = string(8 - key_aux.length(), '0') + key_aux;
-          }
+          }*/
+          unsigned k = sample(num_keys, seed, base, sum_probs);
+          key = string(8 - to_string(k).length(), '0') + to_string(k);
           unsigned trial = 1;
           if (type == "G") {
             handle_request(key, "", pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
