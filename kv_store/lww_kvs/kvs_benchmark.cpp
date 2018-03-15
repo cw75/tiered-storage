@@ -316,10 +316,10 @@ void run(unsigned thread_id) {
             unsigned k = sample(num_keys, seed, base_high, sum_probs_high);
             key = string(8 - to_string(k).length(), '0') + to_string(k);
           } else if (contention == "L") {
-            unsigned k = sample(num_keys, seed, base_low, sum_probs_low);
-            key = string(8 - to_string(k).length(), '0') + to_string(k);
-            //string key_aux = to_string(rand_r(&seed) % (unsigned)(num_keys) + 1);
-            //key = string(8 - key_aux.length(), '0') + key_aux;
+            //unsigned k = sample(num_keys, seed, base_low, sum_probs_low);
+            //key = string(8 - to_string(k).length(), '0') + to_string(k);
+            string key_aux = to_string(rand_r(&seed) % (unsigned)(num_keys) + 1);
+            key = string(8 - key_aux.length(), '0') + key_aux;
           }
           unsigned trial = 1;
           if (type == "G") {
