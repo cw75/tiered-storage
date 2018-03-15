@@ -260,7 +260,7 @@ void run(unsigned thread_id) {
         unsigned length = stoi(v[3]);
         unsigned report_period = stoi(v[4]);
         unsigned time = stoi(v[5]);
-        unsigned contention = stoi(v[6]);
+        double contention = stod(v[6]);
 
         // warm up cache
         key_address_cache.clear();
@@ -303,6 +303,7 @@ void run(unsigned thread_id) {
         }*/
 
         double zipf = contention;
+        logger->info("zipf coefficient is {}", zipf);
         double base = get_base(num_keys, zipf);
         unordered_map<unsigned, double> sum_probs;
         sum_probs[0] = 0;
