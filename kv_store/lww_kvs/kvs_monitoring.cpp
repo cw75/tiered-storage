@@ -645,11 +645,11 @@ int main(int argc, char* argv[]) {
       unsigned ebs_node_number = global_hash_ring_map[2].size() / VIRTUAL_THREAD_NUM;
 
       // Policy Start Here:
-      if (true) {
+      /*if (true) {
         unordered_map<string, key_info> requests;
         unsigned total_rep_to_change = 0;
         // 1. first check storage consumption and trigger elasticity if necessary
-        /*if (memory_node_number != 0 && adding_memory_node == 0 && required_memory_node > memory_node_number) {
+        if (memory_node_number != 0 && adding_memory_node == 0 && required_memory_node > memory_node_number) {
           logger->info("memory consumption exceeds threshold!");
           auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
           if (time_elapsed > GRACE_PERIOD) {
@@ -775,7 +775,7 @@ int main(int argc, char* argv[]) {
         }
 
         requests.clear();
-        total_rep_to_change = 0;*/
+        total_rep_to_change = 0;
 
         // 4. check latency to see if the SLO has been violated
         // 4.1 if latency is too high
@@ -931,7 +931,7 @@ int main(int argc, char* argv[]) {
         requests.clear();
       } else {
         logger->info("policy not started");
-      }
+      }*/
 
       user_latency.clear();
       user_throughput.clear();
