@@ -15,6 +15,8 @@
 
 using namespace std;
 
+//zmq::context_t context(1);
+
 double get_base(unsigned N, double skew) {
   double base = 0;
   for (unsigned k = 1; k <= N; k++) {
@@ -220,6 +222,8 @@ void run(unsigned thread_id) {
   monitoring_thread_t mt = monitoring_thread_t(monitoring_address);
 
   zmq::context_t context(1);
+  //zmq_ctx_set(&context, ZMQ_IO_THREADS, 3);
+
   SocketCache pushers(&context, ZMQ_PUSH);
 
   int timeout = 10000;
@@ -256,7 +260,7 @@ void run(unsigned thread_id) {
         unsigned length = stoi(v[3]);
         unsigned report_period = stoi(v[4]);
         unsigned time = stoi(v[5]);
-        string contention = v[6];
+        double contention = stod(v[6]);
 
         // warm up cache
         key_address_cache.clear();
@@ -282,7 +286,24 @@ void run(unsigned thread_id) {
         logger->info("warming up cache took {} seconds", warmup_time);
 
         // prepare for zipfian workload with coefficient 1.4 (for high contention)
-        double zipf = 2;
+        /*double zipf_high = 2;
+        double base_high = get_base(num_keys, zipf_high);
+        unordered_map<unsigned, double> sum_probs_high;
+        sum_probs_high[0] = 0;
+        for (unsigned i = 1; i <= num_keys; i++) {
+          sum_probs_high[i] = sum_probs_high[i-1] + base_high / pow((double) i, zipf_high);
+        }
+
+        double zipf_low = 1;
+        double base_low = get_base(num_keys, zipf_low);
+        unordered_map<unsigned, double> sum_probs_low;
+        sum_probs_low[0] = 0;
+        for (unsigned i = 1; i <= num_keys; i++) {
+          sum_probs_low[i] = sum_probs_low[i-1] + base_low / pow((double) i, zipf_low);
+        }*/
+
+        double zipf = contention;
+        logger->info("zipf coefficient is {}", zipf);
         double base = get_base(num_keys, zipf);
         unordered_map<unsigned, double> sum_probs;
         sum_probs[0] = 0;
@@ -300,13 +321,17 @@ void run(unsigned thread_id) {
 
         while (true) {
           string key;
-          if (contention == "H") {
-            unsigned k = sample(num_keys, seed, base, sum_probs);
+          /*if (contention == "H") {
+            unsigned k = sample(num_keys, seed, base_high, sum_probs_high);
             key = string(8 - to_string(k).length(), '0') + to_string(k);
           } else if (contention == "L") {
+            //unsigned k = sample(num_keys, seed, base_low, sum_probs_low);
+            //key = string(8 - to_string(k).length(), '0') + to_string(k);
             string key_aux = to_string(rand_r(&seed) % (unsigned)(num_keys) + 1);
             key = string(8 - key_aux.length(), '0') + key_aux;
-          }
+          }*/
+          unsigned k = sample(num_keys, seed, base, sum_probs);
+          key = string(8 - to_string(k).length(), '0') + to_string(k);
           unsigned trial = 1;
           if (type == "G") {
             handle_request(key, "", pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
@@ -479,6 +504,8 @@ int main(int argc, char* argv[]) {
     cerr << "usage:" << argv[0] << endl;
     return 1;
   }
+
+  //zmq_ctx_set(&context, ZMQ_IO_THREADS, BENCHMARK_THREAD_NUM);
 
   vector<thread> benchmark_threads;
 

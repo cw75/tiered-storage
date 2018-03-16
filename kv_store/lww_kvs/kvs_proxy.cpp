@@ -20,6 +20,8 @@
 
 using namespace std;
 
+//zmq::context_t context(1);
+
 // read-only per-tier metadata
 unordered_map<unsigned, tier_data> tier_data_map;
 
@@ -39,6 +41,7 @@ void run(unsigned thread_id) {
 
   // prepare the zmq context
   zmq::context_t context(1);
+  //zmq_ctx_set(&context, ZMQ_IO_THREADS, 3);
 
   SocketCache pushers(&context, ZMQ_PUSH);
 
@@ -252,6 +255,9 @@ void run(unsigned thread_id) {
               // send the key address response
               string serialized_key_res;
               key_res.SerializeToString(&serialized_key_res);
+              //zmq::socket_t push_socket(context, ZMQ_PUSH);
+              //push_socket.connect(it->first);
+              //zmq_util::send_string(serialized_key_res, &push_socket);
               zmq_util::send_string(serialized_key_res, &pushers[it->first]);
             }
           } else {
@@ -327,6 +333,9 @@ void run(unsigned thread_id) {
         // send the key address response
         string serialized_key_res;
         key_res.SerializeToString(&serialized_key_res);
+        //zmq::socket_t push_socket(context, ZMQ_PUSH);
+        //push_socket.connect(key_req.respond_address());
+        //zmq_util::send_string(serialized_key_res, &push_socket);
         zmq_util::send_string(serialized_key_res, &pushers[key_req.respond_address()]);
       }
     }
@@ -350,6 +359,8 @@ int main(int argc, char* argv[]) {
     cerr << "usage:" << argv[0] << endl;
     return 1;
   }
+
+  //zmq_ctx_set(&context, ZMQ_IO_THREADS, PROXY_THREAD_NUM);
 
   tier_data_map[1] = tier_data(MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION, MEM_NODE_CAPACITY);
   tier_data_map[2] = tier_data(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION, EBS_NODE_CAPACITY);

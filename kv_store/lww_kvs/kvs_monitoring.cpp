@@ -525,6 +525,7 @@ int main(int argc, char* argv[]) {
           total_thread_consumption += it2->second;
         }
         double percentage = (double)total_thread_consumption / (double)tier_data_map[1].node_capacity_;
+        logger->info("memory node {} storage consumption is {}", it1->first, percentage);
         if (percentage > max_memory_consumption_percentage) {
           max_memory_consumption_percentage = percentage;
         }
@@ -537,6 +538,7 @@ int main(int argc, char* argv[]) {
           total_thread_consumption += it2->second;
         }
         double percentage = (double)total_thread_consumption / (double)tier_data_map[2].node_capacity_;
+        logger->info("ebs node {} storage consumption is {}", it1->first, percentage);
         if (percentage > max_ebs_consumption_percentage) {
           max_ebs_consumption_percentage = percentage;
         }
@@ -643,9 +645,11 @@ int main(int argc, char* argv[]) {
       unsigned ebs_node_number = global_hash_ring_map[2].size() / VIRTUAL_THREAD_NUM;
 
       // Policy Start Here:
-      /*if (true) {
+      if (true) {
+        unordered_map<string, key_info> requests;
+        unsigned total_rep_to_change = 0;
         // 1. first check storage consumption and trigger elasticity if necessary
-        if (memory_node_number != 0 && adding_memory_node == 0 && required_memory_node > memory_node_number) {
+        /*if (memory_node_number != 0 && adding_memory_node == 0 && required_memory_node > memory_node_number) {
           logger->info("memory consumption exceeds threshold!");
           auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
           if (time_elapsed > GRACE_PERIOD) {
@@ -689,8 +693,6 @@ int main(int argc, char* argv[]) {
           }
         }
 
-        unordered_map<string, key_info> requests;
-        unsigned total_rep_to_change = 0;
         // 2. check key access summary to promote hot keys to memory tier
         unsigned slot = (MEM_CAPACITY_MAX * tier_data_map[1].node_capacity_ * memory_node_number - total_memory_consumption) / VALUE_SIZE;
         bool overflow = false;
@@ -773,14 +775,14 @@ int main(int argc, char* argv[]) {
         }
 
         requests.clear();
-        total_rep_to_change = 0;
+        total_rep_to_change = 0;*/
 
         // 4. check latency to see if the SLO has been violated
         // 4.1 if latency is too high
         if (avg_latency > SLO_WORST && adding_memory_node == 0) {
           logger->info("latency is too high!");
           // figure out if we should do hot key replication or add nodes
-          if (min_memory_occupancy > 0.08) {
+          if (min_memory_occupancy > 0.20) {
             // add nodes
             logger->info("all nodes are busy, adding new nodes");
             // trigger elasticity
@@ -867,7 +869,7 @@ int main(int argc, char* argv[]) {
 
         // 4.3 if latency is fine, check if there is underutilized memory node
         if (avg_latency >= SLO_BEST && avg_latency <= SLO_WORST && !removing_memory_node && memory_node_number > max(required_memory_node, (unsigned)MINIMUM_MEMORY_NODE)) {
-          if (min_memory_occupancy < 0.02) {
+          if (min_memory_occupancy < 0.05) {
             logger->info("node {} is severely underutilized, consider removing", min_node_ip);
             auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
             if (time_elapsed > GRACE_PERIOD) {
@@ -909,7 +911,7 @@ int main(int argc, char* argv[]) {
         for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
           string key = it->first;
           unsigned total_access = it->second;
-          if (!is_metadata(key) && total_access <= HOT_KEY_THRESHOLD && placement[key].global_replication_map_[1] > 1) {
+          if (!is_metadata(key) && total_access <= HOT_KEY_THRESHOLD && placement[key].global_replication_map_[1] > MINIMUM_REPLICA_NUMBER) {
             logger->info("key {} accessed less than {} times. Accessed {} times", key, HOT_KEY_THRESHOLD, total_access);
             key_info new_rep_factor;
             new_rep_factor.global_replication_map_[1] = placement[key].global_replication_map_[1] - 1;
@@ -922,14 +924,14 @@ int main(int argc, char* argv[]) {
               new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
             }
             requests[key] = new_rep_factor;
-            logger->info("reducing replication factor for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], placement[key].global_replication_map_[1] - 1, placement[key].global_replication_map_[2], placement[key].global_replication_map_[2] + 1);
+            logger->info("reducing replication factor for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], new_rep_factor.global_replication_map_[1], placement[key].global_replication_map_[2], new_rep_factor.global_replication_map_[2]);
           }
         }
         change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
         requests.clear();
       } else {
         logger->info("policy not started");
-      }*/
+      }
 
       user_latency.clear();
       user_throughput.clear();

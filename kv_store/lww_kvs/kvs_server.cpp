@@ -23,6 +23,8 @@
 // TODO: Everything that's currently writing to cout and cerr should be replaced with a logfile.
 using namespace std;
 
+//zmq::context_t context(1);
+
 unsigned SELF_TIER_ID;
 
 // worker thread number
@@ -264,6 +266,7 @@ void run(unsigned thread_id) {
 
   // prepare the zmq context
   zmq::context_t context(1);
+  //zmq_ctx_set(&context, ZMQ_IO_THREADS, 2);
 
   SocketCache pushers(&context, ZMQ_PUSH);
 
@@ -605,6 +608,9 @@ void run(unsigned thread_id) {
         string serialized_response;
         response.SerializeToString(&serialized_response);
         //  send response
+        //zmq::socket_t push_socket(context, ZMQ_PUSH);
+        //push_socket.connect(req.respond_address());
+        //zmq_util::send_string(serialized_response, &push_socket);
         zmq_util::send_string(serialized_response, &pushers[req.respond_address()]);
       }
       auto time_elapsed = chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
@@ -687,6 +693,9 @@ void run(unsigned thread_id) {
                 string serialized_response;
                 response.SerializeToString(&serialized_response);
                 //  send response
+                //zmq::socket_t push_socket(context, ZMQ_PUSH);
+                //push_socket.connect(it->addr_);
+                //zmq_util::send_string(serialized_response, &push_socket);
                 zmq_util::send_string(serialized_response, &pushers[it->addr_]);
               } else if (responsible && it->addr_ == "") {
                 // only put requests should fall into this category
@@ -722,6 +731,9 @@ void run(unsigned thread_id) {
                 string serialized_response;
                 response.SerializeToString(&serialized_response);
                 //  send response
+                //zmq::socket_t push_socket(context, ZMQ_PUSH);
+                //push_socket.connect(it->addr_);
+                //zmq_util::send_string(serialized_response, &push_socket);
                 zmq_util::send_string(serialized_response, &pushers[it->addr_]);
               }
             }
@@ -1028,6 +1040,8 @@ int main(int argc, char* argv[]) {
 
   // populate metadata
   SELF_TIER_ID = atoi(getenv("SERVER_TYPE"));
+
+  //zmq_ctx_set(&context, ZMQ_IO_THREADS, MEMORY_THREAD_NUM);
 
   // debugging
   cerr << "tier id is " + to_string(SELF_TIER_ID) + "\n";
