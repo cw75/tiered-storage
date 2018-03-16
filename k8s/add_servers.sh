@@ -24,5 +24,5 @@ NUM_INSTANCES=$(($2 + $3))
 sed "s|CLUSTER_NAME|$NAME|g" $YML_FILE > tmp.yml
 sed -i "s|NUM_DUMMY|$NUM_INSTANCES|g" tmp.yml
 
-kops replace -f tmp.yml --force #> /dev/null 2>&1
+kops replace -f tmp.yml --force > /dev/null 2>&1
 rm tmp.yml

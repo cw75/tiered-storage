@@ -12,11 +12,11 @@ else
   SSH_KEY=$5
 fi
 
-export NAME=kvs.k8s.local
+export NAME=ucbrisebedrock.de
 export KOPS_STATE_STORE=s3://tiered-storage-state-store
 
 echo "Creating cluster object..."
-kops create cluster --zones us-east-1a --ssh-public-key ${SSH_KEY}.pub ${NAME} > /dev/null 2>&1
+kops create cluster --zones us-east-1a --ssh-public-key ${SSH_KEY}.pub ${NAME} --networking kopeio-vxlan > /dev/null 2>&1
 # delete default instance group that we won't use
 kops delete ig nodes --name ${NAME} --yes > /dev/null 2>&1
 

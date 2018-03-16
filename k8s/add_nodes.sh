@@ -98,7 +98,6 @@ add_pods() {
     sed -i "s|MON_IP_DUMMY|$MON_IP|g" tmp.yml
     sed -i "s|SEED_SERVER_DUMMY|$SEED_SERVER|g" tmp.yml
 
-    echo "Creating pod on the new instance..."
     kubectl create -f tmp.yml > /dev/null 2>&1
     rm tmp.yml
   done 
