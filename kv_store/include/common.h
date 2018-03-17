@@ -28,7 +28,7 @@ using namespace std;
 #define GRACE_PERIOD 120
 
 // Define the replication factor for the metadata
-#define METADATA_REPLICATION_FACTOR 2
+#define METADATA_REPLICATION_FACTOR 1
 
 // Define the default replication factor for the data
 #define DEFAULT_GLOBAL_MEMORY_REPLICATION 1
@@ -38,7 +38,7 @@ using namespace std;
 #define DEFAULT_LOCAL_REPLICATION 1
 
 // Define the number of memory threads
-#define MEMORY_THREAD_NUM 4
+#define MEMORY_THREAD_NUM 8
 
 // Define the number of ebs threads
 #define EBS_THREAD_NUM 4
