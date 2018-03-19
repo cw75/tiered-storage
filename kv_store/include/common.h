@@ -28,7 +28,7 @@ using namespace std;
 #define GRACE_PERIOD 120
 
 // Define the replication factor for the metadata
-#define METADATA_REPLICATION_FACTOR 1
+#define METADATA_REPLICATION_FACTOR 2
 
 // Define the default replication factor for the data
 #define DEFAULT_GLOBAL_MEMORY_REPLICATION 1
@@ -38,7 +38,7 @@ using namespace std;
 #define DEFAULT_LOCAL_REPLICATION 1
 
 // Define the number of memory threads
-#define MEMORY_THREAD_NUM 2
+#define MEMORY_THREAD_NUM 4
 
 // Define the number of ebs threads
 #define EBS_THREAD_NUM 4
@@ -333,7 +333,7 @@ public:
 // represents the replication state for each key
 struct key_info {
   unordered_map<unsigned, unsigned> global_replication_map_;
-  unordered_map<string, unsigned> local_replication_map_;
+  unordered_map<unsigned, unsigned> local_replication_map_;
 };
 
 // read-only per-tier metadata
@@ -569,10 +569,7 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads(
         auto mts = responsible_global(key, placement[key].global_replication_map_[tier_id], global_hash_ring_map[tier_id]);
         for (auto it = mts.begin(); it != mts.end(); it++) {
           string ip = it->get_ip();
-          if (placement[key].local_replication_map_.find(ip) == placement[key].local_replication_map_.end()) {
-            placement[key].local_replication_map_[ip] = DEFAULT_LOCAL_REPLICATION;
-          }
-          auto tids = responsible_local(key, placement[key].local_replication_map_[ip], local_hash_ring_map[tier_id]);
+          auto tids = responsible_local(key, placement[key].local_replication_map_[tier_id], local_hash_ring_map[tier_id]);
           for (auto iter = tids.begin(); iter != tids.end(); iter++) {
             result.insert(server_thread_t(ip, *iter));
           }
@@ -623,6 +620,8 @@ void warmup(unordered_map<string, key_info>& placement) {
     string key = string(8 - to_string(i).length(), '0') + to_string(i);
     placement[key].global_replication_map_[1] = DEFAULT_GLOBAL_MEMORY_REPLICATION;
     placement[key].global_replication_map_[2] = DEFAULT_GLOBAL_EBS_REPLICATION;
+    placement[key].local_replication_map_[1] = DEFAULT_LOCAL_REPLICATION;
+    placement[key].local_replication_map_[2] = DEFAULT_LOCAL_REPLICATION;
   }
 }
 

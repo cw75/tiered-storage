@@ -651,7 +651,7 @@ void run(unsigned thread_id) {
           placement[key].global_replication_map_[rep_data.global(i).tier_id()] = rep_data.global(i).global_replication();
         }
         for (int i = 0; i < rep_data.local_size(); i++) {
-          placement[key].local_replication_map_[rep_data.local(i).ip()] = rep_data.local(i).local_replication();
+          placement[key].local_replication_map_[rep_data.local(i).tier_id()] = rep_data.local(i).local_replication();
         }
       } else if (response.tuple(0).err_number() == 2) {
         //logger->info("Retrying rep factor query for key {} due to invalidated address", key);
@@ -660,6 +660,7 @@ void run(unsigned thread_id) {
       } else {
         for (unsigned i = MIN_TIER; i <= MAX_TIER; i++) {
           placement[key].global_replication_map_[i] = tier_data_map[i].default_replication_;
+          placement[key].local_replication_map_[i] = DEFAULT_LOCAL_REPLICATION;
         }
       }
 
@@ -817,10 +818,10 @@ void run(unsigned thread_id) {
               placement[key].global_replication_map_[req.tuple(i).global(j).tier_id()] = req.tuple(i).global(j).global_replication();
             }
             for (int j = 0; j < req.tuple(i).local_size(); j++) {
-              if (req.tuple(i).local(j).local_replication() < placement[key].local_replication_map_[req.tuple(i).local(j).ip()]) {
+              if (req.tuple(i).local(j).local_replication() < placement[key].local_replication_map_[req.tuple(i).local(j).tier_id()]) {
                 decrement = true;
               }
-              placement[key].local_replication_map_[req.tuple(i).local(j).ip()] = req.tuple(i).local(j).local_replication();
+              placement[key].local_replication_map_[req.tuple(i).local(j).tier_id()] = req.tuple(i).local(j).local_replication();
             }
             auto threads = get_responsible_threads(wt.get_replication_factor_connect_addr(), key, is_metadata(key), global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids, succeed, seed);
             if (succeed) {
@@ -851,7 +852,7 @@ void run(unsigned thread_id) {
               placement[key].global_replication_map_[req.tuple(i).global(j).tier_id()] = req.tuple(i).global(j).global_replication();
             }
             for (int j = 0; j < req.tuple(i).local_size(); j++) {
-              placement[key].local_replication_map_[req.tuple(i).local(j).ip()] = req.tuple(i).local(j).local_replication();
+              placement[key].local_replication_map_[req.tuple(i).local(j).tier_id()] = req.tuple(i).local(j).local_replication();
             }
           }
         } else {
@@ -860,7 +861,7 @@ void run(unsigned thread_id) {
             placement[key].global_replication_map_[req.tuple(i).global(j).tier_id()] = req.tuple(i).global(j).global_replication();
           }
           for (int j = 0; j < req.tuple(i).local_size(); j++) {
-            placement[key].local_replication_map_[req.tuple(i).local(j).ip()] = req.tuple(i).local(j).local_replication();
+            placement[key].local_replication_map_[req.tuple(i).local(j).tier_id()] = req.tuple(i).local(j).local_replication();
           }
         }
       }

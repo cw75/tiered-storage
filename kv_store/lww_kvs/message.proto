@@ -52,7 +52,7 @@ message Replication_Factor_Request {
     required uint32 global_replication = 2;
   }
   message Local {
-    required string ip = 1;
+    required uint32 tier_id = 1;
     required uint32 local_replication = 2;
   }
   message Tuple {
@@ -69,7 +69,7 @@ message Replication_Factor {
     required uint32 global_replication = 2;
   }
   message Local {
-    required string ip = 1;
+    required uint32 tier_id = 1;
     required uint32 local_replication = 2;
   }
   repeated Global global = 1;

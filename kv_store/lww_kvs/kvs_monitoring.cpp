@@ -71,8 +71,7 @@ void prepare_replication_factor_update(
     string& key,
     unordered_map<address_t, communication::Replication_Factor_Request>& replication_factor_map,
     string server_address,
-    unordered_map<string, key_info>& placement,
-    unordered_map<address_t, unsigned>& local_replication_map) {
+    unordered_map<string, key_info>& placement) {
   communication::Replication_Factor_Request_Tuple* tp = replication_factor_map[server_address].add_tuple();
   tp->set_key(key);
   for (auto iter = placement[key].global_replication_map_.begin(); iter != placement[key].global_replication_map_.end(); iter++) {
@@ -80,9 +79,9 @@ void prepare_replication_factor_update(
     g->set_tier_id(iter->first);
     g->set_global_replication(iter->second);
   }
-  for (auto iter = local_replication_map.begin(); iter != local_replication_map.end(); iter++) {
+  for (auto iter = placement[key].local_replication_map_.begin(); iter != placement[key].local_replication_map_.end(); iter++) {
     communication::Replication_Factor_Request_Local* l = tp->add_local();
-    l->set_ip(iter->first);
+    l->set_tier_id(iter->first);
     l->set_local_replication(iter->second);
   }
 }
@@ -126,7 +125,7 @@ void change_replication_factor(
     }
     for (auto iter = placement[key].local_replication_map_.begin(); iter != placement[key].local_replication_map_.end(); iter++) {
       communication::Replication_Factor_Local* l = rep_data.add_local();
-      l->set_ip(iter->first);
+      l->set_tier_id(iter->first);
       l->set_local_replication(iter->second);
     }
     string rep_key = key + "_replication";
@@ -167,15 +166,13 @@ void change_replication_factor(
         unsigned rep = max(placement[key].global_replication_map_[tier], orig_placement_info[key].global_replication_map_[tier]);
         auto threads = responsible_global(key, rep, global_hash_ring_map[tier]);
         for (auto server_iter = threads.begin(); server_iter != threads.end(); server_iter++) {
-          prepare_replication_factor_update(key, replication_factor_map, server_iter->get_replication_factor_change_connect_addr(), placement, it->second.local_replication_map_);
+          prepare_replication_factor_update(key, replication_factor_map, server_iter->get_replication_factor_change_connect_addr(), placement);
         }
       }
 
-      //TODO: check the local_replication map again in case we have missing entry for global rep factors?
-
       // form placement requests for proxy nodes
       for (auto proxy_iter = proxy_address.begin(); proxy_iter != proxy_address.end(); proxy_iter++) {
-        prepare_replication_factor_update(key, replication_factor_map, proxy_thread_t(*proxy_iter, 0).get_replication_factor_change_connect_addr(), placement, it->second.local_replication_map_);
+        prepare_replication_factor_update(key, replication_factor_map, proxy_thread_t(*proxy_iter, 0).get_replication_factor_change_connect_addr(), placement);
       }
     }
   }
@@ -645,11 +642,11 @@ int main(int argc, char* argv[]) {
       unsigned ebs_node_number = global_hash_ring_map[2].size() / VIRTUAL_THREAD_NUM;
 
       // Policy Start Here:
-      /*if (true) {
+      if (true) {
         unordered_map<string, key_info> requests;
         unsigned total_rep_to_change = 0;
         // 1. first check storage consumption and trigger elasticity if necessary
-        if (memory_node_number != 0 && adding_memory_node == 0 && required_memory_node > memory_node_number) {
+        /*if (memory_node_number != 0 && adding_memory_node == 0 && required_memory_node > memory_node_number) {
           logger->info("memory consumption exceeds threshold!");
           auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
           if (time_elapsed > GRACE_PERIOD) {
@@ -775,7 +772,7 @@ int main(int argc, char* argv[]) {
         }
 
         requests.clear();
-        total_rep_to_change = 0;
+        total_rep_to_change = 0;*/
 
         // 4. check latency to see if the SLO has been violated
         // 4.1 if latency is too high
@@ -804,21 +801,36 @@ int main(int argc, char* argv[]) {
               unsigned total_access = it->second;
               if (!is_metadata(key) && total_access > HOT_KEY_THRESHOLD) {
                 logger->info("key {} accessed more than {} times. Accessed {} times", key, HOT_KEY_THRESHOLD, total_access);
-                if (memory_node_number - placement[key].global_replication_map_[1] > 0 && placement[key].global_replication_map_[2] > 0) {
+                if (MEMORY_THREAD_NUM > placement[key].local_replication_map_[1]) {
+                  key_info new_rep_factor;
+                  new_rep_factor.global_replication_map_[1] = placement[key].global_replication_map_[1];
+                  new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
+                  new_rep_factor.local_replication_map_[1] = MEMORY_THREAD_NUM;
+                  new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
+                  requests[key] = new_rep_factor;
+                  logger->info("local hot key replication for key {}. M: {}->{}.", key, placement[key].local_replication_map_[1], new_rep_factor.local_replication_map_[1]);
+                } else {
+                  logger->info("cannot perform local hot key replication to key {} due to thread limit", key);
+                }
+                /*if (memory_node_number - placement[key].global_replication_map_[1] > 0 && placement[key].global_replication_map_[2] > 0) {
                   key_info new_rep_factor;
                   new_rep_factor.global_replication_map_[1] = placement[key].global_replication_map_[1] + 1;
                   new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2] - 1;
+                  new_rep_factor.local_replication_map_[1] = placement[key].local_replication_map_[1];
+                  new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
                   requests[key] = new_rep_factor;
                   logger->info("global hot key replication for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], placement[key].global_replication_map_[1] + 1, placement[key].global_replication_map_[2], placement[key].global_replication_map_[2] - 1);
                 } else if (memory_node_number - placement[key].global_replication_map_[1] > 0 && placement[key].global_replication_map_[2] == 0) {
                   key_info new_rep_factor;
                   new_rep_factor.global_replication_map_[1] = placement[key].global_replication_map_[1] + 1;
                   new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
+                  new_rep_factor.local_replication_map_[1] = placement[key].local_replication_map_[1];
+                  new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
                   requests[key] = new_rep_factor;
                   logger->info("global hot key replication for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], placement[key].global_replication_map_[1] + 1, placement[key].global_replication_map_[2], placement[key].global_replication_map_[2]);
                 } else {
                   logger->info("cannot perform hot key replication to key {} due to node limit", key);
-                }
+                }*/
               }
             }
             change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
@@ -847,6 +859,8 @@ int main(int argc, char* argv[]) {
                 } else {
                   new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
                 }
+                new_rep_factor.local_replication_map_[1] = placement[key].local_replication_map_[1];
+                new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
                 requests[key] = new_rep_factor;
                 logger->info("reduce replication for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], new_rep_factor.global_replication_map_[1], placement[key].global_replication_map_[2], new_rep_factor.global_replication_map_[2]);
               }
@@ -887,6 +901,8 @@ int main(int argc, char* argv[]) {
                   } else {
                     new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
                   }
+                  new_rep_factor.local_replication_map_[1] = placement[key].local_replication_map_[1];
+                  new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
                   requests[key] = new_rep_factor;
                   logger->info("reduce replication for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], new_rep_factor.global_replication_map_[1], placement[key].global_replication_map_[2], new_rep_factor.global_replication_map_[2]);
                 }
@@ -908,7 +924,7 @@ int main(int argc, char* argv[]) {
         requests.clear();
 
         // finally, consider reducing the replication factor of some keys that are not so hot anymore
-        for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
+        /*for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
           string key = it->first;
           unsigned total_access = it->second;
           if (!is_metadata(key) && total_access <= HOT_KEY_THRESHOLD && placement[key].global_replication_map_[1] > MINIMUM_REPLICA_NUMBER) {
@@ -923,15 +939,17 @@ int main(int argc, char* argv[]) {
             } else {
               new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
             }
+            new_rep_factor.local_replication_map_[1] = placement[key].local_replication_map_[1];
+            new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
             requests[key] = new_rep_factor;
             logger->info("reducing replication factor for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], new_rep_factor.global_replication_map_[1], placement[key].global_replication_map_[2], new_rep_factor.global_replication_map_[2]);
           }
         }
         change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
-        requests.clear();
+        requests.clear();*/
       } else {
         logger->info("policy not started");
-      }*/
+      }
 
       user_latency.clear();
       user_throughput.clear();
