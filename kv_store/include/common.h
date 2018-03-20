@@ -69,7 +69,7 @@ using namespace std;
 #define SLO_WORST 2500
 #define SLO_BEST 1500
 
-#define HOT_KEY_THRESHOLD 10000
+#define HOT_KEY_THRESHOLD 5000
 
 // node capacity in KB
 unsigned MEM_NODE_CAPACITY = 60000000;

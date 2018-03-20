@@ -801,7 +801,7 @@ int main(int argc, char* argv[]) {
               unsigned total_access = it->second;
               if (!is_metadata(key) && total_access > HOT_KEY_THRESHOLD) {
                 logger->info("key {} accessed more than {} times. Accessed {} times", key, HOT_KEY_THRESHOLD, total_access);
-                if (MEMORY_THREAD_NUM > placement[key].local_replication_map_[1]) {
+                /*if (MEMORY_THREAD_NUM > placement[key].local_replication_map_[1]) {
                   key_info new_rep_factor;
                   new_rep_factor.global_replication_map_[1] = placement[key].global_replication_map_[1];
                   new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
@@ -811,6 +811,17 @@ int main(int argc, char* argv[]) {
                   logger->info("local hot key replication for key {}. M: {}->{}.", key, placement[key].local_replication_map_[1], new_rep_factor.local_replication_map_[1]);
                 } else {
                   logger->info("cannot perform local hot key replication to key {} due to thread limit", key);
+                }*/
+                if (4 > placement[key].global_replication_map_[1]) {
+                  key_info new_rep_factor;
+                  new_rep_factor.global_replication_map_[1] = 4;
+                  new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
+                  new_rep_factor.local_replication_map_[1] = placement[key].local_replication_map_[1];
+                  new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
+                  requests[key] = new_rep_factor;
+                  logger->info("global hot key replication for key {}. M: {}->{}.", key, placement[key].global_replication_map_[1], new_rep_factor.global_replication_map_[1]);
+                } else {
+                  logger->info("cannot perform hot key replication to key {} due to node limit", key);
                 }
                 /*if (memory_node_number - placement[key].global_replication_map_[1] > 0 && placement[key].global_replication_map_[2] > 0) {
                   key_info new_rep_factor;
