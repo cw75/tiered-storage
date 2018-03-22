@@ -100,9 +100,14 @@ message Address {
 }
 
 message Feedback {
+  message Rep {
+    required string key = 1;
+    required double factor = 2;
+  }
   required string uid = 1;
   optional double latency = 2;
   optional bool finish = 3;
   optional double throughput = 4;
   optional bool warmup = 5;
+  repeated Rep rep = 6;
 }

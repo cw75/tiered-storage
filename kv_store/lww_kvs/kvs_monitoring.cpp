@@ -235,6 +235,8 @@ int main(int argc, char* argv[]) {
   unordered_map<address_t, double> user_latency;
   // keep track of user throughput info
   unordered_map<address_t, double> user_throughput;
+  // rep factor map
+  unordered_map<string, pair<double, unsigned>> rep_factor_map;
 
   // read in the initial server addresses and build the hash ring
   string ip_line;
@@ -407,6 +409,17 @@ int main(int argc, char* argv[]) {
       } else {
         user_latency[l.uid()] = l.latency();
         user_throughput[l.uid()] = l.throughput();
+        for (int i = 0; i < l.rep_size(); i++) {
+          string key = l.rep(i).key();
+          double factor = l.rep(i).factor();
+          if (rep_factor_map.find(key) == rep_factor_map.end()) {
+            rep_factor_map[key].first = factor;
+            rep_factor_map[key].second = 1;
+          } else {
+            rep_factor_map[key].first = rep_factor_map[key].first * rep_factor_map[key].second + factor;
+            rep_factor_map[key].second += 1;
+          }
+        }
       }
     }
 
@@ -495,6 +508,9 @@ int main(int argc, char* argv[]) {
       }
 
       // compute key access summary
+      unsigned cnt = 0;
+      double mean = 0;
+      double ms = 0;
       for (auto it = key_access_frequency.begin(); it != key_access_frequency.end(); it++) {
         string key = it->first;
         unsigned total_access = 0;
@@ -502,7 +518,15 @@ int main(int argc, char* argv[]) {
           total_access += iter->second;
         }
         key_access_summary[key] = total_access;
+
+        cnt += 1;
+        unsigned delta = total_access - mean;
+        mean += (double)delta / cnt;
+        unsigned delta2 = total_access - mean;
+        ms += delta * delta2;
       }
+
+      double std = sqrt((double)ms / cnt);
 
       unsigned long long total_memory_consumption = 0;
       unsigned long long total_ebs_consumption = 0;
@@ -799,7 +823,7 @@ int main(int argc, char* argv[]) {
             for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
               string key = it->first;
               unsigned total_access = it->second;
-              if (!is_metadata(key) && total_access > HOT_KEY_THRESHOLD) {
+              if (!is_metadata(key) && total_access > mean + std && rep_factor_map.find(key) != rep_factor_map.end()) {
                 logger->info("key {} accessed more than {} times. Accessed {} times", key, HOT_KEY_THRESHOLD, total_access);
                 /*if (MEMORY_THREAD_NUM > placement[key].local_replication_map_[1]) {
                   key_info new_rep_factor;
@@ -964,6 +988,7 @@ int main(int argc, char* argv[]) {
 
       user_latency.clear();
       user_throughput.clear();
+      rep_factor_map.clear();
       
       report_start = std::chrono::system_clock::now();
     }

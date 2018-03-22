@@ -200,6 +200,8 @@ void run(unsigned thread_id) {
 
   // mapping from key to a set of worker addresses
   unordered_map<string, unordered_set<string>> key_address_cache;
+  // rep factor map
+  unordered_map<string, pair<double, unsigned>> rep_factor_map;
 
   user_thread_t ut = user_thread_t(ip, thread_id);
 
@@ -340,10 +342,20 @@ void run(unsigned thread_id) {
             handle_request(key, string(length, 'a'), pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
             count += 1;
           } else if (type == "M") {
+            auto req_start = std::chrono::system_clock::now();
             handle_request(key, string(length, 'a'), pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
             trial = 1;
             handle_request(key, "", pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
             count += 2;
+            auto req_end = std::chrono::system_clock::now();
+            auto factor = (double)chrono::duration_cast<std::chrono::microseconds>(req_end-req_start).count() / 2 / SLO_WORST;
+            if (rep_factor_map.find(key) == rep_factor_map.end()) {
+              rep_factor_map[key].first = factor;
+              rep_factor_map[key].second = 1;
+            } else {
+              rep_factor_map[key].first = rep_factor_map[key].first * rep_factor_map[key].second + factor;
+              rep_factor_map[key].second += 1;
+            }
           } else {
             logger->info("invalid request type");
           }
@@ -361,10 +373,18 @@ void run(unsigned thread_id) {
             l.set_uid(ip + ":" + to_string(thread_id));
             l.set_latency(latency);
             l.set_throughput(throughput);
+            for (auto it = rep_factor_map.begin(); it != rep_factor_map.end(); it++) {
+              if (it->second.first > 1) {
+                communication::Feedback_Rep* r = l.add_rep();
+                r->set_key(it->first);
+                r->set_factor(it->second.first);
+              }
+            }
             string serialized_latency;
             l.SerializeToString(&serialized_latency);
             zmq_util::send_string(serialized_latency, &pushers[mt.get_latency_report_connect_addr()]);
             count = 0;
+            rep_factor_map.clear();
             epoch_start = std::chrono::system_clock::now();
           }
 
