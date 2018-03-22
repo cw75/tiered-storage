@@ -256,14 +256,8 @@ void run(unsigned thread_id) {
       split(zmq_util::recv_string(&command_puller), ':', v);
       string mode = v[0];
 
-      if (mode == "LOAD") {
-        string type = v[1];
-        unsigned num_keys = stoi(v[2]);
-        unsigned length = stoi(v[3]);
-        unsigned report_period = stoi(v[4]);
-        unsigned time = stoi(v[5]);
-        double contention = stod(v[6]);
-
+      if (mode == "CACHE") {
+        unsigned num_keys = stoi(v[1]);
         // warm up cache
         key_address_cache.clear();
         auto warmup_start = std::chrono::system_clock::now();
@@ -286,23 +280,15 @@ void run(unsigned thread_id) {
         }
         auto warmup_time = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-warmup_start).count();
         logger->info("warming up cache took {} seconds", warmup_time);
+      }
 
-        // prepare for zipfian workload with coefficient 1.4 (for high contention)
-        /*double zipf_high = 2;
-        double base_high = get_base(num_keys, zipf_high);
-        unordered_map<unsigned, double> sum_probs_high;
-        sum_probs_high[0] = 0;
-        for (unsigned i = 1; i <= num_keys; i++) {
-          sum_probs_high[i] = sum_probs_high[i-1] + base_high / pow((double) i, zipf_high);
-        }
-
-        double zipf_low = 1;
-        double base_low = get_base(num_keys, zipf_low);
-        unordered_map<unsigned, double> sum_probs_low;
-        sum_probs_low[0] = 0;
-        for (unsigned i = 1; i <= num_keys; i++) {
-          sum_probs_low[i] = sum_probs_low[i-1] + base_low / pow((double) i, zipf_low);
-        }*/
+      if (mode == "LOAD") {
+        string type = v[1];
+        unsigned num_keys = stoi(v[2]);
+        unsigned length = stoi(v[3]);
+        unsigned report_period = stoi(v[4]);
+        unsigned time = stoi(v[5]);
+        double contention = stod(v[6]);
 
         double zipf = contention;
         logger->info("zipf coefficient is {}", zipf);
@@ -323,15 +309,6 @@ void run(unsigned thread_id) {
 
         while (true) {
           string key;
-          /*if (contention == "H") {
-            unsigned k = sample(num_keys, seed, base_high, sum_probs_high);
-            key = string(8 - to_string(k).length(), '0') + to_string(k);
-          } else if (contention == "L") {
-            //unsigned k = sample(num_keys, seed, base_low, sum_probs_low);
-            //key = string(8 - to_string(k).length(), '0') + to_string(k);
-            string key_aux = to_string(rand_r(&seed) % (unsigned)(num_keys) + 1);
-            key = string(8 - key_aux.length(), '0') + key_aux;
-          }*/
           unsigned k = sample(num_keys, seed, base, sum_probs);
           key = string(8 - to_string(k).length(), '0') + to_string(k);
           unsigned trial = 1;

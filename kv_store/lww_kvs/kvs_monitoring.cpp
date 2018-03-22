@@ -837,6 +837,9 @@ int main(int argc, char* argv[]) {
               if (!is_metadata(key) && total_access > mean + std && rep_factor_map.find(key) != rep_factor_map.end()) {
                 logger->info("key {} accessed more than {} times. Accessed {} times", key, mean + std, total_access);
                 unsigned target_rep_factor = placement[key].global_replication_map_[1] * rep_factor_map[key].first;
+                if (target_rep_factor == placement[key].global_replication_map_[1]) {
+                  target_rep_factor += 1;
+                }
                 if (target_rep_factor > placement[key].global_replication_map_[1]) {
                   if (memory_node_number >= target_rep_factor) {
                     key_info new_rep_factor;
