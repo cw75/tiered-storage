@@ -416,7 +416,7 @@ int main(int argc, char* argv[]) {
             rep_factor_map[key].first = factor;
             rep_factor_map[key].second = 1;
           } else {
-            rep_factor_map[key].first = rep_factor_map[key].first * rep_factor_map[key].second + factor;
+            rep_factor_map[key].first = (rep_factor_map[key].first * rep_factor_map[key].second + factor) / (rep_factor_map[key].second + 1);
             rep_factor_map[key].second += 1;
           }
         }
@@ -519,14 +519,20 @@ int main(int argc, char* argv[]) {
         }
         key_access_summary[key] = total_access;
 
-        cnt += 1;
-        unsigned delta = total_access - mean;
-        mean += (double)delta / cnt;
-        unsigned delta2 = total_access - mean;
-        ms += delta * delta2;
+        if (total_access > 0) {
+          cnt += 1;
+          unsigned delta = total_access - mean;
+          mean += (double)delta / cnt;
+          unsigned delta2 = total_access - mean;
+          ms += delta * delta2;
+        }
       }
 
       double std = sqrt((double)ms / cnt);
+
+      logger->info("access mean is {}", mean);
+      logger->info("access var is {}", (double)ms / cnt);
+      logger->info("access std is {}", std);
 
       unsigned long long total_memory_consumption = 0;
       unsigned long long total_ebs_consumption = 0;
