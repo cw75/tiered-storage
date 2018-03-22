@@ -655,7 +655,12 @@ int main(int argc, char* argv[]) {
           total_throughput += it->second;
         }
       }
-      logger->info("total throughput is {}", total_throughput);      
+      logger->info("total throughput is {}", total_throughput);
+
+      logger->info("logging suggested rep factor change");
+      for (auto it = rep_factor_map.begin(); it != rep_factor_map.end(); it++) {
+        logger->info("suggested factor for key {} is {}", it->first, it->second.first);
+      }
 
       unsigned required_memory_node = ceil(total_memory_consumption / (MEM_CAPACITY_MAX * tier_data_map[1].node_capacity_));
       unsigned required_ebs_node = ceil(total_ebs_consumption / (EBS_CAPACITY_MAX * tier_data_map[2].node_capacity_));
@@ -824,7 +829,29 @@ int main(int argc, char* argv[]) {
               string key = it->first;
               unsigned total_access = it->second;
               if (!is_metadata(key) && total_access > mean + std && rep_factor_map.find(key) != rep_factor_map.end()) {
-                logger->info("key {} accessed more than {} times. Accessed {} times", key, HOT_KEY_THRESHOLD, total_access);
+                logger->info("key {} accessed more than {} times. Accessed {} times", key, mean + std, total_access);
+                unsigned target_rep_factor = placement[key].global_replication_map_[1] * rep_factor_map[key].first;
+                if (target_rep_factor > placement[key].global_replication_map_[1]) {
+                  if (memory_node_number >= target_rep_factor) {
+                    key_info new_rep_factor;
+                    new_rep_factor.global_replication_map_[1] = target_rep_factor;
+                    new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
+                    new_rep_factor.local_replication_map_[1] = placement[key].local_replication_map_[1];
+                    new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
+                    requests[key] = new_rep_factor;
+                    logger->info("global hot key replication for key {}. M: {}->{}.", key, placement[key].global_replication_map_[1], new_rep_factor.global_replication_map_[1]);
+                  } else if (memory_node_number < target_rep_factor && placement[key].global_replication_map_[1] < memory_node_number) {
+                    key_info new_rep_factor;
+                    new_rep_factor.global_replication_map_[1] = memory_node_number;
+                    new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
+                    new_rep_factor.local_replication_map_[1] = placement[key].local_replication_map_[1];
+                    new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
+                    requests[key] = new_rep_factor;
+                    logger->info("global hot key replication for key {}. M: {}->{}.", key, placement[key].global_replication_map_[1], new_rep_factor.global_replication_map_[1]);
+                  } else {
+                    logger->info("cannot perform hot key replication to key {} due to node limit", key);
+                  }
+                }
                 /*if (MEMORY_THREAD_NUM > placement[key].local_replication_map_[1]) {
                   key_info new_rep_factor;
                   new_rep_factor.global_replication_map_[1] = placement[key].global_replication_map_[1];
@@ -836,7 +863,7 @@ int main(int argc, char* argv[]) {
                 } else {
                   logger->info("cannot perform local hot key replication to key {} due to thread limit", key);
                 }*/
-                if (4 > placement[key].global_replication_map_[1]) {
+                /*if (4 > placement[key].global_replication_map_[1]) {
                   key_info new_rep_factor;
                   new_rep_factor.global_replication_map_[1] = 4;
                   new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
@@ -846,7 +873,7 @@ int main(int argc, char* argv[]) {
                   logger->info("global hot key replication for key {}. M: {}->{}.", key, placement[key].global_replication_map_[1], new_rep_factor.global_replication_map_[1]);
                 } else {
                   logger->info("cannot perform hot key replication to key {} due to node limit", key);
-                }
+                }*/
                 /*if (memory_node_number - placement[key].global_replication_map_[1] > 0 && placement[key].global_replication_map_[2] > 0) {
                   key_info new_rep_factor;
                   new_rep_factor.global_replication_map_[1] = placement[key].global_replication_map_[1] + 1;
