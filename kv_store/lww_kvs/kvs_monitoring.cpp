@@ -521,9 +521,9 @@ int main(int argc, char* argv[]) {
 
         if (total_access > 0) {
           cnt += 1;
-          unsigned delta = total_access - mean;
+          double delta = total_access - mean;
           mean += (double)delta / cnt;
-          unsigned delta2 = total_access - mean;
+          double delta2 = total_access - mean;
           ms += delta * delta2;
         }
       }
