@@ -1,54 +1,28 @@
-# Anna: A KVS for any scale
+# Tiered Storage
 
-Anna is an in-memory KVS that delivers high performance at multiple scales, from a single core machine to NUMA to geo-distributed deployment. It also provides a wide spectrum of coordination-free isolation levels that aim to meet the consistency requirements of different applications.
+A cloud-native, elastic, tiered KVS.
 
-## Build Instruction:
+## Build Instructions:
 
-1. Install dependencies, Clang and libc++.
+Note: some of the build instruction below are out-dated. We plan to officially open-source the repo in the next two months.
+
+1. Install Clang and libc++.
 On Ubuntu, run:<br />
-`sudo apt-get update`.<br />
-`sudo apt-get install -y build-essential autoconf automake libtool curl make g++ unzip pkg-config wget clang-3.9`.<br />
-`sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-3.9 1`.<br />
-`sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-3.9 1`.<br />
-`sudo apt-get install -y libc++-dev libc++abi-dev libtbb-dev`.<br />
+`sudo apt-get install clang-4.0`.<br />
+`sudo apt-get install libc++-dev libc++abi-dev`.<br />
+Clang/Clang++ is assumed to reside in `/usr/bin/`. Therefore, run:<br />
+`sudo ln -s "$(which clang-4.0)” /usr/bin/clang`.<br />
+`sudo ln -s "$(which clang++-4.0)" /usr/bin/clang++`.
+2. Download and install Google protobuf (https://github.com/google/protobuf).
 
-2. Install cmake
-`wget https://cmake.org/files/v3.9/cmake-3.9.4-Linux-x86_64.tar.gz`.<br />
-`tar xvzf cmake-3.9.4-Linux-x86_64.tar.gz`.<br />
-`mv cmake-3.9.4-Linux-x86_64 /usr/bin/cmake`.<br />
-`export PATH=$PATH:/usr/bin/cmake/bin`.<br />
-`rm cmake-3.9.4-Linux-x86_64.tar.gz`.<br />
+To build the KVS in debug mode, run `bash ./scripts/build_debug.sh`.<br />
+To build the KVS in release mode, run `bash ./scripts/build_release.sh`.<br />
 
-3. Install protobuf: after cloning the protobuf repo, run
-`./autogen.sh`.<br />
-`./configure CXX=clang++ CXXFLAGS='-std=c++11 -stdlib=libc++ -O3 -g'`.<br />
-`make`.<br />
-`make check`.<br />
-`sudo make install`.<br />
-`ldconfig`.<br />
+To run the KVS,
 
-4. Build KVS
-`bash scripts/build_release.sh`.<br />
+1. Start a storage node by running `./build/kv_store/lww_kvs/kvs_server`.
+2. Start a proxy node by running `./build/kv_store/lww_kvs/kvs_proxy`.
+3. Start the monitoring node by running `./build/kv_store/lww_kvs/kvs_monitoring`.
+4. Start a benchmark node by running `./build/kv_store/lww_kvs/kvs_benchmark`.
 
-(This command will build a KVS that provides last-writer-win consistency. Lattice composition of other consistency levels can be found in `./kvs/include`)
-
-## IP Configuration:
-For each server node:
-1. The ip of the current node should be stored in `conf/server/server_ip.txt`.
-2. The ip of the seed node should be stored in `conf/server/seed_server.txt`. The seed node can be any proxy node.
-3. The ip of all the proxy nodes should be stored in `conf/server/proxy_address.txt`. Each line contains a single proxy ip.
-
-For each proxy node:
-1. The ip of the current node should be stored in `conf/proxy/proxy_ip.txt`.
-
-For each user/benchmark node:
-1. The ip of the current node should be stored in `conf/user/user_ip.txt`.
-2. The ip of all the proxy nodes should be stored in `conf/user/proxy_address.txt`. Each line contains a single proxy ip.
-
-## Run Instruction:
-
-1. Start a server by running `./build/kvs/kvs_server`.
-2. Start a proxy by running `./build/kvs/kvs_proxy`.
-3. Start a client by running `./build/kvs/kvs_user`.
-
-The accepted input formats are `GET $key` and `PUT $key $value`.
+Meanwhile, the accepted input formats are `GET $key` and `PUT $key $value`.
