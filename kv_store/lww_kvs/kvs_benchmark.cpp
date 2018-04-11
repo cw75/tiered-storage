@@ -280,9 +280,7 @@ void run(unsigned thread_id) {
         }
         auto warmup_time = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-warmup_start).count();
         logger->info("warming up cache took {} seconds", warmup_time);
-      }
-
-      if (mode == "LOAD") {
+      } else if (mode == "LOAD") {
         string type = v[1];
         unsigned num_keys = stoi(v[2]);
         unsigned length = stoi(v[3]);

@@ -15,7 +15,7 @@
 #include "consistent_hash_map.hpp"
 #include "common.h"
 
-// number of nodes to add concurrently
+// number of nodes to add concurrently for storage
 #define NODE_ADD 2
 
 using namespace std;
@@ -817,13 +817,15 @@ int main(int argc, char* argv[]) {
           if (min_memory_occupancy > 0.20) {
             // add nodes
             logger->info("all nodes are busy, adding new nodes");
+
+            unsigned node_to_add = ceil((avg_latency / SLO_WORST - 1) * memory_node_number);
             // trigger elasticity
             auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
             if (time_elapsed > GRACE_PERIOD) {
-              logger->info("trigger add {} memory node", to_string(NODE_ADD));
-              string shell_command = "curl -X POST http://" + management_address + "/add/memory/" + to_string(NODE_ADD) + " &";
+              logger->info("trigger add {} memory node", to_string(node_to_add));
+              string shell_command = "curl -X POST http://" + management_address + "/add/memory/" + to_string(node_to_add) + " &";
               system(shell_command.c_str());
-              adding_memory_node = NODE_ADD;
+              adding_memory_node = node_to_add;
             } else {
               logger->info("in grace period, not adding nodes");
             }
