@@ -44,6 +44,8 @@ RUN rmdir xxx
 
 # build kvs
 RUN git clone https://github.com/cw75/tiered-storage
+RUN cd tiered-storage && git fetch -a origin
+RUN cd tiered-storage && git checkout tiered-benchmark
 RUN cd tiered-storage && sh scripts/build_release.sh
 
 COPY start.sh /

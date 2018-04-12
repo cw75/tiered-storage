@@ -681,7 +681,7 @@ int main(int argc, char* argv[]) {
         unordered_map<string, key_info> requests;
         unsigned total_rep_to_change = 0;
         // 1. first check storage consumption and trigger elasticity if necessary
-        /*if (memory_node_number != 0 && adding_memory_node == 0 && required_memory_node > memory_node_number) {
+        if (memory_node_number != 0 && adding_memory_node == 0 && required_memory_node > memory_node_number) {
           logger->info("memory consumption exceeds threshold!");
           auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
           if (time_elapsed > GRACE_PERIOD) {
@@ -807,7 +807,7 @@ int main(int argc, char* argv[]) {
         }
 
         requests.clear();
-        total_rep_to_change = 0;*/
+        total_rep_to_change = 0;
 
         // 4. check latency to see if the SLO has been violated
         // 4.1 if latency is too high
@@ -885,7 +885,7 @@ int main(int argc, char* argv[]) {
                 } else {
                   logger->info("cannot perform hot key replication to key {} due to node limit", key);
                 }*/
-                /*if (memory_node_number - placement[key].global_replication_map_[1] > 0 && placement[key].global_replication_map_[2] > 0) {
+                if (memory_node_number - placement[key].global_replication_map_[1] > 0 && placement[key].global_replication_map_[2] > 0) {
                   key_info new_rep_factor;
                   new_rep_factor.global_replication_map_[1] = placement[key].global_replication_map_[1] + 1;
                   new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2] - 1;
@@ -903,7 +903,7 @@ int main(int argc, char* argv[]) {
                   logger->info("global hot key replication for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], placement[key].global_replication_map_[1] + 1, placement[key].global_replication_map_[2], placement[key].global_replication_map_[2]);
                 } else {
                   logger->info("cannot perform hot key replication to key {} due to node limit", key);
-                }*/
+                }
               }
             }
             change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
