@@ -25,12 +25,13 @@ RUN apt-get install -y git
 RUN apt-get install -y vim
 
 # install protobuf
-RUN git clone https://github.com/google/protobuf /protobuf/
-WORKDIR /protobuf/
+RUN wget https://github.com/google/protobuf/releases/download/v3.5.1/protobuf-all-3.5.1.zip
+RUN unzip protobuf-all-3.5.1.zip 
+WORKDIR /protobuf-3.5.1/
 RUN ./autogen.sh
 RUN ./configure CXX=clang++ CXXFLAGS='-std=c++11 -stdlib=libc++ -O3 -g'
 RUN make -j4
-RUN make check -j4
+RUN make check 
 RUN make install
 RUN ldconfig
 WORKDIR /
@@ -38,9 +39,6 @@ RUN rm -rf protobuf
 
 RUN apt-get update
 RUN apt-get install -y awscli jq
-
-RUN mkdir xxx
-RUN rmdir xxx
 
 # build kvs
 RUN git clone https://github.com/cw75/tiered-storage
