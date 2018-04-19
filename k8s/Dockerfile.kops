@@ -43,6 +43,9 @@ COPY ./ /tiered-storage/k8s
 # install jq
 RUN apt-get install -y jq
 
+# make kube root dir
+RUN mkdir /root/.kube
+
 COPY ./start_kops.sh /
 
 CMD sh start_kops.sh
