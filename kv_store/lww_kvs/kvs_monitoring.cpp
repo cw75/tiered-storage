@@ -663,10 +663,10 @@ int main(int argc, char* argv[]) {
       }
       logger->info("total throughput is {}", total_throughput);
 
-      logger->info("logging suggested rep factor change");
-      for (auto it = rep_factor_map.begin(); it != rep_factor_map.end(); it++) {
+      //logger->info("logging suggested rep factor change");
+      /*for (auto it = rep_factor_map.begin(); it != rep_factor_map.end(); it++) {
         logger->info("suggested factor for key {} is {}", it->first, it->second.first);
-      }
+      }*/
 
       unsigned required_memory_node = ceil(total_memory_consumption / (MEM_CAPACITY_MAX * tier_data_map[1].node_capacity_));
       unsigned required_ebs_node = ceil(total_ebs_consumption / (EBS_CAPACITY_MAX * tier_data_map[2].node_capacity_));
