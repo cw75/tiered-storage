@@ -231,6 +231,10 @@ int main(int argc, char* argv[]) {
   unordered_map<address_t, unordered_map<unsigned, pair<double, unsigned>>> memory_tier_occupancy;
   // keep track of ebs tier thread occupancy
   unordered_map<address_t, unordered_map<unsigned, pair<double, unsigned>>> ebs_tier_occupancy;
+  // keep track of memory tier hit
+  unordered_map<address_t, unordered_map<unsigned, unsigned>> memory_tier_access;
+  // keep track of ebs tier hit
+  unordered_map<address_t, unordered_map<unsigned, unsigned>> ebs_tier_access;
   // keep track of user latency info
   unordered_map<address_t, double> user_latency;
   // keep track of user throughput info
@@ -474,9 +478,11 @@ int main(int argc, char* argv[]) {
                 if (tier_id == 1) {
                   memory_tier_storage[ip][tid] = stat.storage_consumption();
                   memory_tier_occupancy[ip][tid] = pair<double, unsigned>(stat.occupancy(), stat.epoch());
+                  memory_tier_access[ip][tid] = stat.total_access();
                 } else {
                   ebs_tier_storage[ip][tid] = stat.storage_consumption();
                   ebs_tier_occupancy[ip][tid] = pair<double, unsigned>(stat.occupancy(), stat.epoch());
+                  ebs_tier_access[ip][tid] = stat.total_access();
                 }
               } else if (metadata_type == "access") {
                 // deserialized the value
@@ -533,6 +539,23 @@ int main(int argc, char* argv[]) {
       logger->info("access mean is {}", mean);
       logger->info("access var is {}", (double)ms / cnt);
       logger->info("access std is {}", std);
+
+      // compute tier access summary
+      unsigned total_memory_access = 0;
+      for (auto it = memory_tier_access.begin(); it != memory_tier_access.end(); it++) {
+        for (auto iter = it->second.begin(); iter != it->second.end(); iter++) {
+          total_memory_access += iter->second;
+        }
+      }
+      unsigned total_ebs_access = 0;
+      for (auto it = ebs_tier_access.begin(); it != ebs_tier_access.end(); it++) {
+        for (auto iter = it->second.begin(); iter != it->second.end(); iter++) {
+          total_ebs_access += iter->second;
+        }
+      }
+
+      logger->info("total memory access is {}", total_memory_access);
+      logger->info("total ebs access is {}", total_ebs_access);
 
       unsigned long long total_memory_consumption = 0;
       unsigned long long total_ebs_consumption = 0;

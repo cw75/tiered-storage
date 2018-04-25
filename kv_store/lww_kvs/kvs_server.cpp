@@ -65,6 +65,7 @@ communication::Response process_request(
     SocketCache& pushers,
     unordered_map<string, key_stat>& key_stat_map,
     unordered_map<string, multiset<std::chrono::time_point<std::chrono::system_clock>>>& key_access_timestamp,
+    unsigned& total_access,
     chrono::system_clock::time_point& start_time,
     unordered_map<string, pair<chrono::system_clock::time_point, vector<pending_request>>>& pending_request_map,
     unsigned& seed) {
@@ -120,6 +121,7 @@ communication::Response process_request(
           }
           //cerr << "error number is " + to_string(res.second) + "\n";
           key_access_timestamp[key].insert(std::chrono::system_clock::now());
+          total_access += 1;
         }
       } else {
         string val = "";
@@ -175,6 +177,7 @@ communication::Response process_request(
             tp->set_invalidate(true);
           }
           key_access_timestamp[key].insert(std::chrono::system_clock::now());
+          total_access += 1;
           local_changeset.insert(key);
         }
       } else {
@@ -399,7 +402,8 @@ void run(unsigned thread_id) {
   unordered_map<string, key_stat> key_stat_map;
   // keep track of key access timestamp
   unordered_map<string, multiset<std::chrono::time_point<std::chrono::system_clock>>> key_access_timestamp;
-
+  // keep track of total access
+  unsigned total_access;
 
   // listens for a new node joining
   zmq::socket_t join_puller(context, ZMQ_PULL);
@@ -620,7 +624,7 @@ void run(unsigned thread_id) {
       communication::Request req;
       req.ParseFromString(serialized_req);
       //  process request
-      auto response = process_request(req, local_changeset, serializer, wt, global_hash_ring_map, local_hash_ring_map, placement, pushers, key_stat_map, key_access_timestamp, start_time, pending_request_map, seed);
+      auto response = process_request(req, local_changeset, serializer, wt, global_hash_ring_map, local_hash_ring_map, placement, pushers, key_stat_map, key_access_timestamp, total_access, start_time, pending_request_map, seed);
       if (response.tuple_size() > 0 && req.has_respond_address()) {
         string serialized_response;
         response.SerializeToString(&serialized_response);
@@ -722,6 +726,7 @@ void run(unsigned thread_id) {
                   auto ts = generate_timestamp(chrono::duration_cast<chrono::milliseconds>(current_time-start_time).count(), wt.get_tid());
                   process_put(key, ts, it->value_, serializer, key_stat_map);
                   key_access_timestamp[key].insert(std::chrono::system_clock::now());
+                  total_access += 1;
                   local_changeset.insert(key);
                 } else {
                   logger->info("Error: GET request with no respond address");
@@ -738,12 +743,14 @@ void run(unsigned thread_id) {
                   tp->set_value(res.first.reveal().value);
                   tp->set_err_number(res.second);
                   key_access_timestamp[key].insert(std::chrono::system_clock::now());
+                  total_access += 1;
                 } else {
                   auto current_time = chrono::system_clock::now();
                   auto ts = generate_timestamp(chrono::duration_cast<chrono::milliseconds>(current_time-start_time).count(), wt.get_tid());
                   process_put(key, ts, it->value_, serializer, key_stat_map);
                   tp->set_err_number(0);
                   key_access_timestamp[key].insert(std::chrono::system_clock::now());
+                  total_access += 1;
                   local_changeset.insert(key);
                 }
                 string serialized_response;
@@ -965,6 +972,7 @@ void run(unsigned thread_id) {
       stat.set_storage_consumption(consumption/1000);
       stat.set_occupancy(occupancy);
       stat.set_epoch(epoch);
+      stat.set_total_access(total_access);
       string serialized_stat;
       stat.SerializeToString(&serialized_stat);
 
@@ -1021,6 +1029,8 @@ void run(unsigned thread_id) {
       for (unsigned i = 0; i < 8; i++) {
         working_time_map[i] = 0;
       }
+      // reset total access
+      total_access = 0;
       //cerr << "thread " + to_string(thread_id) + " leaving event report\n";
     }
 

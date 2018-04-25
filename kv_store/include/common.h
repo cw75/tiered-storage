@@ -31,8 +31,8 @@ using namespace std;
 #define METADATA_REPLICATION_FACTOR 2
 
 // Define the default replication factor for the data
-#define DEFAULT_GLOBAL_MEMORY_REPLICATION 1
-#define DEFAULT_GLOBAL_EBS_REPLICATION 0
+#define DEFAULT_GLOBAL_MEMORY_REPLICATION 0
+#define DEFAULT_GLOBAL_EBS_REPLICATION 1
 #define MINIMUM_REPLICA_NUMBER 1
 // Define the default local replication factor
 #define DEFAULT_LOCAL_REPLICATION 1
@@ -626,8 +626,8 @@ void warmup(unordered_map<string, key_info>& placement) {
   for (unsigned i = 1; i <= 120000; i++) {
     // key is 8 bytes
     string key = string(8 - to_string(i).length(), '0') + to_string(i);
-    placement[key].global_replication_map_[1] = 1;
-    placement[key].global_replication_map_[2] = 0;
+    placement[key].global_replication_map_[1] = 0;
+    placement[key].global_replication_map_[2] = 1;
     placement[key].local_replication_map_[1] = 1;
     placement[key].local_replication_map_[2] = 1;
   }
