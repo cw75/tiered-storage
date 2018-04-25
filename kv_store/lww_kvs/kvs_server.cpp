@@ -274,6 +274,11 @@ void run(unsigned thread_id) {
   unordered_map<unsigned, global_hash_t> global_hash_ring_map;
   unordered_map<unsigned, local_hash_t> local_hash_ring_map;
 
+  // for periodically redistributing data when node joins
+  address_keyset_map join_addr_keyset_map;
+  // keep track of which key should be removed when node joins
+  unordered_set<string> join_remove_set;
+
   // pending events for asynchrony
   unordered_map<string, pair<chrono::system_clock::time_point, vector<pending_request>>> pending_request_map;
   unordered_map<string, pair<chrono::system_clock::time_point, vector<pending_gossip>>> pending_gossip_map;
@@ -473,19 +478,15 @@ void run(unsigned thread_id) {
         if (tier == SELF_TIER_ID) {
           vector<unsigned> tier_ids;
           tier_ids.push_back(SELF_TIER_ID);
-          // map from worker address to a set of keys
-          address_keyset_map addr_keyset_map;
-          // keep track of which key should be removed
-          unordered_set<string> remove_set;
           bool succeed;
           for (auto it = key_stat_map.begin(); it != key_stat_map.end(); it++) {
             string key = it->first;
             auto threads = get_responsible_threads(wt.get_replication_factor_connect_addr(), key, is_metadata(key), global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids, succeed, seed);
             if (succeed) {
               if (threads.find(wt) == threads.end()) {
-                remove_set.insert(key);
+                join_remove_set.insert(key);
                 for (auto iter = threads.begin(); iter != threads.end(); iter++) {
-                  addr_keyset_map[iter->get_gossip_connect_addr()].insert(key);
+                  join_addr_keyset_map[iter->get_gossip_connect_addr()].insert(key);
                 }
               }
             } else {
@@ -493,12 +494,12 @@ void run(unsigned thread_id) {
             }
           }
 
-          send_gossip(addr_keyset_map, pushers, serializer);
+          /*send_gossip(addr_keyset_map, pushers, serializer);
           // remove keys
           for (auto it = remove_set.begin(); it != remove_set.end(); it++) {
             key_stat_map.erase(*it);
             serializer->remove(*it);
-          }
+          }*/
         }
       }
       auto time_elapsed = chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
@@ -1027,6 +1028,40 @@ void run(unsigned thread_id) {
         issue_replication_factor_request(respond_address, it->first, global_hash_ring_map[1], local_hash_ring_map[1], pushers, seed);
         // refresh time
         it->second.first = chrono::system_clock::now();
+      }
+    }
+
+    //redistribute data when node joins
+    if (join_addr_keyset_map.size() != 0) {
+      unordered_set<string> remove_address_set;
+      // assemble gossip
+      address_keyset_map addr_keyset_map;
+      for (auto it = join_addr_keyset_map.begin(); it != join_addr_keyset_map.end(); it++) {
+        auto address = it->first;
+        auto key_set = &(it->second);
+        unsigned count = 0;
+        while (count < DATA_REDISTRIBUTE_THRESHOLD && key_set->size() > 0) {
+          string k = *(key_set->begin());
+          addr_keyset_map[address].insert(k);
+          key_set->erase(k);
+          count += 1;
+        }
+        if (key_set->size() == 0) {
+          remove_address_set.insert(address);
+        }
+      }
+
+      for (auto it = remove_address_set.begin(); it != remove_address_set.end(); it++) {
+        join_addr_keyset_map.erase(*it);
+      }
+
+      send_gossip(addr_keyset_map, pushers, serializer);
+      // remove keys
+      if (join_addr_keyset_map.size() == 0) {
+        for (auto it = join_remove_set.begin(); it != join_remove_set.end(); it++) {
+          key_stat_map.erase(*it);
+          serializer->remove(*it);
+        }
       }
     }
   }
