@@ -677,11 +677,11 @@ int main(int argc, char* argv[]) {
       unsigned ebs_node_number = global_hash_ring_map[2].size() / VIRTUAL_THREAD_NUM;
 
       // Policy Start Here:
-      if (true) {
+      /*if (true) {
         unordered_map<string, key_info> requests;
         unsigned total_rep_to_change = 0;
         // 1. first check storage consumption and trigger elasticity if necessary
-        /*if (memory_node_number != 0 && adding_memory_node == 0 && required_memory_node > memory_node_number) {
+        if (memory_node_number != 0 && adding_memory_node == 0 && required_memory_node > memory_node_number) {
           logger->info("memory consumption exceeds threshold!");
           auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
           if (time_elapsed > GRACE_PERIOD) {
@@ -807,7 +807,7 @@ int main(int argc, char* argv[]) {
         }
 
         requests.clear();
-        total_rep_to_change = 0;*/
+        total_rep_to_change = 0;
 
         // 4. check latency to see if the SLO has been violated
         // 4.1 if latency is too high
@@ -863,7 +863,7 @@ int main(int argc, char* argv[]) {
                     logger->info("cannot perform hot key replication to key {} due to node limit", key);
                   }
                 }
-                /*if (MEMORY_THREAD_NUM > placement[key].local_replication_map_[1]) {
+                if (MEMORY_THREAD_NUM > placement[key].local_replication_map_[1]) {
                   key_info new_rep_factor;
                   new_rep_factor.global_replication_map_[1] = placement[key].global_replication_map_[1];
                   new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
@@ -873,8 +873,8 @@ int main(int argc, char* argv[]) {
                   logger->info("local hot key replication for key {}. M: {}->{}.", key, placement[key].local_replication_map_[1], new_rep_factor.local_replication_map_[1]);
                 } else {
                   logger->info("cannot perform local hot key replication to key {} due to thread limit", key);
-                }*/
-                /*if (4 > placement[key].global_replication_map_[1]) {
+                }
+                if (4 > placement[key].global_replication_map_[1]) {
                   key_info new_rep_factor;
                   new_rep_factor.global_replication_map_[1] = 4;
                   new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
@@ -884,8 +884,8 @@ int main(int argc, char* argv[]) {
                   logger->info("global hot key replication for key {}. M: {}->{}.", key, placement[key].global_replication_map_[1], new_rep_factor.global_replication_map_[1]);
                 } else {
                   logger->info("cannot perform hot key replication to key {} due to node limit", key);
-                }*/
-                /*if (memory_node_number - placement[key].global_replication_map_[1] > 0 && placement[key].global_replication_map_[2] > 0) {
+                }
+                if (memory_node_number - placement[key].global_replication_map_[1] > 0 && placement[key].global_replication_map_[2] > 0) {
                   key_info new_rep_factor;
                   new_rep_factor.global_replication_map_[1] = placement[key].global_replication_map_[1] + 1;
                   new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2] - 1;
@@ -903,7 +903,7 @@ int main(int argc, char* argv[]) {
                   logger->info("global hot key replication for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], placement[key].global_replication_map_[1] + 1, placement[key].global_replication_map_[2], placement[key].global_replication_map_[2]);
                 } else {
                   logger->info("cannot perform hot key replication to key {} due to node limit", key);
-                }*/
+                }
               }
             }
             change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
@@ -997,7 +997,7 @@ int main(int argc, char* argv[]) {
         requests.clear();
 
         // finally, consider reducing the replication factor of some keys that are not so hot anymore
-        /*for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
+        for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
           string key = it->first;
           unsigned total_access = it->second;
           if (!is_metadata(key) && total_access <= HOT_KEY_THRESHOLD && placement[key].global_replication_map_[1] > MINIMUM_REPLICA_NUMBER) {
@@ -1019,10 +1019,10 @@ int main(int argc, char* argv[]) {
           }
         }
         change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
-        requests.clear();*/
+        requests.clear();
       } else {
         logger->info("policy not started");
-      }
+      }*/
 
       user_latency.clear();
       user_throughput.clear();

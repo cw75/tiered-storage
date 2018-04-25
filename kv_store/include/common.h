@@ -615,13 +615,21 @@ proxy_thread_t get_random_proxy_thread(vector<string>& proxy_address, unsigned& 
 }
 
 void warmup(unordered_map<string, key_info>& placement) {
-  for (unsigned i = 1; i <= 1000000; i++) {
+  /*for (unsigned i = 1; i <= 1000000; i++) {
     // key is 8 bytes
     string key = string(8 - to_string(i).length(), '0') + to_string(i);
     placement[key].global_replication_map_[1] = DEFAULT_GLOBAL_MEMORY_REPLICATION;
     placement[key].global_replication_map_[2] = DEFAULT_GLOBAL_EBS_REPLICATION;
     placement[key].local_replication_map_[1] = DEFAULT_LOCAL_REPLICATION;
     placement[key].local_replication_map_[2] = DEFAULT_LOCAL_REPLICATION;
+  }*/
+  for (unsigned i = 1; i <= 120000; i++) {
+    // key is 8 bytes
+    string key = string(8 - to_string(i).length(), '0') + to_string(i);
+    placement[key].global_replication_map_[1] = 1;
+    placement[key].global_replication_map_[2] = 0;
+    placement[key].local_replication_map_[1] = 1;
+    placement[key].local_replication_map_[2] = 1;
   }
 }
 
