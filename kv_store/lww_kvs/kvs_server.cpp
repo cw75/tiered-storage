@@ -927,7 +927,7 @@ void run(unsigned thread_id) {
               }
             }
           } else {
-            logger->info("Error: key missing replication factor in gossip send routine");
+            //logger->info("Error: key missing replication factor in gossip send routine");
           }
         }
 
