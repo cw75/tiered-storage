@@ -288,13 +288,20 @@ void run(unsigned thread_id) {
         unsigned time = stoi(v[5]);
         double contention = stod(v[6]);
 
-        double zipf = contention;
-        logger->info("zipf coefficient is {}", zipf);
-        double base = get_base(num_keys, zipf);
         unordered_map<unsigned, double> sum_probs;
-        sum_probs[0] = 0;
-        for (unsigned i = 1; i <= num_keys; i++) {
-          sum_probs[i] = sum_probs[i-1] + base / pow((double) i, zipf);
+        double base;
+
+        double zipf = contention;
+
+        if (zipf > 0) {
+          logger->info("zipf coefficient is {}", zipf);
+          base = get_base(num_keys, zipf);
+          sum_probs[0] = 0;
+          for (unsigned i = 1; i <= num_keys; i++) {
+            sum_probs[i] = sum_probs[i-1] + base / pow((double) i, zipf);
+          }
+        } else {
+          logger->info("uniform distribution");
         }
 
         size_t count = 0;
@@ -307,7 +314,12 @@ void run(unsigned thread_id) {
 
         while (true) {
           string key;
-          unsigned k = sample(num_keys, seed, base, sum_probs);
+          unsigned k;
+          if (zipf > 0) {
+            k = sample(num_keys, seed, base, sum_probs);
+          } else {
+            k = rand_r(&seed) % (num_keys) + 1;
+          }
           key = string(8 - to_string(k).length(), '0') + to_string(k);
           unsigned trial = 1;
           if (type == "G") {
