@@ -910,7 +910,7 @@ void run(unsigned thread_id) {
       auto work_start = chrono::system_clock::now();
       // only gossip if we have changes
       if (local_changeset.size() > 0) {
-        address_keyset_map addr_keyset_map;
+        /*address_keyset_map addr_keyset_map;
 
         vector<unsigned> tier_ids;
         for (unsigned i = MIN_TIER; i <= MAX_TIER; i++) {
@@ -927,11 +927,11 @@ void run(unsigned thread_id) {
               }
             }
           } else {
-            //logger->info("Error: key missing replication factor in gossip send routine");
+            logger->info("Error: key missing replication factor in gossip send routine");
           }
         }
 
-        send_gossip(addr_keyset_map, pushers, serializer);
+        send_gossip(addr_keyset_map, pushers, serializer);*/
         local_changeset.clear();
       }
       gossip_start = chrono::system_clock::now();
