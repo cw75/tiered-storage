@@ -623,7 +623,7 @@ void warmup(unordered_map<string, key_info>& placement) {
     placement[key].local_replication_map_[1] = DEFAULT_LOCAL_REPLICATION;
     placement[key].local_replication_map_[2] = DEFAULT_LOCAL_REPLICATION;
   }*/
-  for (unsigned i = 1; i <= 100000; i++) {
+  for (unsigned i = 1; i <= 120000; i++) {
     // key is 8 bytes
     string key = string(8 - to_string(i).length(), '0') + to_string(i);
     placement[key].global_replication_map_[1] = 1;
@@ -631,14 +631,14 @@ void warmup(unordered_map<string, key_info>& placement) {
     placement[key].local_replication_map_[1] = 1;
     placement[key].local_replication_map_[2] = 1;
   }
-  for (unsigned i = 100001; i <= 120000; i++) {
+  /*for (unsigned i = 100001; i <= 120000; i++) {
     // key is 8 bytes
     string key = string(8 - to_string(i).length(), '0') + to_string(i);
     placement[key].global_replication_map_[1] = 0;
     placement[key].global_replication_map_[2] = 1;
     placement[key].local_replication_map_[1] = 1;
     placement[key].local_replication_map_[2] = 1;
-  }
+  }*/
 }
 
 #endif

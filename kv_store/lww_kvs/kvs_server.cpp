@@ -1058,7 +1058,7 @@ void run(unsigned thread_id) {
     }
 
     //redistribute data when node joins
-    if (join_addr_keyset_map.size() != 0) {
+    /*if (join_addr_keyset_map.size() != 0) {
       unordered_set<string> remove_address_set;
       // assemble gossip
       address_keyset_map addr_keyset_map;
@@ -1089,7 +1089,7 @@ void run(unsigned thread_id) {
           serializer->remove(*it);
         }
       }
-    }
+    }*/
   }
 }
 
