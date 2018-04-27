@@ -49,6 +49,15 @@ done
 add_pods() {
   NUM_PREV=$(get_prev_num $1)
 
+  NAMES=`kubectl get nodes -l role=$1 --sort-by=.metadata.creationTimestamp | tail -n $2 | cut -d' ' -f1` > /dev/null 2>&1
+  IFS=' ' read -r -a IPS <<< $NAMES
+
+  for i in "${!IPS[@]}"; do
+    ID=$(($i + 1 + $NUM_PREV))
+
+    kubectl label nodes ${IPS[i]} podid=$1-$ID > /dev/null 2>&1
+  done
+
   if [ "$1" = "memory" ]; then
     YML_FILE=yaml/pods/memory-pod.yml
   elif [ "$1" = "benchmark" ]; then
@@ -78,13 +87,13 @@ add_pods() {
     if [ "$1" = "ebs" ]; then
       # create new EBS volume
       EBS_V0=`aws ec2 create-volume --availability-zone=us-east-1a --size=32 --volume-type=gp2 | grep VolumeId | cut -d\" -f4`
-      aws ec2 create-tags --resources $EBS_V0 --tags Key=KubernetesCluster,Value=$NAME
+      aws ec2 create-tags --resources $EBS_V0 --tags Key=KubernetesCluster,Value=$NAME > /dev/null 2>&1
       EBS_V1=`aws ec2 create-volume --availability-zone=us-east-1a --size=32 --volume-type=gp2 | grep VolumeId | cut -d\" -f4`
-      aws ec2 create-tags --resources $EBS_V1 --tags Key=KubernetesCluster,Value=$NAME
+      aws ec2 create-tags --resources $EBS_V1 --tags Key=KubernetesCluster,Value=$NAME > /dev/null 2>&1
       EBS_V2=`aws ec2 create-volume --availability-zone=us-east-1a --size=32 --volume-type=gp2 | grep VolumeId | cut -d\" -f4`
-      aws ec2 create-tags --resources $EBS_V2 --tags Key=KubernetesCluster,Value=$NAME
+      aws ec2 create-tags --resources $EBS_V2 --tags Key=KubernetesCluster,Value=$NAME > /dev/null 2>&1
       EBS_V3=`aws ec2 create-volume --availability-zone=us-east-1a --size=32 --volume-type=gp2 | grep VolumeId | cut -d\" -f4`
-      aws ec2 create-tags --resources $EBS_V3 --tags Key=KubernetesCluster,Value=$NAME
+      aws ec2 create-tags --resources $EBS_V3 --tags Key=KubernetesCluster,Value=$NAME > /dev/null 2>&1
 
       # set EBS volume IDs
       sed -i "s|VOLUME_DUMMY_0|$EBS_V0|g" tmp.yml
