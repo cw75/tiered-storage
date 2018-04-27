@@ -17,4 +17,5 @@ spec:
       value: MON_IP_DUMMY
   nodeSelector:
     role: proxy
+    podid: proxy-NUM_DUMMY
   restartPolicy: Never

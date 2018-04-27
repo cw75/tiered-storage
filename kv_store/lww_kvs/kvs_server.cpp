@@ -65,6 +65,7 @@ communication::Response process_request(
     SocketCache& pushers,
     unordered_map<string, key_stat>& key_stat_map,
     unordered_map<string, multiset<std::chrono::time_point<std::chrono::system_clock>>>& key_access_timestamp,
+    unsigned& total_access,
     chrono::system_clock::time_point& start_time,
     unordered_map<string, pair<chrono::system_clock::time_point, vector<pending_request>>>& pending_request_map,
     unsigned& seed) {
@@ -112,6 +113,7 @@ communication::Response process_request(
           }
           //cerr << "error number is " + to_string(res.second) + "\n";
           key_access_timestamp[key].insert(std::chrono::system_clock::now());
+          total_access += 1;
         }
       } else {
         string val = "";
@@ -159,6 +161,7 @@ communication::Response process_request(
             tp->set_invalidate(true);
           }
           key_access_timestamp[key].insert(std::chrono::system_clock::now());
+          total_access += 1;
           local_changeset.insert(key);
         }
       } else {
@@ -274,6 +277,11 @@ void run(unsigned thread_id) {
   unordered_map<unsigned, global_hash_t> global_hash_ring_map;
   unordered_map<unsigned, local_hash_t> local_hash_ring_map;
 
+  // for periodically redistributing data when node joins
+  //address_keyset_map join_addr_keyset_map;
+  // keep track of which key should be removed when node joins
+  //unordered_set<string> join_remove_set;
+
   // pending events for asynchrony
   unordered_map<string, pair<chrono::system_clock::time_point, vector<pending_request>>> pending_request_map;
   unordered_map<string, pair<chrono::system_clock::time_point, vector<pending_gossip>>> pending_gossip_map;
@@ -378,7 +386,8 @@ void run(unsigned thread_id) {
   unordered_map<string, key_stat> key_stat_map;
   // keep track of key access timestamp
   unordered_map<string, multiset<std::chrono::time_point<std::chrono::system_clock>>> key_access_timestamp;
-
+  // keep track of total access
+  unsigned total_access;
 
   // listens for a new node joining
   zmq::socket_t join_puller(context, ZMQ_PULL);
@@ -471,21 +480,19 @@ void run(unsigned thread_id) {
           }
         }
         if (tier == SELF_TIER_ID) {
+          address_keyset_map join_addr_keyset_map;
+          unordered_set<string> join_remove_set;
           vector<unsigned> tier_ids;
           tier_ids.push_back(SELF_TIER_ID);
-          // map from worker address to a set of keys
-          address_keyset_map addr_keyset_map;
-          // keep track of which key should be removed
-          unordered_set<string> remove_set;
           bool succeed;
           for (auto it = key_stat_map.begin(); it != key_stat_map.end(); it++) {
             string key = it->first;
             auto threads = get_responsible_threads(wt.get_replication_factor_connect_addr(), key, is_metadata(key), global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids, succeed, seed);
             if (succeed) {
               if (threads.find(wt) == threads.end()) {
-                remove_set.insert(key);
+                join_remove_set.insert(key);
                 for (auto iter = threads.begin(); iter != threads.end(); iter++) {
-                  addr_keyset_map[iter->get_gossip_connect_addr()].insert(key);
+                  join_addr_keyset_map[iter->get_gossip_connect_addr()].insert(key);
                 }
               }
             } else {
@@ -493,9 +500,9 @@ void run(unsigned thread_id) {
             }
           }
 
-          send_gossip(addr_keyset_map, pushers, serializer);
+          send_gossip(join_addr_keyset_map, pushers, serializer);
           // remove keys
-          for (auto it = remove_set.begin(); it != remove_set.end(); it++) {
+          for (auto it = join_remove_set.begin(); it != join_remove_set.end(); it++) {
             key_stat_map.erase(*it);
             serializer->remove(*it);
           }
@@ -603,7 +610,7 @@ void run(unsigned thread_id) {
       communication::Request req;
       req.ParseFromString(serialized_req);
       //  process request
-      auto response = process_request(req, local_changeset, serializer, wt, global_hash_ring_map, local_hash_ring_map, placement, pushers, key_stat_map, key_access_timestamp, start_time, pending_request_map, seed);
+      auto response = process_request(req, local_changeset, serializer, wt, global_hash_ring_map, local_hash_ring_map, placement, pushers, key_stat_map, key_access_timestamp, total_access, start_time, pending_request_map, seed);
       if (response.tuple_size() > 0 && req.has_respond_address()) {
         string serialized_response;
         response.SerializeToString(&serialized_response);
@@ -705,6 +712,7 @@ void run(unsigned thread_id) {
                   auto ts = generate_timestamp(chrono::duration_cast<chrono::milliseconds>(current_time-start_time).count(), wt.get_tid());
                   process_put(key, ts, it->value_, serializer, key_stat_map);
                   key_access_timestamp[key].insert(std::chrono::system_clock::now());
+                  total_access += 1;
                   local_changeset.insert(key);
                 } else {
                   logger->info("Error: GET request with no respond address");
@@ -721,12 +729,14 @@ void run(unsigned thread_id) {
                   tp->set_value(res.first.reveal().value);
                   tp->set_err_number(res.second);
                   key_access_timestamp[key].insert(std::chrono::system_clock::now());
+                  total_access += 1;
                 } else {
                   auto current_time = chrono::system_clock::now();
                   auto ts = generate_timestamp(chrono::duration_cast<chrono::milliseconds>(current_time-start_time).count(), wt.get_tid());
                   process_put(key, ts, it->value_, serializer, key_stat_map);
                   tp->set_err_number(0);
                   key_access_timestamp[key].insert(std::chrono::system_clock::now());
+                  total_access += 1;
                   local_changeset.insert(key);
                 }
                 string serialized_response;
@@ -948,6 +958,7 @@ void run(unsigned thread_id) {
       stat.set_storage_consumption(consumption/1000);
       stat.set_occupancy(occupancy);
       stat.set_epoch(epoch);
+      stat.set_total_access(total_access);
       string serialized_stat;
       stat.SerializeToString(&serialized_stat);
 
@@ -1004,6 +1015,8 @@ void run(unsigned thread_id) {
       for (unsigned i = 0; i < 8; i++) {
         working_time_map[i] = 0;
       }
+      // reset total access
+      total_access = 0;
       //cerr << "thread " + to_string(thread_id) + " leaving event report\n";
     }
 
@@ -1029,6 +1042,40 @@ void run(unsigned thread_id) {
         it->second.first = chrono::system_clock::now();
       }
     }
+
+    //redistribute data when node joins
+    /*if (join_addr_keyset_map.size() != 0) {
+      unordered_set<string> remove_address_set;
+      // assemble gossip
+      address_keyset_map addr_keyset_map;
+      for (auto it = join_addr_keyset_map.begin(); it != join_addr_keyset_map.end(); it++) {
+        auto address = it->first;
+        auto key_set = &(it->second);
+        unsigned count = 0;
+        while (count < DATA_REDISTRIBUTE_THRESHOLD && key_set->size() > 0) {
+          string k = *(key_set->begin());
+          addr_keyset_map[address].insert(k);
+          key_set->erase(k);
+          count += 1;
+        }
+        if (key_set->size() == 0) {
+          remove_address_set.insert(address);
+        }
+      }
+
+      for (auto it = remove_address_set.begin(); it != remove_address_set.end(); it++) {
+        join_addr_keyset_map.erase(*it);
+      }
+
+      send_gossip(addr_keyset_map, pushers, serializer);
+      // remove keys
+      if (join_addr_keyset_map.size() == 0) {
+        for (auto it = join_remove_set.begin(); it != join_remove_set.end(); it++) {
+          key_stat_map.erase(*it);
+          serializer->remove(*it);
+        }
+      }
+    }*/
   }
 }
 

@@ -19,3 +19,4 @@ spec:
       value: MON_IP_DUMMY
   nodeSelector:
     role: benchmark
+    podid: benchmark-NUM_DUMMY

@@ -21,4 +21,5 @@ spec:
       value: MON_IP_DUMMY
   nodeSelector:
     role: memory
+    podid: memory-NUM_DUMMY
   restartPolicy: Never

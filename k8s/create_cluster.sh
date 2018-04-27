@@ -53,7 +53,7 @@ while [ "$MGMT_IP" = "" ]; do
 done
 
 # copy kubecfg into the kops pod, so it can execute kops commands 
-kubectl cp /home/ubuntu/.kube/config kops-pod:/root/.kube/config
+kubectl cp /home/ubuntu/.kube/config kops-pod:/root/.kube/config > /dev/null 2>&1
 
 sed "s|MGMT_IP_DUMMY|$MGMT_IP|g" yaml/pods/monitoring-pod.yml > tmp.yml
 kubectl create -f tmp.yml > /dev/null 2>&1
@@ -73,8 +73,8 @@ done
 
 # copy the SSH key into the management node... doing this later because we need
 # to wait for the pod to come up
-kubectl cp $SSH_KEY kops-pod:/root/.ssh/id_rsa
-kubectl cp ${SSH_KEY}.pub kops-pod:/root/.ssh/id_rsa.pub
+kubectl cp $SSH_KEY kops-pod:/root/.ssh/id_rsa > /dev/null 2>&1
+kubectl cp ${SSH_KEY}.pub kops-pod:/root/.ssh/id_rsa.pub > /dev/null 2>&1
 
 echo "Cluster is now ready for use!"
 

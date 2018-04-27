@@ -66,14 +66,14 @@ using namespace std;
 #define MINIMUM_MEMORY_NODE 12
 #define MINIMUM_EBS_NODE 0
 
-#define SLO_WORST 2500
+#define SLO_WORST 3000
 #define SLO_BEST 1500
 
 #define HOT_KEY_THRESHOLD 5000
 
 // node capacity in KB
 unsigned MEM_NODE_CAPACITY = 60000000;
-unsigned EBS_NODE_CAPACITY = 128000000;
+unsigned EBS_NODE_CAPACITY = 256000000;
 // value size in KB
 #define VALUE_SIZE 256
 
@@ -623,6 +623,22 @@ void warmup(unordered_map<string, key_info>& placement) {
     placement[key].local_replication_map_[1] = DEFAULT_LOCAL_REPLICATION;
     placement[key].local_replication_map_[2] = DEFAULT_LOCAL_REPLICATION;
   }
+  /*for (unsigned i = 1; i <= 60000; i++) {
+    // key is 8 bytes
+    string key = string(8 - to_string(i).length(), '0') + to_string(i);
+    placement[key].global_replication_map_[1] = 1;
+    placement[key].global_replication_map_[2] = 0;
+    placement[key].local_replication_map_[1] = 1;
+    placement[key].local_replication_map_[2] = 1;
+  }
+  for (unsigned i = 60001; i <= 120000; i++) {
+    // key is 8 bytes
+    string key = string(8 - to_string(i).length(), '0') + to_string(i);
+    placement[key].global_replication_map_[1] = 0;
+    placement[key].global_replication_map_[2] = 1;
+    placement[key].local_replication_map_[1] = 1;
+    placement[key].local_replication_map_[2] = 1;
+  }*/
 }
 
 #endif

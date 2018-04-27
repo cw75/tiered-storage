@@ -231,6 +231,10 @@ int main(int argc, char* argv[]) {
   unordered_map<address_t, unordered_map<unsigned, pair<double, unsigned>>> memory_tier_occupancy;
   // keep track of ebs tier thread occupancy
   unordered_map<address_t, unordered_map<unsigned, pair<double, unsigned>>> ebs_tier_occupancy;
+  // keep track of memory tier hit
+  unordered_map<address_t, unordered_map<unsigned, unsigned>> memory_tier_access;
+  // keep track of ebs tier hit
+  unordered_map<address_t, unordered_map<unsigned, unsigned>> ebs_tier_access;
   // keep track of user latency info
   unordered_map<address_t, double> user_latency;
   // keep track of user throughput info
@@ -474,9 +478,11 @@ int main(int argc, char* argv[]) {
                 if (tier_id == 1) {
                   memory_tier_storage[ip][tid] = stat.storage_consumption();
                   memory_tier_occupancy[ip][tid] = pair<double, unsigned>(stat.occupancy(), stat.epoch());
+                  memory_tier_access[ip][tid] = stat.total_access();
                 } else {
                   ebs_tier_storage[ip][tid] = stat.storage_consumption();
                   ebs_tier_occupancy[ip][tid] = pair<double, unsigned>(stat.occupancy(), stat.epoch());
+                  ebs_tier_access[ip][tid] = stat.total_access();
                 }
               } else if (metadata_type == "access") {
                 // deserialized the value
@@ -533,6 +539,23 @@ int main(int argc, char* argv[]) {
       logger->info("access mean is {}", mean);
       logger->info("access var is {}", (double)ms / cnt);
       logger->info("access std is {}", std);
+
+      // compute tier access summary
+      unsigned total_memory_access = 0;
+      for (auto it = memory_tier_access.begin(); it != memory_tier_access.end(); it++) {
+        for (auto iter = it->second.begin(); iter != it->second.end(); iter++) {
+          total_memory_access += iter->second;
+        }
+      }
+      unsigned total_ebs_access = 0;
+      for (auto it = ebs_tier_access.begin(); it != ebs_tier_access.end(); it++) {
+        for (auto iter = it->second.begin(); iter != it->second.end(); iter++) {
+          total_ebs_access += iter->second;
+        }
+      }
+
+      logger->info("total memory access is {}", total_memory_access);
+      logger->info("total ebs access is {}", total_ebs_access);
 
       unsigned long long total_memory_consumption = 0;
       unsigned long long total_ebs_consumption = 0;
@@ -663,10 +686,10 @@ int main(int argc, char* argv[]) {
       }
       logger->info("total throughput is {}", total_throughput);
 
-      logger->info("logging suggested rep factor change");
-      for (auto it = rep_factor_map.begin(); it != rep_factor_map.end(); it++) {
+      //logger->info("logging suggested rep factor change");
+      /*for (auto it = rep_factor_map.begin(); it != rep_factor_map.end(); it++) {
         logger->info("suggested factor for key {} is {}", it->first, it->second.first);
-      }
+      }*/
 
       unsigned required_memory_node = ceil(total_memory_consumption / (MEM_CAPACITY_MAX * tier_data_map[1].node_capacity_));
       unsigned required_ebs_node = ceil(total_ebs_consumption / (EBS_CAPACITY_MAX * tier_data_map[2].node_capacity_));
@@ -863,7 +886,7 @@ int main(int argc, char* argv[]) {
                     logger->info("cannot perform hot key replication to key {} due to node limit", key);
                   }
                 }
-                /*if (MEMORY_THREAD_NUM > placement[key].local_replication_map_[1]) {
+                if (MEMORY_THREAD_NUM > placement[key].local_replication_map_[1]) {
                   key_info new_rep_factor;
                   new_rep_factor.global_replication_map_[1] = placement[key].global_replication_map_[1];
                   new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
@@ -873,8 +896,8 @@ int main(int argc, char* argv[]) {
                   logger->info("local hot key replication for key {}. M: {}->{}.", key, placement[key].local_replication_map_[1], new_rep_factor.local_replication_map_[1]);
                 } else {
                   logger->info("cannot perform local hot key replication to key {} due to thread limit", key);
-                }*/
-                /*if (4 > placement[key].global_replication_map_[1]) {
+                }
+                if (4 > placement[key].global_replication_map_[1]) {
                   key_info new_rep_factor;
                   new_rep_factor.global_replication_map_[1] = 4;
                   new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
@@ -884,7 +907,7 @@ int main(int argc, char* argv[]) {
                   logger->info("global hot key replication for key {}. M: {}->{}.", key, placement[key].global_replication_map_[1], new_rep_factor.global_replication_map_[1]);
                 } else {
                   logger->info("cannot perform hot key replication to key {} due to node limit", key);
-                }*/
+                }
                 if (memory_node_number - placement[key].global_replication_map_[1] > 0 && placement[key].global_replication_map_[2] > 0) {
                   key_info new_rep_factor;
                   new_rep_factor.global_replication_map_[1] = placement[key].global_replication_map_[1] + 1;
@@ -906,7 +929,7 @@ int main(int argc, char* argv[]) {
                 }
               }
             }
-            change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
+            change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);*/
           }
         }
         requests.clear();
@@ -997,7 +1020,7 @@ int main(int argc, char* argv[]) {
         requests.clear();
 
         // finally, consider reducing the replication factor of some keys that are not so hot anymore
-        /*for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
+        for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
           string key = it->first;
           unsigned total_access = it->second;
           if (!is_metadata(key) && total_access <= HOT_KEY_THRESHOLD && placement[key].global_replication_map_[1] > MINIMUM_REPLICA_NUMBER) {
@@ -1019,7 +1042,7 @@ int main(int argc, char* argv[]) {
           }
         }
         change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
-        requests.clear();*/
+        requests.clear();
       } else {
         logger->info("policy not started");
       }
