@@ -82,17 +82,9 @@ communication::Response process_request(
     //cout << "received get by thread " << thread_id << "\n";
     for (int i = 0; i < req.tuple_size(); i++) {
       string key = req.tuple(i).key();
-      communication::Response_Tuple* tp = response.add_tuple();
-      tp->set_key(key);
-      //cerr << "correct address by thread " + to_string(wt.get_tid()) + " on key " + req.tuple(i).key() + "\n";
-      auto res = process_get(key, serializer);
-      tp->set_value(res.first.reveal().value);
-      tp->set_err_number(res.second);
-      //cerr << "error number is " + to_string(res.second) + "\n";
-      key_access_timestamp[key].insert(std::chrono::system_clock::now());
       //cerr << "received get by thread " + to_string(wt.get_tid()) + " on key " + req.tuple(i).key() + "\n";
       // first check if the thread is responsible for the key
-      /*auto threads = get_responsible_threads(wt.get_replication_factor_connect_addr(), key, is_metadata(key), global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids, succeed, seed);
+      auto threads = get_responsible_threads(wt.get_replication_factor_connect_addr(), key, is_metadata(key), global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids, succeed, seed);
       if (succeed) {
         if (threads.find(wt) == threads.end()) {
           //cerr << "wrong address by thread " + to_string(wt.get_tid()) + " on key " + req.tuple(i).key() + "\n";
@@ -129,23 +121,15 @@ communication::Response process_request(
           pending_request_map[key].first = chrono::system_clock::now();
         }
         pending_request_map[key].second.push_back(pending_request("G", val, req.respond_address(), respond_id));
-      }*/
+      }
     }
   } else if (req.type() == "PUT") {
     //cout << "received put by thread " << thread_id << "\n";
     for (int i = 0; i < req.tuple_size(); i++) {
       string key = req.tuple(i).key();
-      communication::Response_Tuple* tp = response.add_tuple();
-      tp->set_key(key);
-      auto current_time = chrono::system_clock::now();
-      auto ts = generate_timestamp(chrono::duration_cast<chrono::milliseconds>(current_time-start_time).count(), wt.get_tid());
-      process_put(key, ts, req.tuple(i).value(), serializer, key_stat_map);
-      tp->set_err_number(0);
-      key_access_timestamp[key].insert(std::chrono::system_clock::now());
-      local_changeset.insert(key);
       //cerr << "received put by thread " + to_string(wt.get_tid()) + " on key " + req.tuple(i).key() + "\n";
       // first check if the thread is responsible for the key
-      /*auto threads = get_responsible_threads(wt.get_replication_factor_connect_addr(), key, is_metadata(key), global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids, succeed, seed);
+      auto threads = get_responsible_threads(wt.get_replication_factor_connect_addr(), key, is_metadata(key), global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids, succeed, seed);
       if (succeed) {
         if (threads.find(wt) == threads.end()) {
           //cerr << "wrong address by thread " + to_string(wt.get_tid()) + " on key " + req.tuple(i).key() + "\n";
@@ -189,7 +173,7 @@ communication::Response process_request(
         } else {
           pending_request_map[key].second.push_back(pending_request("P", req.tuple(i).value(), "", respond_id));
         }
-      }*/
+      }
     }
   }
   return response;
@@ -910,7 +894,7 @@ void run(unsigned thread_id) {
       auto work_start = chrono::system_clock::now();
       // only gossip if we have changes
       if (local_changeset.size() > 0) {
-        /*address_keyset_map addr_keyset_map;
+        address_keyset_map addr_keyset_map;
 
         vector<unsigned> tier_ids;
         for (unsigned i = MIN_TIER; i <= MAX_TIER; i++) {
@@ -931,7 +915,7 @@ void run(unsigned thread_id) {
           }
         }
 
-        send_gossip(addr_keyset_map, pushers, serializer);*/
+        send_gossip(addr_keyset_map, pushers, serializer);
         local_changeset.clear();
       }
       gossip_start = chrono::system_clock::now();
@@ -1058,7 +1042,7 @@ void run(unsigned thread_id) {
     }
 
     //redistribute data when node joins
-    /*if (join_addr_keyset_map.size() != 0) {
+    if (join_addr_keyset_map.size() != 0) {
       unordered_set<string> remove_address_set;
       // assemble gossip
       address_keyset_map addr_keyset_map;
@@ -1089,7 +1073,7 @@ void run(unsigned thread_id) {
           serializer->remove(*it);
         }
       }
-    }*/
+    }
   }
 }
 

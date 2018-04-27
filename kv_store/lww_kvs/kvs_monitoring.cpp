@@ -700,11 +700,11 @@ int main(int argc, char* argv[]) {
       unsigned ebs_node_number = global_hash_ring_map[2].size() / VIRTUAL_THREAD_NUM;
 
       // Policy Start Here:
-      /*if (true) {
+      if (true) {
         unordered_map<string, key_info> requests;
         unsigned total_rep_to_change = 0;
         // 1. first check storage consumption and trigger elasticity if necessary
-        if (memory_node_number != 0 && adding_memory_node == 0 && required_memory_node > memory_node_number) {
+        /*if (memory_node_number != 0 && adding_memory_node == 0 && required_memory_node > memory_node_number) {
           logger->info("memory consumption exceeds threshold!");
           auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
           if (time_elapsed > GRACE_PERIOD) {
@@ -746,10 +746,10 @@ int main(int argc, char* argv[]) {
           } else {
             logger->info("in grace period, not removing node");
           }
-        }
+        }*/
 
         // 2. check key access summary to promote hot keys to memory tier
-        unsigned slot = (MEM_CAPACITY_MAX * tier_data_map[1].node_capacity_ * memory_node_number - total_memory_consumption) / VALUE_SIZE;
+        /*unsigned slot = (MEM_CAPACITY_MAX * tier_data_map[1].node_capacity_ * memory_node_number - total_memory_consumption) / VALUE_SIZE;
         bool overflow = false;
         for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
           string key = it->first;
@@ -830,14 +830,14 @@ int main(int argc, char* argv[]) {
         }
 
         requests.clear();
-        total_rep_to_change = 0;
+        total_rep_to_change = 0;*/
 
         // 4. check latency to see if the SLO has been violated
         // 4.1 if latency is too high
         if (avg_latency > SLO_WORST && adding_memory_node == 0) {
           logger->info("latency is too high!");
           // figure out if we should do hot key replication or add nodes
-          if (min_memory_occupancy > 0.20) {
+          if (min_memory_occupancy > 0.15) {
             // add nodes
             logger->info("all nodes are busy, adding new nodes");
 
@@ -937,7 +937,7 @@ int main(int argc, char* argv[]) {
         logger->info("adding {} ebs nodes in progress", adding_ebs_node);
 
         // 4.2 if latency is too low, consider removing a memory node
-        if (avg_latency < SLO_BEST && !removing_memory_node && memory_node_number > max(required_memory_node, (unsigned)MINIMUM_MEMORY_NODE)) {
+        /*if (avg_latency < SLO_BEST && !removing_memory_node && memory_node_number > max(required_memory_node, (unsigned)MINIMUM_MEMORY_NODE)) {
           logger->info("latency is too low!");
           auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
           if (time_elapsed > GRACE_PERIOD) {
@@ -1042,10 +1042,10 @@ int main(int argc, char* argv[]) {
           }
         }
         change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
-        requests.clear();
+        requests.clear();*/
       } else {
         logger->info("policy not started");
-      }*/
+      }
 
       user_latency.clear();
       user_throughput.clear();
