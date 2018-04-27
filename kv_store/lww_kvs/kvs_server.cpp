@@ -1019,9 +1019,9 @@ void run(unsigned thread_id) {
       total_access = 0;
 
       // check if join_addr_map is empty
-      logger->info("join_addr_keyset_map size is ", join_addr_keyset_map.size());
+      logger->info("join_addr_keyset_map size is {}", join_addr_keyset_map.size());
       // check pending gossip map size
-      logger->info("pending_gossip_map size is ", pending_gossip_map.size());
+      logger->info("pending_gossip_map size is {}", pending_gossip_map.size());
       //cerr << "thread " + to_string(thread_id) + " leaving event report\n";
     }
 
