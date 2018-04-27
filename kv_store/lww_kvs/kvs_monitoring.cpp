@@ -855,7 +855,7 @@ int main(int argc, char* argv[]) {
           } else {
             // hot key replication
             // find hot keys
-            logger->info("not all nodes are busy, finding hot keys...");
+            /*logger->info("not all nodes are busy, finding hot keys...");
             for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
               string key = it->first;
               unsigned total_access = it->second;
@@ -929,7 +929,7 @@ int main(int argc, char* argv[]) {
                 }
               }
             }
-            change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
+            change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);*/
           }
         }
         requests.clear();
