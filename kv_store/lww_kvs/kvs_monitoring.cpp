@@ -869,7 +869,7 @@ int main(int argc, char* argv[]) {
                   if (memory_node_number >= target_rep_factor) {
                     key_info new_rep_factor;
                     new_rep_factor.global_replication_map_[1] = target_rep_factor;
-                    new_rep_factor.global_replication_map_[2] = max(MINIMUM_REPLICA_NUMBER - target_rep_factor, 0);
+                    new_rep_factor.global_replication_map_[2] = max(MINIMUM_REPLICA_NUMBER - target_rep_factor, (unsigned) 0);
                     new_rep_factor.local_replication_map_[1] = placement[key].local_replication_map_[1];
                     new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
                     requests[key] = new_rep_factor;
@@ -877,7 +877,7 @@ int main(int argc, char* argv[]) {
                   } else if (memory_node_number < target_rep_factor && placement[key].global_replication_map_[1] < memory_node_number) {
                     key_info new_rep_factor;
                     new_rep_factor.global_replication_map_[1] = memory_node_number;
-                    new_rep_factor.global_replication_map_[2] = max(MINIMUM_REPLICA_NUMBER - memory_node_number, 0);
+                    new_rep_factor.global_replication_map_[2] = max(MINIMUM_REPLICA_NUMBER - memory_node_number, (unsigned) 0);
                     new_rep_factor.local_replication_map_[1] = placement[key].local_replication_map_[1];
                     new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
                     requests[key] = new_rep_factor;
@@ -900,7 +900,7 @@ int main(int argc, char* argv[]) {
                 }
               }
             }
-            change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);*/
+            change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
           }
         }
         requests.clear();
