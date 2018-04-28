@@ -834,7 +834,7 @@ int main(int argc, char* argv[]) {
 
         // 4. check latency to see if the SLO has been violated
         // 4.1 if latency is too high
-        /*logger->info("finding hot keys...");
+        logger->info("finding hot keys...");
         for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
           string key = it->first;
           unsigned total_access = it->second;
@@ -868,7 +868,7 @@ int main(int argc, char* argv[]) {
           }
         }
         change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
-        requests.clear();*/
+        requests.clear();
 
 
         // 4.3 if latency is fine, check if there is underutilized memory node
