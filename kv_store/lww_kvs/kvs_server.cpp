@@ -278,9 +278,9 @@ void run(unsigned thread_id) {
   unordered_map<unsigned, local_hash_t> local_hash_ring_map;
 
   // for periodically redistributing data when node joins
-  //address_keyset_map join_addr_keyset_map;
+  address_keyset_map join_addr_keyset_map;
   // keep track of which key should be removed when node joins
-  //unordered_set<string> join_remove_set;
+  unordered_set<string> join_remove_set;
 
   // pending events for asynchrony
   unordered_map<string, pair<chrono::system_clock::time_point, vector<pending_request>>> pending_request_map;
@@ -480,8 +480,8 @@ void run(unsigned thread_id) {
           }
         }
         if (tier == SELF_TIER_ID) {
-          address_keyset_map join_addr_keyset_map;
-          unordered_set<string> join_remove_set;
+          //address_keyset_map join_addr_keyset_map;
+          //unordered_set<string> join_remove_set;
           vector<unsigned> tier_ids;
           tier_ids.push_back(SELF_TIER_ID);
           bool succeed;
@@ -500,12 +500,12 @@ void run(unsigned thread_id) {
             }
           }
 
-          send_gossip(join_addr_keyset_map, pushers, serializer);
+          /*send_gossip(join_addr_keyset_map, pushers, serializer);
           // remove keys
           for (auto it = join_remove_set.begin(); it != join_remove_set.end(); it++) {
             key_stat_map.erase(*it);
             serializer->remove(*it);
-          }
+          }*/
         }
       }
       auto time_elapsed = chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
@@ -1017,6 +1017,11 @@ void run(unsigned thread_id) {
       }
       // reset total access
       total_access = 0;
+
+      // check if join_addr_map is empty
+      logger->info("join_addr_keyset_map size is {}", join_addr_keyset_map.size());
+      // check pending gossip map size
+      logger->info("pending_gossip_map size is {}", pending_gossip_map.size());
       //cerr << "thread " + to_string(thread_id) + " leaving event report\n";
     }
 
@@ -1044,7 +1049,7 @@ void run(unsigned thread_id) {
     }
 
     //redistribute data when node joins
-    /*if (join_addr_keyset_map.size() != 0) {
+    if (join_addr_keyset_map.size() != 0) {
       unordered_set<string> remove_address_set;
       // assemble gossip
       address_keyset_map addr_keyset_map;
@@ -1075,7 +1080,7 @@ void run(unsigned thread_id) {
           serializer->remove(*it);
         }
       }
-    }*/
+    }
   }
 }
 
