@@ -627,7 +627,7 @@ void warmup(unordered_map<string, key_info>& placement) {
     // key is 8 bytes
     string key = string(8 - to_string(i).length(), '0') + to_string(i);
     placement[key].global_replication_map_[1] = 1;
-    placement[key].global_replication_map_[2] = 0;
+    placement[key].global_replication_map_[2] = 2;
     placement[key].local_replication_map_[1] = 1;
     placement[key].local_replication_map_[2] = 1;
   }
@@ -635,7 +635,7 @@ void warmup(unordered_map<string, key_info>& placement) {
     // key is 8 bytes
     string key = string(8 - to_string(i).length(), '0') + to_string(i);
     placement[key].global_replication_map_[1] = 0;
-    placement[key].global_replication_map_[2] = 1;
+    placement[key].global_replication_map_[2] = 3;
     placement[key].local_replication_map_[1] = 1;
     placement[key].local_replication_map_[2] = 1;
   }
