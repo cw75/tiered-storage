@@ -834,7 +834,7 @@ int main(int argc, char* argv[]) {
 
         // 4. check latency to see if the SLO has been violated
         // 4.1 if latency is too high
-        logger->info("finding hot keys...");
+        /*logger->info("finding hot keys...");
         for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
           string key = it->first;
           unsigned total_access = it->second;
@@ -868,7 +868,7 @@ int main(int argc, char* argv[]) {
           }
         }
         change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
-        requests.clear();
+        requests.clear();*/
 
 
         // 4.3 if latency is fine, check if there is underutilized memory node
@@ -920,10 +920,10 @@ int main(int argc, char* argv[]) {
         /*for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
           string key = it->first;
           unsigned total_access = it->second;
-          if (!is_metadata(key) && total_access <= HOT_KEY_THRESHOLD && placement[key].global_replication_map_[1] > MINIMUM_REPLICA_NUMBER) {
+          if (!is_metadata(key) && total_access <= mean && placement[key].global_replication_map_[1] > 2) {
             logger->info("key {} accessed less than {} times. Accessed {} times", key, HOT_KEY_THRESHOLD, total_access);
             key_info new_rep_factor;
-            new_rep_factor.global_replication_map_[1] = placement[key].global_replication_map_[1] - 1;
+            new_rep_factor.global_replication_map_[1] = 1;
             if (new_rep_factor.global_replication_map_[1] + placement[key].global_replication_map_[2] < MINIMUM_REPLICA_NUMBER) {
               new_rep_factor.global_replication_map_[2] = MINIMUM_REPLICA_NUMBER - new_rep_factor.global_replication_map_[1];
               if (new_rep_factor.global_replication_map_[2] > (global_hash_ring_map[2].size() / VIRTUAL_THREAD_NUM)) {
