@@ -480,8 +480,8 @@ void run(unsigned thread_id) {
           }
         }
         if (tier == SELF_TIER_ID) {
-          address_keyset_map join_addr_keyset_map;
-          unordered_set<string> join_remove_set;
+          //address_keyset_map join_addr_keyset_map;
+          //unordered_set<string> join_remove_set;
           vector<unsigned> tier_ids;
           tier_ids.push_back(SELF_TIER_ID);
           bool succeed;
