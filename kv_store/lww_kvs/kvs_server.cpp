@@ -903,9 +903,10 @@ void run(unsigned thread_id) {
         address_keyset_map addr_keyset_map;
 
         vector<unsigned> tier_ids;
-        for (unsigned i = MIN_TIER; i <= MAX_TIER; i++) {
+        /*for (unsigned i = MIN_TIER; i <= MAX_TIER; i++) {
           tier_ids.push_back(i);
-        }
+        }*/
+        tier_ids.push_back(SELF_TIER_ID);
         bool succeed;
         for (auto it = local_changeset.begin(); it != local_changeset.end(); it++) {
           string key = *it;
