@@ -838,8 +838,8 @@ int main(int argc, char* argv[]) {
         for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
           string key = it->first;
           unsigned total_access = it->second;
-          if (!is_metadata(key) && total_access > mean + 2*std && rep_factor_map.find(key) != rep_factor_map.end()) {
-            logger->info("key {} accessed more than {} times. Accessed {} times", key, mean + 2*std, total_access);
+          if (!is_metadata(key) && total_access > mean + 3*std && rep_factor_map.find(key) != rep_factor_map.end()) {
+            logger->info("key {} accessed more than {} times. Accessed {} times", key, mean + 3*std, total_access);
             unsigned target_rep_factor = placement[key].global_replication_map_[1] * rep_factor_map[key].first;
             if (target_rep_factor == placement[key].global_replication_map_[1]) {
               target_rep_factor += 1;
@@ -848,19 +848,19 @@ int main(int argc, char* argv[]) {
               if (memory_node_number >= target_rep_factor) {
                 key_info new_rep_factor;
                 new_rep_factor.global_replication_map_[1] = target_rep_factor;
-                new_rep_factor.global_replication_map_[2] = max(MINIMUM_REPLICA_NUMBER - target_rep_factor, (unsigned) 0);
+                new_rep_factor.global_replication_map_[2] = (MINIMUM_REPLICA_NUMBER > target_rep_factor) ? (MINIMUM_REPLICA_NUMBER - target_rep_factor) : 0;
                 new_rep_factor.local_replication_map_[1] = placement[key].local_replication_map_[1];
                 new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
                 requests[key] = new_rep_factor;
-                logger->info("global hot key replication for key {}. M: {}->{}.", key, placement[key].global_replication_map_[1], new_rep_factor.global_replication_map_[1]);
+                logger->info("global hot key replication for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], new_rep_factor.global_replication_map_[1], placement[key].global_replication_map_[2], new_rep_factor.global_replication_map_[2]);
               } else if (memory_node_number < target_rep_factor && placement[key].global_replication_map_[1] < memory_node_number) {
                 key_info new_rep_factor;
                 new_rep_factor.global_replication_map_[1] = memory_node_number;
-                new_rep_factor.global_replication_map_[2] = max(MINIMUM_REPLICA_NUMBER - memory_node_number, (unsigned) 0);
+                new_rep_factor.global_replication_map_[2] = (MINIMUM_REPLICA_NUMBER > memory_node_number) ? (MINIMUM_REPLICA_NUMBER - memory_node_number) : 0;
                 new_rep_factor.local_replication_map_[1] = placement[key].local_replication_map_[1];
                 new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
                 requests[key] = new_rep_factor;
-                logger->info("global hot key replication for key {}. M: {}->{}.", key, placement[key].global_replication_map_[1], new_rep_factor.global_replication_map_[1]);
+                logger->info("global hot key replication for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], new_rep_factor.global_replication_map_[1], placement[key].global_replication_map_[2], new_rep_factor.global_replication_map_[2]);
               } else {
                 logger->info("cannot perform hot key replication to key {} due to node limit", key);
               }
@@ -921,7 +921,7 @@ int main(int argc, char* argv[]) {
           string key = it->first;
           unsigned total_access = it->second;
           if (!is_metadata(key) && total_access <= mean && placement[key].global_replication_map_[1] > 1) {
-            logger->info("key {} accessed less than {} times. Accessed {} times", key, HOT_KEY_THRESHOLD, total_access);
+            logger->info("key {} accessed less than {} times. Accessed {} times", key, mean, total_access);
             key_info new_rep_factor;
             new_rep_factor.global_replication_map_[1] = 1;
             if (new_rep_factor.global_replication_map_[1] + placement[key].global_replication_map_[2] < MINIMUM_REPLICA_NUMBER) {
