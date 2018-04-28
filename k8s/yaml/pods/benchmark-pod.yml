@@ -9,7 +9,7 @@ metadata:
 spec:
   containers:
   - name: kvs-benchmark-container
-    image: cgwu/kvs
+    image: vsreekanti/kvs
     env: 
     - name: SERVER_TYPE
       value: b
