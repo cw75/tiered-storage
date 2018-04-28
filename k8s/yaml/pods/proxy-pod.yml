@@ -9,7 +9,7 @@ metadata:
 spec:
   containers:
   - name: kvs-proxy-container
-    image: vsreekanti/kvs
+    image: cgwu/kvs
     env: 
     - name: SERVER_TYPE
       value: p

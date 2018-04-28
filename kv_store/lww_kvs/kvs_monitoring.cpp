@@ -909,7 +909,7 @@ int main(int argc, char* argv[]) {
 
 
         // 4.3 if latency is fine, check if there is underutilized memory node
-        if (min_memory_occupancy < 0.05) {
+        if (min_memory_occupancy < 0.05 && !removing_memory_node && memory_node_number > max(required_memory_node, (unsigned)MINIMUM_MEMORY_NODE)) {
           logger->info("node {} is severely underutilized, consider removing", min_node_ip);
           auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
           if (time_elapsed > GRACE_PERIOD) {
