@@ -838,8 +838,8 @@ int main(int argc, char* argv[]) {
         for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
           string key = it->first;
           unsigned total_access = it->second;
-          if (!is_metadata(key) && total_access > mean + std && rep_factor_map.find(key) != rep_factor_map.end()) {
-            logger->info("key {} accessed more than {} times. Accessed {} times", key, mean + std, total_access);
+          if (!is_metadata(key) && total_access > mean + 2*std && rep_factor_map.find(key) != rep_factor_map.end()) {
+            logger->info("key {} accessed more than {} times. Accessed {} times", key, mean + 2*std, total_access);
             unsigned target_rep_factor = placement[key].global_replication_map_[1] * rep_factor_map[key].first;
             if (target_rep_factor == placement[key].global_replication_map_[1]) {
               target_rep_factor += 1;
