@@ -506,6 +506,7 @@ void run(unsigned thread_id) {
             key_stat_map.erase(*it);
             serializer->remove(*it);
           }*/
+          logger->info("in join event: join_addr_keyset_map size is {}", join_addr_keyset_map.size());
         }
       }
       auto time_elapsed = chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
