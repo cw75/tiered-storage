@@ -869,7 +869,7 @@ int main(int argc, char* argv[]) {
                   if (memory_node_number >= target_rep_factor) {
                     key_info new_rep_factor;
                     new_rep_factor.global_replication_map_[1] = target_rep_factor;
-                    new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
+                    new_rep_factor.global_replication_map_[2] = max(MINIMUM_REPLICA_NUMBER - target_rep_factor, 0);
                     new_rep_factor.local_replication_map_[1] = placement[key].local_replication_map_[1];
                     new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
                     requests[key] = new_rep_factor;
@@ -877,7 +877,7 @@ int main(int argc, char* argv[]) {
                   } else if (memory_node_number < target_rep_factor && placement[key].global_replication_map_[1] < memory_node_number) {
                     key_info new_rep_factor;
                     new_rep_factor.global_replication_map_[1] = memory_node_number;
-                    new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
+                    new_rep_factor.global_replication_map_[2] = max(MINIMUM_REPLICA_NUMBER - memory_node_number, 0);
                     new_rep_factor.local_replication_map_[1] = placement[key].local_replication_map_[1];
                     new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
                     requests[key] = new_rep_factor;
@@ -885,47 +885,18 @@ int main(int argc, char* argv[]) {
                   } else {
                     logger->info("cannot perform hot key replication to key {} due to node limit", key);
                   }
-                }
-                if (MEMORY_THREAD_NUM > placement[key].local_replication_map_[1]) {
-                  key_info new_rep_factor;
-                  new_rep_factor.global_replication_map_[1] = placement[key].global_replication_map_[1];
-                  new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
-                  new_rep_factor.local_replication_map_[1] = MEMORY_THREAD_NUM;
-                  new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
-                  requests[key] = new_rep_factor;
-                  logger->info("local hot key replication for key {}. M: {}->{}.", key, placement[key].local_replication_map_[1], new_rep_factor.local_replication_map_[1]);
                 } else {
-                  logger->info("cannot perform local hot key replication to key {} due to thread limit", key);
-                }
-                if (4 > placement[key].global_replication_map_[1]) {
-                  key_info new_rep_factor;
-                  new_rep_factor.global_replication_map_[1] = 4;
-                  new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
-                  new_rep_factor.local_replication_map_[1] = placement[key].local_replication_map_[1];
-                  new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
-                  requests[key] = new_rep_factor;
-                  logger->info("global hot key replication for key {}. M: {}->{}.", key, placement[key].global_replication_map_[1], new_rep_factor.global_replication_map_[1]);
-                } else {
-                  logger->info("cannot perform hot key replication to key {} due to node limit", key);
-                }
-                if (memory_node_number - placement[key].global_replication_map_[1] > 0 && placement[key].global_replication_map_[2] > 0) {
-                  key_info new_rep_factor;
-                  new_rep_factor.global_replication_map_[1] = placement[key].global_replication_map_[1] + 1;
-                  new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2] - 1;
-                  new_rep_factor.local_replication_map_[1] = placement[key].local_replication_map_[1];
-                  new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
-                  requests[key] = new_rep_factor;
-                  logger->info("global hot key replication for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], placement[key].global_replication_map_[1] + 1, placement[key].global_replication_map_[2], placement[key].global_replication_map_[2] - 1);
-                } else if (memory_node_number - placement[key].global_replication_map_[1] > 0 && placement[key].global_replication_map_[2] == 0) {
-                  key_info new_rep_factor;
-                  new_rep_factor.global_replication_map_[1] = placement[key].global_replication_map_[1] + 1;
-                  new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
-                  new_rep_factor.local_replication_map_[1] = placement[key].local_replication_map_[1];
-                  new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
-                  requests[key] = new_rep_factor;
-                  logger->info("global hot key replication for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], placement[key].global_replication_map_[1] + 1, placement[key].global_replication_map_[2], placement[key].global_replication_map_[2]);
-                } else {
-                  logger->info("cannot perform hot key replication to key {} due to node limit", key);
+                  if (MEMORY_THREAD_NUM > placement[key].local_replication_map_[1]) {
+                    key_info new_rep_factor;
+                    new_rep_factor.global_replication_map_[1] = placement[key].global_replication_map_[1];
+                    new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
+                    new_rep_factor.local_replication_map_[1] = MEMORY_THREAD_NUM;
+                    new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
+                    requests[key] = new_rep_factor;
+                    logger->info("local hot key replication for key {}. M: {}->{}.", key, placement[key].local_replication_map_[1], new_rep_factor.local_replication_map_[1]);
+                  } else {
+                    logger->info("cannot perform local hot key replication to key {} due to thread limit", key);
+                  } 
                 }
               }
             }
@@ -936,9 +907,10 @@ int main(int argc, char* argv[]) {
         logger->info("adding {} memory nodes in progress", adding_memory_node);
         logger->info("adding {} ebs nodes in progress", adding_ebs_node);
 
-        // 4.2 if latency is too low, consider removing a memory node
-        if (avg_latency < SLO_BEST && !removing_memory_node && memory_node_number > max(required_memory_node, (unsigned)MINIMUM_MEMORY_NODE)) {
-          logger->info("latency is too low!");
+
+        // 4.3 if latency is fine, check if there is underutilized memory node
+        if (min_memory_occupancy < 0.05) {
+          logger->info("node {} is severely underutilized, consider removing", min_node_ip);
           auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
           if (time_elapsed > GRACE_PERIOD) {
             // before sending remove command, first adjust relevant key's replication factor
@@ -949,72 +921,34 @@ int main(int argc, char* argv[]) {
                 new_rep_factor.global_replication_map_[1] = placement[key].global_replication_map_[1] - 1;
                 if (new_rep_factor.global_replication_map_[1] + placement[key].global_replication_map_[2] < MINIMUM_REPLICA_NUMBER) {
                   new_rep_factor.global_replication_map_[2] = MINIMUM_REPLICA_NUMBER - new_rep_factor.global_replication_map_[1];
+
                   if (new_rep_factor.global_replication_map_[2] > (global_hash_ring_map[2].size() / VIRTUAL_THREAD_NUM)) {
                     logger->info("Error: number of ebs replica exceed number of ebs nodes");
                   }
                 } else {
                   new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
                 }
+
                 new_rep_factor.local_replication_map_[1] = placement[key].local_replication_map_[1];
                 new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
+
                 requests[key] = new_rep_factor;
                 logger->info("reduce replication for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], new_rep_factor.global_replication_map_[1], placement[key].global_replication_map_[2], new_rep_factor.global_replication_map_[2]);
               }
             }
+
             change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
             // pick a random memory node and send remove node command
-            auto node = next(begin(global_hash_ring_map[1]), rand() % global_hash_ring_map[1].size())->second;
-            auto ip = node.get_ip();
+            
+            server_thread_t node = server_thread_t(min_node_ip, 0);
             auto connection_addr = node.get_self_depart_connect_addr();
-            departing_node_map[ip] = tier_data_map[1].thread_number_;
+            departing_node_map[min_node_ip] = tier_data_map[1].thread_number_;
             auto ack_addr = mt.get_depart_done_connect_addr();
             logger->info("sending remove memory node msg");
             zmq_util::send_string(ack_addr, &pushers[connection_addr]);
             removing_memory_node = true;
           } else {
-            logger->info("in grace period, not removing node");
-          }
-        }
-        requests.clear();
-
-        // 4.3 if latency is fine, check if there is underutilized memory node
-        if (avg_latency >= SLO_BEST && avg_latency <= SLO_WORST && !removing_memory_node && memory_node_number > max(required_memory_node, (unsigned)MINIMUM_MEMORY_NODE)) {
-          if (min_memory_occupancy < 0.05) {
-            logger->info("node {} is severely underutilized, consider removing", min_node_ip);
-            auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
-            if (time_elapsed > GRACE_PERIOD) {
-              // before sending remove command, first adjust relevant key's replication factor
-              for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
-                string key = it->first;
-                if (!is_metadata(key) && placement[key].global_replication_map_[1] == (global_hash_ring_map[1].size() / VIRTUAL_THREAD_NUM)) {
-                  key_info new_rep_factor;
-                  new_rep_factor.global_replication_map_[1] = placement[key].global_replication_map_[1] - 1;
-                  if (new_rep_factor.global_replication_map_[1] + placement[key].global_replication_map_[2] < MINIMUM_REPLICA_NUMBER) {
-                    new_rep_factor.global_replication_map_[2] = MINIMUM_REPLICA_NUMBER - new_rep_factor.global_replication_map_[1];
-                    if (new_rep_factor.global_replication_map_[2] > (global_hash_ring_map[2].size() / VIRTUAL_THREAD_NUM)) {
-                      logger->info("Error: number of ebs replica exceed number of ebs nodes");
-                    }
-                  } else {
-                    new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
-                  }
-                  new_rep_factor.local_replication_map_[1] = placement[key].local_replication_map_[1];
-                  new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
-                  requests[key] = new_rep_factor;
-                  logger->info("reduce replication for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], new_rep_factor.global_replication_map_[1], placement[key].global_replication_map_[2], new_rep_factor.global_replication_map_[2]);
-                }
-              }
-              change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
-              // pick a random memory node and send remove node command
-              server_thread_t node = server_thread_t(min_node_ip, 0);
-              auto connection_addr = node.get_self_depart_connect_addr();
-              departing_node_map[min_node_ip] = tier_data_map[1].thread_number_;
-              auto ack_addr = mt.get_depart_done_connect_addr();
-              logger->info("sending remove memory node msg");
-              zmq_util::send_string(ack_addr, &pushers[connection_addr]);
-              removing_memory_node = true;
-            } else {
-              logger->info("in grace period");
-            }
+            logger->info("in grace period");
           }
         }
         requests.clear();

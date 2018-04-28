@@ -40,6 +40,8 @@ RUN rm -rf protobuf
 RUN apt-get update
 RUN apt-get install -y awscli jq
 
+
+
 # build kvs
 RUN git clone https://github.com/cw75/tiered-storage
 RUN cd tiered-storage && git fetch -a origin
