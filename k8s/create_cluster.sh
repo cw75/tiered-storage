@@ -12,8 +12,8 @@ else
   SSH_KEY=$5
 fi
 
-export NAME=ucbrisebedrock.de
-export KOPS_STATE_STORE=s3://tiered-storage-state-store
+export NAME=ucbrisetieredstorage.com
+export KOPS_STATE_STORE=s3://1-tiered-storage-state-store
 
 echo "Creating cluster object..."
 kops create cluster --zones us-east-1a --ssh-public-key ${SSH_KEY}.pub ${NAME} --networking kopeio-vxlan > /dev/null 2>&1
@@ -52,9 +52,6 @@ while [ "$MGMT_IP" = "" ]; do
   MGMT_IP=`kubectl get pods -l role=kops -o jsonpath='{.items[*].status.podIP}' | tr -d '[:space:]'`
 done
 
-# copy kubecfg into the kops pod, so it can execute kops commands 
-kubectl cp /home/ubuntu/.kube/config kops-pod:/root/.kube/config > /dev/null 2>&1
-
 sed "s|MGMT_IP_DUMMY|$MGMT_IP|g" yaml/pods/monitoring-pod.yml > tmp.yml
 kubectl create -f tmp.yml > /dev/null 2>&1
 rm tmp.yml
@@ -73,8 +70,8 @@ done
 
 # copy the SSH key into the management node... doing this later because we need
 # to wait for the pod to come up
-kubectl cp $SSH_KEY kops-pod:/root/.ssh/id_rsa > /dev/null 2>&1
-kubectl cp ${SSH_KEY}.pub kops-pod:/root/.ssh/id_rsa.pub > /dev/null 2>&1
+kubectl cp $SSH_KEY kops-pod:/root/.ssh/id_rsa
+kubectl cp ${SSH_KEY}.pub kops-pod:/root/.ssh/id_rsa.pub
 
 echo "Cluster is now ready for use!"
 
