@@ -834,42 +834,43 @@ int main(int argc, char* argv[]) {
 
         // 4. check latency to see if the SLO has been violated
         // 4.1 if latency is too high
-        logger->info("finding hot keys...");
-        for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
-          string key = it->first;
-          unsigned total_access = it->second;
-          if (!is_metadata(key) && total_access > mean + 3*std && rep_factor_map.find(key) != rep_factor_map.end()) {
-            logger->info("key {} accessed more than {} times. Accessed {} times", key, mean + 3*std, total_access);
-            unsigned target_rep_factor = placement[key].global_replication_map_[1] * rep_factor_map[key].first;
-            if (target_rep_factor == placement[key].global_replication_map_[1]) {
-              target_rep_factor += 1;
-            }
-            if (target_rep_factor > placement[key].global_replication_map_[1]) {
-              if (memory_node_number >= target_rep_factor) {
-                key_info new_rep_factor;
-                new_rep_factor.global_replication_map_[1] = target_rep_factor;
-                new_rep_factor.global_replication_map_[2] = (MINIMUM_REPLICA_NUMBER > target_rep_factor) ? (MINIMUM_REPLICA_NUMBER - target_rep_factor) : 0;
-                new_rep_factor.local_replication_map_[1] = placement[key].local_replication_map_[1];
-                new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
-                requests[key] = new_rep_factor;
-                logger->info("global hot key replication for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], new_rep_factor.global_replication_map_[1], placement[key].global_replication_map_[2], new_rep_factor.global_replication_map_[2]);
-              } else if (memory_node_number < target_rep_factor && placement[key].global_replication_map_[1] < memory_node_number) {
-                key_info new_rep_factor;
-                new_rep_factor.global_replication_map_[1] = memory_node_number;
-                new_rep_factor.global_replication_map_[2] = (MINIMUM_REPLICA_NUMBER > memory_node_number) ? (MINIMUM_REPLICA_NUMBER - memory_node_number) : 0;
-                new_rep_factor.local_replication_map_[1] = placement[key].local_replication_map_[1];
-                new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
-                requests[key] = new_rep_factor;
-                logger->info("global hot key replication for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], new_rep_factor.global_replication_map_[1], placement[key].global_replication_map_[2], new_rep_factor.global_replication_map_[2]);
-              } else {
-                logger->info("cannot perform hot key replication to key {} due to node limit", key);
+        if (min_memory_occupancy < 0.2) {
+          logger->info("min occupancy is less than {}, finding hot keys...", 0.2);
+          for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
+            string key = it->first;
+            unsigned total_access = it->second;
+            if (!is_metadata(key) && total_access > mean + 4*std && rep_factor_map.find(key) != rep_factor_map.end()) {
+              logger->info("key {} accessed more than {} times. Accessed {} times", key, mean + 4*std, total_access);
+              unsigned target_rep_factor = placement[key].global_replication_map_[1] * rep_factor_map[key].first;
+              if (target_rep_factor == placement[key].global_replication_map_[1]) {
+                target_rep_factor += 1;
+              }
+              if (target_rep_factor > placement[key].global_replication_map_[1]) {
+                if (memory_node_number >= target_rep_factor) {
+                  key_info new_rep_factor;
+                  new_rep_factor.global_replication_map_[1] = target_rep_factor;
+                  new_rep_factor.global_replication_map_[2] = (MINIMUM_REPLICA_NUMBER > target_rep_factor) ? (MINIMUM_REPLICA_NUMBER - target_rep_factor) : 0;
+                  new_rep_factor.local_replication_map_[1] = placement[key].local_replication_map_[1];
+                  new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
+                  requests[key] = new_rep_factor;
+                  logger->info("global hot key replication for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], new_rep_factor.global_replication_map_[1], placement[key].global_replication_map_[2], new_rep_factor.global_replication_map_[2]);
+                } else if (memory_node_number < target_rep_factor && placement[key].global_replication_map_[1] < memory_node_number) {
+                  key_info new_rep_factor;
+                  new_rep_factor.global_replication_map_[1] = memory_node_number;
+                  new_rep_factor.global_replication_map_[2] = (MINIMUM_REPLICA_NUMBER > memory_node_number) ? (MINIMUM_REPLICA_NUMBER - memory_node_number) : 0;
+                  new_rep_factor.local_replication_map_[1] = placement[key].local_replication_map_[1];
+                  new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
+                  requests[key] = new_rep_factor;
+                  logger->info("global hot key replication for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], new_rep_factor.global_replication_map_[1], placement[key].global_replication_map_[2], new_rep_factor.global_replication_map_[2]);
+                } else {
+                  logger->info("cannot perform hot key replication to key {} due to node limit", key);
+                }
               }
             }
           }
+          change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
+          requests.clear();
         }
-        change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
-        requests.clear();
-
 
         // 4.3 if latency is fine, check if there is underutilized memory node
         /*if (min_memory_occupancy < 0.05 && !removing_memory_node && memory_node_number > max(required_memory_node, (unsigned)MINIMUM_MEMORY_NODE)) {
