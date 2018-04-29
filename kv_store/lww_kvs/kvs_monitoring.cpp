@@ -279,11 +279,15 @@ int main(int argc, char* argv[]) {
   // responsible for receiving latency update from users
   zmq::socket_t latency_puller(context, ZMQ_PULL);
   latency_puller.bind(mt.get_latency_report_bind_addr());
+  // responsible for receiving SLO update
+  zmq::socket_t slo_puller(context, ZMQ_PULL);
+  slo_puller.bind(mt.get_slo_bind_addr());
 
   vector<zmq::pollitem_t> pollitems = {
     { static_cast<void *>(notify_puller), 0, ZMQ_POLLIN, 0 },
     { static_cast<void *>(depart_done_puller), 0, ZMQ_POLLIN, 0 },
-    { static_cast<void *>(latency_puller), 0, ZMQ_POLLIN, 0 }
+    { static_cast<void *>(latency_puller), 0, ZMQ_POLLIN, 0 },
+    { static_cast<void *>(slo_puller), 0, ZMQ_POLLIN, 0 }
   };
 
   auto report_start = chrono::system_clock::now();
@@ -300,6 +304,9 @@ int main(int argc, char* argv[]) {
 
   unsigned rid = 0;
   bool policy_start = false;
+
+  unsigned slo = SLO;
+  double cost_budget = COST_BUDGET;
 
   while (true) {
     // listen for ZMQ events
@@ -424,6 +431,22 @@ int main(int argc, char* argv[]) {
             rep_factor_map[key].second += 1;
           }
         }
+      }
+    }
+
+    if (pollitems[3].revents & ZMQ_POLLIN) {
+      //todo
+      string serialized_slo = zmq_util::recv_string(&slo_puller);
+      vector<string> tokens;
+      split(serialized_slo, ':', tokens);
+      if (tokens[0] == "L") {
+        slo = stoi(tokens[1]);
+        logger->info("change latency slo to {}", slo);
+      } else if (tokens[0] == "C") {
+        cost_budget = stod(tokens[1]);
+        logger->info("change cost budget to {}", cost_budget);
+      } else {
+        logger->info("invalid slo type");
       }
     }
 
@@ -834,7 +857,7 @@ int main(int argc, char* argv[]) {
 
         // 4. check latency to see if the SLO has been violated
         // 4.1 if latency is too high
-        if (avg_latency > SLO_WORST && adding_memory_node == 0) {
+        if (avg_latency > slo && adding_memory_node == 0) {
           logger->info("latency is too high!");
           // figure out if we should do hot key replication or add nodes
           if (min_memory_occupancy > 0.2) {
@@ -845,7 +868,7 @@ int main(int argc, char* argv[]) {
             if (current_cost > COST_BUDGET) {
               logger->info("exceed cost budget, not adding node");
             } else {
-              unsigned node_to_add = ceil((avg_latency / SLO_WORST - 1) * memory_node_number);
+              unsigned node_to_add = ceil((avg_latency / slo - 1) * memory_node_number);
               // trigger elasticity
               auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
               if (time_elapsed > GRACE_PERIOD) {

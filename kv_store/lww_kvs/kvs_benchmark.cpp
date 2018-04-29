@@ -335,7 +335,7 @@ void run(unsigned thread_id) {
             handle_request(key, "", pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
             count += 2;
             auto req_end = std::chrono::system_clock::now();
-            double factor = (double)chrono::duration_cast<std::chrono::microseconds>(req_end-req_start).count() / 2 / SLO_WORST;
+            double factor = (double)chrono::duration_cast<std::chrono::microseconds>(req_end-req_start).count() / 2 / SLO;
             if (rep_factor_map.find(key) == rep_factor_map.end()) {
               rep_factor_map[key].first = factor;
               rep_factor_map[key].second = 1;

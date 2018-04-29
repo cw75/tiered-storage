@@ -66,8 +66,7 @@ using namespace std;
 #define MINIMUM_MEMORY_NODE 2
 #define MINIMUM_EBS_NODE 3
 
-#define SLO_WORST 6000
-#define SLO_BEST 1500
+#define SLO 6000
 
 #define COST_BUDGET 10
 
@@ -98,6 +97,7 @@ unsigned EBS_NODE_CAPACITY = 256000000;
 // used by monitoring nodes
 #define DEPART_DONE_BASE_PORT 6760
 #define LATENCY_REPORT_BASE_PORT 6860
+#define SLO_PORT 6960
 
 // used by benchmark threads
 #define COMMAND_BASE_PORT 6560
@@ -302,6 +302,9 @@ public:
   }
   string get_latency_report_bind_addr() const {
     return "tcp://*:" + to_string(LATENCY_REPORT_BASE_PORT);
+  }
+  string get_slo_bind_addr() const {
+    return "tcp://*:" + to_string(SLO_PORT);
   }
 };
 
