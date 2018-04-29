@@ -66,7 +66,7 @@ using namespace std;
 #define MINIMUM_MEMORY_NODE 2
 #define MINIMUM_EBS_NODE 3
 
-#define SLO_WORST 7000
+#define SLO_WORST 6000
 #define SLO_BEST 1500
 
 #define HOT_KEY_THRESHOLD 5000
