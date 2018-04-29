@@ -69,6 +69,8 @@ using namespace std;
 #define SLO_WORST 6000
 #define SLO_BEST 1500
 
+#define COST_BUDGET 10
+
 #define HOT_KEY_THRESHOLD 5000
 
 // node capacity in KB
@@ -623,7 +625,7 @@ void warmup(unordered_map<string, key_info>& placement) {
     placement[key].local_replication_map_[1] = DEFAULT_LOCAL_REPLICATION;
     placement[key].local_replication_map_[2] = DEFAULT_LOCAL_REPLICATION;
   }*/
-  for (unsigned i = 1; i <= 893554; i++) {
+  for (unsigned i = 1; i <= 535156; i++) {
     // key is 8 bytes
     string key = string(8 - to_string(i).length(), '0') + to_string(i);
     placement[key].global_replication_map_[1] = 1;
@@ -631,7 +633,7 @@ void warmup(unordered_map<string, key_info>& placement) {
     placement[key].local_replication_map_[1] = 1;
     placement[key].local_replication_map_[2] = 1;
   }
-  for (unsigned i = 893555; i <= 1000000; i++) {
+  for (unsigned i = 535157; i <= 1000000; i++) {
     // key is 8 bytes
     string key = string(8 - to_string(i).length(), '0') + to_string(i);
     placement[key].global_replication_map_[1] = 0;
