@@ -834,7 +834,7 @@ int main(int argc, char* argv[]) {
 
         // 4. check latency to see if the SLO has been violated
         // 4.1 if latency is too high
-        if (min_memory_occupancy < 0.2) {
+        /*if (min_memory_occupancy < 0.2) {
           logger->info("min occupancy is less than {}, finding hot keys...", 0.2);
           for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
             string key = it->first;
@@ -870,7 +870,7 @@ int main(int argc, char* argv[]) {
           }
           change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
           requests.clear();
-        }
+        }*/
 
         // 4.3 if latency is fine, check if there is underutilized memory node
         /*if (min_memory_occupancy < 0.05 && !removing_memory_node && memory_node_number > max(required_memory_node, (unsigned)MINIMUM_MEMORY_NODE)) {
@@ -918,7 +918,7 @@ int main(int argc, char* argv[]) {
         requests.clear();*/
 
         // finally, consider reducing the replication factor of some keys that are not so hot anymore
-        for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
+        /*for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
           string key = it->first;
           unsigned total_access = it->second;
           if (!is_metadata(key) && total_access <= mean && placement[key].global_replication_map_[1] > 1) {
@@ -940,7 +940,7 @@ int main(int argc, char* argv[]) {
           }
         }
         change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
-        requests.clear();
+        requests.clear();*/
       } else {
         logger->info("policy not started");
       }
