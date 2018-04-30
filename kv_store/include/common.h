@@ -31,9 +31,9 @@ using namespace std;
 #define METADATA_REPLICATION_FACTOR 2
 
 // Define the default replication factor for the data
-#define DEFAULT_GLOBAL_MEMORY_REPLICATION 0
-#define DEFAULT_GLOBAL_EBS_REPLICATION 3
-#define MINIMUM_REPLICA_NUMBER 3
+#define DEFAULT_GLOBAL_MEMORY_REPLICATION 1
+#define DEFAULT_GLOBAL_EBS_REPLICATION 0
+#define MINIMUM_REPLICA_NUMBER 1
 // Define the default local replication factor
 #define DEFAULT_LOCAL_REPLICATION 1
 
@@ -66,9 +66,9 @@ using namespace std;
 #define MINIMUM_MEMORY_NODE 2
 #define MINIMUM_EBS_NODE 3
 
-#define SLO 6000
+#define SLO 3000
 
-#define COST_BUDGET 10
+#define COST_BUDGET 1000
 
 #define HOT_KEY_THRESHOLD 5000
 
@@ -620,15 +620,15 @@ proxy_thread_t get_random_proxy_thread(vector<string>& proxy_address, unsigned& 
 }
 
 void warmup(unordered_map<string, key_info>& placement) {
-  /*for (unsigned i = 1; i <= 1000000; i++) {
+  for (unsigned i = 1; i <= 1000000; i++) {
     // key is 8 bytes
     string key = string(8 - to_string(i).length(), '0') + to_string(i);
     placement[key].global_replication_map_[1] = DEFAULT_GLOBAL_MEMORY_REPLICATION;
     placement[key].global_replication_map_[2] = DEFAULT_GLOBAL_EBS_REPLICATION;
     placement[key].local_replication_map_[1] = DEFAULT_LOCAL_REPLICATION;
     placement[key].local_replication_map_[2] = DEFAULT_LOCAL_REPLICATION;
-  }*/
-  for (unsigned i = 1; i <= 535156; i++) {
+  }
+  /*for (unsigned i = 1; i <= 535156; i++) {
     // key is 8 bytes
     string key = string(8 - to_string(i).length(), '0') + to_string(i);
     placement[key].global_replication_map_[1] = 1;
@@ -643,7 +643,7 @@ void warmup(unordered_map<string, key_info>& placement) {
     placement[key].global_replication_map_[2] = 3;
     placement[key].local_replication_map_[1] = 1;
     placement[key].local_replication_map_[2] = 1;
-  }
+  }*/
 }
 
 #endif
