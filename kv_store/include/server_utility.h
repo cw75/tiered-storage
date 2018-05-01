@@ -12,7 +12,7 @@ using namespace std;
 #define GARBAGE_COLLECT_THRESHOLD 10000000
 
 // Define the data redistribute threshold
-#define DATA_REDISTRIBUTE_THRESHOLD 2
+#define DATA_REDISTRIBUTE_THRESHOLD 200
 
 // Define the gossip period (frequency)
 #define PERIOD 10000000
