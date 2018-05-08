@@ -9,8 +9,8 @@
 #include <memory>
 #include <unordered_set>
 #include "message.pb.h"
-#include "socket_cache.h"
-#include "zmq_util.h"
+#include "zmq/socket_cache.h"
+#include "zmq/zmq_util.h"
 #include "common.h"
 
 using namespace std;

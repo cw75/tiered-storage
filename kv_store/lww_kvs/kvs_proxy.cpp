@@ -8,19 +8,14 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <memory>
-#include "tbb/concurrent_unordered_map.h"
-#include "rc_kv_store.h"
 #include "message.pb.h"
-#include "socket_cache.h"
-#include "zmq_util.h"
-#include "consistent_hash_map.hpp"
+#include "zmq/socket_cache.h"
+#include "zmq/zmq_util.h"
+#include "utils/consistent_hash_map.hpp"
 #include "common.h"
-#include <boost/thread/locks.hpp>
-#include <boost/thread/shared_mutex.hpp>
+#include <yaml-cpp/yaml.h>
 
 using namespace std;
-
-//zmq::context_t context(1);
 
 // read-only per-tier metadata
 unordered_map<unsigned, tier_data> tier_data_map;
@@ -50,18 +45,12 @@ void run(unsigned thread_id) {
   warmup(placement);
 
   if (thread_id == 0) {
-    string ip_line;
-    ifstream address;
+    // read the YAML conf
+    // TODO: change this to read multiple monitoring addresses
     vector<string> monitoring_address;
-
-    // read existing monitoring nodes
-    address.open("conf/proxy/monitoring_address.txt");
-
-    while (getline(address, ip_line)) {
-      logger->info("monitoring address is {}", ip_line);
-      monitoring_address.push_back(ip_line);
-    }
-    address.close();
+    YAML::Node conf = YAML::LoadFile("conf/config.yml");
+    monitoring_address.push_back(conf["monitoring_ip"].as<string>());
+    YAML::Node proxy = conf["proxy_ip"];
 
     // notify monitoring nodes
     for (auto it = monitoring_address.begin(); it != monitoring_address.end(); it++) {

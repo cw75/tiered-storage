@@ -12,18 +12,18 @@
 #include <atomic>
 #include <chrono>
 #include <ctime>
-#include "rc_kv_store.h"
+#include "kvs/rc_kv_store.h"
 #include "message.pb.h"
-#include "socket_cache.h"
-#include "zmq_util.h"
-#include "consistent_hash_map.hpp"
+#include "zmq/socket_cache.h"
+#include "zmq/zmq_util.h"
+#include "utils/consistent_hash_map.hpp"
 #include "common.h"
-#include "server_utility.h"
+#include "utils/server_utility.h"
+#include <yaml-cpp/yaml.h>
+#include <yaml-cpp/node/node.h>
 
 // TODO: Everything that's currently writing to cout and cerr should be replaced with a logfile.
 using namespace std;
-
-//zmq::context_t context(1);
 
 unsigned SELF_TIER_ID;
 
@@ -292,31 +292,20 @@ void run(unsigned thread_id) {
 
   vector<string> monitoring_address;
 
-  // read address of proxies from conf file
-  string ip_line;
-  ifstream address;
-  address.open("conf/server/proxy_address.txt");
-  while (getline(address, ip_line)) {
-    proxy_address.push_back(ip_line);
+  // read the YAML conf
+  // TODO: change this to read multiple monitoring IPs
+  YAML::Node conf = YAML::LoadFile("conf/config.yml");
+  string seed_ip = conf["seed_ip"].as<string>();
+  monitoring_address.push_back(conf["monitoring_ip"].as<string>());
+  YAML::Node proxy = conf["proxy_ip"];
+
+  for (YAML::const_iterator it = proxy.begin(); it != proxy.end(); ++it) {
+    proxy_address.push_back(it->as<string>());
   }
-  address.close();
-
-  // read address of monitoring nodes from conf file
-  address.open("conf/server/monitoring_address.txt");
-  while (getline(address, ip_line)) {
-    monitoring_address.push_back(ip_line);
-  }
-  address.close();
-
-  address.open("conf/server/seed_server.txt");
-  getline(address, ip_line);
-  address.close();
-
-  logger->info("seed address is {}", ip_line);
 
   // request server addresses from the seed node
   zmq::socket_t addr_requester(context, ZMQ_REQ);
-  addr_requester.connect(proxy_thread_t(ip_line, 0).get_seed_connect_addr());
+  addr_requester.connect(proxy_thread_t(seed_ip, 0).get_seed_connect_addr());
   zmq_util::send_string("join", &addr_requester);
 
   // receive and add all the addresses that seed node sent

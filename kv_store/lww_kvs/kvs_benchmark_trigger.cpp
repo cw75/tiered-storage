@@ -8,9 +8,10 @@
 #include <unistd.h>
 #include <memory>
 #include <unordered_set>
-#include "socket_cache.h"
-#include "zmq_util.h"
+#include "zmq/socket_cache.h"
+#include "zmq/zmq_util.h"
 #include "common.h"
+#include <yaml-cpp/yaml.h>
 
 using namespace std;
 
@@ -25,16 +26,13 @@ int main(int argc, char* argv[]) {
   // read in the benchmark addresses
   vector<string> benchmark_address;
 
-  // read benchmark address from the file
-  string ip_line;
-  ifstream address;
-  address.open("conf/user/benchmark_address.txt");
-  getline(address, ip_line);
-  address.close();
+  // read the YAML conf
   vector<string> ips;
-  split(ip_line, ' ', ips);
-  for (auto it = ips.begin(); it != ips.end(); it++) {
-    benchmark_address.push_back(*it);
+  YAML::Node conf = YAML::LoadFile("conf/config.yml");
+  YAML::Node benchmark = conf["benchmark"];
+
+  for (YAML::const_iterator it = benchmark.begin(); it != benchmark.end(); ++it) {
+    ips.push_back(it->as<string>());
   }
 
   zmq::context_t context(1);

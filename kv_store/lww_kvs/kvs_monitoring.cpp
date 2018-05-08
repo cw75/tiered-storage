@@ -8,12 +8,12 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <memory>
-#include "rc_kv_store.h"
 #include "message.pb.h"
-#include "socket_cache.h"
-#include "zmq_util.h"
-#include "consistent_hash_map.hpp"
+#include "zmq/socket_cache.h"
+#include "zmq/zmq_util.h"
+#include "utils/consistent_hash_map.hpp"
 #include "common.h"
+#include <yaml-cpp/yaml.h>
 
 // number of nodes to add concurrently for storage
 #define NODE_ADD 2
@@ -248,14 +248,9 @@ int main(int argc, char* argv[]) {
 
   vector<address_t> proxy_address;
 
-  // read address of management node from conf file
-  address_t management_address;
-
-  address.open("conf/monitoring/management_ip.txt");
-  getline(address, ip_line);
-  management_address = ip_line;
-  address.close();
-
+  // read the YAML conf
+  YAML::Node conf = YAML::LoadFile("conf/config.yml");
+  address_t management_address = conf["management_ip"].as<string>();
   monitoring_thread_t mt = monitoring_thread_t(ip);
 
   zmq::context_t context(1);

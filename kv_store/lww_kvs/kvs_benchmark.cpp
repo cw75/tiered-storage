@@ -9,9 +9,10 @@
 #include <memory>
 #include <unordered_set>
 #include "message.pb.h"
-#include "socket_cache.h"
-#include "zmq_util.h"
+#include "zmq/socket_cache.h"
+#include "zmq/zmq_util.h"
 #include "common.h"
+#include <yaml-cpp/yaml.h>
 
 using namespace std;
 
@@ -195,8 +196,6 @@ void run(unsigned thread_id) {
   seed += thread_id;
   logger->info("seed is {}", seed);
 
-  // read in the proxy addresses
-  vector<string> proxy_address;
 
   // mapping from key to a set of worker addresses
   unordered_map<string, unordered_set<string>> key_address_cache;
@@ -205,26 +204,20 @@ void run(unsigned thread_id) {
 
   user_thread_t ut = user_thread_t(ip, thread_id);
 
-  // read proxy address from the file
-  string ip_line;
-  ifstream address;
-  address.open("conf/user/proxy_address.txt");
-  while (getline(address, ip_line)) {
-    proxy_address.push_back(ip_line);
+  // read the YAML conf
+  YAML::Node conf = YAML::LoadFile("conf/config.yml");
+  // TODO: change this to read multiple monitoring addresses
+  string monitoring_address = conf["monitoring_ip"].as<string>();
+  YAML::Node proxy = conf["proxy_ip"];
+  vector<string> proxy_address;
+
+  for (YAML::const_iterator it = proxy.begin(); it != proxy.end(); ++it) {
+    proxy_address.push_back(it->as<string>());
   }
-  address.close();
-
-  string monitoring_address;
-
-  address.open("conf/user/monitoring_address.txt");
-  getline(address, ip_line);
-  monitoring_address = ip_line;
-  address.close();
 
   monitoring_thread_t mt = monitoring_thread_t(monitoring_address);
 
   zmq::context_t context(1);
-  //zmq_ctx_set(&context, ZMQ_IO_THREADS, 3);
 
   SocketCache pushers(&context, ZMQ_PUSH);
 

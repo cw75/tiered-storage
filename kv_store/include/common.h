@@ -7,10 +7,10 @@
 #include <boost/format.hpp>
 #include <boost/crc.hpp>
 #include <functional>
-#include "consistent_hash_map.hpp"
+#include "utils/consistent_hash_map.hpp"
 #include "message.pb.h"
-#include "socket_cache.h"
-#include "zmq_util.h"
+#include "zmq/socket_cache.h"
+#include "zmq/zmq_util.h"
 
 #include "spdlog/spdlog.h"
 

@@ -5,43 +5,49 @@ if [ -z "$1" ]; then
   exit 1
 fi
 
-cd tiered-storage
-IP=`ifconfig  | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+gen_yml_list() {
+  IFS=' ' read -r -a ARR <<< $1
+  RESULT=""
 
+  for IP in "${ARR[@]}"; do
+    RESULT=$"$RESULT\t- $IP\n"
+  done
+
+  RESULT=$"$RESULT"
+  echo $RESULT
+}
+
+cd tiered-storage
+
+# TODO: Eventually, we should have multiple monitoring nodes.
 if [ "$1" = "mn" ]; then
-  #sh k8s/set_ips.sh $MEM_IPS conf/monitoring/existing_memory_servers.txt
-  #sh k8s/set_ips.sh $EBS_IPS conf/monitoring/existing_ebs_servers.txt
-  #sh k8s/set_ips.sh $PROXY_IPS conf/monitoring/proxy_address.txt
-  echo $IP > conf/monitoring/monitoring_ip.txt
-  echo $MGMT_IP > conf/monitoring/management_ip.txt 
+  echo "monitoring:" > conf/config.yml
+  echo "\tmgmt_ip: $MGMT_IP" >> conf/config.yml
 
   ./build/kv_store/lww_kvs/kvs_monitoring
 elif [ "$1" = "p" ]; then
-  echo $IP > conf/proxy/proxy_ip.txt
-  echo $MON_IP > conf/proxy/monitoring_address.txt
-  #sh k8s/set_ips.sh $MEM_IPS conf/proxy/existing_memory_servers.txt
-  #sh k8s/set_ips.sh $EBS_IPS conf/proxy/existing_ebs_servers.txt
-
+  echo "proxy:" > conf/config.yml
+  echo "\tmonitoring_ip: $MGMT_IP" >> conf/config.yml
+  
   ./build/kv_store/lww_kvs/kvs_proxy
 elif [ "$1" = "b" ]; then
-  echo $IP > conf/user/user_ip.txt
-  echo $MON_IP > conf/user/monitoring_address.txt
-  sh k8s/set_ips.sh "$PROXY_IPS" conf/user/proxy_address.txt
+  echo "user:" > conf/config.yml
+  echo "\tmonitoring_ip: $MON_IP" >> conf/config.yml
+
+  LST=$(gen_yml_list "$PROXY_IP")
+  echo "\tproxy_ip:" >> conf/config.yml
+  echo "$LST" >> conf/config.yml
 
   ./build/kv_store/lww_kvs/kvs_benchmark
 else 
-  echo $IP > conf/server/server_ip.txt
-  echo "$PROXY_IPS"
-  sh k8s/set_ips.sh "$PROXY_IPS" conf/server/proxy_address.txt
+  echo "server:" > conf/config.yml
+  echo "\tmonitoring_ip: $MGMT_IP" >> conf/config.yml
+  echo "\tseed_ip: $SEED_IP" >> conf/config.yml
 
-  # set the seed server and the monitoring address
-  echo $SEED_SERVER > conf/server/seed_server.txt
-  echo $MON_IP > conf/server/monitoring_address.txt
-
-  if [ "$1" = "1" ] || [ "$1" = "2" ]; then
-    ./build/kv_store/lww_kvs/kvs_server
-  else
-    echo "Unrecognized server type: $1. Exiting."
-    exit 1
-  fi
+  LST=$(gen_yml_list "$PROXY_IP")
+  echo "\tproxy_ip:" >> conf/config.yml
+  echo "$LST" >> conf/config.yml
+  
+  ./build/kv_store/lww_kvs/kvs_server
 fi
+
