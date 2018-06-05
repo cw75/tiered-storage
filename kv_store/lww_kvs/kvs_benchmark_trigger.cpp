@@ -17,7 +17,7 @@ using namespace std;
 
 int main(int argc, char* argv[]) {
   if (argc != 2) {
-    cerr << "usage:" << argv[0] << " <benchmark_threads>" << endl;
+    cerr << "Usage: " << argv[0] << " <benchmark_threads>" << endl;
     return 1;
   }
 
