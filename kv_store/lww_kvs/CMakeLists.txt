@@ -21,9 +21,6 @@ SET(KV_SRC_DEPENDENCIES
     ${PROTO_HEADER}
 )
 
-ADD_EXECUTABLE(kvs_user kvs_user.cpp ${KV_SRC_DEPENDENCIES} ../include/zmq/zmq_util.cc ../include/zmq/zmq_util.h ../include/zmq/socket_cache.cc ../include/zmq/socket_cache.h)
-TARGET_LINK_LIBRARIES(kvs_user ${KV_LIBRARY_DEPENDENCIES})
-
 ADD_EXECUTABLE(kvs_benchmark kvs_benchmark.cpp ${KV_SRC_DEPENDENCIES} ../include/zmq/zmq_util.cc ../include/zmq/zmq_util.h ../include/zmq/socket_cache.cc ../include/zmq/socket_cache.h)
 TARGET_LINK_LIBRARIES(kvs_benchmark ${KV_LIBRARY_DEPENDENCIES})
 
