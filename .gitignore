@@ -1,6 +1,5 @@
 build
 vendor/gtest/build
-vendor/gbenchmark/build
 conf
 
 # ignore compiled byte code
@@ -8,21 +7,6 @@ target
 
 # ignore output files from testing
 output*
-
-# ignore standard Eclipse files
-.project
-.classpath
-.settings
-.checkstyle
-
-# ignore standard IntelliJ files
-.idea/
-*.iml
-*.iws
-
-# ignore standard Vim and Emacs temp files
-*.swp
-*~
 
 # ignore standard Mac OS X files/dirs
 .DS_Store

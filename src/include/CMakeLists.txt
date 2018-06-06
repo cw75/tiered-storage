@@ -1,0 +1,6 @@
+cmake_minimum_required (VERSION 2.6)
+
+ADD_SUBDIRECTORY(kvs)
+ADD_SUBDIRECTORY(lattices)
+ADD_SUBDIRECTORY(utils)
+ADD_SUBDIRECTORY(zmq)
