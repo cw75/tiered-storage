@@ -45,11 +45,16 @@ bool recv_msgs(zmq::socket_t* socket, std::vector<zmq::message_t>& msgs) {
   bool res;
   int more = true;
   std::size_t more_size = sizeof(more);
+
   while (more) {
     msgs.emplace_back();
-    if ((res = socket->recv(&msgs.back(), ZMQ_DONTWAIT)) == false) return false;
+    if ((res = socket->recv(&msgs.back(), ZMQ_DONTWAIT)) == false) {
+      return false;
+    }
+
     socket->getsockopt(ZMQ_RCVMORE, static_cast<void*>(&more), &more_size);
   }
+
   return true;
 }
 

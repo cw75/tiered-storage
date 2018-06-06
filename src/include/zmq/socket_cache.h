@@ -6,7 +6,6 @@
 
 #include "zmq.hpp"
 
-
 // A SocketCache is a map from ZeroMQ addresses to PUSH ZeroMQ sockets. The
 // socket corresponding to address `address` can be retrieved from a
 // SocketCache `cache` with `cache[address]` or `cache.At(address)`. If a

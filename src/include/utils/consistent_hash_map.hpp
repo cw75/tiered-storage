@@ -13,11 +13,9 @@ using namespace::std;
 
 template <typename T,
         typename Hash,
-        typename Alloc = std::allocator<std::pair<const typename Hash::result_type,T > > >
-class consistent_hash_map
-{
+        typename Alloc = std::allocator<std::pair<const typename Hash::result_type,T>>>
+class consistent_hash_map {
 public:
- 
     typedef typename Hash::result_type size_type;
     typedef std::map<size_type,T,std::less<size_type>,Alloc> map_type;
     typedef typename map_type::value_type value_type;
@@ -28,14 +26,9 @@ public:
     typedef Alloc allocator_type;
 
 public:
-    
-    consistent_hash_map() {
+    consistent_hash_map() {}
 
-    }
-
-    ~consistent_hash_map() {
-
-    }
+    ~consistent_hash_map() {}
 
 public:
     std::size_t size() const {
@@ -51,11 +44,9 @@ public:
         return nodes_.insert(value_type(hash,node));
     }
 
-
     void erase(iterator it) {
         nodes_.erase(it);
     }
-
 
     std::size_t erase(const T& node) {
         size_type hash = hasher_(node);
@@ -80,14 +71,23 @@ public:
         return find(hasher_(key));
     }
 
-    iterator begin() { return nodes_.begin(); }
-    iterator end() { return nodes_.end(); }
-    reverse_iterator rbegin() { return nodes_.rbegin(); }
-    reverse_iterator rend() { return nodes_.rend(); }
+    iterator begin() { 
+      return nodes_.begin(); 
+    }
 
+    iterator end() { 
+      return nodes_.end(); 
+    }
+    
+    reverse_iterator rbegin() { 
+      return nodes_.rbegin(); 
+    }
+
+    reverse_iterator rend() { 
+      return nodes_.rend(); 
+    }
 
 private:
-
     Hash hasher_;
     map_type nodes_;
 };

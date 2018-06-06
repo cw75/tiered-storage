@@ -27,7 +27,7 @@ using namespace std;
 
 unsigned SELF_TIER_ID;
 
-// worker thread number
+// number of worker threads
 unsigned THREAD_NUM;
 
 // read-only per-tier metadata
@@ -36,6 +36,7 @@ unordered_map<unsigned, tier_data> tier_data_map;
 pair<RC_KVS_PairLattice<string>, unsigned> process_get(const string& key, Serializer* serializer) {
   unsigned err_number = 0;
   auto res = serializer->get(key, err_number);
+
   // check if the value is an empty string
   if (res.reveal().value == "") {
     err_number = 1;
@@ -48,6 +49,7 @@ void process_put(const string& key,
     const string& value,
     Serializer* serializer,
     unordered_map<string, key_stat>& key_stat_map) {
+  
   if (serializer->put(key, value, timestamp)) {
     // update value size if the value is replaced
     key_stat_map[key].size_ = value.size();
@@ -69,15 +71,19 @@ communication::Response process_request(
     chrono::system_clock::time_point& start_time,
     unordered_map<string, pair<chrono::system_clock::time_point, vector<pending_request>>>& pending_request_map,
     unsigned& seed) {
+
   communication::Response response;
   string respond_id = "";
+  
   if (req.has_request_id()) {
     respond_id = req.request_id();
     response.set_response_id(respond_id);
   }
+
   vector<unsigned> tier_ids;
   tier_ids.push_back(SELF_TIER_ID);
   bool succeed;
+
   if (req.type() == "GET") {
     //cout << "received get by thread " << thread_id << "\n";
     for (int i = 0; i < req.tuple_size(); i++) {

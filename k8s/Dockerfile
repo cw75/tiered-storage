@@ -1,6 +1,6 @@
 FROM ubuntu:14.04
 
-MAINTAINER Chenggang Wu <cgwu0530@gmail.com> version: 0.1
+MAINTAINER Vikram Sreekanti <vsreekanti@gmail..com> version: 0.1
 
 USER root
 
@@ -46,10 +46,6 @@ RUN cd tiered-storage && git fetch -a origin
 RUN cd tiered-storage && git checkout tiered-benchmark
 RUN cd tiered-storage && sh scripts/build_release.sh
 
-COPY start.sh /
-
-RUN rm -rf tiered-storage/k8s
-RUN mkdir tiered-storage/k8s
-COPY ./ /tiered-storage/k8s
+RUN cp tiered-storage/k8s/start.sh .
 
 CMD sh start.sh $SERVER_TYPE

@@ -13,6 +13,7 @@
 #include "zmq/zmq_util.h"
 
 #include "spdlog/spdlog.h"
+#include <yaml-cpp/yaml.h>
 
 using namespace std;
 
@@ -34,6 +35,7 @@ using namespace std;
 #define DEFAULT_GLOBAL_MEMORY_REPLICATION 0
 #define DEFAULT_GLOBAL_EBS_REPLICATION 3
 #define MINIMUM_REPLICA_NUMBER 1
+
 // Define the default local replication factor
 #define DEFAULT_LOCAL_REPLICATION 1
 
@@ -78,7 +80,6 @@ unsigned EBS_NODE_CAPACITY = 256000000;
 #define VALUE_SIZE 256
 
 // Define port offset
-// used by servers
 #define SERVER_PORT 6560
 #define NODE_JOIN_BASE_PORT 6660
 #define NODE_DEPART_BASE_PORT 6760
@@ -100,16 +101,12 @@ unsigned EBS_NODE_CAPACITY = 256000000;
 // used by benchmark threads
 #define COMMAND_BASE_PORT 6560
 
-#define SERVER_IP_FILE "conf/server/server_ip.txt"
-#define PROXY_IP_FILE "conf/proxy/proxy_ip.txt"
-#define MONITORING_IP_FILE "conf/monitoring/monitoring_ip.txt"
-#define USER_IP_FILE "conf/user/user_ip.txt"
-
 // server thread
 class server_thread_t {
   string ip_;
   unsigned tid_;
   unsigned virtual_num_;
+
 public:
   server_thread_t() {}
   server_thread_t(string ip, unsigned tid): ip_(ip), tid_(tid) {}
@@ -174,14 +171,6 @@ public:
   }
 };
 
-/*bool operator<(const server_thread_t& l, const server_thread_t& r) {
-  if (l.get_id().compare(r.get_id()) == 0) {
-    return false;
-  } else {
-    return true;
-  }
-}*/
-
 bool operator==(const server_thread_t& l, const server_thread_t& r) {
   if (l.get_id().compare(r.get_id()) == 0) {
     return true;
@@ -202,11 +191,13 @@ struct global_hasher {
     ret.process_bytes(th.get_virtual_id().c_str(), th.get_virtual_id().size());
     return ret.checksum();
   }
+
   uint32_t operator()(const string& key) {
     boost::crc_32_type ret;
     ret.process_bytes(key.c_str(), key.size());
     return ret.checksum();
   }
+
   typedef uint32_t result_type;
 };
 
@@ -214,9 +205,11 @@ struct local_hasher {
   hash<string>::result_type operator()(const server_thread_t& th) {
     return hash<string>{}(to_string(th.get_tid()) + "_" + to_string(th.get_virtual_num()));
   }
+
   hash<string>::result_type operator()(const string& key) {
     return hash<string>{}(key);
   }
+
   typedef hash<string>::result_type result_type;
 };
 
@@ -225,6 +218,7 @@ struct local_hasher {
 class proxy_thread_t {
   string ip_;
   unsigned tid_;
+
 public:
   proxy_thread_t() {}
   proxy_thread_t(string ip, unsigned tid): ip_(ip), tid_(tid) {}
@@ -232,36 +226,47 @@ public:
   string get_ip() const {
     return ip_;
   }
+
   unsigned get_tid() const {
     return tid_;
   }
+
   string get_seed_connect_addr() const {
     return "tcp://" + ip_ + ":" + to_string(tid_ + SEED_BASE_PORT);
   }
+
   string get_seed_bind_addr() const {
     return "tcp://*:" + to_string(tid_ + SEED_BASE_PORT);
   }
+
   string get_notify_connect_addr() const {
     return "tcp://" + ip_ + ":" + to_string(tid_ + NOTIFY_BASE_PORT);
   }
+
   string get_notify_bind_addr() const {
     return "tcp://*:" + to_string(tid_ + NOTIFY_BASE_PORT);
   }
+
   string get_key_address_connect_addr() const {
     return "tcp://" + ip_ + ":" + to_string(tid_ + KEY_ADDRESS_BASE_PORT);
   }
+
   string get_key_address_bind_addr() const {
     return "tcp://*:" + to_string(tid_ + KEY_ADDRESS_BASE_PORT);
   }
+
   string get_replication_factor_connect_addr() const {
     return "tcp://" + ip_ + ":" + to_string(tid_ + REPLICATION_FACTOR_BASE_PORT);
   }
+
   string get_replication_factor_bind_addr() const {
     return "tcp://*:" + to_string(tid_ + REPLICATION_FACTOR_BASE_PORT);
   }
+
   string get_replication_factor_change_connect_addr() const {
     return "tcp://" + ip_ + ":" + to_string(tid_ + REPLICATION_FACTOR_CHANGE_BASE_PORT);
   }
+
   string get_replication_factor_change_bind_addr() const {
     return "tcp://*:" + to_string(tid_ + REPLICATION_FACTOR_CHANGE_BASE_PORT);
   }
@@ -271,33 +276,43 @@ public:
 // monitoring thread
 class monitoring_thread_t {
   string ip_;
+
 public:
   monitoring_thread_t() {}
   monitoring_thread_t(string ip): ip_(ip) {}
+
   string get_ip() const {
     return ip_;
   }
+
   string get_notify_connect_addr() const {
     return "tcp://" + ip_ + ":" + to_string(NOTIFY_BASE_PORT);
   }
+
   string get_notify_bind_addr() const {
     return "tcp://*:" + to_string(NOTIFY_BASE_PORT);
   }
+
   string get_request_pulling_connect_addr() const {
     return "tcp://" + ip_ + ":" + to_string(REQUEST_PULLING_BASE_PORT);
   }
+
   string get_request_pulling_bind_addr() const {
     return "tcp://*:" + to_string(REQUEST_PULLING_BASE_PORT);
   }
+
   string get_depart_done_connect_addr() const {
     return "tcp://" + ip_ + ":" + to_string(DEPART_DONE_BASE_PORT);
   }
+
   string get_depart_done_bind_addr() const {
     return "tcp://*:" + to_string(DEPART_DONE_BASE_PORT);
   }
+
   string get_latency_report_connect_addr() const {
     return "tcp://" + ip_ + ":" + to_string(LATENCY_REPORT_BASE_PORT);
   }
+
   string get_latency_report_bind_addr() const {
     return "tcp://*:" + to_string(LATENCY_REPORT_BASE_PORT);
   }
@@ -306,6 +321,7 @@ public:
 class user_thread_t {
   string ip_;
   unsigned tid_;
+
 public:
   user_thread_t() {}
   user_thread_t(string ip, unsigned tid): ip_(ip), tid_(tid) {}
@@ -313,18 +329,23 @@ public:
   string get_ip() const {
     return ip_;
   }
+
   unsigned get_tid() const {
     return tid_;
   }
+
   string get_request_pulling_connect_addr() const {
     return "tcp://" + ip_ + ":" + to_string(tid_ + REQUEST_PULLING_BASE_PORT);
   }
+
   string get_request_pulling_bind_addr() const {
     return "tcp://*:" + to_string(tid_ + REQUEST_PULLING_BASE_PORT);
   }
+
   string get_key_address_connect_addr() const {
     return "tcp://" + ip_ + ":" + to_string(tid_ + KEY_ADDRESS_BASE_PORT);
   }
+
   string get_key_address_bind_addr() const {
     return "tcp://*:" + to_string(tid_ + KEY_ADDRESS_BASE_PORT);
   }
@@ -339,10 +360,14 @@ struct key_info {
 // read-only per-tier metadata
 struct tier_data {
   tier_data() : thread_number_(1), default_replication_(1), node_capacity_(0) {}
+
   tier_data(unsigned t_num, unsigned rep, unsigned long long node_capacity)
     : thread_number_(t_num), default_replication_(rep), node_capacity_(node_capacity) {}
+
   unsigned thread_number_;
+
   unsigned default_replication_;
+
   unsigned long long node_capacity_;
 };
 
@@ -352,6 +377,7 @@ typedef consistent_hash_map<server_thread_t, local_hasher> local_hash_t;
 void split(const string &s, char delim, vector<string> &elems) {
   stringstream ss(s);
   string item;
+
   while (std::getline(ss, item, delim)) {
     elems.push_back(item);
   }
@@ -359,19 +385,17 @@ void split(const string &s, char delim, vector<string> &elems) {
 
 string get_ip(string node_type) {
   string server_ip;
-  ifstream address;
+  YAML::Node conf = YAML::LoadFile("conf/config.yml");
 
   if (node_type == "server") {
-    address.open(SERVER_IP_FILE);
+    server_ip = conf["server"]["ip"].as<string>();
   } else if (node_type == "proxy") {
-    address.open(PROXY_IP_FILE);
+    server_ip = conf["proxy"]["ip"].as<string>();
   } else if (node_type == "monitoring") {
-    address.open(MONITORING_IP_FILE);
+    server_ip = conf["monitoring"]["ip"].as<string>();
   } else if (node_type == "user") {
-    address.open(USER_IP_FILE);
+    server_ip = conf["user"]["ip"].as<string>();
   }
-  std::getline(address, server_ip);
-  address.close();
 
   return server_ip;
 }
@@ -381,19 +405,23 @@ string get_ip(string node_type) {
 unordered_set<server_thread_t, thread_hash> responsible_global(string key, unsigned global_rep, global_hash_t& global_hash_ring) {
   unordered_set<server_thread_t, thread_hash> threads;
   auto pos = global_hash_ring.find(key);
+
   if (pos != global_hash_ring.end()) {
     // iterate for every value in the replication factor
     unsigned i = 0;
+
     while (i < global_rep && i != global_hash_ring.size() / VIRTUAL_THREAD_NUM) {
       bool succeed = threads.insert(pos->second).second;
       if (++pos == global_hash_ring.end()) {
         pos = global_hash_ring.begin();
       }
+
       if (succeed) {
         i += 1;
       }
     }
   }
+
   return threads;
 }
 
@@ -402,19 +430,23 @@ unordered_set<server_thread_t, thread_hash> responsible_global(string key, unsig
 unordered_set<unsigned> responsible_local(string key, unsigned local_rep, local_hash_t& local_hash_ring) {
   unordered_set<unsigned> tids;
   auto pos = local_hash_ring.find(key);
+
   if (pos != local_hash_ring.end()) {
     // iterate for every value in the replication factor
     unsigned i = 0;
+
     while (i < local_rep && i != local_hash_ring.size() / VIRTUAL_THREAD_NUM) {
       bool succeed = tids.insert(pos->second.get_tid()).second;
       if (++pos == local_hash_ring.end()) {
         pos = local_hash_ring.begin();
       }
+
       if (succeed) {
         i += 1;
       }
     }
   }
+
   return tids;
 }
 
@@ -433,15 +465,15 @@ void prepare_put_tuple(communication::Request& req, string key, string value, un
 template<typename REQ, typename RES>
 bool recursive_receive(zmq::socket_t& receiving_socket, zmq::message_t& message, REQ& req, RES& response, bool& succeed) {
   bool rc = receiving_socket.recv(&message);
+
   if (rc) {
-    //succeed = true;
     auto serialized_resp = zmq_util::message_to_string(message);
     response.ParseFromString(serialized_resp);
+
     if (req.request_id() == response.response_id()) {
       succeed = true;
       return false;
     } else {
-      cerr << "id mismatch!\n";
       return true;
     }
   } else {
@@ -449,9 +481,9 @@ bool recursive_receive(zmq::socket_t& receiving_socket, zmq::message_t& message,
     if (errno == EAGAIN) {
       succeed = false;
     } else {
-      cerr << "Unexpected error type\n";
       succeed = false;
     }
+
     return false;
   }
 }
@@ -461,14 +493,18 @@ RES send_request(REQ& req, zmq::socket_t& sending_socket, zmq::socket_t& receivi
   string serialized_req;
   req.SerializeToString(&serialized_req);
   zmq_util::send_string(serialized_req, &sending_socket);
+
   RES response;
   zmq::message_t message;
+
   bool recurse = recursive_receive<REQ, RES>(receiving_socket, message, req, response, succeed);
+
   while (recurse) {
     response.Clear();
     zmq::message_t message;
     recurse = recursive_receive<REQ, RES>(receiving_socket, message, req, response, succeed);
   }
+
   return response;
 }
 
@@ -481,9 +517,11 @@ void push_request(communication::Request& req, zmq::socket_t& socket) {
 template<typename H>
 bool insert_to_hash_ring(H& hash_ring, string ip, unsigned tid) {
   bool succeed;
+
   for (unsigned virtual_num = 0; virtual_num < VIRTUAL_THREAD_NUM; virtual_num++) {
     succeed = hash_ring.insert(server_thread_t(ip, tid, virtual_num)).second;
   }
+
   return succeed;
 }
 
@@ -494,9 +532,11 @@ void remove_from_hash_ring(H& hash_ring, string ip, unsigned tid) {
   }
 }
 
+// TODO: change metadata key identifier
 bool is_metadata(string key) {
   vector<string> v;
   split(key, '_', v);
+
   if (v.size() > 1) {
     return true;
   } else {
@@ -508,15 +548,19 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads_metadata(
     string& key,
     global_hash_t& global_memory_hash_ring,
     local_hash_t& local_memory_hash_ring) {
+
   unordered_set<server_thread_t, thread_hash> threads;
   auto mts = responsible_global(key, METADATA_REPLICATION_FACTOR, global_memory_hash_ring);
+
   for (auto it = mts.begin(); it != mts.end(); it++) {
     string ip = it->get_ip();
     auto tids = responsible_local(key, DEFAULT_LOCAL_REPLICATION, local_memory_hash_ring);
+
     for (auto iter = tids.begin(); iter != tids.end(); iter++) {
       threads.insert(server_thread_t(ip, *iter));
     }
   }
+
   return threads;
 }
 
@@ -526,9 +570,11 @@ void issue_replication_factor_request(
     global_hash_t& global_memory_hash_ring,
     local_hash_t& local_memory_hash_ring,
     SocketCache& pushers,
+
     unsigned& seed) {
   string key_rep = key + "_replication";
   auto threads = get_responsible_threads_metadata(key_rep, global_memory_hash_ring, local_memory_hash_ring);
+
   if (threads.size() == 0) {
     cerr << "error!\n";
   }
@@ -538,6 +584,7 @@ void issue_replication_factor_request(
   communication::Request req;
   req.set_type("GET");
   req.set_respond_address(respond_address);
+
   prepare_get_tuple(req, key + "_replication");
   push_request(req, pushers[target_address]);
 }
@@ -555,11 +602,13 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads(
     vector<unsigned>& tier_ids,
     bool& succeed,
     unsigned& seed) {
+
   if (metadata) {
     succeed = true;
     return get_responsible_threads_metadata(key, global_hash_ring_map[1], local_hash_ring_map[1]);
   } else {
     unordered_set<server_thread_t, thread_hash> result;
+
     if (placement.find(key) == placement.end()) {
       issue_replication_factor_request(respond_address, key, global_hash_ring_map[1], local_hash_ring_map[1], pushers, seed);
       succeed = false;
@@ -567,16 +616,20 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads(
       for (auto id_iter = tier_ids.begin(); id_iter != tier_ids.end(); id_iter++) {
         unsigned tier_id = *id_iter;
         auto mts = responsible_global(key, placement[key].global_replication_map_[tier_id], global_hash_ring_map[tier_id]);
+
         for (auto it = mts.begin(); it != mts.end(); it++) {
           string ip = it->get_ip();
           auto tids = responsible_local(key, placement[key].local_replication_map_[tier_id], local_hash_ring_map[tier_id]);
+
           for (auto iter = tids.begin(); iter != tids.end(); iter++) {
             result.insert(server_thread_t(ip, *iter));
           }
         }
       }
+
       succeed = true;
     }
+
     return result;
   }
 }
@@ -591,20 +644,25 @@ vector<string> get_address_from_proxy(
     string& ip,
     unsigned& thread_id,
     unsigned& rid) {
+
   communication::Key_Request key_req;
   key_req.set_respond_address(ut.get_key_address_connect_addr());
   key_req.add_keys(key);
+
   string req_id = ip + ":" + to_string(thread_id) + "_" + to_string(rid);
   key_req.set_request_id(req_id);
   rid += 1;
+
   // query proxy for addresses on the other tier
   auto key_response = send_request<communication::Key_Request, communication::Key_Response>(key_req, sending_socket, receiving_socket, succeed);
   vector<string> result;
+
   if (succeed) {
     for (int j = 0; j < key_response.tuple(0).addresses_size(); j++) {
       result.push_back(key_response.tuple(0).addresses(j));
     }
   }
+
   return result;
 }
 
@@ -623,22 +681,6 @@ void warmup(unordered_map<string, key_info>& placement) {
     placement[key].local_replication_map_[1] = DEFAULT_LOCAL_REPLICATION;
     placement[key].local_replication_map_[2] = DEFAULT_LOCAL_REPLICATION;
   }
-  /*for (unsigned i = 1; i <= 60000; i++) {
-    // key is 8 bytes
-    string key = string(8 - to_string(i).length(), '0') + to_string(i);
-    placement[key].global_replication_map_[1] = 1;
-    placement[key].global_replication_map_[2] = 0;
-    placement[key].local_replication_map_[1] = 1;
-    placement[key].local_replication_map_[2] = 1;
-  }
-  for (unsigned i = 60001; i <= 120000; i++) {
-    // key is 8 bytes
-    string key = string(8 - to_string(i).length(), '0') + to_string(i);
-    placement[key].global_replication_map_[1] = 0;
-    placement[key].global_replication_map_[2] = 1;
-    placement[key].local_replication_map_[1] = 1;
-    placement[key].local_replication_map_[2] = 1;
-  }*/
 }
 
 #endif

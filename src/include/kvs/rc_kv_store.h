@@ -12,11 +12,13 @@ struct timestamp_value_pair {
 		timestamp = -1;
 		value = T();
 	}
+
 	// need this because of static cast
 	timestamp_value_pair<T>(int a) {
 		timestamp = -1;
 		value = T();
 	}
+
 	timestamp_value_pair<T>(int ts, T v) {
 		timestamp = ts;
 		value = v;
@@ -30,8 +32,9 @@ protected:
     	if (p.timestamp >= this -> element.timestamp) {
     		this -> element.timestamp = p.timestamp;
     		this -> element.value = p.value;
-    	} 
+    	}
     }
+
 public:
     RC_KVS_PairLattice() : Lattice<timestamp_value_pair<T>>() {}
     RC_KVS_PairLattice(const timestamp_value_pair<T> &p)  : Lattice<timestamp_value_pair<T>>(p) {}
@@ -43,6 +46,7 @@ public:
       if (p.timestamp >= this -> element.timestamp) {
         this -> element.timestamp = p.timestamp;
         this -> element.value = p.value;
+
         return true;
       } else {
         return false;

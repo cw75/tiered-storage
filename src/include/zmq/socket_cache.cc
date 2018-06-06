@@ -8,9 +8,11 @@ zmq::socket_t& SocketCache::At(const std::string& addr) {
   if (iter != cache_.end()) {
     return iter->second;
   }
+
   zmq::socket_t socket(*context_, type_);
   socket.connect(addr);
   auto p = cache_.insert(std::make_pair(addr, std::move(socket)));
+
   return p.first->second;
 }
 

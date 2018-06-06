@@ -18,11 +18,13 @@ gen_yml_list() {
 }
 
 cd tiered-storage
+IP=`ifconfig  | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
 
 # TODO: Eventually, we should have multiple monitoring nodes.
 if [ "$1" = "mn" ]; then
   echo "monitoring:" > conf/config.yml
   echo "\tmgmt_ip: $MGMT_IP" >> conf/config.yml
+  echo "\tip: $IP" >> conf conf/config.yml
 
   ./build/kv_store/lww_kvs/kvs_monitoring
 elif [ "$1" = "p" ]; then
@@ -33,6 +35,7 @@ elif [ "$1" = "p" ]; then
 elif [ "$1" = "b" ]; then
   echo "user:" > conf/config.yml
   echo "\tmonitoring_ip: $MON_IP" >> conf/config.yml
+  echo "\tip: $IP" >> conf conf/config.yml
 
   LST=$(gen_yml_list "$PROXY_IP")
   echo "\tproxy_ip:" >> conf/config.yml
@@ -43,6 +46,7 @@ else
   echo "server:" > conf/config.yml
   echo "\tmonitoring_ip: $MGMT_IP" >> conf/config.yml
   echo "\tseed_ip: $SEED_IP" >> conf/config.yml
+  echo "\tip: $IP" >> conf conf/config.yml
 
   LST=$(gen_yml_list "$PROXY_IP")
   echo "\tproxy_ip:" >> conf/config.yml
