@@ -13,7 +13,7 @@
 #include "zmq/zmq_util.h"
 #include "utils/consistent_hash_map.hpp"
 #include "common.h"
-#include <yaml-cpp/yaml.h>
+#include "yaml-cpp/yaml.h"
 
 // number of nodes to add concurrently for storage
 #define NODE_ADD 2
@@ -24,40 +24,9 @@ using address_t = string;
 // read-only per-tier metadata
 unordered_map<unsigned, tier_data> tier_data_map;
 
-void prepare_metadata_get_request(
-    string& key,
-    global_hash_t& global_memory_hash_ring,
-    local_hash_t& local_memory_hash_ring,
-    unordered_map<address_t, communication::Request>& addr_request_map,
-    monitoring_thread_t& mt,
-    unsigned& rid) {
-
-  string target_address = prepare_metadata_request(key, global_memory_hash_ring, local_memory_hash_ring, addr_request_map, mt, rid, "GET");
-
-  if (target_address != NULL) {
-    prepare_put_tuple(addr_request_map[target_address], key, value, 0);
-  }
-}
-
-void prepare_metadata_put_request(
-    string& key,
-    string& value,
-    global_hash_t& global_memory_hash_ring,
-    local_hash_t& local_memory_hash_ring,
-    unordered_map<address_t, communication::Request>& addr_request_map,
-    monitoring_thread_t& mt,
-    unsigned& rid) {
-  
-  string target_address = prepare_metadata_request(key, global_memory_hash_ring, local_memory_hash_ring, addr_request_map, mt, rid, "PUT");
-
-  if (target_address != NULL) {
-    prepare_put_tuple(addr_request_map[target_address], key, value, 0);
-  }
-}
-
 string prepare_metadata_request(
     string& key,
-    lobal_hash_t& global_memory_hash_ring,
+    global_hash_t& global_memory_hash_ring,
     local_hash_t& local_memory_hash_ring,
     unordered_map<address_t, communication::Request>& addr_request_map,
     monitoring_thread_t& mt,
@@ -78,7 +47,38 @@ string prepare_metadata_request(
     return target_address;
   }
   
-  return NULL;
+  return string();
+}
+
+void prepare_metadata_get_request(
+    string& key,
+    global_hash_t& global_memory_hash_ring,
+    local_hash_t& local_memory_hash_ring,
+    unordered_map<address_t, communication::Request>& addr_request_map,
+    monitoring_thread_t& mt,
+    unsigned& rid) {
+
+  string target_address = prepare_metadata_request(key, global_memory_hash_ring, local_memory_hash_ring, addr_request_map, mt, rid, "GET");
+
+  if (!target_address.empty()) {
+    prepare_get_tuple(addr_request_map[target_address], key);
+  }
+}
+
+void prepare_metadata_put_request(
+    string& key,
+    string& value,
+    global_hash_t& global_memory_hash_ring,
+    local_hash_t& local_memory_hash_ring,
+    unordered_map<address_t, communication::Request>& addr_request_map,
+    monitoring_thread_t& mt,
+    unsigned& rid) {
+  
+  string target_address = prepare_metadata_request(key, global_memory_hash_ring, local_memory_hash_ring, addr_request_map, mt, rid, "PUT");
+
+  if (!target_address.empty()) {
+    prepare_put_tuple(addr_request_map[target_address], key, value, 0);
+  }
 }
 
 void prepare_replication_factor_update(
@@ -1032,7 +1032,7 @@ int main(int argc, char* argv[]) {
             departing_node_map[min_node_ip] = tier_data_map[1].thread_number_;
             auto ack_addr = mt.get_depart_done_connect_addr();
 
-            logger->info("Removing memory node {}.", node.ip_);
+            logger->info("Removing memory node {}.", node.get_ip());
             zmq_util::send_string(ack_addr, &pushers[connection_addr]);
             removing_memory_node = true;
           } 

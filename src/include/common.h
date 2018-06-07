@@ -13,7 +13,7 @@
 #include "zmq/zmq_util.h"
 
 #include "spdlog/spdlog.h"
-#include <yaml-cpp/yaml.h>
+#include "yaml-cpp/yaml.h"
 
 using namespace std;
 

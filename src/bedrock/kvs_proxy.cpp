@@ -13,7 +13,7 @@
 #include "zmq/zmq_util.h"
 #include "utils/consistent_hash_map.hpp"
 #include "common.h"
-#include <yaml-cpp/yaml.h>
+#include "yaml-cpp/yaml.h"
 
 using namespace std;
 

@@ -5,7 +5,7 @@
 #include "message.pb.h"
 #include "../zmq/socket_cache.h"
 #include "../zmq/zmq_util.h"
-#include <yaml-cpp/yaml.h>
+#include "yaml-cpp/yaml.h"
 
 using namespace std;
 
