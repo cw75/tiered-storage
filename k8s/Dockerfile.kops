@@ -32,8 +32,8 @@ RUN mv ./kubectl /usr/local/bin/kubectl
 # install git and clone repo
 RUN apt-get install -y git
 
-RUN mkdir m
-RUN rmdir m
+RUN mkdir n
+RUN rmdir n
 
 RUN git clone https://github.com/cw75/tiered-storage /tiered-storage
 # TODO: eventually remove

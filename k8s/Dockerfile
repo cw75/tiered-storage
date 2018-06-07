@@ -39,8 +39,8 @@ RUN rm -rf protobuf
 RUN apt-get update
 RUN apt-get install -y awscli jq
 
-RUN mkdir u
-RUN rmdir u
+RUN mkdir pp
+RUN rmdir pp
 
 # build kvs
 RUN git clone https://github.com/cw75/tiered-storage
