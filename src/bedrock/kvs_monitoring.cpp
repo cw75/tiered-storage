@@ -15,7 +15,7 @@
 #include "common.h"
 #include "yaml-cpp/yaml.h"
 
-// number of nodes to add concurrently for storage
+// the default number of nodes to add concurrently for storage
 #define NODE_ADD 2
 
 using namespace std;
@@ -23,6 +23,56 @@ using address_t = string;
 
 // read-only per-tier metadata
 unordered_map<unsigned, tier_data> tier_data_map;
+
+struct summary_stats {
+  void clear() {
+    key_access_mean = 0;
+    key_access_std = 0;
+    total_memory_access = 0;
+    total_ebs_access = 0;
+    total_memory_consumption = 0;
+    total_ebs_consumption = 0;
+    max_memory_consumption_percentage = 0;
+    max_ebs_consumption_percentage = 0;
+    avg_memory_consumption_percentage = 0;
+    avg_ebs_consumption_percentage = 0;
+    required_memory_node = 0;
+    required_ebs_node = 0;
+    max_memory_occupancy = 0;
+    min_memory_occupancy = 1;
+    avg_memory_occupancy = 0;
+    max_ebs_occupancy = 0;
+    min_ebs_occupancy = 1;
+    avg_ebs_occupancy = 0;
+    min_occupancy_memory_ip = string();
+    avg_latency = 0;
+    total_throughput = 0;
+  }
+  summary_stats() {
+    clear();
+  }
+  double key_access_mean;
+  double key_access_std;
+  unsigned total_memory_access;
+  unsigned total_ebs_access;
+  unsigned long long total_memory_consumption;
+  unsigned long long total_ebs_consumption;
+  double max_memory_consumption_percentage;
+  double max_ebs_consumption_percentage;
+  double avg_memory_consumption_percentage;
+  double avg_ebs_consumption_percentage;
+  unsigned required_memory_node;
+  unsigned required_ebs_node;
+  double max_memory_occupancy;
+  double min_memory_occupancy;
+  double avg_memory_occupancy;
+  double max_ebs_occupancy;
+  double min_ebs_occupancy;
+  double avg_ebs_occupancy;
+  string min_occupancy_memory_ip;
+  double avg_latency;
+  double total_throughput;
+};
 
 string prepare_metadata_request(
     string& key,
@@ -79,6 +129,329 @@ void prepare_metadata_put_request(
   if (!target_address.empty()) {
     prepare_put_tuple(addr_request_map[target_address], key, value, 0);
   }
+}
+
+void collect_internal_stats(
+    unordered_map<unsigned, global_hash_t>& global_hash_ring_map,
+    unordered_map<unsigned, local_hash_t>& local_hash_ring_map,
+    SocketCache& pushers,
+    monitoring_thread_t& mt,
+    zmq::socket_t& response_puller,
+    shared_ptr<spdlog::logger> logger,
+    unsigned& rid,
+    unordered_map<string, unordered_map<address_t, unsigned>>& key_access_frequency,
+    unordered_map<address_t, unordered_map<unsigned, unsigned long long>>& memory_tier_storage,
+    unordered_map<address_t, unordered_map<unsigned, unsigned long long>>& ebs_tier_storage,
+    unordered_map<address_t, unordered_map<unsigned, pair<double, unsigned>>>& memory_tier_occupancy,
+    unordered_map<address_t, unordered_map<unsigned, pair<double, unsigned>>>& ebs_tier_occupancy,
+    unordered_map<address_t, unordered_map<unsigned, unsigned>>& memory_tier_access,
+    unordered_map<address_t, unordered_map<unsigned, unsigned>>& ebs_tier_access) {
+
+  unordered_map<address_t, communication::Request> addr_request_map;
+
+  for (auto it = global_hash_ring_map.begin(); it != global_hash_ring_map.end(); it++) {
+    unsigned tier_id = it->first;
+    auto hash_ring = &(it->second);
+    unordered_set<string> observed_ip;
+
+    for (auto iter = hash_ring->begin(); iter != hash_ring->end(); iter++) {
+      if (observed_ip.find(iter->second.get_ip()) == observed_ip.end()) {
+        for (unsigned i = 0; i < tier_data_map[tier_id].thread_number_; i++) {
+          string key = iter->second.get_ip() + "_" + to_string(i) + "_" + to_string(tier_id) + "_stat";
+          prepare_metadata_get_request(key, global_hash_ring_map[1], local_hash_ring_map[1], addr_request_map, mt, rid);
+
+          key = iter->second.get_ip() + "_" + to_string(i) + "_" + to_string(tier_id) + "_access";
+          prepare_metadata_get_request(key, global_hash_ring_map[1], local_hash_ring_map[1], addr_request_map, mt, rid);
+        }
+        observed_ip.insert(iter->second.get_ip());
+      }
+    }
+  }
+
+  for (auto it = addr_request_map.begin(); it != addr_request_map.end(); it++) {
+    bool succeed;
+    auto res = send_request<communication::Request, communication::Response>(it->second, pushers[it->first], response_puller, succeed);
+
+    if (succeed) {
+      for (int i = 0; i < res.tuple_size(); i++) {
+        if (res.tuple(i).err_number() == 0) {
+          vector<string> tokens;
+          split(res.tuple(i).key(), '_', tokens);
+          string ip = tokens[0];
+
+          unsigned tid = stoi(tokens[1]);
+          unsigned tier_id = stoi(tokens[2]);
+          string metadata_type = tokens[3];
+
+          if (metadata_type == "stat") {
+            // deserialized the value
+            communication::Server_Stat stat;
+            stat.ParseFromString(res.tuple(i).value());
+
+            if (tier_id == 1) {
+              memory_tier_storage[ip][tid] = stat.storage_consumption();
+              memory_tier_occupancy[ip][tid] = pair<double, unsigned>(stat.occupancy(), stat.epoch());
+              memory_tier_access[ip][tid] = stat.total_access();
+            } else {
+              ebs_tier_storage[ip][tid] = stat.storage_consumption();
+              ebs_tier_occupancy[ip][tid] = pair<double, unsigned>(stat.occupancy(), stat.epoch());
+              ebs_tier_access[ip][tid] = stat.total_access();
+            }
+          } else if (metadata_type == "access") {
+            // deserialized the value
+            communication::Key_Access access;
+            access.ParseFromString(res.tuple(i).value());
+
+            if (tier_id == 1) {
+              for (int j = 0; j < access.tuple_size(); j++) {
+                string key = access.tuple(j).key();
+                key_access_frequency[key][ip + ":" + to_string(tid)] = access.tuple(j).access();
+              }
+            } else {
+              for (int j = 0; j < access.tuple_size(); j++) {
+                string key = access.tuple(j).key();
+                key_access_frequency[key][ip + ":" + to_string(tid)] = access.tuple(j).access();
+              }
+            }
+          }
+        } else if (res.tuple(i).err_number() == 1) {
+          logger->error("Key {} doesn't exist.", res.tuple(i).key());
+        } else {
+          //The hash ring should never be inconsistent.
+          logger->error("Hash ring is inconsistent for key {}.", res.tuple(i).key());
+        }
+      }
+    } else {
+      logger->error("Request timed out.");
+      continue;
+    }
+  }
+}
+
+void compute_summary_stats(
+    unordered_map<string, unordered_map<address_t, unsigned>>& key_access_frequency,
+    unordered_map<address_t, unordered_map<unsigned, unsigned long long>>& memory_tier_storage,
+    unordered_map<address_t, unordered_map<unsigned, unsigned long long>>& ebs_tier_storage,
+    unordered_map<address_t, unordered_map<unsigned, pair<double, unsigned>>>& memory_tier_occupancy,
+    unordered_map<address_t, unordered_map<unsigned, pair<double, unsigned>>>& ebs_tier_occupancy,
+    unordered_map<address_t, unordered_map<unsigned, unsigned>>& memory_tier_access,
+    unordered_map<address_t, unordered_map<unsigned, unsigned>>& ebs_tier_access,
+    unordered_map<string, unsigned>& key_access_summary,
+    summary_stats& ss,
+    shared_ptr<spdlog::logger> logger,
+    unsigned& server_monitoring_epoch) {
+  // compute key access summary
+  unsigned cnt = 0;
+  double mean = 0;
+  double ms = 0;
+
+  for (auto it = key_access_frequency.begin(); it != key_access_frequency.end(); it++) {
+    string key = it->first;
+    unsigned total_access = 0;
+
+    for (auto iter = it->second.begin(); iter != it->second.end(); iter++) {
+      total_access += iter->second;
+    }
+
+    key_access_summary[key] = total_access;
+
+    if (total_access > 0) {
+      cnt += 1;
+
+      double delta = total_access - mean;
+      mean += (double)delta / cnt;
+
+      double delta2 = total_access - mean;
+      ms += delta * delta2;
+    }
+  }
+
+  ss.key_access_mean = mean;
+  ss.key_access_std = sqrt((double)ms / cnt);
+
+  logger->info("Access: mean={}, std={}", ss.key_access_mean, ss.key_access_std);
+
+  // compute tier access summary
+  for (auto it = memory_tier_access.begin(); it != memory_tier_access.end(); it++) {
+    for (auto iter = it->second.begin(); iter != it->second.end(); iter++) {
+      ss.total_memory_access += iter->second;
+    }
+  }
+
+  for (auto it = ebs_tier_access.begin(); it != ebs_tier_access.end(); it++) {
+    for (auto iter = it->second.begin(); iter != it->second.end(); iter++) {
+      ss.total_ebs_access += iter->second;
+    }
+  }
+
+  logger->info("Total accesses: memory={}, ebs={}", ss.total_memory_access, ss.total_ebs_access);
+
+  // compute storage consumption related statistics
+  unsigned m_count = 0;
+  unsigned e_count = 0;
+
+  for (auto it1 = memory_tier_storage.begin(); it1 != memory_tier_storage.end(); it1++) {
+    unsigned total_thread_consumption = 0;
+
+    for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
+      ss.total_memory_consumption += it2->second;
+      total_thread_consumption += it2->second;
+    }
+
+    double percentage = (double)total_thread_consumption / (double)tier_data_map[1].node_capacity_;
+    logger->info("Memory node {} storage consumption is {}.", it1->first, percentage);
+
+    if (percentage > ss.max_memory_consumption_percentage) {
+      ss.max_memory_consumption_percentage = percentage;
+    }
+
+    m_count += 1;
+  }
+
+  for (auto it1 = ebs_tier_storage.begin(); it1 != ebs_tier_storage.end(); it1++) {
+    unsigned total_thread_consumption = 0;
+
+    for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
+      ss.total_ebs_consumption += it2->second;
+      total_thread_consumption += it2->second;
+    }
+
+    double percentage = (double)total_thread_consumption / (double)tier_data_map[2].node_capacity_;
+    logger->info("EBS node {} storage consumption is {}.", it1->first, percentage);
+
+    if (percentage > ss.max_ebs_consumption_percentage) {
+      ss.max_ebs_consumption_percentage = percentage;
+    }
+    e_count += 1;
+  }
+
+  if (m_count != 0) {
+    ss.avg_memory_consumption_percentage = (double)ss.total_memory_consumption / ((double)m_count * tier_data_map[1].node_capacity_);
+    logger->info("Average memory node consumption is {}.", ss.avg_memory_consumption_percentage);
+    logger->info("Max memory node consumption is {}.", ss.max_memory_consumption_percentage);
+  }
+
+  if (e_count != 0) {
+    ss.avg_ebs_consumption_percentage = (double)ss.total_ebs_consumption / ((double)e_count * tier_data_map[2].node_capacity_);
+    logger->info("Average EBS node consumption is {}.", ss.avg_ebs_consumption_percentage);
+    logger->info("Max EBS node consumption is {}.", ss.max_ebs_consumption_percentage);
+  }
+
+  ss.required_memory_node = ceil(ss.total_memory_consumption / (MEM_CAPACITY_MAX * tier_data_map[1].node_capacity_));
+  ss.required_ebs_node = ceil(ss.total_ebs_consumption / (EBS_CAPACITY_MAX * tier_data_map[2].node_capacity_));
+
+  logger->info("The system requires {} new memory nodes.", ss.required_memory_node);
+  logger->info("The system requires {} new EBS nodes.", ss.required_ebs_node);
+
+  // compute occupancy related statistics
+  double sum_memory_occupancy = 0.0;
+
+  unsigned count = 0;
+
+  for (auto it1 = memory_tier_occupancy.begin(); it1 != memory_tier_occupancy.end(); it1++) {
+    double sum_thread_occupancy = 0.0;
+    unsigned thread_count = 0;
+
+    for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
+      logger->info("Memory node {} thread {} occupancy is {} at epoch {} (monitoring epoch {}).", it1->first, it2->first, it2->second.first, it2->second.second, server_monitoring_epoch);
+      sum_thread_occupancy += it2->second.first;
+      thread_count += 1;
+    }
+
+    double node_occupancy = sum_thread_occupancy / thread_count;
+    sum_memory_occupancy += node_occupancy;
+
+    if (node_occupancy > ss.max_memory_occupancy) {
+      ss.max_memory_occupancy = node_occupancy;
+    }
+
+    if (node_occupancy < ss.min_memory_occupancy) {
+      ss.min_memory_occupancy = node_occupancy;
+      ss.min_occupancy_memory_ip = it1->first;
+    }
+
+    count += 1;
+  }
+
+  ss.avg_memory_occupancy = sum_memory_occupancy / count;
+  logger->info("Max memory node occupancy is {}.", to_string(ss.max_memory_occupancy));
+  logger->info("Min memory node occupancy is {}.", to_string(ss.min_memory_occupancy));
+  logger->info("Average memory node occupancy is {}.", to_string(ss.avg_memory_occupancy));
+
+  double sum_ebs_occupancy = 0.0;
+
+  count = 0;
+
+  for (auto it1 = ebs_tier_occupancy.begin(); it1 != ebs_tier_occupancy.end(); it1++) {
+    double sum_thread_occupancy = 0.0;
+    unsigned thread_count = 0;
+
+    for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
+      logger->info("EBS node {} thread {} occupancy is {} at epoch {} (monitoring epoch {}).", it1->first, it2->first, it2->second.first, it2->second.second, server_monitoring_epoch);
+      sum_thread_occupancy += it2->second.first;
+      thread_count += 1;
+    }
+
+    double node_occupancy = sum_thread_occupancy / thread_count;
+    sum_ebs_occupancy += node_occupancy;
+
+    if (node_occupancy > ss.max_ebs_occupancy) {
+      ss.max_ebs_occupancy = node_occupancy;
+    }
+
+    if (node_occupancy < ss.min_ebs_occupancy) {
+      ss.min_ebs_occupancy = node_occupancy;
+    }
+
+    count += 1;
+  }
+
+  ss.avg_ebs_occupancy = sum_ebs_occupancy / count;
+  logger->info("Max EBS node occupancy is {}.", to_string(ss.max_ebs_occupancy));
+  logger->info("Min EBS node occupancy is {}.", to_string(ss.min_ebs_occupancy));
+  logger->info("Average EBS node occupancy is {}.", to_string(ss.avg_ebs_occupancy));
+}
+
+void collect_external_stats(
+  unordered_map<address_t, double>& user_latency,
+  unordered_map<address_t, double>& user_throughput,
+  summary_stats& ss,
+  shared_ptr<spdlog::logger> logger) {
+  // gather latency info
+  if (user_latency.size() > 0) {
+    // compute latency from users
+    double sum_latency = 0;
+    unsigned count = 0;
+
+    for (auto it = user_latency.begin(); it != user_latency.end(); it++) {
+      sum_latency += it->second;
+      count += 1;
+    }
+
+    ss.avg_latency = sum_latency / count;
+  }
+
+  logger->info("Average latency is {}.", ss.avg_latency);
+
+  // gather throughput info
+  if (user_throughput.size() > 0) {
+    // compute latency from users
+    for (auto it = user_throughput.begin(); it != user_throughput.end(); it++) {
+      ss.total_throughput += it->second;
+    }
+  }
+
+  logger->info("Total throughput is {}.", ss.total_throughput);
+}
+
+key_info create_new_replication_vector(unsigned gm, unsigned ge, unsigned lm, unsigned le) {
+  key_info rep_vector;
+  rep_vector.global_replication_map_[1] = gm;
+  rep_vector.global_replication_map_[2] = ge;
+  rep_vector.local_replication_map_[1] = lm;
+  rep_vector.local_replication_map_[2] = le;
+
+  return rep_vector;
 }
 
 void prepare_replication_factor_update(
@@ -273,6 +646,9 @@ int main(int argc, char* argv[]) {
   
   // keep track of ebs tier hit
   unordered_map<address_t, unordered_map<unsigned, unsigned>> ebs_tier_access;
+
+  // keep track of some summary statistics
+  summary_stats ss;
   
   // keep track of user latency info
   unordered_map<address_t, double> user_latency;
@@ -280,7 +656,7 @@ int main(int argc, char* argv[]) {
   // keep track of user throughput info
   unordered_map<address_t, double> user_throughput;
   
-  // rep factor map
+  // used for adjusting the replication factors based on feedback from the user
   unordered_map<string, pair<double, unsigned>> rep_factor_map;
 
   vector<address_t> proxy_address;
@@ -293,13 +669,14 @@ int main(int argc, char* argv[]) {
   zmq::context_t context(1);
   SocketCache pushers(&context, ZMQ_PUSH);
 
-  // responsible for both node join and departure
+  // responsible for listening to the response of the replication factor change request
   zmq::socket_t response_puller(context, ZMQ_PULL);
   int timeout = 10000;
 
   response_puller.setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
   response_puller.bind(mt.get_request_pulling_bind_addr());
 
+  // keep track of departing node status
   unordered_map<address_t, unsigned> departing_node_map;
 
   // responsible for both node join and departure
@@ -310,14 +687,14 @@ int main(int argc, char* argv[]) {
   zmq::socket_t depart_done_puller(context, ZMQ_PULL);
   depart_done_puller.bind(mt.get_depart_done_bind_addr());
 
-  // responsible for receiving latency update from users
-  zmq::socket_t latency_puller(context, ZMQ_PULL);
-  latency_puller.bind(mt.get_latency_report_bind_addr());
+  // responsible for receiving feedback from users
+  zmq::socket_t feedback_puller(context, ZMQ_PULL);
+  feedback_puller.bind(mt.get_latency_report_bind_addr());
 
   vector<zmq::pollitem_t> pollitems = {
     { static_cast<void *>(notify_puller), 0, ZMQ_POLLIN, 0 },
     { static_cast<void *>(depart_done_puller), 0, ZMQ_POLLIN, 0 },
-    { static_cast<void *>(latency_puller), 0, ZMQ_POLLIN, 0 }
+    { static_cast<void *>(feedback_puller), 0, ZMQ_POLLIN, 0 }
   };
 
   auto report_start = chrono::system_clock::now();
@@ -333,7 +710,6 @@ int main(int argc, char* argv[]) {
   unsigned server_monitoring_epoch = 0;
 
   unsigned rid = 0;
-  bool policy_start = false;
 
   while (true) {
     // listen for ZMQ events
@@ -358,7 +734,7 @@ int main(int argc, char* argv[]) {
             adding_memory_node -= 1;
           }
 
-          // reset timer
+          // reset grace period timer
           grace_start = chrono::system_clock::now();
         } else if (tier == 2) {
           insert_to_hash_ring<global_hash_t>(global_hash_ring_map[tier], new_server_ip, 0);
@@ -367,7 +743,7 @@ int main(int argc, char* argv[]) {
             adding_ebs_node -= 1;
           }
 
-          // reset timer
+          // reset grace period timer
           grace_start = chrono::system_clock::now();
         } else if (tier == 0) {
           proxy_address.push_back(new_server_ip);
@@ -412,6 +788,7 @@ int main(int argc, char* argv[]) {
       }
     }
 
+    // handle a depart done notification
     if (pollitems[1].revents & ZMQ_POLLIN) {
       string msg = zmq_util::recv_string(&depart_done_puller);
       vector<string> tokens;
@@ -440,7 +817,7 @@ int main(int argc, char* argv[]) {
             removing_ebs_node = false;
           }
 
-          // reset timer
+          // reset grace period timer
           grace_start = chrono::system_clock::now();
           departing_node_map.erase(departed_ip);
         }
@@ -450,22 +827,21 @@ int main(int argc, char* argv[]) {
     }
 
     if (pollitems[2].revents & ZMQ_POLLIN) {
-      string serialized_latency = zmq_util::recv_string(&latency_puller);
-      communication::Feedback l;
-      l.ParseFromString(serialized_latency);
+      string serialized_feedback = zmq_util::recv_string(&feedback_puller);
+      communication::Feedback fb;
+      fb.ParseFromString(serialized_feedback);
 
-      if (l.has_finish() && l.finish()) {
-        user_latency.erase(l.uid());
-      } else if (l.has_warmup() && l.warmup()) {
-        // TODO: This should be removed, right? This is just for benchmarking?
-        policy_start = true;
+      if (fb.has_finish() && fb.finish()) {
+        user_latency.erase(fb.uid());
       } else {
-        user_latency[l.uid()] = l.latency();
-        user_throughput[l.uid()] = l.throughput();
+        // collect latency and throughput feedback
+        user_latency[fb.uid()] = fb.latency();
+        user_throughput[fb.uid()] = fb.throughput();
 
-        for (int i = 0; i < l.rep_size(); i++) {
-          string key = l.rep(i).key();
-          double factor = l.rep(i).factor();
+        // collect replication factor adjustment factors
+        for (int i = 0; i < fb.rep_size(); i++) {
+          string key = fb.rep(i).key();
+          double factor = fb.rep(i).factor();
 
           if (rep_factor_map.find(key) == rep_factor_map.end()) {
             rep_factor_map[key].first = factor;
@@ -481,9 +857,9 @@ int main(int argc, char* argv[]) {
     report_end = std::chrono::system_clock::now();
 
     if (chrono::duration_cast<std::chrono::seconds>(report_end-report_start).count() >= MONITORING_THRESHOLD) {
-      // clear stats
       server_monitoring_epoch += 1;
 
+      // clear stats
       key_access_frequency.clear();
       key_access_summary.clear();
 
@@ -493,589 +869,279 @@ int main(int argc, char* argv[]) {
       memory_tier_occupancy.clear();
       ebs_tier_occupancy.clear();
 
-      unordered_map<address_t, communication::Request> addr_request_map;
+      ss.clear();
 
-      for (auto it = global_hash_ring_map.begin(); it != global_hash_ring_map.end(); it++) {
-        unsigned tier_id = it->first;
-        auto hash_ring = &(it->second);
-        unordered_set<string> observed_ip;
+      user_latency.clear();
+      user_throughput.clear();
+      rep_factor_map.clear();
 
-        for (auto iter = hash_ring->begin(); iter != hash_ring->end(); iter++) {
-          if (observed_ip.find(iter->second.get_ip()) == observed_ip.end()) {
-            for (unsigned i = 0; i < tier_data_map[tier_id].thread_number_; i++) {
-              string key = iter->second.get_ip() + "_" + to_string(i) + "_" + to_string(tier_id) + "_stat";
-              prepare_metadata_get_request(key, global_hash_ring_map[1], local_hash_ring_map[1], addr_request_map, mt, rid);
+      // collect internal statistics
+      collect_internal_stats(global_hash_ring_map,
+          local_hash_ring_map,
+          pushers,
+          mt,
+          response_puller,
+          logger,
+          rid,
+          key_access_frequency,
+          memory_tier_storage,
+          ebs_tier_storage,
+          memory_tier_occupancy,
+          ebs_tier_occupancy,
+          memory_tier_access,
+          ebs_tier_access);
 
-              key = iter->second.get_ip() + "_" + to_string(i) + "_" + to_string(tier_id) + "_access";
-              prepare_metadata_get_request(key, global_hash_ring_map[1], local_hash_ring_map[1], addr_request_map, mt, rid);
-            }
-            observed_ip.insert(iter->second.get_ip());
-          }
-        }
-      }
+      // compute summary statistics
+      compute_summary_stats(key_access_frequency,
+          memory_tier_storage,
+          ebs_tier_storage,
+          memory_tier_occupancy,
+          ebs_tier_occupancy,
+          memory_tier_access,
+          ebs_tier_access,
+          key_access_summary,
+          ss,
+          logger,
+          server_monitoring_epoch);
 
-      for (auto it = addr_request_map.begin(); it != addr_request_map.end(); it++) {
-        bool succeed;
-        auto res = send_request<communication::Request, communication::Response>(it->second, pushers[it->first], response_puller, succeed);
-
-        if (succeed) {
-          for (int i = 0; i < res.tuple_size(); i++) {
-            if (res.tuple(i).err_number() == 0) {
-              vector<string> tokens;
-              split(res.tuple(i).key(), '_', tokens);
-              string ip = tokens[0];
-
-              unsigned tid = stoi(tokens[1]);
-              unsigned tier_id = stoi(tokens[2]);
-              string metadata_type = tokens[3];
-
-              if (metadata_type == "stat") {
-                // deserialized the value
-                communication::Server_Stat stat;
-                stat.ParseFromString(res.tuple(i).value());
-
-                if (tier_id == 1) {
-                  memory_tier_storage[ip][tid] = stat.storage_consumption();
-                  memory_tier_occupancy[ip][tid] = pair<double, unsigned>(stat.occupancy(), stat.epoch());
-                  memory_tier_access[ip][tid] = stat.total_access();
-                } else {
-                  ebs_tier_storage[ip][tid] = stat.storage_consumption();
-                  ebs_tier_occupancy[ip][tid] = pair<double, unsigned>(stat.occupancy(), stat.epoch());
-                  ebs_tier_access[ip][tid] = stat.total_access();
-                }
-              } else if (metadata_type == "access") {
-                // deserialized the value
-                communication::Key_Access access;
-                access.ParseFromString(res.tuple(i).value());
-
-                if (tier_id == 1) {
-                  for (int j = 0; j < access.tuple_size(); j++) {
-                    string key = access.tuple(j).key();
-                    key_access_frequency[key][ip + ":" + to_string(tid)] = access.tuple(j).access();
-                  }
-                } else {
-                  for (int j = 0; j < access.tuple_size(); j++) {
-                    string key = access.tuple(j).key();
-                    key_access_frequency[key][ip + ":" + to_string(tid)] = access.tuple(j).access();
-                  }
-                }
-              }
-            } else if (res.tuple(i).err_number() == 1) {
-              logger->error("Key {} doesn't exist.", res.tuple(i).key());
-            } else {
-              logger->error("Hash ring is inconsistent for key {}.", res.tuple(i).key());
-              //TODO: The hash ring should never be inconsistent.
-            }
-          }
-        } else {
-          logger->error("Request timed out.");
-          continue;
-        }
-      }
-
-      // compute key access summary
-      unsigned cnt = 0;
-      double mean = 0;
-      double ms = 0;
-
-      for (auto it = key_access_frequency.begin(); it != key_access_frequency.end(); it++) {
-        string key = it->first;
-        unsigned total_access = 0;
-
-        for (auto iter = it->second.begin(); iter != it->second.end(); iter++) {
-          total_access += iter->second;
-        }
-
-        key_access_summary[key] = total_access;
-
-        if (total_access > 0) {
-          cnt += 1;
-
-          double delta = total_access - mean;
-          mean += (double)delta / cnt;
-
-          double delta2 = total_access - mean;
-          ms += delta * delta2;
-        }
-      }
-
-      double std = sqrt((double)ms / cnt);
-
-      logger->info("Access: mean={}, var={}, std={}", mean, (double) ms / cnt, std);
-
-      // compute tier access summary
-      unsigned total_memory_access = 0;
-      for (auto it = memory_tier_access.begin(); it != memory_tier_access.end(); it++) {
-        for (auto iter = it->second.begin(); iter != it->second.end(); iter++) {
-          total_memory_access += iter->second;
-        }
-      }
-
-      unsigned total_ebs_access = 0;
-      for (auto it = ebs_tier_access.begin(); it != ebs_tier_access.end(); it++) {
-        for (auto iter = it->second.begin(); iter != it->second.end(); iter++) {
-          total_ebs_access += iter->second;
-        }
-      }
-
-      logger->info("Total accesses: memory={}, ebs={}", total_memory_access, total_ebs_access);
-
-      unsigned long long total_memory_consumption = 0;
-      unsigned long long total_ebs_consumption = 0;
-
-      double average_memory_consumption_percentage = 0;
-      double average_ebs_consumption_percentage = 0;
-
-      unsigned m_count = 0;
-      unsigned e_count = 0;
-
-      double max_memory_consumption_percentage = 0;
-      double max_ebs_consumption_percentage = 0;
-
-      for (auto it1 = memory_tier_storage.begin(); it1 != memory_tier_storage.end(); it1++) {
-        unsigned total_thread_consumption = 0;
-
-        for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
-          total_memory_consumption += it2->second;
-          total_thread_consumption += it2->second;
-        }
-
-        double percentage = (double)total_thread_consumption / (double)tier_data_map[1].node_capacity_;
-        logger->info("Memory node {} storage consumption is {}.", it1->first, percentage);
-
-        if (percentage > max_memory_consumption_percentage) {
-          max_memory_consumption_percentage = percentage;
-        }
-
-        m_count += 1;
-      }
-
-      for (auto it1 = ebs_tier_storage.begin(); it1 != ebs_tier_storage.end(); it1++) {
-        unsigned total_thread_consumption = 0;
-
-        for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
-          total_ebs_consumption += it2->second;
-          total_thread_consumption += it2->second;
-        }
-
-        double percentage = (double)total_thread_consumption / (double)tier_data_map[2].node_capacity_;
-        logger->info("EBS node {} storage consumption is {}.", it1->first, percentage);
-
-        if (percentage > max_ebs_consumption_percentage) {
-          max_ebs_consumption_percentage = percentage;
-        }
-        e_count += 1;
-      }
-
-      if (m_count != 0) {
-        average_memory_consumption_percentage = (double)total_memory_consumption / ((double)m_count * tier_data_map[1].node_capacity_);
-        logger->info("Average memory node consumption is {}.", average_memory_consumption_percentage);
-        logger->info("Max memory node consumption is {}.", max_memory_consumption_percentage);
-      }
-
-      if (e_count != 0) {
-        average_ebs_consumption_percentage = (double)total_ebs_consumption / ((double)e_count * tier_data_map[2].node_capacity_);
-        logger->info("Average EBS node consumption is {}.", average_ebs_consumption_percentage);
-        logger->info("Max EBS node consumption is {}.", max_ebs_consumption_percentage);
-      }
-
-      double max_memory_occupancy = 0.0;
-      double min_memory_occupancy = 1.0;
-      double sum_memory_occupancy = 0.0;
-
-      string min_node_ip;
-      unsigned count = 0;
-
-      for (auto it1 = memory_tier_occupancy.begin(); it1 != memory_tier_occupancy.end(); it1++) {
-        double sum_thread_occupancy = 0.0;
-        unsigned thread_count = 0;
-
-        for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
-          logger->info("Memory node {} thread {} occupancy is {} at epoch {} (monitoring epoch {}).", it1->first, it2->first, it2->second.first, it2->second.second, server_monitoring_epoch);
-          sum_thread_occupancy += it2->second.first;
-          thread_count += 1;
-        }
-
-        double node_occupancy = sum_thread_occupancy / thread_count;
-        sum_memory_occupancy += node_occupancy;
-
-        if (node_occupancy > max_memory_occupancy) {
-          max_memory_occupancy = node_occupancy;
-        }
-
-        if (node_occupancy < min_memory_occupancy) {
-          min_memory_occupancy = node_occupancy;
-          min_node_ip = it1->first;
-        }
-
-        count += 1;
-      }
-
-      double avg_memory_occupancy = sum_memory_occupancy / count;
-      logger->info("Max memory node occupancy is {}.", to_string(max_memory_occupancy));
-      logger->info("Min memory node occupancy is {}.", to_string(min_memory_occupancy));
-      logger->info("Average memory node occupancy is {}.", to_string(avg_memory_occupancy));
-
-      double max_ebs_occupancy = 0.0;
-      double min_ebs_occupancy = 1.0;
-      double sum_ebs_occupancy = 0.0;
-
-      count = 0;
-
-      for (auto it1 = ebs_tier_occupancy.begin(); it1 != ebs_tier_occupancy.end(); it1++) {
-        double sum_thread_occupancy = 0.0;
-        unsigned thread_count = 0;
-
-        for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
-          logger->info("EBS node {} thread {} occupancy is {} at epoch {} (monitoring epoch {}).", it1->first, it2->first, it2->second.first, it2->second.second, server_monitoring_epoch);
-          sum_thread_occupancy += it2->second.first;
-          thread_count += 1;
-        }
-
-        double node_occupancy = sum_thread_occupancy / thread_count;
-        sum_ebs_occupancy += node_occupancy;
-
-        if (node_occupancy > max_ebs_occupancy) {
-          max_ebs_occupancy = node_occupancy;
-        }
-
-        if (node_occupancy < min_ebs_occupancy) {
-          min_ebs_occupancy = node_occupancy;
-        }
-
-        count += 1;
-      }
-
-      double avg_ebs_occupancy = sum_ebs_occupancy / count;
-      logger->info("Max EBS node occupancy is {}.", to_string(max_ebs_occupancy));
-      logger->info("Min EBS node occupancy is {}.", to_string(min_ebs_occupancy));
-      logger->info("Average EBS node occupancy is {}.", to_string(avg_ebs_occupancy));
-
-      // gather latency info
-      double avg_latency = 0;
-      if (user_latency.size() > 0) {
-        // compute latency from users
-        double sum_latency = 0;
-        unsigned count = 0;
-
-        for (auto it = user_latency.begin(); it != user_latency.end(); it++) {
-          sum_latency += it->second;
-          count += 1;
-        }
-
-        avg_latency = sum_latency / count;
-      }
-
-      logger->info("Average latency is {}.", avg_latency);
-
-      // gather throughput info
-      double total_throughput = 0;
-      if (user_throughput.size() > 0) {
-        // compute latency from users
-        for (auto it = user_throughput.begin(); it != user_throughput.end(); it++) {
-          total_throughput += it->second;
-        }
-      }
-
-      logger->info("Total throughput is {}.", total_throughput);
-
-      unsigned required_memory_node = ceil(total_memory_consumption / (MEM_CAPACITY_MAX * tier_data_map[1].node_capacity_));
-      unsigned required_ebs_node = ceil(total_ebs_consumption / (EBS_CAPACITY_MAX * tier_data_map[2].node_capacity_));
-
-      logger->info("The system requires {} new memory nodes.", required_memory_node);
-      logger->info("The system requires {} new EBS nodes.", required_ebs_node);
+      // collect external statistics
+      collect_external_stats(user_latency, user_throughput, ss, logger);
 
       unsigned memory_node_number = global_hash_ring_map[1].size() / VIRTUAL_THREAD_NUM;
       unsigned ebs_node_number = global_hash_ring_map[2].size() / VIRTUAL_THREAD_NUM;
 
       // Policy Start Here:
-      if (true) {
-        unordered_map<string, key_info> requests;
-        unsigned total_rep_to_change = 0;
+      unordered_map<string, key_info> requests;
+      unsigned total_rep_to_change = 0;
 
-        // 1. first check storage consumption and trigger elasticity if necessary
-        if (memory_node_number != 0 && adding_memory_node == 0 && required_memory_node > memory_node_number) {
-          auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
+      // 1. first check storage consumption and trigger elasticity if necessary
+      if (adding_memory_node == 0 && ss.required_memory_node > memory_node_number) {
+        auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
 
-          if (time_elapsed > GRACE_PERIOD) {
-            logger->info("Adding {} memory nodes.", to_string(NODE_ADD));
+        if (time_elapsed > GRACE_PERIOD) {
+          logger->info("Adding {} memory nodes.", to_string(NODE_ADD));
 
-            string shell_command = "curl -X POST http://" + management_address + "/add/memory/" + to_string(NODE_ADD) + " &";
-            system(shell_command.c_str());
-            adding_memory_node = NODE_ADD;
+          string shell_command = "curl -X POST http://" + management_address + "/add/memory/" + to_string(NODE_ADD) + " &";
+          system(shell_command.c_str());
+          adding_memory_node = NODE_ADD;
+        }
+      }
+
+      if (adding_ebs_node == 0 && ss.required_ebs_node > ebs_node_number) {
+        auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
+
+        if (time_elapsed > GRACE_PERIOD) {
+          logger->info("Adding {} EBS node.", to_string(NODE_ADD));
+
+          string shell_command = "curl -X POST http://" + management_address + "/add/ebs/" + to_string(NODE_ADD) + " &";
+          system(shell_command.c_str());
+          adding_ebs_node = NODE_ADD;
+        }
+      }
+
+      if (ss.avg_ebs_consumption_percentage < EBS_CAPACITY_MIN && !removing_ebs_node && ebs_node_number > max(ss.required_ebs_node, (unsigned)MINIMUM_EBS_NODE)) {
+        auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
+
+        if (time_elapsed > GRACE_PERIOD) {
+          // pick a random ebs node and send remove node command
+          auto node = next(begin(global_hash_ring_map[2]), rand() % global_hash_ring_map[2].size())->second;
+          auto ip = node.get_ip();
+          auto connection_addr = node.get_self_depart_connect_addr();
+
+          logger->info("Triggering removal of EBS node {}.", ip);
+
+          departing_node_map[ip] = tier_data_map[2].thread_number_;
+          auto ack_addr = mt.get_depart_done_connect_addr();
+          zmq_util::send_string(ack_addr, &pushers[connection_addr]);
+          removing_ebs_node = true;
+        } 
+      }
+
+      // 2. check key access summary to promote hot keys to memory tier
+      unsigned slot = (MEM_CAPACITY_MAX * tier_data_map[1].node_capacity_ * memory_node_number - ss.total_memory_consumption) / VALUE_SIZE;
+      bool overflow = false;
+
+      for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
+        string key = it->first;
+        unsigned total_access = it->second;
+
+        if (!is_metadata(key) && total_access > PROMOTE_THRESHOLD && placement[key].global_replication_map_[1] == 0) {
+          total_rep_to_change += 1;
+
+          if (total_rep_to_change > slot) {
+            overflow = true;
+          } else {
+            requests[key] = create_new_replication_vector(placement[key].global_replication_map_[1] + 1, placement[key].global_replication_map_[2] - 1, placement[key].local_replication_map_[1], placement[key].local_replication_map_[2]);
           }
         }
+      }
 
-        if (ebs_node_number != 0 && adding_ebs_node == 0 && required_ebs_node > ebs_node_number) {
-          auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
+      change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
+      logger->info("Promoting {} keys into {} memory slots.", total_rep_to_change, slot);
+      auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
 
-          if (time_elapsed > GRACE_PERIOD) {
-            logger->info("Adding {} EBS node.", to_string(NODE_ADD));
+      if (overflow && adding_memory_node == 0 && time_elapsed > GRACE_PERIOD) {
+        unsigned long long promote_data_size = total_rep_to_change * VALUE_SIZE;
+        unsigned total_memory_node_needed = ceil((ss.total_memory_consumption + promote_data_size) / (MEM_CAPACITY_MAX * tier_data_map[1].node_capacity_));
 
-            string shell_command = "curl -X POST http://" + management_address + "/add/ebs/" + to_string(NODE_ADD) + " &";
-            system(shell_command.c_str());
-            adding_ebs_node = NODE_ADD;
-          }
+        if (total_memory_node_needed > memory_node_number) {
+          unsigned node_to_add = (total_memory_node_needed - memory_node_number);
+          logger->info("Insufficient memory nodes: Adding {} memory nodes.", to_string(node_to_add));
+
+          string shell_command = "curl -X POST http://" + management_address + "/add/memory/" + to_string(node_to_add) + " &";
+          system(shell_command.c_str());
+          adding_memory_node = node_to_add;
         }
+      }
 
-        if (ebs_node_number != 0 && average_ebs_consumption_percentage < EBS_CAPACITY_MIN && !removing_ebs_node && ebs_node_number > max(required_ebs_node, (unsigned)MINIMUM_EBS_NODE)) {
-          auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
+      requests.clear();
+      total_rep_to_change = 0;
 
-          if (time_elapsed > GRACE_PERIOD) {
-            // pick a random ebs node and send remove node command
-            auto node = next(begin(global_hash_ring_map[2]), rand() % global_hash_ring_map[2].size())->second;
-            auto ip = node.get_ip();
-            auto connection_addr = node.get_self_depart_connect_addr();
+      // 3. check key access summary to demote cold keys to ebs tier
+      time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
 
-            logger->info("Triggering removal of EBS node {}.", ip);
-
-            departing_node_map[ip] = tier_data_map[2].thread_number_;
-            auto ack_addr = mt.get_depart_done_connect_addr();
-            zmq_util::send_string(ack_addr, &pushers[connection_addr]);
-            removing_ebs_node = true;
-          } 
-        }
-
-        // 2. check key access summary to promote hot keys to memory tier
-        unsigned slot = (MEM_CAPACITY_MAX * tier_data_map[1].node_capacity_ * memory_node_number - total_memory_consumption) / VALUE_SIZE;
+      if (time_elapsed > GRACE_PERIOD) {
+        unsigned slot = (EBS_CAPACITY_MAX * tier_data_map[2].node_capacity_ * ebs_node_number - ss.total_ebs_consumption) / VALUE_SIZE;
         bool overflow = false;
 
         for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
           string key = it->first;
           unsigned total_access = it->second;
 
-          if (!is_metadata(key) && total_access > PROMOTE_THRESHOLD && placement[key].global_replication_map_[1] == 0) {
+          if (!is_metadata(key) && total_access < DEMOTE_THRESHOLD && placement[key].global_replication_map_[1] > 0) {
             total_rep_to_change += 1;
 
             if (total_rep_to_change > slot) {
               overflow = true;
             } else {
-              key_info new_rep_factor;
-
-              new_rep_factor.global_replication_map_[1] = placement[key].global_replication_map_[1] + 1;
-              new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2] - 1;
-              requests[key] = new_rep_factor;
+              requests[key] = create_new_replication_vector(0, MINIMUM_REPLICA_NUMBER, 1, 1);
             }
           }
         }
 
         change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
-        logger->info("Promoting {} keys into {} memory slots.", total_rep_to_change, slot);
-        auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
+        logger->info("Demoting {} keys into {} EBS slots.", total_rep_to_change, slot);
+        if (overflow && adding_ebs_node == 0) {
+          unsigned long long demote_data_size = total_rep_to_change * VALUE_SIZE;
+          unsigned total_ebs_node_needed = ceil((ss.total_ebs_consumption + demote_data_size) / (EBS_CAPACITY_MAX * tier_data_map[2].node_capacity_));
 
-        if (overflow && adding_memory_node == 0 && time_elapsed > GRACE_PERIOD) {
-          unsigned long long promote_data_size = total_rep_to_change * VALUE_SIZE;
-          unsigned total_memory_node_needed = ceil((total_memory_consumption + promote_data_size) / (MEM_CAPACITY_MAX * tier_data_map[1].node_capacity_));
+          if (total_ebs_node_needed > ebs_node_number) {
+            unsigned node_to_add = (total_ebs_node_needed - ebs_node_number);
+            logger->info("Insufficient EBS nodes; Adding {} EBS nodes.", to_string(node_to_add));
 
-          if (total_memory_node_needed > memory_node_number) {
-            unsigned node_to_add = ceil(1.5 * (total_memory_node_needed - memory_node_number));
-            logger->info("Insufficient memory nodes: Adding {} memory nodes.", to_string(node_to_add));
+            string shell_command = "curl -X POST http://" + management_address + "/add/ebs/" + to_string(node_to_add) + " &";
+            system(shell_command.c_str());
+            adding_ebs_node = node_to_add;
+          }
+        } 
+      } 
 
+      requests.clear();
+      total_rep_to_change = 0;
+
+      // 4.1 if latency is too high
+      if (ss.avg_latency > SLO_WORST && adding_memory_node == 0) {
+        logger->info("Observed latency ({}) violates SLO({}).", ss.avg_latency, SLO_WORST);
+
+        // figure out if we should do hot key replication or add nodes
+        if (ss.min_memory_occupancy > 0.15) {
+          unsigned node_to_add = ceil((ss.avg_latency / SLO_WORST - 1) * memory_node_number);
+
+          // trigger elasticity
+          auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
+          if (time_elapsed > GRACE_PERIOD) {
+            logger->info("Adding {} memory nodes.", to_string(node_to_add));
             string shell_command = "curl -X POST http://" + management_address + "/add/memory/" + to_string(node_to_add) + " &";
             system(shell_command.c_str());
             adding_memory_node = node_to_add;
-          }
-        }
-
-        requests.clear();
-        total_rep_to_change = 0;
-
-        // 3. check key access summary to demote cold keys to ebs tier
-        time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
-
-        if (time_elapsed > GRACE_PERIOD) {
-          unsigned slot = (EBS_CAPACITY_MAX * tier_data_map[2].node_capacity_ * ebs_node_number - total_ebs_consumption) / VALUE_SIZE;
-          bool overflow = false;
-
+          } 
+        } else { // hot key replication
+          // find hot keys
+          logger->info("Classifying hot keys...");
           for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
             string key = it->first;
             unsigned total_access = it->second;
 
-            if (!is_metadata(key) && total_access < DEMOTE_THRESHOLD && placement[key].global_replication_map_[1] > 0) {
-              total_rep_to_change += 1;
+            if (!is_metadata(key) && total_access > ss.key_access_mean + ss.key_access_std && rep_factor_map.find(key) != rep_factor_map.end()) {
+              logger->info("Key {} accessed {} times (threshold is {}).", key, total_access, ss.key_access_mean + ss.key_access_std);
+              unsigned target_rep_factor = placement[key].global_replication_map_[1] * rep_factor_map[key].first;
 
-              if (total_rep_to_change > slot) {
-                overflow = true;
+              if (target_rep_factor == placement[key].global_replication_map_[1]) {
+                target_rep_factor += 1;
+              }
+
+              unsigned current_mem_rep = placement[key].global_replication_map_[1];
+              if (target_rep_factor > current_mem_rep && current_mem_rep < memory_node_number) {
+                unsigned new_mem_rep = min(memory_node_number, target_rep_factor);
+                unsigned new_ebs_rep = max(MINIMUM_REPLICA_NUMBER - new_mem_rep, (unsigned) 0);
+                requests[key] = create_new_replication_vector(new_mem_rep, new_ebs_rep, placement[key].local_replication_map_[1], placement[key].local_replication_map_[2]);
+                logger->info("Global hot key replication for key {}. M: {}->{}.", key, placement[key].global_replication_map_[1], requests[key].global_replication_map_[1]);
               } else {
-                key_info new_rep_factor;
-
-                new_rep_factor.global_replication_map_[1] = 0;
-                new_rep_factor.global_replication_map_[2] = MINIMUM_REPLICA_NUMBER;
-                requests[key] = new_rep_factor;
+                if (MEMORY_THREAD_NUM > placement[key].local_replication_map_[1]) {
+                  requests[key] = create_new_replication_vector(placement[key].global_replication_map_[1], placement[key].global_replication_map_[2], MEMORY_THREAD_NUM, placement[key].local_replication_map_[2]);
+                  logger->info("Local hot key replication for key {}. T: {}->{}.", key, placement[key].local_replication_map_[1], requests[key].local_replication_map_[1]);
+                } 
               }
             }
           }
 
           change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
-          logger->info("Deemoting {} keys into {} EBS slots.", total_rep_to_change, slot);
-          if (overflow && adding_ebs_node == 0) {
-            unsigned long long demote_data_size = total_rep_to_change * VALUE_SIZE;
-            unsigned total_ebs_node_needed = ceil((total_ebs_consumption + demote_data_size) / (EBS_CAPACITY_MAX * tier_data_map[2].node_capacity_));
+        }
+      }
 
-            if (total_ebs_node_needed > ebs_node_number) {
-              unsigned node_to_add = ceil(1.5 * (total_ebs_node_needed - ebs_node_number));
-              logger->info("Insufficient EBS nodes; Adding {} EBS nodes.", to_string(node_to_add));
+      requests.clear();
 
-              string shell_command = "curl -X POST http://" + management_address + "/add/ebs/" + to_string(node_to_add) + " &";
-              system(shell_command.c_str());
-              adding_ebs_node = node_to_add;
+      // 4.3 if latency is fine, check if there is underutilized memory node
+      if (ss.min_memory_occupancy < 0.05 && !removing_memory_node && memory_node_number > max(ss.required_memory_node, (unsigned)MINIMUM_MEMORY_NODE)) {
+        logger->info("Node {} is severely underutilized.", ss.min_occupancy_memory_ip);
+        auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
+
+        if (time_elapsed > GRACE_PERIOD) {
+          // before sending remove command, first adjust relevant key's replication factor
+          for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
+            string key = it->first;
+
+            if (!is_metadata(key) && placement[key].global_replication_map_[1] == (global_hash_ring_map[1].size() / VIRTUAL_THREAD_NUM)) {
+              unsigned new_mem_rep = placement[key].global_replication_map_[1] - 1;
+              unsigned new_ebs_rep = max(MINIMUM_REPLICA_NUMBER - new_mem_rep, (unsigned) 0);
+              requests[key] = create_new_replication_vector(new_mem_rep, new_ebs_rep, placement[key].local_replication_map_[1], placement[key].local_replication_map_[2]);
+              logger->info("Dereplication for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], requests[key].global_replication_map_[1], placement[key].global_replication_map_[2], requests[key].global_replication_map_[2]);
             }
-          } 
+          }
+
+          change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
+
+          server_thread_t node = server_thread_t(ss.min_occupancy_memory_ip, 0);
+          auto connection_addr = node.get_self_depart_connect_addr();
+
+          departing_node_map[ss.min_occupancy_memory_ip] = tier_data_map[1].thread_number_;
+          auto ack_addr = mt.get_depart_done_connect_addr();
+
+          logger->info("Removing memory node {}.", node.get_ip());
+          zmq_util::send_string(ack_addr, &pushers[connection_addr]);
+          removing_memory_node = true;
         } 
+      }
 
-        requests.clear();
-        total_rep_to_change = 0;
+      requests.clear();
 
-        // 4.1 if latency is too high
-        if (avg_latency > SLO_WORST && adding_memory_node == 0) {
-          logger->info("Observed latency ({}) violates SLO({}).", avg_latency, SLO_WORST);
+      // finally, consider reducing the replication factor of some keys that are not so hot anymore
+      for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
+        string key = it->first;
+        unsigned total_access = it->second;
 
-          // figure out if we should do hot key replication or add nodes
-          if (min_memory_occupancy > 0.15) {
-            unsigned node_to_add = ceil((avg_latency / SLO_WORST - 1) * memory_node_number);
-
-            // trigger elasticity
-            auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
-            if (time_elapsed > GRACE_PERIOD) {
-              logger->info("Adding {} memory nodes.", to_string(node_to_add));
-              string shell_command = "curl -X POST http://" + management_address + "/add/memory/" + to_string(node_to_add) + " &";
-              system(shell_command.c_str());
-              adding_memory_node = node_to_add;
-            } 
-          } else { // hot key replication
-            // find hot keys
-            logger->info("Classifying hot keys...");
-            for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
-              string key = it->first;
-              unsigned total_access = it->second;
-
-              if (!is_metadata(key) && total_access > mean + std && rep_factor_map.find(key) != rep_factor_map.end()) {
-                logger->info("Key {} accessed {} times (threshold is {}).", key, total_access, mean + std);
-                unsigned target_rep_factor = placement[key].global_replication_map_[1] * rep_factor_map[key].first;
-
-                if (target_rep_factor == placement[key].global_replication_map_[1]) {
-                  target_rep_factor += 1;
-                }
-
-                unsigned current_mem_rep = placement[key].global_replication_map_[1];
-                if (target_rep_factor > current_mem_rep && current_mem_rep < memory_node_number) {
-
-                  key_info new_rep_factor;
-                  unsigned new_mem_rep = min(memory_node_number, target_rep_factor);
-
-                  new_rep_factor.global_replication_map_[1] = new_mem_rep;
-                  new_rep_factor.global_replication_map_[2] = max(MINIMUM_REPLICA_NUMBER - new_mem_rep, (unsigned) 0);
-
-                  new_rep_factor.local_replication_map_[1] = placement[key].local_replication_map_[1];
-                  new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
-                  requests[key] = new_rep_factor;
-                  logger->info("Global hot key replication for key {}. M: {}->{}.", key, placement[key].global_replication_map_[1], new_rep_factor.global_replication_map_[1]);
-                } else {
-                  if (MEMORY_THREAD_NUM > placement[key].local_replication_map_[1]) {
-                    key_info new_rep_factor;
-                    new_rep_factor.global_replication_map_[1] = placement[key].global_replication_map_[1];
-                    new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
-                    new_rep_factor.local_replication_map_[1] = MEMORY_THREAD_NUM;
-                    new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
-                    requests[key] = new_rep_factor;
-                    logger->info("Local hot key replication for key {}. T: {}->{}.", key, placement[key].local_replication_map_[1], new_rep_factor.local_replication_map_[1]);
-                  } 
-                }
-              }
-            }
-
-            change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
-          }
+        if (!is_metadata(key) && total_access <= ss.key_access_mean && placement[key].global_replication_map_[1] > MINIMUM_REPLICA_NUMBER) {
+          logger->info("Key {} accessed {} times (threshold is {}).", key, total_access, ss.key_access_mean);
+          requests[key] = create_new_replication_vector(1, MINIMUM_REPLICA_NUMBER - 1, 1, 1);
+          logger->info("Dereplication for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], requests[key].global_replication_map_[1], placement[key].global_replication_map_[2], requests[key].global_replication_map_[2]);
         }
+      }
 
-        requests.clear();
-        logger->info("Adding {} memory nodes is in progress.", adding_memory_node);
-        logger->info("Adding {} EBS nodes in progress.", adding_ebs_node);
+      change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
+      requests.clear();
 
-        // 4.3 if latency is fine, check if there is underutilized memory node
-        if (min_memory_occupancy < 0.05 && !removing_memory_node && memory_node_number > max(required_memory_node, (unsigned)MINIMUM_MEMORY_NODE)) {
-          logger->info("Node {} is severely underutilized.", min_node_ip);
-          auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
-
-          if (time_elapsed > GRACE_PERIOD) {
-            // before sending remove command, first adjust relevant key's replication factor
-            for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
-              string key = it->first;
-
-              if (!is_metadata(key) && placement[key].global_replication_map_[1] == (global_hash_ring_map[1].size() / VIRTUAL_THREAD_NUM)) {
-                key_info new_rep_factor;
-                new_rep_factor.global_replication_map_[1] = placement[key].global_replication_map_[1] - 1;
-
-                if (new_rep_factor.global_replication_map_[1] + placement[key].global_replication_map_[2] < MINIMUM_REPLICA_NUMBER) {
-                  new_rep_factor.global_replication_map_[2] = MINIMUM_REPLICA_NUMBER - new_rep_factor.global_replication_map_[1];
-
-                  if (new_rep_factor.global_replication_map_[2] > (global_hash_ring_map[2].size() / VIRTUAL_THREAD_NUM)) {
-                    logger->error("Number of EBS replicas exceeds the number of EBS nodes.");
-                  }
-                } else {
-                  new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
-                }
-
-                new_rep_factor.local_replication_map_[1] = placement[key].local_replication_map_[1];
-                new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
-
-                requests[key] = new_rep_factor;
-                logger->info("Dereplication for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], new_rep_factor.global_replication_map_[1], placement[key].global_replication_map_[2], new_rep_factor.global_replication_map_[2]);
-              }
-            }
-
-            change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
-
-            server_thread_t node = server_thread_t(min_node_ip, 0);
-            auto connection_addr = node.get_self_depart_connect_addr();
-
-            departing_node_map[min_node_ip] = tier_data_map[1].thread_number_;
-            auto ack_addr = mt.get_depart_done_connect_addr();
-
-            logger->info("Removing memory node {}.", node.get_ip());
-            zmq_util::send_string(ack_addr, &pushers[connection_addr]);
-            removing_memory_node = true;
-          } 
-        }
-
-        requests.clear();
-
-        // finally, consider reducing the replication factor of some keys that are not so hot anymore
-        for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
-          string key = it->first;
-          unsigned total_access = it->second;
-
-          if (!is_metadata(key) && total_access <= HOT_KEY_THRESHOLD && placement[key].global_replication_map_[1] > MINIMUM_REPLICA_NUMBER) {
-            logger->info("Key {} accessed {} times (threshold is {}).", key, total_access, HOT_KEY_THRESHOLD);
-            key_info new_rep_factor;
-
-            new_rep_factor.global_replication_map_[1] = placement[key].global_replication_map_[1] - 1;
-
-            if (new_rep_factor.global_replication_map_[1] + placement[key].global_replication_map_[2] < MINIMUM_REPLICA_NUMBER) {
-              new_rep_factor.global_replication_map_[2] = MINIMUM_REPLICA_NUMBER - new_rep_factor.global_replication_map_[1];
-
-              if (new_rep_factor.global_replication_map_[2] > (global_hash_ring_map[2].size() / VIRTUAL_THREAD_NUM)) {
-                logger->error("Number of EBS replicas exceeds the number of EBS nodes.");
-              }
-            } else {
-              new_rep_factor.global_replication_map_[2] = placement[key].global_replication_map_[2];
-            }
-
-            new_rep_factor.local_replication_map_[1] = placement[key].local_replication_map_[1];
-            new_rep_factor.local_replication_map_[2] = placement[key].local_replication_map_[2];
-
-            requests[key] = new_rep_factor;
-            logger->info("Dereplication for key {}. M: {}->{}. E: {}->{}", key, placement[key].global_replication_map_[1], new_rep_factor.global_replication_map_[1], placement[key].global_replication_map_[2], new_rep_factor.global_replication_map_[2]);
-          }
-        }
-
-        change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
-        requests.clear();
-      } 
-
-      user_latency.clear();
-      user_throughput.clear();
-      rep_factor_map.clear();
+      logger->info("Adding {} memory nodes is in progress.", adding_memory_node);
+      logger->info("Adding {} EBS nodes in progress.", adding_ebs_node);
       
       report_start = std::chrono::system_clock::now();
     }
