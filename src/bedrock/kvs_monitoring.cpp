@@ -157,10 +157,10 @@ void collect_internal_stats(
     for (auto iter = hash_ring->begin(); iter != hash_ring->end(); iter++) {
       if (observed_ip.find(iter->second.get_ip()) == observed_ip.end()) {
         for (unsigned i = 0; i < tier_data_map[tier_id].thread_number_; i++) {
-          string key = iter->second.get_ip() + "_" + to_string(i) + "_" + to_string(tier_id) + "_stat";
+          string key = "BEDROCKMETADATA_" + iter->second.get_ip() + "_" + to_string(i) + "_" + to_string(tier_id) + "_stat";
           prepare_metadata_get_request(key, global_hash_ring_map[1], local_hash_ring_map[1], addr_request_map, mt, rid);
 
-          key = iter->second.get_ip() + "_" + to_string(i) + "_" + to_string(tier_id) + "_access";
+          key = "BEDROCKMETADATA_" + iter->second.get_ip() + "_" + to_string(i) + "_" + to_string(tier_id) + "_access";
           prepare_metadata_get_request(key, global_hash_ring_map[1], local_hash_ring_map[1], addr_request_map, mt, rid);
         }
         observed_ip.insert(iter->second.get_ip());

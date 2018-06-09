@@ -532,12 +532,11 @@ void remove_from_hash_ring(H& hash_ring, string ip, unsigned tid) {
   }
 }
 
-// TODO: change metadata key identifier
 bool is_metadata(string key) {
   vector<string> v;
   split(key, '_', v);
 
-  if (v.size() > 1) {
+  if (v[0] == "BEDROCKMETADATA") {
     return true;
   } else {
     return false;

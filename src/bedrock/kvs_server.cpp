@@ -991,7 +991,7 @@ void run(unsigned thread_id) {
 
     if (duration >= SERVER_REPORT_THRESHOLD) {
       epoch += 1;
-      string key = wt.get_ip() + "_" + to_string(wt.get_tid()) + "_" + to_string(SELF_TIER_ID) + "_stat";
+      string key = "BEDROCKMETADATA_" + wt.get_ip() + "_" + to_string(wt.get_tid()) + "_" + to_string(SELF_TIER_ID) + "_stat";
 
       // compute total storage consumption
       unsigned long long consumption = 0;
@@ -1055,7 +1055,7 @@ void run(unsigned thread_id) {
       }
 
       // report key access stats
-      key = wt.get_ip() + "_" + to_string(wt.get_tid()) + "_" + to_string(SELF_TIER_ID) + "_access";
+      key = "BEDROCKMETADATA_" + wt.get_ip() + "_" + to_string(wt.get_tid()) + "_" + to_string(SELF_TIER_ID) + "_access";
       string serialized_access;
       access.SerializeToString(&serialized_access);
 
