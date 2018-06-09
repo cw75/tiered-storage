@@ -703,7 +703,7 @@ void run(unsigned thread_id) {
         tier_ids.push_back(SELF_TIER_ID);
         bool succeed;
 
-        // pending requests
+        // process pending requests
         if (pending_request_map.find(key) != pending_request_map.end()) {
           auto threads = get_responsible_threads(wt.get_replication_factor_connect_addr(), key, is_metadata(key), global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids, succeed, seed);
 
@@ -789,7 +789,7 @@ void run(unsigned thread_id) {
           pending_request_map.erase(key);
         }
 
-        // pending gossip
+        // process pending gossip
         if (pending_gossip_map.find(key) != pending_gossip_map.end()) {
           auto threads = get_responsible_threads(wt.get_replication_factor_connect_addr(), key, is_metadata(key), global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids, succeed, seed);
 
@@ -944,6 +944,7 @@ void run(unsigned thread_id) {
       working_time_map[6] += time_elapsed;
     }
 
+    // gossip updates to other threads
     gossip_end = chrono::system_clock::now();
     if (chrono::duration_cast<chrono::microseconds>(gossip_end-gossip_start).count() >= PERIOD) {
       //cerr << "thread " + to_string(thread_id) + " entering event gossip\n";
@@ -984,6 +985,7 @@ void run(unsigned thread_id) {
       working_time_map[7] += time_elapsed;
     }
 
+    // collect and store internal statistics
     report_end = chrono::system_clock::now();
     auto duration = chrono::duration_cast<chrono::seconds>(report_end-report_start).count();
 
@@ -1079,6 +1081,7 @@ void run(unsigned thread_id) {
       total_access = 0;
     }
 
+    // retry pending gossips
     for (auto it = pending_gossip_map.begin(); it != pending_gossip_map.end(); it++) {
       auto t = chrono::duration_cast<chrono::seconds>(chrono::system_clock::now()-it->second.first).count();
 
@@ -1091,7 +1094,7 @@ void run(unsigned thread_id) {
       }
     }
 
-    //redistribute data when node joins
+    //redistribute data after node joins
     if (join_addr_keyset_map.size() != 0) {
       unordered_set<string> remove_address_set;
 
