@@ -17,6 +17,9 @@
 
 using namespace std;
 
+// Define metadata identifier
+#define METADATA_IDENTIFIER "BEDROCKMETADATA"
+
 // Define server report threshold (in second)
 #define SERVER_REPORT_THRESHOLD 15
 // Define server's key monitoring threshold (in second)
