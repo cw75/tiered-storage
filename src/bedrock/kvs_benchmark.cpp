@@ -103,6 +103,7 @@ void handle_request(
   } else {
     if (key_address_cache[key].size() == 0) {
       logger->error("Address cache for key " + key + " has size 0.");
+      return;
     }
     worker_address = *(next(begin(key_address_cache[key]), rand_r(&seed) % key_address_cache[key].size()));
   }
@@ -150,6 +151,7 @@ void handle_request(
       key_address_cache.erase(key);
       handle_request(key, value, pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
     } else {
+      // succeeded
       if (res.tuple(0).has_invalidate() && res.tuple(0).invalidate()) {
         // update cache
         key_address_cache.erase(key);
@@ -158,7 +160,6 @@ void handle_request(
   } else {
     logger->info("Request timed out when querying worker: clearing cache due to possible node membership changes.");
     // likely the node has departed. We clear the entries relavant to the worker_address
-    //
     vector<string> tokens;
     split(worker_address, ':', tokens);
     string signature = tokens[1];
