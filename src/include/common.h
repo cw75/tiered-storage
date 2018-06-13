@@ -17,6 +17,9 @@
 
 using namespace std;
 
+// Define metadata identifier
+#define METADATA_IDENTIFIER "BEDROCKMETADATA"
+
 // Define server report threshold (in second)
 #define SERVER_REPORT_THRESHOLD 15
 // Define server's key monitoring threshold (in second)
@@ -532,12 +535,11 @@ void remove_from_hash_ring(H& hash_ring, string ip, unsigned tid) {
   }
 }
 
-// TODO: change metadata key identifier
 bool is_metadata(string key) {
   vector<string> v;
   split(key, '_', v);
 
-  if (v.size() > 1) {
+  if (v[0] == "BEDROCKMETADATA") {
     return true;
   } else {
     return false;
