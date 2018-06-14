@@ -20,21 +20,27 @@ SET(KV_SRC_DEPENDENCIES
     ${PROTO_SRC}
     ${PROTO_HEADER}
 )
+SET(ZMQ_DEPENDENCIES
+  ../include/zmq/zmq_util.cc
+  ../include/zmq/zmq_util.h
+  ../include/zmq/socket_cache.cc
+  ../include/zmq/socket_cache.h
+)
 
-ADD_EXECUTABLE(kvs_benchmark kvs_benchmark.cpp ${KV_SRC_DEPENDENCIES} ../include/zmq/zmq_util.cc ../include/zmq/zmq_util.h ../include/zmq/socket_cache.cc ../include/zmq/socket_cache.h)
-TARGET_LINK_LIBRARIES(kvs_benchmark ${KV_LIBRARY_DEPENDENCIES})
+ADD_EXECUTABLE(benchmark benchmark.cpp ${KV_SRC_DEPENDENCIES} ${ZMQ_DEPENDENCIES})
+TARGET_LINK_LIBRARIES(benchmark ${KV_LIBRARY_DEPENDENCIES})
 
-ADD_EXECUTABLE(kvs_benchmark_trigger kvs_benchmark_trigger.cpp ${KV_SRC_DEPENDENCIES} ../include/zmq/zmq_util.cc ../include/zmq/zmq_util.h ../include/zmq/socket_cache.cc ../include/zmq/socket_cache.h)
-TARGET_LINK_LIBRARIES(kvs_benchmark_trigger ${KV_LIBRARY_DEPENDENCIES})
+ADD_EXECUTABLE(benchmark_trigger benchmark_trigger.cpp ${KV_SRC_DEPENDENCIES} ${ZMQ_DEPENDENCIES})
+TARGET_LINK_LIBRARIES(benchmark_trigger ${KV_LIBRARY_DEPENDENCIES})
 
-ADD_EXECUTABLE(kvs_user kvs_user.cpp ${KV_SRC_DEPENDENCIES} ../include/zmq/zmq_util.cc ../include/zmq/zmq_util.h ../include/zmq/socket_cache.cc ../include/zmq/socket_cache.h)
-TARGET_LINK_LIBRARIES(kvs_user ${KV_LIBRARY_DEPENDENCIES})
+ADD_EXECUTABLE(user user.cpp ${KV_SRC_DEPENDENCIES} ${ZMQ_DEPENDENCIES})
+TARGET_LINK_LIBRARIES(user ${KV_LIBRARY_DEPENDENCIES})
 
-ADD_EXECUTABLE(kvs_proxy kvs_proxy.cpp ${KV_SRC_DEPENDENCIES} ../include/zmq/zmq_util.cc ../include/zmq/zmq_util.h ../include/zmq/socket_cache.cc ../include/zmq/socket_cache.h)
-TARGET_LINK_LIBRARIES(kvs_proxy ${KV_LIBRARY_DEPENDENCIES})
+ADD_EXECUTABLE(routing routing.cpp ${KV_SRC_DEPENDENCIES} ${ZMQ_DEPENDENCIES})
+TARGET_LINK_LIBRARIES(routing ${KV_LIBRARY_DEPENDENCIES})
 
-ADD_EXECUTABLE(kvs_monitoring kvs_monitoring.cpp ${KV_SRC_DEPENDENCIES} ../include/zmq/zmq_util.cc ../include/zmq/zmq_util.h ../include/zmq/socket_cache.cc ../include/zmq/socket_cache.h)
-TARGET_LINK_LIBRARIES(kvs_monitoring ${KV_LIBRARY_DEPENDENCIES})
+ADD_EXECUTABLE(monitoring monitoring.cpp ${KV_SRC_DEPENDENCIES} ${ZMQ_DEPENDENCIES})
+TARGET_LINK_LIBRARIES(monitoring ${KV_LIBRARY_DEPENDENCIES})
 
-ADD_EXECUTABLE(kvs_server kvs_server.cpp ${KV_SRC_DEPENDENCIES} ../include/zmq/zmq_util.cc ../include/zmq/zmq_util.h ../include/zmq/socket_cache.cc ../include/zmq/socket_cache.h)
-TARGET_LINK_LIBRARIES(kvs_server ${KV_LIBRARY_DEPENDENCIES})
+ADD_EXECUTABLE(server server.cpp ${KV_SRC_DEPENDENCIES} ${ZMQ_DEPENDENCIES})
+TARGET_LINK_LIBRARIES(server ${KV_LIBRARY_DEPENDENCIES})

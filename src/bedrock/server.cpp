@@ -314,7 +314,7 @@ void run(unsigned thread_id) {
   YAML::Node conf = YAML::LoadFile("conf/config.yml")["server"];
   string seed_ip = conf["seed_ip"].as<string>();
   monitoring_address.push_back(conf["monitoring_ip"].as<string>());
-  YAML::Node proxy = conf["proxy_ip"];
+  YAML::Node proxy = conf["routing_ip"];
 
   for (YAML::const_iterator it = proxy.begin(); it != proxy.end(); ++it) {
     proxy_address.push_back(it->as<string>());

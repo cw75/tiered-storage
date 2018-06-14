@@ -212,7 +212,7 @@ void run(unsigned thread_id) {
   
   // TODO: change this to read multiple monitoring addresses
   string monitoring_address = conf["monitoring_ip"].as<string>();
-  YAML::Node proxy = conf["proxy_ip"];
+  YAML::Node proxy = conf["routing_ip"];
   vector<string> proxy_address;
 
   for (YAML::const_iterator it = proxy.begin(); it != proxy.end(); ++it) {

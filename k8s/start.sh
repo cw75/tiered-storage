@@ -26,32 +26,32 @@ if [ "$1" = "mn" ]; then
   echo "\tmgmt_ip: $MGMT_IP" >> conf/config.yml
   echo "\tip: $IP" >> conf conf/config.yml
 
-  ./build/kv_store/lww_kvs/kvs_monitoring
+  ./build/src/bedrock/monitoring
 elif [ "$1" = "p" ]; then
-  echo "proxy:" > conf/config.yml
+  echo "routing:" > conf/config.yml
   echo "\tmonitoring_ip: $MGMT_IP" >> conf/config.yml
   
-  ./build/kv_store/lww_kvs/kvs_proxy
+  ./build/src/bedrock/routing
 elif [ "$1" = "b" ]; then
   echo "user:" > conf/config.yml
   echo "\tmonitoring_ip: $MON_IP" >> conf/config.yml
   echo "\tip: $IP" >> conf conf/config.yml
 
-  LST=$(gen_yml_list "$PROXY_IP")
-  echo "\tproxy_ip:" >> conf/config.yml
+  LST=$(gen_yml_list "$ROUTING_IP")
+  echo "\trouting:" >> conf/config.yml
   echo "$LST" >> conf/config.yml
 
-  ./build/kv_store/lww_kvs/kvs_benchmark
+  ./build/src/bedrock/benchmark
 else 
   echo "server:" > conf/config.yml
   echo "\tmonitoring_ip: $MGMT_IP" >> conf/config.yml
   echo "\tseed_ip: $SEED_IP" >> conf/config.yml
   echo "\tip: $IP" >> conf conf/config.yml
 
-  LST=$(gen_yml_list "$PROXY_IP")
-  echo "\tproxy_ip:" >> conf/config.yml
+  LST=$(gen_yml_list "$ROUTING_IP")
+  echo "\trouting:" >> conf/config.yml
   echo "$LST" >> conf/config.yml
   
-  ./build/kv_store/lww_kvs/kvs_server
+  ./build/src/bedrock/server
 fi
 

@@ -1,14 +1,14 @@
 #!/bin/bash
 
 if [[ -z "$1" ]] && [[ -z "$2" ]] && [[ -z "$3" ]] && [[ -z "$4" ]]; then
-  echo "Usage: ./add_node.sh <memory-nodes> <ebs-nodes> <proxy-nodes> <benchmark-nodes>"
+  echo "Usage: ./add_node.sh <memory-nodes> <ebs-nodes> <routing-nodes> <benchmark-nodes>"
   echo ""
   echo "Expected usage is calling add_nodes, which in turn adds servers (using add_servers.sh)."
   exit 1
 fi
 
 # get the ips of all the different kinds of nodes in the system
-PROXY_IPS=`kubectl get pods -l role=proxy -o jsonpath='{.items[*].status.podIP}'`
+ROUTING_IPS=`kubectl get pods -l role=routing -o jsonpath='{.items[*].status.podIP}'`
 
 # this one should never be empty
 MON_IP=`kubectl get pods -l role=monitoring -o jsonpath='{.items[*].status.podIP}' | tr -d '[:space:]'`
@@ -36,7 +36,7 @@ add_servers() {
 
 add_servers memory $1
 add_servers ebs $2
-add_servers proxy $3
+add_servers routing $3
 add_servers benchmark $4
 
 kops update cluster ${NAME} --yes > /dev/null 2>&1
@@ -64,14 +64,14 @@ add_pods() {
     YML_FILE=yaml/pods/benchmark-pod.yml
   elif [ "$1" = "ebs" ]; then
     YML_FILE=yaml/pods/ebs-pod.yml
-  elif [ "$1" = "proxy" ]; then
-    YML_FILE=yaml/pods/proxy-pod.yml
+  elif [ "$1" = "routing" ]; then
+    YML_FILE=yaml/pods/routing-pod.yml
   else
     exit 1
   fi
    
   # split the proxies into an array and choose a random one as the seed
-  IFS=' ' read -ra ARR <<< "$PROXY_IPS"
+  IFS=' ' read -ra ARR <<< "$ROUTING_IPS"
   if [ ${#ARR[@]} -eq 0 ]; then
     SEED_SERVER=""
   else
@@ -103,7 +103,7 @@ add_pods() {
     fi
      
     # set the IPs of other system components
-    sed -i "s|PROXY_IPS_DUMMY|\"$PROXY_IPS\"|g" tmp.yml
+    sed -i "s|ROUTING_IPS_DUMMY|\"$ROUTING_IPS\"|g" tmp.yml
     sed -i "s|MON_IP_DUMMY|$MON_IP|g" tmp.yml
     sed -i "s|SEED_SERVER_DUMMY|$SEED_SERVER|g" tmp.yml
 
@@ -114,6 +114,6 @@ add_pods() {
 
 add_pods memory $1
 add_pods ebs $2
-add_pods proxy $3
+add_pods routing $3
 add_pods benchmark $4
 

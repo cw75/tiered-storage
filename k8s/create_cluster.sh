@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ -z "$1" ] && [ -z "$2"] && [ -z "$3"] && [ -z "$4" ]; then
-  echo "Usage: ./create_cluster.sh <min_mem_instances> <min_ebs_instances> <proxy_instances> <benchmark_instances> {<path-to-ssh-key>}"
+  echo "Usage: ./create_cluster.sh <min_mem_instances> <min_ebs_instances> <routing_instances> <benchmark_instances> {<path-to-ssh-key>}"
   echo ""
   echo "If no SSH key is specified, it is assumed that we are using the default SSH key (/home/ubuntu/.ssh/id_rsa). We assume that the corresponding public key has the same name and ends in .pub."
   exit 1
@@ -26,7 +26,7 @@ sed "s|CLUSTER_NAME|$NAME|g" yaml/igs/general-ig.yml > tmp.yml
 kops create -f tmp.yml > /dev/null 2>&1
 rm tmp.yml
 
-# create the cluster with just the proxy instance group
+# create the cluster with just the routing instance group
 echo "Creating cluster on AWS..."
 kops update cluster --name ${NAME} --yes > /dev/null 2>&1
 
@@ -62,11 +62,11 @@ rm tmp.yml
 ./add_nodes.sh 0 0 $3 0
 
 # wait for all proxies to be ready
-PROXY_IPS=`kubectl get pods -l role=proxy -o jsonpath='{.items[*].status.podIP}'`
-PROXY_IP_ARR=($PROXY_IPS)
-while [ ${#PROXY_IP_ARR[@]} -ne $3 ]; do
-  PROXY_IPS=`kubectl get pods -l role=proxy -o jsonpath='{.items[*].status.podIP}'`
-  PROXY_IP_ARR=($PROXY_IPS)
+ROUTING_IPS=`kubectl get pods -l role=routing -o jsonpath='{.items[*].status.podIP}'`
+ROUTING_IP_ARR=($ROUTING_IPS)
+while [ ${#ROUTING_IP_ARR[@]} -ne $3 ]; do
+  ROUTING_IPS=`kubectl get pods -l role=routing -o jsonpath='{.items[*].status.podIP}'`
+  ROUTING_IP_ARR=($ROUTING_IPS)
 done
 
 ./add_nodes.sh $1 $2 0 $4
