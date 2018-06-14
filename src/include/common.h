@@ -392,8 +392,8 @@ string get_ip(string node_type) {
 
   if (node_type == "server") {
     server_ip = conf["server"]["ip"].as<string>();
-  } else if (node_type == "proxy") {
-    server_ip = conf["proxy"]["ip"].as<string>();
+  } else if (node_type == "routing") {
+    server_ip = conf["routing"]["ip"].as<string>();
   } else if (node_type == "monitoring") {
     server_ip = conf["monitoring"]["ip"].as<string>();
   } else if (node_type == "user") {

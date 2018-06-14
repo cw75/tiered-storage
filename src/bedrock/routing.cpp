@@ -26,7 +26,7 @@ void run(unsigned thread_id) {
   auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
   logger->flush_on(spdlog::level::info);
 
-  string ip = get_ip("proxy");
+  string ip = get_ip("routing");
 
   proxy_thread_t pt = proxy_thread_t(ip, thread_id);
 
