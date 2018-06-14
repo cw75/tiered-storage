@@ -46,8 +46,7 @@ void run(unsigned thread_id) {
     // TODO: change this to read multiple monitoring addresses
     vector<string> monitoring_address;
     YAML::Node conf = YAML::LoadFile("conf/config.yml");
-    monitoring_address.push_back(conf["monitoring_ip"].as<string>());
-    YAML::Node proxy = conf["proxy_ip"];
+    monitoring_address.push_back(conf["proxy"]["monitoring_ip"].as<string>());
 
     // notify monitoring nodes
     for (auto it = monitoring_address.begin(); it != monitoring_address.end(); it++) {

@@ -311,7 +311,7 @@ void run(unsigned thread_id) {
 
   // read the YAML conf
   // TODO: change this to read multiple monitoring IPs
-  YAML::Node conf = YAML::LoadFile("conf/config.yml");
+  YAML::Node conf = YAML::LoadFile("conf/config.yml")["server"];
   string seed_ip = conf["seed_ip"].as<string>();
   monitoring_address.push_back(conf["monitoring_ip"].as<string>());
   YAML::Node proxy = conf["proxy_ip"];
