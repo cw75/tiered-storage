@@ -33,6 +33,7 @@ wget https://cmake.org/files/v3.9/cmake-3.9.4-Linux-x86_64.tar.gz
 tar xvzf cmake-3.9.4-Linux-x86_64.tar.gz
 sudo mv cmake-3.9.4-Linux-x86_64 /usr/bin/cmake
 export PATH=$PATH:/usr/bin/cmake/bin
+echo "export PATH=$PATH:/usr/bin/cmake/bin" >> .bashrc
 rm cmake-3.9.4-Linux-x86_64.tar.gz
 
 # Check if protobuf is installed, or install it
@@ -50,7 +51,7 @@ if [[ $? -ne 0 ]]; then
   
   make -j4 > /dev/null 2>&1
   make check -j4 > /dev/null 2>&1
-  make install > /dev/null 2>&1
+  sudo make install > /dev/null 2>&1
   echo "You might be asked for your password to set ldconfig."
   sudo ldconfig > /dev/null 2>&1
   
@@ -58,6 +59,4 @@ if [[ $? -ne 0 ]]; then
   rm -rf protobuf-3.5.1
 fi
 
-# build kvs
-git clone https://github.com/cw75/tiered-storage
-cd tiered-storage && sh scripts/build_release.sh
+./scripts/build.sh
