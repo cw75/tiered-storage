@@ -663,7 +663,7 @@ int main(int argc, char* argv[]) {
 
   // read the YAML conf
   YAML::Node conf = YAML::LoadFile("conf/config.yml");
-  address_t management_address = conf["management_ip"].as<string>();
+  address_t management_address = conf["monitoring"]["mgmt_ip"].as<string>();
   monitoring_thread_t mt = monitoring_thread_t(ip);
 
   zmq::context_t context(1);
