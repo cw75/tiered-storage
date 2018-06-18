@@ -42,6 +42,12 @@ message Key_Response {
   optional string response_id = 2;
 }
 
+message Payload {
+  required string value = 1;
+  required int64 timestamp = 2;
+}
+
+
 message Replication_Factor_Request {
   message Global {
     required uint32 tier_id = 1;
