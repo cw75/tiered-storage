@@ -674,7 +674,7 @@ void run(unsigned thread_id) {
 
       vector<string> tokens;
       split(response.tuple(0).key(), '_', tokens);
-      string key = tokens[0];
+      string key = tokens[1];
 
       if (response.tuple(0).err_number() == 0) {
         communication::Replication_Factor rep_data;

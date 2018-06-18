@@ -574,7 +574,7 @@ void issue_replication_factor_request(
     SocketCache& pushers,
 
     unsigned& seed) {
-  string key_rep = METADATA_IDENTIFIER + key + "_replication";
+  string key_rep = string(METADATA_IDENTIFIER) + "_" + key + "_replication";
   auto threads = get_responsible_threads_metadata(key_rep, global_memory_hash_ring, local_memory_hash_ring);
 
   if (threads.size() == 0) {
@@ -587,7 +587,7 @@ void issue_replication_factor_request(
   req.set_type("GET");
   req.set_respond_address(respond_address);
 
-  prepare_get_tuple(req, METADATA_IDENTIFIER + key + "_replication");
+  prepare_get_tuple(req, string(METADATA_IDENTIFIER) + "_" + key + "_replication");
   push_request(req, pushers[target_address]);
 }
 
