@@ -4,7 +4,7 @@ package communication;
 message Request {
   message Tuple {
     required string key = 1;
-    optional string value = 2;
+    optional bytes value = 2;
     optional uint64 timestamp = 3;
     optional uint32 num_address = 4;
   }
@@ -18,7 +18,7 @@ message Response {
   message Tuple {
     required uint32 err_number = 1;
     required string key = 2;
-    optional string value = 3;
+    optional bytes value = 3;
     optional uint64 timestamp = 4;
     optional bool invalidate = 5;
     repeated string addresses = 6;
@@ -40,11 +40,6 @@ message Key_Response {
   }
   repeated Tuple tuple = 1;
   optional string response_id = 2;
-}
-
-message Payload {
-  required string value = 1;
-  required int64 timestamp = 2;
 }
 
 message Replication_Factor_Request {
