@@ -1,7 +1,10 @@
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required (VERSION 3.1)
 PROJECT(Bedrock)
 
-SET (CMAKE_CXX_COMPILER /usr/bin/clang++)
+SET(CMAKE_CXX_COMPILER /usr/bin/clang++)
+
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED on)
 
 SET(CMAKE_CXX_FLAGS_COMMON
     "-std=c++11 \

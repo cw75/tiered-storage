@@ -32,17 +32,17 @@ WORKDIR /protobuf-3.5.1/
 RUN ./autogen.sh
 RUN ./configure CXX=clang++ CXXFLAGS='-std=c++11 -stdlib=libc++ -O3 -g'
 RUN make -j4
-RUN make check 
+RUN make check -j4
 RUN make install
 RUN ldconfig
 
 WORKDIR /
-RUN rm -rf protobuf
+RUN rm -rf protobuf-3.5.1 protobuf-all-3.5.1.zip
 
 # build Bedrock
 RUN git clone https://github.com/cw75/tiered-storage
-RUN cd tiered-storage && sh scripts/build.sh
+RUN cd tiered-storage && bash scripts/build.sh
 
 RUN cp tiered-storage/k8s/start.sh .
 
-CMD sh start.sh $SERVER_TYPE
+CMD bash start.sh $SERVER_TYPE

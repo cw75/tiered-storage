@@ -27,7 +27,7 @@ if [ "$1" = "mn" ]; then
   echo "\tip: $IP" >> conf conf/config.yml
 
   ./build/src/bedrock/monitoring
-elif [ "$1" = "p" ]; then
+elif [ "$1" = "r" ]; then
   echo "routing:" > conf/config.yml
   echo "\tmonitoring_ip: $MGMT_IP" >> conf/config.yml
   
