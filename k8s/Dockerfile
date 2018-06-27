@@ -41,7 +41,7 @@ RUN rm -rf protobuf
 
 # build Bedrock
 RUN git clone https://github.com/cw75/tiered-storage
-RUN cd tiered-storage && sh scripts/build_release.sh
+RUN cd tiered-storage && sh scripts/build.sh
 
 RUN cp tiered-storage/k8s/start.sh .
 
