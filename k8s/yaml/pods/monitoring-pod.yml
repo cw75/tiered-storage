@@ -6,8 +6,8 @@ metadata:
     role: monitoring
 spec:
   containers:
-  - name: kvs-monitoring-container
-    image: cgwu/kvs
+  - name: monitoring-container
+    image: vsreekanti/kvs
     env: 
     - name: SERVER_TYPE
       value: mn

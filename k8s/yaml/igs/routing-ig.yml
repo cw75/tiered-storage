@@ -3,15 +3,15 @@ kind: InstanceGroup
 metadata:
   labels:
     kops.k8s.io/cluster: CLUSTER_NAME
-  name: proxy-instances
+  name: routing-instances
 spec:
-  image: kope.io/k8s-1.8-debian-jessie-amd64-hvm-ebs-2018-01-14
-  machineType: r4.16xlarge
+  image: kope.io/k8s-1.8-debian-jessie-amd64-hvm-ebs-2018-03-11
+  achineType: r4.16xlarge
   maxSize: NUM_DUMMY
   minSize: NUM_DUMMY
   role: Node
   rootVolumeSize: 32
   nodeLabels:
-    role: proxy
+    role: routing
   subnets:
     - us-east-1a

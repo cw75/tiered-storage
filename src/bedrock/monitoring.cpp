@@ -8,7 +8,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <memory>
-#include "message.pb.h"
+#include "communication.pb.h"
 #include "zmq/socket_cache.h"
 #include "zmq/zmq_util.h"
 #include "utils/consistent_hash_map.hpp"
@@ -482,7 +482,7 @@ void change_replication_factor(
     unordered_map<string, key_info>& requests,
     unordered_map<unsigned, global_hash_t>& global_hash_ring_map,
     unordered_map<unsigned, local_hash_t>& local_hash_ring_map,
-    vector<address_t>& proxy_address,
+    vector<address_t>& routing_address,
     unordered_map<string, key_info>& placement,
     SocketCache& pushers,
     monitoring_thread_t& mt,
@@ -573,9 +573,9 @@ void change_replication_factor(
         }
       }
 
-      // form placement requests for proxy nodes
-      for (auto proxy_iter = proxy_address.begin(); proxy_iter != proxy_address.end(); proxy_iter++) {
-        prepare_replication_factor_update(key, replication_factor_map, proxy_thread_t(*proxy_iter, 0).get_replication_factor_change_connect_addr(), placement);
+      // form placement requests for routing nodes
+      for (auto routing_iter = routing_address.begin(); routing_iter != routing_address.end(); routing_iter++) {
+        prepare_replication_factor_update(key, replication_factor_map, routing_thread_t(*routing_iter, 0).get_replication_factor_change_connect_addr(), placement);
       }
     }
   }
@@ -659,7 +659,7 @@ int main(int argc, char* argv[]) {
   // used for adjusting the replication factors based on feedback from the user
   unordered_map<string, pair<double, unsigned>> rep_factor_map;
 
-  vector<address_t> proxy_address;
+  vector<address_t> routing_address;
 
   // read the YAML conf
   YAML::Node conf = YAML::LoadFile("conf/config.yml");
@@ -746,7 +746,7 @@ int main(int argc, char* argv[]) {
           // reset grace period timer
           grace_start = chrono::system_clock::now();
         } else if (tier == 0) {
-          proxy_address.push_back(new_server_ip);
+          routing_address.push_back(new_server_ip);
         } else {
           logger->error("Invalid tier: {}.", to_string(tier));
         }
@@ -976,7 +976,7 @@ int main(int argc, char* argv[]) {
         }
       }
 
-      change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
+      change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, routing_address, placement, pushers, mt, response_puller, logger, rid);
       logger->info("Promoting {} keys into {} memory slots.", total_rep_to_change, slot);
       auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
 
@@ -1019,7 +1019,7 @@ int main(int argc, char* argv[]) {
           }
         }
 
-        change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
+        change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, routing_address, placement, pushers, mt, response_puller, logger, rid);
         logger->info("Demoting {} keys into {} EBS slots.", total_rep_to_change, slot);
         if (overflow && adding_ebs_node == 0) {
           unsigned long long demote_data_size = total_rep_to_change * VALUE_SIZE;
@@ -1085,7 +1085,7 @@ int main(int argc, char* argv[]) {
             }
           }
 
-          change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
+          change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, routing_address, placement, pushers, mt, response_puller, logger, rid);
         }
       }
 
@@ -1109,7 +1109,7 @@ int main(int argc, char* argv[]) {
             }
           }
 
-          change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
+          change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, routing_address, placement, pushers, mt, response_puller, logger, rid);
 
           server_thread_t node = server_thread_t(ss.min_occupancy_memory_ip, 0);
           auto connection_addr = node.get_self_depart_connect_addr();
@@ -1137,7 +1137,7 @@ int main(int argc, char* argv[]) {
         }
       }
 
-      change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, proxy_address, placement, pushers, mt, response_puller, logger, rid);
+      change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, routing_address, placement, pushers, mt, response_puller, logger, rid);
       requests.clear();
 
       logger->info("Adding {} memory nodes is in progress.", adding_memory_node);

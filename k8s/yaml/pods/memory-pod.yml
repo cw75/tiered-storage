@@ -8,8 +8,8 @@ metadata:
     role: memory
 spec:
   containers:
-  - name: kvs-memory-container
-    image: cgwu/kvs
+  - name: memory-container
+    image: vsreekanti/kvs
     env: 
     - name: SERVER_TYPE
       value: "1"

@@ -6,8 +6,8 @@ metadata:
     role: ebs
 spec:
   containers:
-    - name: kvs-ebs-container
-      image: cgwu/kvs
+    - name: ebs-container
+      image: vsreekanti/kvs
       env: 
       - name: SERVER_TYPE
         value: "2"

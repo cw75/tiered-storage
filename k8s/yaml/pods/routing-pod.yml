@@ -1,21 +1,21 @@
-# template for creating a new proxy pod
+# template for creating a new routing pod
 
 apiVersion: v1
 kind: Pod
 metadata:
-  name: proxy-pod-NUM_DUMMY
+  name: routing-pod-NUM_DUMMY
   labels: 
-    role: proxy
+    role: routing
 spec:
   containers:
-  - name: kvs-proxy-container
-    image: cgwu/kvs
+  - name: routing-container
+    image: vsreekanti/kvs
     env: 
     - name: SERVER_TYPE
       value: p
     - name: MON_IP
       value: MON_IP_DUMMY
   nodeSelector:
-    role: proxy
-    podid: proxy-NUM_DUMMY
+    role: routing
+    podid: routing-NUM_DUMMY
   restartPolicy: Never

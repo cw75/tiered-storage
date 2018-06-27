@@ -13,7 +13,7 @@
 #include <chrono>
 #include <ctime>
 #include "kvs/rc_kv_store.h"
-#include "message.pb.h"
+#include "communication.pb.h"
 #include "zmq/socket_cache.h"
 #include "zmq/zmq_util.h"
 #include "utils/consistent_hash_map.hpp"
@@ -306,7 +306,7 @@ void run(unsigned thread_id) {
   unordered_map<string, pair<chrono::system_clock::time_point, vector<pending_gossip>>> pending_gossip_map;
   
   unordered_map<string, key_info> placement;
-  vector<string> proxy_address;
+  vector<string> routing_address;
   vector<string> monitoring_address;
 
   // read the YAML conf
@@ -314,15 +314,15 @@ void run(unsigned thread_id) {
   YAML::Node conf = YAML::LoadFile("conf/config.yml")["server"];
   string seed_ip = conf["seed_ip"].as<string>();
   monitoring_address.push_back(conf["monitoring_ip"].as<string>());
-  YAML::Node proxy = conf["routing_ip"];
+  YAML::Node routing = conf["routing_ip"];
 
-  for (YAML::const_iterator it = proxy.begin(); it != proxy.end(); ++it) {
-    proxy_address.push_back(it->as<string>());
+  for (YAML::const_iterator it = routing.begin(); it != routing.end(); ++it) {
+    routing_address.push_back(it->as<string>());
   }
 
   // request server addresses from the seed node
   zmq::socket_t addr_requester(context, ZMQ_REQ);
-  addr_requester.connect(proxy_thread_t(seed_ip, 0).get_seed_connect_addr());
+  addr_requester.connect(routing_thread_t(seed_ip, 0).get_seed_connect_addr());
   zmq_util::send_string("join", &addr_requester);
 
   // receive and add all the addresses that seed node sent
@@ -368,8 +368,8 @@ void run(unsigned thread_id) {
     string msg = "join:" + to_string(SELF_TIER_ID) + ":" + ip;
 
     // notify proxies that this node has joined
-    for (auto it = proxy_address.begin(); it != proxy_address.end(); it++) {
-      zmq_util::send_string(msg, &pushers[proxy_thread_t(*it, 0).get_notify_connect_addr()]);
+    for (auto it = routing_address.begin(); it != routing_address.end(); it++) {
+      zmq_util::send_string(msg, &pushers[routing_thread_t(*it, 0).get_notify_connect_addr()]);
     }
 
     // notify monitoring nodes that this node has joined
@@ -583,8 +583,8 @@ void run(unsigned thread_id) {
         string msg = "depart:" + to_string(SELF_TIER_ID) + ":" + ip;
 
         // notify proxies
-        for (auto it = proxy_address.begin(); it != proxy_address.end(); it++) {
-          zmq_util::send_string(msg, &pushers[proxy_thread_t(*it, 0).get_notify_connect_addr()]);
+        for (auto it = routing_address.begin(); it != routing_address.end(); it++) {
+          zmq_util::send_string(msg, &pushers[routing_thread_t(*it, 0).get_notify_connect_addr()]);
         }
 
         // notify monitoring nodes

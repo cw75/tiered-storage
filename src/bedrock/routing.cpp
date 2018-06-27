@@ -8,7 +8,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <memory>
-#include "message.pb.h"
+#include "communication.pb.h"
 #include "zmq/socket_cache.h"
 #include "zmq/zmq_util.h"
 #include "utils/consistent_hash_map.hpp"
@@ -22,13 +22,13 @@ unordered_map<unsigned, tier_data> tier_data_map;
 
 void run(unsigned thread_id) {
   string log_file = "log_" + to_string(thread_id) + ".txt";
-  string logger_name = "proxy_logger_" + to_string(thread_id);
+  string logger_name = "routing_logger_" + to_string(thread_id);
   auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
   logger->flush_on(spdlog::level::info);
 
   string ip = get_ip("routing");
 
-  proxy_thread_t pt = proxy_thread_t(ip, thread_id);
+  routing_thread_t pt = routing_thread_t(ip, thread_id);
 
   unsigned seed = time(NULL);
   seed += thread_id;
@@ -168,7 +168,7 @@ void run(unsigned thread_id) {
 
             // tell all worker threads about the message
             for (unsigned tid = 1; tid < PROXY_THREAD_NUM; tid++) {
-              zmq_util::send_string(message, &pushers[proxy_thread_t(ip, tid).get_notify_connect_addr()]);
+              zmq_util::send_string(message, &pushers[routing_thread_t(ip, tid).get_notify_connect_addr()]);
             }
           }
         }
@@ -183,7 +183,7 @@ void run(unsigned thread_id) {
         if (thread_id == 0) {
           // tell all worker threads about the message
           for (unsigned tid = 1; tid < PROXY_THREAD_NUM; tid++) {
-            zmq_util::send_string(message, &pushers[proxy_thread_t(ip, tid).get_notify_connect_addr()]);
+            zmq_util::send_string(message, &pushers[routing_thread_t(ip, tid).get_notify_connect_addr()]);
           }
         }
 
@@ -274,7 +274,7 @@ void run(unsigned thread_id) {
       if (thread_id == 0) {
         // tell all worker threads about the replication factor change
         for (unsigned tid = 1; tid < PROXY_THREAD_NUM; tid++) {
-          zmq_util::send_string(serialized_req, &pushers[proxy_thread_t(ip, tid).get_replication_factor_change_connect_addr()]);
+          zmq_util::send_string(serialized_req, &pushers[routing_thread_t(ip, tid).get_replication_factor_change_connect_addr()]);
         }
       }
 
@@ -354,10 +354,10 @@ int main(int argc, char* argv[]) {
   tier_data_map[1] = tier_data(MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION, MEM_NODE_CAPACITY);
   tier_data_map[2] = tier_data(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION, EBS_NODE_CAPACITY);
 
-  vector<thread> proxy_worker_threads;
+  vector<thread> routing_worker_threads;
 
   for (unsigned thread_id = 1; thread_id < PROXY_THREAD_NUM; thread_id++) {
-    proxy_worker_threads.push_back(thread(run, thread_id));
+    routing_worker_threads.push_back(thread(run, thread_id));
   }
 
   run(0);

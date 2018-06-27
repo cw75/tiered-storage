@@ -8,8 +8,8 @@ metadata:
     role: benchmark
 spec:
   containers:
-  - name: kvs-benchmark-container
-    image: cgwu/kvs
+  - name: benchmark-container
+    image: vsreekanti/kvs
     env: 
     - name: SERVER_TYPE
       value: b

@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include <memory>
 #include <unordered_set>
-#include "message.pb.h"
+#include "communication.pb.h"
 #include "zmq/socket_cache.h"
 #include "zmq/zmq_util.h"
 #include "common.h"
@@ -20,7 +20,7 @@ void handle_request(
     string key,
     string value,
     SocketCache& pushers,
-    vector<string>& proxy_address,
+    vector<string>& routing_address,
     unordered_map<string, unordered_set<string>>& key_address_cache,
     unsigned& seed,
     shared_ptr<spdlog::logger> logger,
@@ -43,17 +43,17 @@ void handle_request(
   // get worker address
   string worker_address;
   if (key_address_cache.find(key) == key_address_cache.end()) {
-    // query the proxy and update the cache
-    string target_proxy_address = get_random_proxy_thread(proxy_address, seed).get_key_address_connect_addr();
+    // query the routing and update the cache
+    string target_routing_address = get_random_routing_thread(routing_address, seed).get_key_address_connect_addr();
     bool succeed;
-    auto addresses = get_address_from_proxy(ut, key, pushers[target_proxy_address], key_address_puller, succeed, ip, thread_id, rid);
+    auto addresses = get_address_from_routing(ut, key, pushers[target_routing_address], key_address_puller, succeed, ip, thread_id, rid);
     if (succeed) {
       for (auto it = addresses.begin(); it != addresses.end(); it++) {
         key_address_cache[key].insert(*it);
       }
       worker_address = addresses[rand_r(&seed) % addresses.size()];
     } else {
-      logger->error("Request timed out when querying proxy. This should never happen!");
+      logger->error("Request timed out when querying routing. This should never happen!");
       return;
     }
   } else {
@@ -105,7 +105,7 @@ void handle_request(
 
       // update cache and retry
       key_address_cache.erase(key);
-      handle_request(key, value, pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
+      handle_request(key, value, pushers, routing_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
     } else {
       // succeeded
       if (res.tuple(0).has_invalidate() && res.tuple(0).invalidate()) {
@@ -143,7 +143,7 @@ void handle_request(
     }
 
     trial += 1;
-    handle_request(key, value, pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
+    handle_request(key, value, pushers, routing_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
   }
 }
 
@@ -170,11 +170,11 @@ void run(unsigned thread_id) {
   // read the YAML conf
   YAML::Node conf = YAML::LoadFile("conf/config.yml");
   
-  YAML::Node proxy = conf["proxy_ip"];
-  vector<string> proxy_address;
+  YAML::Node routing = conf["routing_ip"];
+  vector<string> routing_address;
 
-  for (YAML::const_iterator it = proxy.begin(); it != proxy.end(); ++it) {
-    proxy_address.push_back(it->as<string>());
+  for (YAML::const_iterator it = routing.begin(); it != routing.end(); ++it) {
+    routing_address.push_back(it->as<string>());
   }
 
   int timeout = 10000;
@@ -208,11 +208,11 @@ void run(unsigned thread_id) {
     } else {
       if (v[0] == "GET") {
         string key = v[1];
-        handle_request(key, "", pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
+        handle_request(key, "", pushers, routing_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
       } else {
         string key = v[1];
         string value = v[2];
-        handle_request(key, value, pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
+        handle_request(key, value, pushers, routing_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
       }
     }
   }

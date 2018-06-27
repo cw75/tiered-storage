@@ -8,7 +8,7 @@
 #include <boost/crc.hpp>
 #include <functional>
 #include "utils/consistent_hash_map.hpp"
-#include "message.pb.h"
+#include "communication.pb.h"
 #include "zmq/socket_cache.h"
 #include "zmq/zmq_util.h"
 
@@ -48,7 +48,7 @@ using namespace std;
 // Define the number of ebs threads
 #define EBS_THREAD_NUM 4
 
-// Define the number of proxy worker threads
+// Define the number of routing worker threads
 #define PROXY_THREAD_NUM 16
 
 // Define the number of benchmark threads
@@ -217,14 +217,14 @@ struct local_hasher {
 };
 
 
-// proxy thread
-class proxy_thread_t {
+// routing thread
+class routing_thread_t {
   string ip_;
   unsigned tid_;
 
 public:
-  proxy_thread_t() {}
-  proxy_thread_t(string ip, unsigned tid): ip_(ip), tid_(tid) {}
+  routing_thread_t() {}
+  routing_thread_t(string ip, unsigned tid): ip_(ip), tid_(tid) {}
 
   string get_ip() const {
     return ip_;
@@ -636,8 +636,8 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads(
   }
 }
 
-// query the proxy for a key and return all address
-vector<string> get_address_from_proxy(
+// query the routing for a key and return all address
+vector<string> get_address_from_routing(
     user_thread_t& ut,
     string key,
     zmq::socket_t& sending_socket,
@@ -655,7 +655,7 @@ vector<string> get_address_from_proxy(
   key_req.set_request_id(req_id);
   rid += 1;
 
-  // query proxy for addresses on the other tier
+  // query routing for addresses on the other tier
   auto key_response = send_request<communication::Key_Request, communication::Key_Response>(key_req, sending_socket, receiving_socket, succeed);
   vector<string> result;
 
@@ -668,10 +668,10 @@ vector<string> get_address_from_proxy(
   return result;
 }
 
-proxy_thread_t get_random_proxy_thread(vector<string>& proxy_address, unsigned& seed) {
-  string proxy_ip = proxy_address[rand_r(&seed) % proxy_address.size()];
+routing_thread_t get_random_routing_thread(vector<string>& routing_address, unsigned& seed) {
+  string routing_ip = routing_address[rand_r(&seed) % routing_address.size()];
   unsigned tid = rand_r(&seed) % PROXY_THREAD_NUM;
-  return proxy_thread_t(proxy_ip, tid);
+  return routing_thread_t(routing_ip, tid);
 }
 
 void warmup(unordered_map<string, key_info>& placement) {

@@ -6,8 +6,8 @@ metadata:
     role: kops
 spec:
   containers:
-  - name: kvs-kops-container
-    image: cgwu/kvs-kops
+  - name: kops-container
+    image: vsreekanti/kvs-kops
     env: 
     - name: AWS_ACCESS_KEY_ID
       value: ACCESS_KEY_ID_DUMMY
