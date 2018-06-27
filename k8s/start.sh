@@ -18,6 +18,7 @@ gen_yml_list() {
 }
 
 cd tiered-storage
+mkdir -p conf
 IP=`ifconfig  | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
 
 # TODO: Eventually, we should have multiple monitoring nodes.
