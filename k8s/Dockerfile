@@ -45,4 +45,4 @@ RUN cd tiered-storage && bash scripts/build.sh
 
 RUN cp tiered-storage/k8s/start.sh .
 
-CMD sh start.sh $SERVER_TYPE
+CMD bash start.sh $SERVER_TYPE

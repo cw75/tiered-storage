@@ -12,7 +12,7 @@ spec:
     image: vsreekanti/kvs
     env: 
     - name: SERVER_TYPE
-      value: p
+      value: r
     - name: MON_IP
       value: MON_IP_DUMMY
   nodeSelector:

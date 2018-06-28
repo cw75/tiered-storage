@@ -18,6 +18,7 @@ gen_yml_list() {
 }
 
 cd tiered-storage
+mkdir -p conf
 IP=`ifconfig  | grep 'inet addr:'| grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
 
 # TODO: Eventually, we should have multiple monitoring nodes.
@@ -27,7 +28,7 @@ if [ "$1" = "mn" ]; then
   echo "\tip: $IP" >> conf conf/config.yml
 
   ./build/src/bedrock/monitoring
-elif [ "$1" = "p" ]; then
+elif [ "$1" = "r" ]; then
   echo "routing:" > conf/config.yml
   echo "\tmonitoring_ip: $MGMT_IP" >> conf/config.yml
   
