@@ -13,8 +13,8 @@ spec:
     env: 
     - name: SERVER_TYPE
       value: b
-    - name: PROXY_IPS
-      value: PROXY_IPS_DUMMY
+    - name: ROUTING_IPS
+      value: ROUTING_IPS_DUMMY
     - name: MON_IP
       value: MON_IP_DUMMY
   nodeSelector:
