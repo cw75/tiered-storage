@@ -38,7 +38,7 @@ elif [ "$1" = "b" ]; then
   echo -e "    monitoring_ip: $MON_IP" >> conf/config.yml
   echo -e "    ip: $IP" >> conf conf/config.yml
 
-  LST=$(gen_yml_list "$ROUTING_IP")
+  LST=$(gen_yml_list "$ROUTING_IPS")
   echo -e "    routing:" >> conf/config.yml
   echo -e "$LST" >> conf/config.yml
 
@@ -49,7 +49,7 @@ else
   echo -e "    seed_ip: $SEED_IP" >> conf/config.yml
   echo -e "    ip: $IP" >> conf/config.yml
 
-  LST=$(gen_yml_list "$ROUTING_IP")
+  LST=$(gen_yml_list "$ROUTING_IPS")
   echo -e "    routing:" >> conf/config.yml
   echo -e "$LST" >> conf/config.yml
   
