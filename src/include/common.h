@@ -384,23 +384,6 @@ void split(const string &s, char delim, vector<string> &elems) {
   }
 }
 
-string get_ip(string node_type) {
-  string server_ip;
-  YAML::Node conf = YAML::LoadFile("conf/config.yml");
-
-  if (node_type == "server") {
-    server_ip = conf["server"]["ip"].as<string>();
-  } else if (node_type == "routing") {
-    server_ip = conf["routing"]["ip"].as<string>();
-  } else if (node_type == "monitoring") {
-    server_ip = conf["monitoring"]["ip"].as<string>();
-  } else if (node_type == "user") {
-    server_ip = conf["user"]["ip"].as<string>();
-  }
-
-  return server_ip;
-}
-
 // assuming the replication factor will never be greater than the number of nodes in a tier
 // return a set of server_thread_t that are responsible for a key
 unordered_set<server_thread_t, thread_hash> responsible_global(string key, unsigned global_rep, global_hash_t& global_hash_ring) {

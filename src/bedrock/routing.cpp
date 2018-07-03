@@ -25,8 +25,9 @@ void run(unsigned thread_id) {
   string logger_name = "routing_logger_" + to_string(thread_id);
   auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
   logger->flush_on(spdlog::level::info);
-
-  string ip = get_ip("routing");
+  
+  YAML::Node conf = YAML::LoadFile("conf/config.yml")["routing"];
+  string ip = conf["ip"].as<string>();
 
   routing_thread_t pt = routing_thread_t(ip, thread_id);
 
@@ -40,13 +41,12 @@ void run(unsigned thread_id) {
 
   // warm up for benchmark
   warmup(placement);
-
+    
   if (thread_id == 0) {
     // read the YAML conf
     // TODO: change this to read multiple monitoring addresses
     vector<string> monitoring_address;
-    YAML::Node conf = YAML::LoadFile("conf/config.yml");
-    monitoring_address.push_back(conf["routing"]["monitoring_ip"].as<string>());
+    monitoring_address.push_back(conf["monitoring_ip"].as<string>());
 
     // notify monitoring nodes
     for (auto it = monitoring_address.begin(); it != monitoring_address.end(); it++) {

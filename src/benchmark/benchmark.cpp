@@ -190,7 +190,8 @@ void run(unsigned thread_id) {
   auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
   logger->flush_on(spdlog::level::info);
 
-  string ip = get_ip("user");
+  YAML::Node conf = YAML::LoadFile("conf/config.yml")["user"];
+  string ip = conf["ip"].as<string>();
 
   hash<string> hasher;
   unsigned seed = time(NULL);
@@ -208,7 +209,6 @@ void run(unsigned thread_id) {
   user_thread_t ut = user_thread_t(ip, thread_id);
 
   // read the YAML conf
-  YAML::Node conf = YAML::LoadFile("conf/config.yml");
   
   // TODO: change this to read multiple monitoring addresses
   string monitoring_address = conf["monitoring_ip"].as<string>();
