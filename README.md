@@ -4,7 +4,7 @@ A cloud-native, elastic, tiered KVS.
 
 ## Build Instructions:
 
-Note: some of the build instruction below are out-dated. We plan to officially open-source the repo in the next two months.
+Note: some of the build instruction below are outdated. We plan to officially open-source the repo in the next two months.
 
 1. Install Clang and libc++.
 On Ubuntu, run:<br />
