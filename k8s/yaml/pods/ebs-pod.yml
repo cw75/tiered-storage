@@ -13,8 +13,8 @@ spec:
         value: "2"
       - name: ROUTING_IPS
         value: ROUTING_IPS_DUMMY
-      - name: SEED_SERVER
-        value: SEED_SERVER_DUMMY
+      - name: SEED_IP
+        value: SEED_IP_DUMMY
       - name: MON_IP
         value: MON_IP_DUMMY
       volumeMounts:
