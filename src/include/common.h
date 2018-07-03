@@ -3,9 +3,6 @@
 
 #include <atomic>
 #include <string>
-#include <boost/functional/hash.hpp>
-#include <boost/format.hpp>
-#include <boost/crc.hpp>
 #include <functional>
 #include "utils/consistent_hash_map.hpp"
 #include "communication.pb.h"
@@ -190,15 +187,15 @@ struct thread_hash {
 
 struct global_hasher {
   uint32_t operator()(const server_thread_t& th) {
-    boost::crc_32_type ret;
-    ret.process_bytes(th.get_virtual_id().c_str(), th.get_virtual_id().size());
-    return ret.checksum();
+    // prepend a string to make the hash value different than
+    // what it would be on the naked input
+    return std::hash<string>{}("GLOBAL"+th.get_virtual_id());
   }
 
   uint32_t operator()(const string& key) {
-    boost::crc_32_type ret;
-    ret.process_bytes(key.c_str(), key.size());
-    return ret.checksum();
+    // prepend a string to make the hash value different than
+    // what it would be on the naked input
+    return std::hash<string>{}("GLOBAL"+key);
   }
 
   typedef uint32_t result_type;

@@ -19,7 +19,6 @@ SET(CMAKE_CXX_FLAGS_RELEASE
 
 ADD_SUBDIRECTORY(vendor/spdlog)
 ADD_SUBDIRECTORY(vendor/yamlcpp)
-ADD_SUBDIRECTORY(vendor/boost)
 ADD_SUBDIRECTORY(vendor/googletest)
 ADD_SUBDIRECTORY(vendor/zeromq)
 ADD_SUBDIRECTORY(vendor/zeromqcpp)
