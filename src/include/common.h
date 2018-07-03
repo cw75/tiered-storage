@@ -76,10 +76,11 @@ using namespace std;
 // node capacity in KB
 unsigned MEM_NODE_CAPACITY = 60000000;
 unsigned EBS_NODE_CAPACITY = 256000000;
+
 // value size in KB
 #define VALUE_SIZE 256
 
-// Define port offset
+// define base ports
 #define SERVER_PORT 6560
 #define NODE_JOIN_BASE_PORT 6660
 #define NODE_DEPART_BASE_PORT 6760
@@ -357,7 +358,7 @@ struct key_info {
   unordered_map<unsigned, unsigned> local_replication_map_;
 };
 
-// read-only per-tier metadata
+// per-tier metadata
 struct tier_data {
   tier_data() : thread_number_(1), default_replication_(1), node_capacity_(0) {}
 
