@@ -16,3 +16,13 @@ server:
   seed_ip: 127.0.0.1
   ip: 127.0.0.1
 ebs: ./
+thread:
+  memory: 4
+  ebs: 4
+  routing: 4
+  benchmark: 4
+replication:
+  memory: 1
+  ebs: 0
+  minimum: 1
+  local: 1

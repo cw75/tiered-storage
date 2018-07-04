@@ -27,6 +27,12 @@ using namespace std;
 
 unsigned SELF_TIER_ID;
 
+unsigned MEMORY_THREAD_NUM;
+unsigned EBS_THREAD_NUM;
+
+unsigned DEFAULT_GLOBAL_MEMORY_REPLICATION;
+unsigned DEFAULT_GLOBAL_EBS_REPLICATION;
+unsigned DEFAULT_LOCAL_REPLICATION;
 // number of worker threads
 unsigned THREAD_NUM;
 
@@ -1144,6 +1150,15 @@ int main(int argc, char* argv[]) {
 
   // populate metadata
   SELF_TIER_ID = atoi(getenv("SERVER_TYPE"));
+
+  YAML::Node conf_thread = YAML::LoadFile("conf/config.yml")["thread"];
+  MEMORY_THREAD_NUM = conf_thread["memory"].as<int>();
+  EBS_THREAD_NUM = conf_thread["ebs"].as<int>();
+
+  YAML::Node conf_replication = YAML::LoadFile("conf/config.yml")["replication"];
+  DEFAULT_GLOBAL_MEMORY_REPLICATION = conf_replication["memory"].as<int>();
+  DEFAULT_GLOBAL_EBS_REPLICATION = conf_replication["ebs"].as<int>();
+  DEFAULT_LOCAL_REPLICATION = conf_replication["local"].as<int>();
 
   tier_data_map[1] = tier_data(MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION, MEM_NODE_CAPACITY);
   tier_data_map[2] = tier_data(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION, EBS_NODE_CAPACITY);

@@ -21,6 +21,13 @@
 using namespace std;
 using address_t = string;
 
+unsigned MEMORY_THREAD_NUM;
+unsigned EBS_THREAD_NUM;
+
+unsigned DEFAULT_GLOBAL_MEMORY_REPLICATION;
+unsigned DEFAULT_GLOBAL_EBS_REPLICATION;
+unsigned MINIMUM_REPLICA_NUMBER;
+
 // read-only per-tier metadata
 unordered_map<unsigned, tier_data> tier_data_map;
 
@@ -605,6 +612,15 @@ int main(int argc, char* argv[]) {
   YAML::Node conf = YAML::LoadFile("conf/config.yml")["monitoring"];
   string ip = conf["ip"].as<string>();
 
+  YAML::Node conf_thread = YAML::LoadFile("conf/config.yml")["thread"];
+  MEMORY_THREAD_NUM = conf_thread["memory"].as<int>();
+  EBS_THREAD_NUM = conf_thread["ebs"].as<int>();
+
+  YAML::Node conf_replication = YAML::LoadFile("conf/config.yml")["replication"];
+  DEFAULT_GLOBAL_MEMORY_REPLICATION = conf_replication["memory"].as<int>();
+  DEFAULT_GLOBAL_EBS_REPLICATION = conf_replication["ebs"].as<int>();
+  MINIMUM_REPLICA_NUMBER = conf_replication["minimum"].as<int>();
+
   tier_data_map[1] = tier_data(MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION, MEM_NODE_CAPACITY);
   tier_data_map[2] = tier_data(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION, EBS_NODE_CAPACITY);
 
@@ -622,7 +638,7 @@ int main(int argc, char* argv[]) {
   // keep track of the keys' replication info
   unordered_map<string, key_info> placement;
   // warm up for benchmark
-  warmup(placement);
+  //warmup(placement);
 
   // keep track of the keys' access by worker address
   unordered_map<string, unordered_map<address_t, unsigned>> key_access_frequency;

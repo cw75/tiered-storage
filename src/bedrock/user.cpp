@@ -16,6 +16,8 @@
 
 using namespace std;
 
+unsigned ROUTING_THREAD_NUM;
+
 void handle_request(
     string request_line,
     SocketCache& pushers,
@@ -60,7 +62,7 @@ void handle_request(
   string worker_address;
   if (key_address_cache.find(key) == key_address_cache.end()) {
     // query the routing and update the cache
-    string target_routing_address = get_random_routing_thread(routing_address, seed).get_key_address_connect_addr();
+    string target_routing_address = get_random_routing_thread(routing_address, seed, ROUTING_THREAD_NUM).get_key_address_connect_addr();
     bool succeed;
     auto addresses = get_address_from_routing(ut, key, pushers[target_routing_address], key_address_puller, succeed, ip, thread_id, rid);
     if (succeed) {
@@ -233,6 +235,9 @@ int main(int argc, char* argv[]) {
     cerr << "Filename is optional. Omit the filename to run in interactive mode." << endl;
     return 1;
   }
+
+  YAML::Node conf = YAML::LoadFile("conf/config.yml")["thread"];
+  ROUTING_THREAD_NUM = conf["routing"].as<int>();
 
   if (argc == 1) {
     run(0, ""); 

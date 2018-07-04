@@ -30,27 +30,6 @@ using namespace std;
 
 // Define the replication factor for the metadata
 #define METADATA_REPLICATION_FACTOR 2
-
-// Define the default replication factor for the data
-#define DEFAULT_GLOBAL_MEMORY_REPLICATION 1
-#define DEFAULT_GLOBAL_EBS_REPLICATION 0
-#define MINIMUM_REPLICA_NUMBER 1
-
-// Define the default local replication factor
-#define DEFAULT_LOCAL_REPLICATION 1
-
-// Define the number of memory threads
-#define MEMORY_THREAD_NUM 4
-
-// Define the number of ebs threads
-#define EBS_THREAD_NUM 4
-
-// Define the number of routing worker threads
-#define PROXY_THREAD_NUM 4
-
-// Define the number of benchmark threads
-#define BENCHMARK_THREAD_NUM 16
-
 // Define the number of virtual thread per each physical thread
 #define VIRTUAL_THREAD_NUM 3000
 
@@ -543,7 +522,7 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads_metadata(
 
   for (auto it = mts.begin(); it != mts.end(); it++) {
     string ip = it->get_ip();
-    auto tids = responsible_local(key, DEFAULT_LOCAL_REPLICATION, local_memory_hash_ring);
+    auto tids = responsible_local(key, 1, local_memory_hash_ring);
 
     for (auto iter = tids.begin(); iter != tids.end(); iter++) {
       threads.insert(server_thread_t(ip, *iter));
@@ -655,13 +634,18 @@ vector<string> get_address_from_routing(
   return result;
 }
 
-routing_thread_t get_random_routing_thread(vector<string>& routing_address, unsigned& seed) {
+routing_thread_t get_random_routing_thread(vector<string>& routing_address, unsigned& seed, unsigned& ROUTING_THREAD_NUM) {
   string routing_ip = routing_address[rand_r(&seed) % routing_address.size()];
-  unsigned tid = rand_r(&seed) % PROXY_THREAD_NUM;
+  unsigned tid = rand_r(&seed) % ROUTING_THREAD_NUM;
   return routing_thread_t(routing_ip, tid);
 }
 
-void warmup(unordered_map<string, key_info>& placement) {
+// invoked only during benchmark
+void warmup(
+    unordered_map<string, key_info>& placement,
+    unsigned& DEFAULT_GLOBAL_MEMORY_REPLICATION,
+    unsigned& DEFAULT_GLOBAL_EBS_REPLICATION,
+    unsigned& DEFAULT_LOCAL_REPLICATION) {
   for (unsigned i = 1; i <= 1000000; i++) {
     // key is 8 bytes
     string key = string(8 - to_string(i).length(), '0') + to_string(i);
