@@ -1,10 +1,14 @@
 #!/bin/bash
 
-if [ -z "$1" ] && [ -z "$2" ] && [ -z "$3" ]; then
-  # TODO: eventually switch the two and set prev to 0 default
-  echo "Usage: ./add_servers.sh <node-type> <num-prev-instance> <new-instances>"
-  echo"Valid node types are memory, ebs, benchmark, and routing"
+if [ -z "$1" ] && [ -z "$2" ]; then
+  echo "Usage: ./add_servers.sh <node-type> <new-instances> {<num-prev-instances>}"
+  echo "Valid node types are memory, ebs, benchmark, and routing."
+  echo "If number of previous instances is not specified, it is assumed to be 0."
   exit 1
+fi
+
+if [ -z "$3" ]; then
+  $3=0
 fi
 
 if [ "$1" = "memory" ]; then

@@ -11,9 +11,9 @@ fi
 ROUTING_IPS=`kubectl get pods -l role=routing -o jsonpath='{.items[*].status.podIP}'`
 
 # this one should never be empty
-MON_IP=`kubectl get pods -l role=monitoring -o jsonpath='{.items[*].status.podIP}' | tr -d '[:space:]'`
-while [ "$MON_IP" = "" ]; do
-  MON_IP=`kubectl get pods -l role=monitoring -o jsonpath='{.items[*].status.podIP}' | tr -d '[:space:]'`
+MON_IPS=`kubectl get pods -l role=monitoring -o jsonpath='{.items[*].status.podIP}' | tr -d '[:space:]'`
+while [ "$MON_IPS" = "" ]; do
+  MON_IPS=`kubectl get pods -l role=monitoring -o jsonpath='{.items[*].status.podIP}' | tr -d '[:space:]'`
 done
 
 get_prev_num() {
@@ -21,7 +21,7 @@ get_prev_num() {
 
   if [ $NUM_PREV -gt 0 ]; then
     ((NUM_PREV--))
-  fi 
+  fi
 
   echo $NUM_PREV
 }
@@ -30,7 +30,7 @@ add_servers() {
   if [ $2 -gt 0 ]; then
     NUM_PREV=$(get_prev_num $1)
 
-    ./add_servers.sh $1 $2 $NUM_PREV 
+    ./add_servers.sh $1 $2 $NUM_PREV
   fi
 }
 
@@ -69,7 +69,7 @@ add_pods() {
   else
     exit 1
   fi
-   
+
   # split the proxies into an array and choose a random one as the seed
   IFS=' ' read -ra ARR <<< "$ROUTING_IPS"
   if [ ${#ARR[@]} -eq 0 ]; then
@@ -101,15 +101,15 @@ add_pods() {
       sed -i "s|VOLUME_DUMMY_2|$EBS_V2|g" tmp.yml
       sed -i "s|VOLUME_DUMMY_3|$EBS_V3|g" tmp.yml
     fi
-     
+
     # set the IPs of other system components
     sed -i "s|ROUTING_IPS_DUMMY|\"$ROUTING_IPS\"|g" tmp.yml
-    sed -i "s|MON_IP_DUMMY|$MON_IP|g" tmp.yml
+    sed -i "s|MON_IPS_DUMMY|$MON_IPS|g" tmp.yml
     sed -i "s|SEED_SERVER_DUMMY|$SEED_SERVER|g" tmp.yml
 
     kubectl create -f tmp.yml > /dev/null 2>&1
     rm tmp.yml
-  done 
+  done
 }
 
 add_pods memory $1

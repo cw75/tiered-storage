@@ -49,7 +49,7 @@ void process_put(const string& key,
     const string& value,
     Serializer* serializer,
     unordered_map<string, key_stat>& key_stat_map) {
-  
+
   if (serializer->put(key, value, timestamp)) {
     // update value size if the value is replaced
     key_stat_map[key].size_ = value.size();
@@ -74,7 +74,7 @@ communication::Response process_request(
 
   communication::Response response;
   string respond_id = "";
-  
+
   if (req.has_request_id()) {
     respond_id = req.request_id();
     response.set_response_id(respond_id);
@@ -165,10 +165,10 @@ communication::Response process_request(
 
           auto current_time = chrono::system_clock::now();
           auto ts = generate_timestamp(chrono::duration_cast<chrono::milliseconds>(current_time-start_time).count(), wt.get_tid());
-          
+
           process_put(key, ts, req.tuple(i).value(), serializer, key_stat_map);
           tp->set_err_number(0);
-          
+
           if (req.tuple(i).has_num_address() && req.tuple(i).num_address() != threads.size()) {
             tp->set_invalidate(true);
           }
@@ -281,7 +281,7 @@ void run(unsigned thread_id) {
 
   YAML::Node conf = YAML::LoadFile("conf/config.yml")["server"];
   string ip = conf["ip"].as<string>();
-  
+
   // each thread has a handle to itself
   server_thread_t wt = server_thread_t(ip, thread_id);
 
@@ -298,26 +298,29 @@ void run(unsigned thread_id) {
 
   // for periodically redistributing data when node joins
   address_keyset_map join_addr_keyset_map;
-  
+
   // keep track of which key should be removed when node joins
   unordered_set<string> join_remove_set;
 
   // pending events for asynchrony
   unordered_map<string, pair<chrono::system_clock::time_point, vector<pending_request>>> pending_request_map;
   unordered_map<string, pair<chrono::system_clock::time_point, vector<pending_gossip>>> pending_gossip_map;
-  
+
   unordered_map<string, key_info> placement;
   vector<string> routing_address;
   vector<string> monitoring_address;
 
   // read the YAML conf
-  // TODO: change this to read multiple monitoring IPs
   string seed_ip = conf["seed_ip"].as<string>();
-  monitoring_address.push_back(conf["monitoring_ip"].as<string>());
+  YAML::node monitoring = conf["monitoring"];
   YAML::Node routing = conf["routing"];
 
   for (YAML::const_iterator it = routing.begin(); it != routing.end(); ++it) {
     routing_address.push_back(it->as<string>());
+  }
+
+  for (YAML::const_iterator it = monitoring.begin(); it != monitoring.end(); ++it) {
+    monitoring_address.push_back(it->as<string>());
   }
 
   // request server addresses from the seed node
@@ -719,7 +722,7 @@ void run(unsigned thread_id) {
             for (auto it = pending_request_map[key].second.begin(); it != pending_request_map[key].second.end(); it++) {
               if (!responsible && it->addr_ != "") {
                 communication::Response response;
-                
+
                 if (it->respond_id_ != "") {
                   response.set_response_id(it->respond_id_);
                 }
@@ -800,7 +803,7 @@ void run(unsigned thread_id) {
               }
             } else {
               unordered_map<string, communication::Request> gossip_map;
-              
+
               // forward the gossip
               for (auto it = threads.begin(); it != threads.end(); it++) {
                 gossip_map[it->get_gossip_connect_addr()].set_type("PUT");
