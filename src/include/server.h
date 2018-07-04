@@ -1,3 +1,6 @@
+#ifndef __SERVER_H__
+#define __SERVER_H__
+
 #include "utils/server_utility.h"
 void join_handler(unsigned int self_tier_id,
              unsigned int thread_num,
@@ -15,3 +18,5 @@ void join_handler(unsigned int self_tier_id,
              address_keyset_map join_addr_keyset_map,
              unordered_set<string> join_remove_set
              );
+
+#endif
