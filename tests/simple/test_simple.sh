@@ -1,7 +1,20 @@
 #!/bin/bash
 
+if [ $# -gt 2 ]; then
+  echo "Usage: $0 <build>"
+  echo "If no build option is specified, the test will default to not building."
+
+  exit 1
+fi
+
+if [ -z "$1" ]; then
+  BUILD="n"
+else
+  BUILD=$1
+fi
+
 echo "Starting local server..."
-./scripts/start_local.sh n n
+./scripts/start_local.sh $BUILD n
 
 sleep 1
 
