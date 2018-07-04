@@ -25,7 +25,7 @@ void run(unsigned thread_id) {
   string logger_name = "routing_logger_" + to_string(thread_id);
   auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
   logger->flush_on(spdlog::level::info);
-  
+
   YAML::Node conf = YAML::LoadFile("conf/config.yml")["routing"];
   string ip = conf["ip"].as<string>();
 
@@ -41,12 +41,15 @@ void run(unsigned thread_id) {
 
   // warm up for benchmark
   warmup(placement);
-    
+
   if (thread_id == 0) {
     // read the YAML conf
-    // TODO: change this to read multiple monitoring addresses
     vector<string> monitoring_address;
-    monitoring_address.push_back(conf["monitoring_ip"].as<string>());
+    YAML::Node monitoring = conf["monitoring"];
+
+    for (YAML::const_iterator it = monitoring.begin(); it != monitoring.end(); ++it) {
+      monitoring_address.push_back(it->as<string>());
+    }
 
     // notify monitoring nodes
     for (auto it = monitoring_address.begin(); it != monitoring_address.end(); it++) {
@@ -86,7 +89,7 @@ void run(unsigned thread_id) {
 
   // responsible for handling key address request from users
   zmq::socket_t key_address_puller(context, ZMQ_PULL);
-  key_address_puller.bind(pt.get_key_address_bind_addr());  
+  key_address_puller.bind(pt.get_key_address_bind_addr());
 
   vector<zmq::pollitem_t> pollitems = {
     { static_cast<void *>(addr_responder), 0, ZMQ_POLLIN, 0 },
@@ -145,10 +148,10 @@ void run(unsigned thread_id) {
 
       if (type == "join") {
         logger->info("Received join from server {} in tier {}.", new_server_ip, to_string(tier));
-        
+
         // update hash ring
         bool inserted = insert_to_hash_ring<global_hash_t>(global_hash_ring_map[tier], new_server_ip, 0);
-        
+
         if (inserted) {
           if (thread_id == 0) {
             // gossip the new node address between server nodes to ensure consistency

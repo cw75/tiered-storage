@@ -77,7 +77,3 @@ kubectl cp $SSH_KEY kops-pod:/root/.ssh/id_rsa > /dev/null 2>&1
 kubectl cp ${SSH_KEY}.pub kops-pod:/root/.ssh/id_rsa.pub > /dev/null 2>&1
 
 echo "Cluster is now ready for use!"
-
-# TODO: once we have a yaml config file, we will have to set the values in each
-# of the pod scripts for the replication factors, etc. otherwise, we'll end up
-# with weird inconsistencies

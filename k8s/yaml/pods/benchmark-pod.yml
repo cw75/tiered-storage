@@ -15,8 +15,8 @@ spec:
       value: b
     - name: ROUTING_IPS
       value: ROUTING_IPS_DUMMY
-    - name: MON_IP
-      value: MON_IP_DUMMY
+    - name: MON_IPS
+      value: MON_IPS_DUMMY
   nodeSelector:
     role: benchmark
     podid: benchmark-NUM_DUMMY

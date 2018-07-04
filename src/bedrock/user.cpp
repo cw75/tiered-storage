@@ -82,7 +82,7 @@ void handle_request(
 
   communication::Request req;
   req.set_respond_address(ut.get_request_pulling_connect_addr());
-  
+
   string req_id = ip + ":" + to_string(thread_id) + "_" + to_string(rid);
   req.set_request_id(req_id);
   rid += 1;
@@ -102,7 +102,7 @@ void handle_request(
     tp->set_timestamp(0);
     tp->set_num_address(key_address_cache[key].size());
   }
-  
+
   bool succeed;
   auto res = send_request<communication::Request, communication::Response>(req, pushers[worker_address], response_puller, succeed);
 
@@ -196,7 +196,7 @@ void run(unsigned thread_id, string filename) {
   zmq::context_t context(1);
   SocketCache pushers(&context, ZMQ_PUSH);
 
-  
+
   // responsible for pulling response
   zmq::socket_t response_puller(context, ZMQ_PULL);
   response_puller.setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
