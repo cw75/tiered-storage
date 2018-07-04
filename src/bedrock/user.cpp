@@ -17,8 +17,7 @@
 using namespace std;
 
 void handle_request(
-    string key,
-    string value,
+    string request_line,
     SocketCache& pushers,
     vector<string>& routing_address,
     unordered_map<string, unordered_set<string>>& key_address_cache,
@@ -31,6 +30,23 @@ void handle_request(
     unsigned& thread_id,
     unsigned& rid,
     unsigned& trial) {
+
+  vector<string> v;
+  split(request_line, ' ', v);
+  string key, value;
+
+  if (!((v.size() == 2 && v[0] == "GET") || (v.size() == 3 && v[0] == "PUT"))) {
+    cout << "Usage: GET <key> | PUT <key> <value>" << endl;
+    return;
+  } else {
+    if (v[0] == "GET") {
+      key = v[1];
+      value = "";
+    } else {
+      key = v[1];
+      value = v[2];
+    }
+  }
 
   if (trial > 5) {
     logger->info("Trial #{} for request for key {}.", trial, key);
@@ -105,7 +121,7 @@ void handle_request(
 
       // update cache and retry
       key_address_cache.erase(key);
-      handle_request(key, value, pushers, routing_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
+      handle_request(request_line, pushers, routing_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
     } else {
       // succeeded
       if (res.tuple(0).has_invalidate() && res.tuple(0).invalidate()) {
@@ -143,11 +159,11 @@ void handle_request(
     }
 
     trial += 1;
-    handle_request(key, value, pushers, routing_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
+    handle_request(request_line, pushers, routing_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
   }
 }
 
-void run(unsigned thread_id) {
+void run(unsigned thread_id, string filename) {
   string log_file = "log_user.txt";
   string logger_name = "user_log";
   auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
@@ -194,34 +210,33 @@ void run(unsigned thread_id) {
   unsigned rid = 0;
 
   string input;
-  while (true) {
-    unsigned trial = 1;
-    cout << "kvs> ";
-    getline(cin, input);
+  unsigned trial = 1;
+  if (filename == "") { 
+    while (true) {
+      cout << "kvs> ";
+      
+      getline(cin, input);
+      handle_request(input, pushers, routing_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
+    } 
+  } else {
+    ifstream infile(filename);
 
-    vector<string> v;
-    split(input, ' ', v);
-
-    if (!((v.size() == 2 && v[0] == "GET") || (v.size() == 3 && v[0] == "PUT"))) {
-      cout << "Usage: GET <key> | PUT <key> <value>\n";
-    } else {
-      if (v[0] == "GET") {
-        string key = v[1];
-        handle_request(key, "", pushers, routing_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
-      } else {
-        string key = v[1];
-        string value = v[2];
-        handle_request(key, value, pushers, routing_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
-      }
+    while(getline(infile, input)) {
+      handle_request(input, pushers, routing_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
     }
   }
 }
 
 int main(int argc, char* argv[]) {
-  if (argc != 1) {
-    cerr << "Usage: " << argv[0] << endl;
+  if (argc > 2) {
+    cerr << "Usage: " << argv[0] << "[filename]" << endl;
+    cerr << "Filename is optional. Omit the filename to run in interactive mode." << endl;
     return 1;
   }
 
-  run(0);
+  if (argc == 1) {
+    run(0, ""); 
+  } else {
+    run(0, argv[1]);
+  }
 }
