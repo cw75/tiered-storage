@@ -4,6 +4,7 @@ if [ -z "$1" ] && [ -z "$2" ]; then
   echo "Usage: ./scripts/start_local.sh <build> <start-user>"
   echo ""
   echo "You must run this from the project root directory."
+  exit 1
 fi
 
 if [ "$1" = "y" ] || [ "$1" = "yes" ]; then
