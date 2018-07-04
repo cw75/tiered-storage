@@ -314,7 +314,7 @@ void run(unsigned thread_id) {
   // TODO: change this to read multiple monitoring IPs
   string seed_ip = conf["seed_ip"].as<string>();
   monitoring_address.push_back(conf["monitoring_ip"].as<string>());
-  YAML::Node routing = conf["routing"];
+  YAML::Node routing = conf["routing_ips"];
 
   for (YAML::const_iterator it = routing.begin(); it != routing.end(); ++it) {
     routing_address.push_back(it->as<string>());
