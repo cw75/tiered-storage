@@ -312,7 +312,7 @@ void run(unsigned thread_id) {
   // read the YAML conf
   string seed_ip = conf["seed_ip"].as<string>();
 
-  YAML::node monitoring = conf["monitoring"];
+  YAML::Node monitoring = conf["monitoring"];
   YAML::Node routing = conf["routing"];
 
   for (YAML::const_iterator it = routing.begin(); it != routing.end(); ++it) {

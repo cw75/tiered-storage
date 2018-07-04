@@ -214,7 +214,7 @@ void run(unsigned thread_id) {
   vector<monitoring_thread_t> mts;
 
   YAML::Node routing = conf["routing"];
-  YAML::Node routing = conf["monitoring"];
+  YAML::Node monitoring = conf["monitoring"];
 
   for (YAML::const_iterator it = monitoring.begin(); it != monitoring.end(); ++it) {
     mts.push_back(monitoring_thread_t(it->as<string>()));
