@@ -1,0 +1,18 @@
+monitoring:
+  mgmt_ip: 127.0.0.1
+  ip: 127.0.0.1
+routing:
+  monitoring_ip: 127.0.0.1
+  ip: 127.0.0.1
+user:
+  monitoring_ip: 127.0.0.1
+  routing_ips: 
+      - 127.0.0.1
+  ip: 127.0.0.1
+server:
+  monitoring_ip: 127.0.0.1
+  routing_ips: 
+      - 127.0.0.1
+  seed_ip: 127.0.0.1
+  ip: 127.0.0.1
+ebs: ./
