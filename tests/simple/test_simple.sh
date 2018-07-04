@@ -1,12 +1,5 @@
 #!/bin/bash
 
-HAS_PATH=`pwd | grep tests/simple | wc -l`
-
-if [ $HAS_PATH -eq 1 ]; then
-  echo "Must run this test from the project root directory."
-  exit 1
-fi
-
 echo "Starting local server..."
 ./scripts/start_local.sh n n
 
