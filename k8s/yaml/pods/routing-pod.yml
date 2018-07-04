@@ -13,8 +13,8 @@ spec:
     env: 
     - name: SERVER_TYPE
       value: r
-    - name: MON_IP
-      value: MON_IP_DUMMY
+    - name: MON_IPS
+      value: MON_IPS_DUMMY
   nodeSelector:
     role: routing
     podid: routing-NUM_DUMMY
