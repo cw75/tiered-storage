@@ -22,7 +22,6 @@
 #include "yaml-cpp/yaml.h"
 #include "yaml-cpp/node/node.h"
 
-// TODO: Everything that's currently writing to cout and cerr should be replaced with a logfile.
 using namespace std;
 
 unsigned SELF_TIER_ID;

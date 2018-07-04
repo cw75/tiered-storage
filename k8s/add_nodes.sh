@@ -73,9 +73,9 @@ add_pods() {
   # split the proxies into an array and choose a random one as the seed
   IFS=' ' read -ra ARR <<< "$ROUTING_IPS"
   if [ ${#ARR[@]} -eq 0 ]; then
-    SEED_SERVER=""
+    SEED_IP=""
   else
-    SEED_SERVER=${ARR[$RANDOM % ${#ARR[@]}]}
+    SEED_IP=${ARR[$RANDOM % ${#ARR[@]}]}
   fi
 
   FINAL_NUM=$(($NUM_PREV + $2))
@@ -105,7 +105,7 @@ add_pods() {
     # set the IPs of other system components
     sed -i "s|ROUTING_IPS_DUMMY|\"$ROUTING_IPS\"|g" tmp.yml
     sed -i "s|MON_IPS_DUMMY|$MON_IPS|g" tmp.yml
-    sed -i "s|SEED_SERVER_DUMMY|$SEED_SERVER|g" tmp.yml
+    sed -i "s|SEED_IP_DUMMY|$SEED_IP|g" tmp.yml
 
     kubectl create -f tmp.yml > /dev/null 2>&1
     rm tmp.yml

@@ -210,7 +210,6 @@ void run(unsigned thread_id) {
 
   // read the YAML conf
 
-  // TODO: change this to read multiple monitoring addresses
   vector<string> routing_address;
   vector<monitoring_thread_t> mts;
 
