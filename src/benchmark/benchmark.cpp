@@ -9,12 +9,12 @@
 #include <memory>
 #include <unordered_set>
 #include "communication.pb.h"
-#include "zmq/socket_cache.h"
-#include "zmq/zmq_util.h"
-#include "common.h"
-#include "threads.h"
-#include "hash_ring.h"
-#include "requests.h"
+#include "zmq/socket_cache.hpp"
+#include "zmq/zmq_util.hpp"
+#include "common.hpp"
+#include "threads.hpp"
+#include "hash_ring.hpp"
+#include "requests.hpp"
 #include "yaml-cpp/yaml.h"
 #include "spdlog/spdlog.h"
 

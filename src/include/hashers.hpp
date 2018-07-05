@@ -1,7 +1,7 @@
 #ifndef __HASHERS_H__
 #define __HASHERS_H__
 
-#include "threads.h"
+#include "threads.hpp"
 
 struct ThreadHash {
   std::size_t operator () (const ServerThread &st) const {

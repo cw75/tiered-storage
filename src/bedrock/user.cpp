@@ -10,13 +10,13 @@
 #include <unordered_set>
 #include "spdlog/spdlog.h"
 #include "communication.pb.h"
-#include "zmq/socket_cache.h"
-#include "zmq/zmq_util.h"
-#include "common.h"
-#include "threads.h"
-#include "requests.h"
-#include "hashers.h"
-#include "hash_ring.h"
+#include "zmq/socket_cache.hpp"
+#include "zmq/zmq_util.hpp"
+#include "common.hpp"
+#include "threads.hpp"
+#include "requests.hpp"
+#include "hashers.hpp"
+#include "hash_ring.hpp"
 #include "yaml-cpp/yaml.h"
 
 using namespace std;

@@ -3,8 +3,8 @@
 
 #include <string>
 #include "communication.pb.h"
-#include "../zmq/socket_cache.h"
-#include "../zmq/zmq_util.h"
+#include "../zmq/socket_cache.hpp"
+#include "../zmq/zmq_util.hpp"
 #include "yaml-cpp/yaml.h"
 
 using namespace std;

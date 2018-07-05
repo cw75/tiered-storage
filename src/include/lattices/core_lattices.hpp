@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <limits>
 #include <cassert>
-#include "base_lattices.h"
+#include "base_lattices.hpp"
 
 using namespace std;
 

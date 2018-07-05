@@ -13,13 +13,13 @@
 #include <chrono>
 #include <ctime>
 #include "spdlog/spdlog.h"
-#include "kvs/rc_pair_lattice.h"
+#include "kvs/rc_pair_lattice.hpp"
 #include "communication.pb.h"
-#include "zmq/socket_cache.h"
-#include "zmq/zmq_util.h"
-#include "common.h"
-#include "hash_ring.h"
-#include "utils/server_utility.h"
+#include "zmq/socket_cache.hpp"
+#include "zmq/zmq_util.hpp"
+#include "common.hpp"
+#include "hash_ring.hpp"
+#include "utils/server_utility.hpp"
 #include "yaml-cpp/yaml.h"
 #include "yaml-cpp/node/node.h"
 

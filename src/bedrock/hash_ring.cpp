@@ -2,16 +2,16 @@
 #include <string>
 #include <functional>
 #include "communication.pb.h"
-#include "zmq/socket_cache.h"
-#include "zmq/zmq_util.h"
+#include "zmq/socket_cache.hpp"
+#include "zmq/zmq_util.hpp"
 
 #include "spdlog/spdlog.h"
 #include "yaml-cpp/yaml.h"
 
-#include "common.h"
-#include "threads.h"
-#include "requests.h"
-#include "hash_ring.h"
+#include "common.hpp"
+#include "threads.hpp"
+#include "requests.hpp"
+#include "hash_ring.hpp"
 
 // assuming the replication factor will never be greater than the number of nodes in a tier
 // return a set of ServerThread that are responsible for a key

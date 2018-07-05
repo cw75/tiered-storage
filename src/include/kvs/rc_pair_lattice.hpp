@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "base_kv_store.h"
+#include "base_kv_store.hpp"
 
 template <typename T>
 struct TimestampValuePair {

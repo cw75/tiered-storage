@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <mutex>
 #include <memory>
-#include "../lattices/core_lattices.h"
+#include "../lattices/core_lattices.hpp"
 
 using namespace std;
 

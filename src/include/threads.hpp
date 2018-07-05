@@ -2,8 +2,8 @@
 #define __THREADS_H__
 
 #include "utils/consistent_hash_map.hpp"
-#include "common.h"
-#include "metadata.h"
+#include "common.hpp"
+#include "metadata.hpp"
 
 using namespace std;
 
