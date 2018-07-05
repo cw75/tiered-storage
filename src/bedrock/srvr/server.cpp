@@ -12,6 +12,7 @@
 #include <atomic>
 #include <chrono>
 #include <ctime>
+#include "spdlog/spdlog.h"
 #include "kvs/rc_kv_store.h"
 #include "communication.pb.h"
 #include "zmq/socket_cache.h"
@@ -19,6 +20,7 @@
 #include "utils/consistent_hash_map.hpp"
 #include "common.h"
 #include "server.h"
+#include "hash_ring.h"
 #include "utils/server_utility.h"
 #include "yaml-cpp/yaml.h"
 #include "yaml-cpp/node/node.h"

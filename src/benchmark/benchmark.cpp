@@ -12,7 +12,12 @@
 #include "zmq/socket_cache.h"
 #include "zmq/zmq_util.h"
 #include "common.h"
+#include "threads.h"
+#include "hash_ring.h"
+#include "requests.h"
 #include "yaml-cpp/yaml.h"
+#include "spdlog/spdlog.h"
+
 
 using namespace std;
 

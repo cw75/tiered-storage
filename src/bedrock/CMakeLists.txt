@@ -27,14 +27,14 @@ SET(ZMQ_DEPENDENCIES
   ../include/zmq/socket_cache.h
 )
 
-ADD_EXECUTABLE(user user.cpp ${KV_SRC_DEPENDENCIES} ${ZMQ_DEPENDENCIES})
+ADD_EXECUTABLE(user user.cpp common.cpp hash_ring.cpp ${KV_SRC_DEPENDENCIES} ${ZMQ_DEPENDENCIES})
 TARGET_LINK_LIBRARIES(user ${KV_LIBRARY_DEPENDENCIES})
 
-ADD_EXECUTABLE(routing routing.cpp ${KV_SRC_DEPENDENCIES} ${ZMQ_DEPENDENCIES})
+ADD_EXECUTABLE(routing routing.cpp common.cpp hash_ring.cpp ${KV_SRC_DEPENDENCIES} ${ZMQ_DEPENDENCIES})
 TARGET_LINK_LIBRARIES(routing ${KV_LIBRARY_DEPENDENCIES})
 
-ADD_EXECUTABLE(monitoring monitoring.cpp ${KV_SRC_DEPENDENCIES} ${ZMQ_DEPENDENCIES})
+ADD_EXECUTABLE(monitoring monitoring.cpp common.cpp hash_ring.cpp ${KV_SRC_DEPENDENCIES} ${ZMQ_DEPENDENCIES})
 TARGET_LINK_LIBRARIES(monitoring ${KV_LIBRARY_DEPENDENCIES})
 
-ADD_EXECUTABLE(server srvr/server.cpp srvr/join_handler.cpp ${KV_SRC_DEPENDENCIES} ${ZMQ_DEPENDENCIES})
+ADD_EXECUTABLE(server srvr/server.cpp srvr/join_handler.cpp common.cpp hash_ring.cpp ${KV_SRC_DEPENDENCIES} ${ZMQ_DEPENDENCIES})
 TARGET_LINK_LIBRARIES(server ${KV_LIBRARY_DEPENDENCIES})

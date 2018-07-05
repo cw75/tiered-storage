@@ -5,17 +5,19 @@
 #include <fstream>
 #include <cstdio>
 #include <chrono>
+#include "spdlog/spdlog.h"
 #include "zmq/socket_cache.h"
 #include "kvs/rc_kv_store.h"
 #include "common.h"
 #include "server.h"
+#include "hash_ring.h"
 
 using namespace std;
 
 void
-join_handler(string ip,
-             unsigned int self_tier_id,
+join_handler(unsigned int self_tier_id,
              unsigned int thread_num,
+             string ip,
              zmq::socket_t *join_puller_ref,
              SocketCache& pushers,
              unordered_map<unsigned, global_hash_t>& global_hash_ring_map,

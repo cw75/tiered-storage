@@ -27,8 +27,8 @@ SET(ZMQ_DEPENDENCIES
   ../include/zmq/socket_cache.h
 )
 
-ADD_EXECUTABLE(benchmark benchmark.cpp ${KV_SRC_DEPENDENCIES} ${ZMQ_DEPENDENCIES})
+ADD_EXECUTABLE(benchmark benchmark.cpp ../bedrock/common.cpp ../bedrock/hash_ring.cpp ${KV_SRC_DEPENDENCIES} ${ZMQ_DEPENDENCIES})
 TARGET_LINK_LIBRARIES(benchmark ${KV_LIBRARY_DEPENDENCIES})
 
-ADD_EXECUTABLE(benchmark_trigger benchmark_trigger.cpp ${KV_SRC_DEPENDENCIES} ${ZMQ_DEPENDENCIES})
+ADD_EXECUTABLE(benchmark_trigger benchmark_trigger.cpp ../bedrock/common.cpp ../bedrock/hash_ring.cpp ${KV_SRC_DEPENDENCIES} ${ZMQ_DEPENDENCIES})
 TARGET_LINK_LIBRARIES(benchmark_trigger ${KV_LIBRARY_DEPENDENCIES})
