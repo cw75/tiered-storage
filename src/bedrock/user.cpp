@@ -10,13 +10,13 @@
 #include <unordered_set>
 #include "spdlog/spdlog.h"
 #include "communication.pb.h"
-#include "zmq/socket_cache.h"
-#include "zmq/zmq_util.h"
-#include "common.h"
-#include "threads.h"
-#include "requests.h"
-#include "hashers.h"
-#include "hash_ring.h"
+#include "zmq/socket_cache.hpp"
+#include "zmq/zmq_util.hpp"
+#include "common.hpp"
+#include "threads.hpp"
+#include "requests.hpp"
+#include "hashers.hpp"
+#include "hash_ring.hpp"
 #include "yaml-cpp/yaml.h"
 
 using namespace std;
@@ -28,7 +28,7 @@ void handle_request(
     unordered_map<string, unordered_set<string>>& key_address_cache,
     unsigned& seed,
     shared_ptr<spdlog::logger> logger,
-    user_thread_t& ut,
+    UserThread& ut,
     zmq::socket_t& response_puller,
     zmq::socket_t& key_address_puller,
     string& ip,
@@ -187,7 +187,7 @@ void run(unsigned thread_id, string filename) {
   // mapping from key to a set of worker addresses
   unordered_map<string, unordered_set<string>> key_address_cache;
 
-  user_thread_t ut = user_thread_t(ip, thread_id);
+  UserThread ut = UserThread(ip, thread_id);
 
   // read the YAML conf
   YAML::Node routing = conf["routing"];
@@ -216,13 +216,13 @@ void run(unsigned thread_id, string filename) {
 
   string input;
   unsigned trial = 1;
-  if (filename == "") { 
+  if (filename == "") {
     while (true) {
       cout << "kvs> ";
-      
+
       getline(cin, input);
       handle_request(input, pushers, routing_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
-    } 
+    }
   } else {
     ifstream infile(filename);
 
@@ -240,7 +240,7 @@ int main(int argc, char* argv[]) {
   }
 
   if (argc == 1) {
-    run(0, ""); 
+    run(0, "");
   } else {
     run(0, argv[1]);
   }

@@ -1,18 +1,18 @@
 #ifndef __HASH_RING_H__
 #define __HASH_RING_H__
 
-#include "threads.h"
-#include "hashers.h"
+#include "threads.hpp"
+#include "hashers.hpp"
 
-typedef consistent_hash_map<server_thread_t, global_hasher> global_hash_t;
-typedef consistent_hash_map<server_thread_t, local_hasher> local_hash_t;
+typedef ConsistentHashMap<ServerThread, GlobalHasher> GlobalHashRing;
+typedef ConsistentHashMap<ServerThread, LocalHasher> LocalHashRing;
 
 template<typename H>
 bool insert_to_hash_ring(H& hash_ring, std::string ip, unsigned tid) {
   bool succeed;
 
   for (unsigned virtual_num = 0; virtual_num < VIRTUAL_THREAD_NUM; virtual_num++) {
-    succeed = hash_ring.insert(server_thread_t(ip, tid, virtual_num)).second;
+    succeed = hash_ring.insert(ServerThread(ip, tid, virtual_num)).second;
   }
 
   return succeed;
@@ -21,30 +21,30 @@ bool insert_to_hash_ring(H& hash_ring, std::string ip, unsigned tid) {
 template<typename H>
 void remove_from_hash_ring(H& hash_ring, std::string ip, unsigned tid) {
   for (unsigned virtual_num = 0; virtual_num < VIRTUAL_THREAD_NUM; virtual_num++) {
-    hash_ring.erase(server_thread_t(ip, tid, virtual_num));
+    hash_ring.erase(ServerThread(ip, tid, virtual_num));
   }
 }
 
-bool operator==(const server_thread_t& l, const server_thread_t& r);
+bool operator==(const ServerThread& l, const ServerThread& r);
 
-unordered_set<server_thread_t, thread_hash> responsible_global
-    (string key, unsigned global_rep, global_hash_t& global_hash_ring);
+unordered_set<ServerThread, ThreadHash> responsible_global
+    (string key, unsigned global_rep, GlobalHashRing& global_hash_ring);
 
 unordered_set<unsigned> responsible_local
-    (string key, unsigned local_rep, local_hash_t& local_hash_ring);
+    (string key, unsigned local_rep, LocalHashRing& local_hash_ring);
 
-unordered_set<server_thread_t, thread_hash> get_responsible_threads_metadata(
+unordered_set<ServerThread, ThreadHash> get_responsible_threads_metadata(
     string& key,
-    global_hash_t& global_memory_hash_ring,
-    local_hash_t& local_memory_hash_ring);
+    GlobalHashRing& global_memory_hash_ring,
+    LocalHashRing& local_memory_hash_ring);
 
-unordered_set<server_thread_t, thread_hash> get_responsible_threads(
+unordered_set<ServerThread, ThreadHash> get_responsible_threads(
     string respond_address,
     string key,
     bool metadata,
-    unordered_map<unsigned, global_hash_t>& global_hash_ring_map,
-    unordered_map<unsigned, local_hash_t>& local_hash_ring_map,
-    unordered_map<string, key_info>& placement,
+    unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+    unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
+    unordered_map<string, KeyInfo>& placement,
     SocketCache& pushers,
     vector<unsigned>& tier_ids,
     bool& succeed,
@@ -53,13 +53,13 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads(
 void issue_replication_factor_request(
     const std::string& respond_address,
     const std::string& key,
-    global_hash_t& global_memory_hash_ring,
-    local_hash_t& local_memory_hash_ring,
+    GlobalHashRing& global_memory_hash_ring,
+    LocalHashRing& local_memory_hash_ring,
     SocketCache& pushers,
     unsigned& seed);
 
 vector<std::string> get_address_from_routing(
-    user_thread_t& ut,
+    UserThread& ut,
     std::string key,
     zmq::socket_t& sending_socket,
     zmq::socket_t& receiving_socket,
@@ -68,10 +68,10 @@ vector<std::string> get_address_from_routing(
     unsigned& thread_id,
     unsigned& rid);
 
-routing_thread_t get_random_routing_thread
+RoutingThread get_random_routing_thread
     (std::vector<std::string>& routing_address, unsigned& seed);
 
-inline void warmup_placement_to_defaults(unordered_map<string, key_info>& placement) {
+inline void warmup_placement_to_defaults(unordered_map<string, KeyInfo>& placement) {
   for (unsigned i = 1; i <= 1000000; i++) {
     // key is 8 bytes
     string key = string(8 - to_string(i).length(), '0') + to_string(i);

@@ -21,10 +21,10 @@ SET(KV_SRC_DEPENDENCIES
     ${PROTO_HEADER}
 )
 SET(ZMQ_DEPENDENCIES
-  ../include/zmq/zmq_util.cc
-  ../include/zmq/zmq_util.h
-  ../include/zmq/socket_cache.cc
-  ../include/zmq/socket_cache.h
+  ../include/zmq/zmq_util.cpp
+  ../include/zmq/zmq_util.hpp
+  ../include/zmq/socket_cache.cpp
+  ../include/zmq/socket_cache.hpp
 )
 
 ADD_EXECUTABLE(benchmark benchmark.cpp ../bedrock/hash_ring.cpp ${KV_SRC_DEPENDENCIES} ${ZMQ_DEPENDENCIES})

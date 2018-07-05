@@ -10,19 +10,19 @@
 #include <memory>
 #include "spdlog/spdlog.h"
 #include "communication.pb.h"
-#include "zmq/socket_cache.h"
-#include "zmq/zmq_util.h"
+#include "zmq/socket_cache.hpp"
+#include "zmq/zmq_util.hpp"
 #include "utils/consistent_hash_map.hpp"
-#include "common.h"
-#include "threads.h"
-#include "hashers.h"
-#include "hash_ring.h"
+#include "common.hpp"
+#include "threads.hpp"
+#include "hashers.hpp"
+#include "hash_ring.hpp"
 #include "yaml-cpp/yaml.h"
 
 using namespace std;
 
 // read-only per-tier metadata
-unordered_map<unsigned, tier_data> tier_data_map;
+unordered_map<unsigned, TierData> tier_data_map;
 
 void run(unsigned thread_id) {
   string log_file = "log_" + to_string(thread_id) + ".txt";
@@ -33,7 +33,7 @@ void run(unsigned thread_id) {
   YAML::Node conf = YAML::LoadFile("conf/config.yml")["routing"];
   string ip = conf["ip"].as<string>();
 
-  routing_thread_t pt = routing_thread_t(ip, thread_id);
+  RoutingThread pt = RoutingThread(ip, thread_id);
 
   unsigned seed = time(NULL);
   seed += thread_id;
@@ -41,7 +41,7 @@ void run(unsigned thread_id) {
   // prepare the zmq context
   zmq::context_t context(1);
   SocketCache pushers(&context, ZMQ_PUSH);
-  unordered_map<string, key_info> placement;
+  unordered_map<string, KeyInfo> placement;
 
   // warm up for benchmark
   warmup_placement_to_defaults(placement);
@@ -57,13 +57,13 @@ void run(unsigned thread_id) {
 
     // notify monitoring nodes
     for (auto it = monitoring_address.begin(); it != monitoring_address.end(); it++) {
-      zmq_util::send_string("join:0:" + ip, &pushers[monitoring_thread_t(*it).get_notify_connect_addr()]);
+      zmq_util::send_string("join:0:" + ip, &pushers[MonitoringThread(*it).get_notify_connect_addr()]);
     }
   }
 
   // initialize hash ring maps
-  unordered_map<unsigned, global_hash_t> global_hash_ring_map;
-  unordered_map<unsigned, local_hash_t> local_hash_ring_map;
+  unordered_map<unsigned, GlobalHashRing> global_hash_ring_map;
+  unordered_map<unsigned, LocalHashRing> local_hash_ring_map;
 
   // pending events for asynchrony
   unordered_map<string, pair<chrono::system_clock::time_point, vector<pair<string, string>>>> pending_key_request_map;
@@ -71,7 +71,7 @@ void run(unsigned thread_id) {
   // form local hash rings
   for (auto it = tier_data_map.begin(); it != tier_data_map.end(); it++) {
     for (unsigned tid = 0; tid < it->second.thread_number_; tid++) {
-      insert_to_hash_ring<local_hash_t>(local_hash_ring_map[it->first], ip, tid);
+      insert_to_hash_ring<LocalHashRing>(local_hash_ring_map[it->first], ip, tid);
     }
   }
 
@@ -154,7 +154,7 @@ void run(unsigned thread_id) {
         logger->info("Received join from server {} in tier {}.", new_server_ip, to_string(tier));
 
         // update hash ring
-        bool inserted = insert_to_hash_ring<global_hash_t>(global_hash_ring_map[tier], new_server_ip, 0);
+        bool inserted = insert_to_hash_ring<GlobalHashRing>(global_hash_ring_map[tier], new_server_ip, 0);
 
         if (inserted) {
           if (thread_id == 0) {
@@ -175,7 +175,7 @@ void run(unsigned thread_id) {
 
             // tell all worker threads about the message
             for (unsigned tid = 1; tid < PROXY_THREAD_NUM; tid++) {
-              zmq_util::send_string(message, &pushers[routing_thread_t(ip, tid).get_notify_connect_addr()]);
+              zmq_util::send_string(message, &pushers[RoutingThread(ip, tid).get_notify_connect_addr()]);
             }
           }
         }
@@ -185,12 +185,12 @@ void run(unsigned thread_id) {
         }
       } else if (type == "depart") {
         logger->info("Received depart from server {}.", new_server_ip);
-        remove_from_hash_ring<global_hash_t>(global_hash_ring_map[tier], new_server_ip, 0);
+        remove_from_hash_ring<GlobalHashRing>(global_hash_ring_map[tier], new_server_ip, 0);
 
         if (thread_id == 0) {
           // tell all worker threads about the message
           for (unsigned tid = 1; tid < PROXY_THREAD_NUM; tid++) {
-            zmq_util::send_string(message, &pushers[routing_thread_t(ip, tid).get_notify_connect_addr()]);
+            zmq_util::send_string(message, &pushers[RoutingThread(ip, tid).get_notify_connect_addr()]);
           }
         }
 
@@ -281,7 +281,7 @@ void run(unsigned thread_id) {
       if (thread_id == 0) {
         // tell all worker threads about the replication factor change
         for (unsigned tid = 1; tid < PROXY_THREAD_NUM; tid++) {
-          zmq_util::send_string(serialized_req, &pushers[routing_thread_t(ip, tid).get_replication_factor_change_connect_addr()]);
+          zmq_util::send_string(serialized_req, &pushers[RoutingThread(ip, tid).get_replication_factor_change_connect_addr()]);
         }
       }
 
@@ -358,8 +358,8 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  tier_data_map[1] = tier_data(MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION, MEM_NODE_CAPACITY);
-  tier_data_map[2] = tier_data(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION, EBS_NODE_CAPACITY);
+  tier_data_map[1] = TierData(MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION, MEM_NODE_CAPACITY);
+  tier_data_map[2] = TierData(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION, EBS_NODE_CAPACITY);
 
   vector<thread> routing_worker_threads;
 

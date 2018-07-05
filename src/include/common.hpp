@@ -6,8 +6,8 @@
 #include <vector>
 #include <unordered_map>
 #include "communication.pb.h"
-#include "zmq/socket_cache.h"
-#include "zmq/zmq_util.h"
+#include "zmq/socket_cache.hpp"
+#include "zmq/zmq_util.hpp"
 
 // Define metadata identifier
 #define METADATA_IDENTIFIER "BEDROCKMETADATA"

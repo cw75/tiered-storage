@@ -8,9 +8,9 @@
 #include <unistd.h>
 #include <memory>
 #include <unordered_set>
-#include "zmq/socket_cache.h"
-#include "zmq/zmq_util.h"
-#include "common.h"
+#include "zmq/socket_cache.hpp"
+#include "zmq/zmq_util.hpp"
+#include "common.hpp"
 #include "yaml-cpp/yaml.h"
 
 using namespace std;

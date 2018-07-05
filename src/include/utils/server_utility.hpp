@@ -3,8 +3,8 @@
 
 #include <string>
 #include "communication.pb.h"
-#include "../zmq/socket_cache.h"
-#include "../zmq/zmq_util.h"
+#include "../zmq/socket_cache.hpp"
+#include "../zmq/zmq_util.hpp"
 #include "yaml-cpp/yaml.h"
 
 using namespace std;
@@ -18,32 +18,31 @@ using namespace std;
 // Define the gossip period (frequency)
 #define PERIOD 10000000
 
-// TODO: reconsider type names here
-typedef KV_Store<string, RC_KVS_PairLattice<string>> Database;
+typedef KVStore<string, ReadCommittedPairLattice<string>> MemoryKVS;
 
 // a map that represents which keys should be sent to which IP-port combinations
-typedef unordered_map<string, unordered_set<string>> address_keyset_map;
+typedef unordered_map<string, unordered_set<string>> AddressKeysetMap;
 
 class Serializer {
 public:
-  virtual RC_KVS_PairLattice<string> get(const string& key, unsigned& err_number) = 0;
+  virtual ReadCommittedPairLattice<string> get(const string& key, unsigned& err_number) = 0;
   virtual bool put(const string& key, const string& value, const unsigned& timestamp) = 0;
   virtual void remove(const string& key) = 0;
 };
 
-class Memory_Serializer : public Serializer {
-  Database* kvs_;
+class MemorySerializer : public Serializer {
+  MemoryKVS* kvs_;
 
 public:
-  Memory_Serializer(Database* kvs): kvs_(kvs) {}
+  MemorySerializer(MemoryKVS* kvs): kvs_(kvs) {}
 
-  RC_KVS_PairLattice<string> get(const string& key, unsigned& err_number) {
+  ReadCommittedPairLattice<string> get(const string& key, unsigned& err_number) {
     return kvs_->get(key, err_number);
   }
 
   bool put(const string& key, const string& value, const unsigned& timestamp) {
-    timestamp_value_pair<string> p = timestamp_value_pair<string>(timestamp, value);
-    return kvs_->put(key, RC_KVS_PairLattice<string>(p));
+    TimestampValuePair<string> p = TimestampValuePair<string>(timestamp, value);
+    return kvs_->put(key, ReadCommittedPairLattice<string>(p));
   }
 
   void remove(const string& key) {
@@ -51,12 +50,12 @@ public:
   }
 };
 
-class EBS_Serializer : public Serializer {
+class EBSSerializer : public Serializer {
   unsigned tid_;
   string ebs_root_;
 
 public:
-  EBS_Serializer(unsigned& tid): tid_(tid) {
+  EBSSerializer(unsigned& tid): tid_(tid) {
     YAML::Node conf = YAML::LoadFile("conf/config.yml");
 
     string monitoring_address = conf["ebs"].as<string>();
@@ -66,8 +65,8 @@ public:
     }
   }
 
-  RC_KVS_PairLattice<string> get(const string& key, unsigned& err_number) {
-    RC_KVS_PairLattice<string> res;
+  ReadCommittedPairLattice<string> get(const string& key, unsigned& err_number) {
+    ReadCommittedPairLattice<string> res;
     communication::Payload pl;
 
     // open a new filestream for reading in a binary
@@ -80,14 +79,14 @@ public:
       cerr << "Failed to parse payload." << endl;
       err_number = 1;
     } else {
-      res = RC_KVS_PairLattice<string>(timestamp_value_pair<string>(pl.timestamp(), pl.value()));
+      res = ReadCommittedPairLattice<string>(TimestampValuePair<string>(pl.timestamp(), pl.value()));
     }
     return res;
   }
 
   bool put(const string& key, const string& value, const unsigned& timestamp) {
     bool replaced = false;
-    timestamp_value_pair<string> p = timestamp_value_pair<string>(timestamp, value);
+    TimestampValuePair<string> p = TimestampValuePair<string>(timestamp, value);
 
     communication::Payload pl_orig;
     communication::Payload pl;
@@ -109,8 +108,8 @@ public:
       cerr << "Failed to parse payload." << endl;
     } else {
       // get the existing value that we have and merge
-      RC_KVS_PairLattice<string> l = RC_KVS_PairLattice<string>(timestamp_value_pair<string>(pl_orig.timestamp(), pl_orig.value()));
-      replaced = l.Merge(p);
+      ReadCommittedPairLattice<string> l = ReadCommittedPairLattice<string>(TimestampValuePair<string>(pl_orig.timestamp(), pl_orig.value()));
+      replaced = l.merge(p);
 
       if (replaced) {
         // set the payload's data to the merged values of the value and timestamp
@@ -139,16 +138,16 @@ public:
 };
 
 // used for key stat monitoring
-struct key_stat {
-  key_stat() : size_(0) {}
-  key_stat(unsigned size)
+struct KeyStat {
+  KeyStat() : size_(0) {}
+  KeyStat(unsigned size)
     : size_(size) {}
   unsigned size_;
 };
 
-struct pending_request {
-  pending_request() {}
-  pending_request(string type, const string& value, string addr, string respond_id)
+struct PendingRequest {
+  PendingRequest() {}
+  PendingRequest(string type, const string& value, string addr, string respond_id)
     : type_(type), value_(value), addr_(addr), respond_id_(respond_id) {}
   string type_;
   string value_;
@@ -156,9 +155,9 @@ struct pending_request {
   string respond_id_;
 };
 
-struct pending_gossip {
-  pending_gossip() {}
-  pending_gossip(const string& value, const unsigned long long& ts)
+struct PendingGossip {
+  PendingGossip() {}
+  PendingGossip(const string& value, const unsigned long long& ts)
     : value_(value), ts_(ts) {}
   string value_;
   unsigned long long ts_;
