@@ -3,14 +3,14 @@
 
 #include "threads.h"
 
-struct thread_hash {
-  std::size_t operator () (const server_thread_t &st) const {
+struct ThreadHash {
+  std::size_t operator () (const ServerThread &st) const {
     return std::hash<string>{}(st.get_id());
   }
 };
 
-struct global_hasher {
-  uint32_t operator()(const server_thread_t& th) {
+struct GlobalHasher {
+  uint32_t operator()(const ServerThread& th) {
     // prepend a string to make the hash value different than
     // what it would be on the naked input
     return std::hash<string>{}("GLOBAL"+th.get_virtual_id());
@@ -25,8 +25,8 @@ struct global_hasher {
   typedef uint32_t result_type;
 };
 
-struct local_hasher {
-  hash<string>::result_type operator()(const server_thread_t& th) {
+struct LocalHasher {
+  hash<string>::result_type operator()(const ServerThread& th) {
     return hash<string>{}(to_string(th.get_tid()) + "_" + to_string(th.get_virtual_num()));
   }
 

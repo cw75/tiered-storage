@@ -23,15 +23,6 @@ protected:
 public:
 	BoolLattice() : Lattice() {}
 	BoolLattice(const bool &e) : Lattice(e) {}
-
-	// this should probably be defined by the application
-	// just make it an if-top test and put it in the lattice superclass
-	const int when_true(const int (*f)()) const{
-		if (element) {
-			return (*f)();
-		}
-		else return 0;
-	}
 };
 
 template <typename T>
@@ -126,16 +117,14 @@ protected:
             this->insert_pair(ms->first, ms->second);
         }
     }
-public:
 
+public:
 	MapLattice() : Lattice<unordered_map<K, V>>() {}
 	MapLattice(const unordered_map<K, V> &m) : Lattice<unordered_map<K, V>>(m) {}
 	MaxLattice<int> size() const{
 		return this->element.size();
 	}
 
-	// sort and set_intersect
-	// how c++ deal with map intersect
 	MapLattice<K, V> intersect(MapLattice<K, V> other) const{
 		MapLattice<K, V> res;
 		unordered_map<K, V> m = other.reveal();
@@ -148,7 +137,6 @@ public:
         return res;
 	}
 
-  // move it out
 	MapLattice<K, V> project(bool (*f)(V)) const{
 		unordered_map<K, V> res;
 		for (auto it = this->element.begin(); it != this->element.end(); ++it) {
@@ -163,7 +151,6 @@ public:
 		else return BoolLattice(true);
 	}
 
-  // use c++ built-in function
 	SetLattice<K> key_set() const{
 		unordered_set<K> res;
 		for ( auto it = this->element.begin(); it != this->element.end(); ++it) {

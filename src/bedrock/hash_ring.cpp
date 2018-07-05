@@ -14,9 +14,9 @@
 #include "hash_ring.h"
 
 // assuming the replication factor will never be greater than the number of nodes in a tier
-// return a set of server_thread_t that are responsible for a key
-unordered_set<server_thread_t, thread_hash> responsible_global(string key, unsigned global_rep, global_hash_t& global_hash_ring) {
-  unordered_set<server_thread_t, thread_hash> threads;
+// return a set of ServerThread that are responsible for a key
+unordered_set<ServerThread, ThreadHash> responsible_global(string key, unsigned global_rep, GlobalHashRing& global_hash_ring) {
+  unordered_set<ServerThread, ThreadHash> threads;
   auto pos = global_hash_ring.find(key);
 
   if (pos != global_hash_ring.end()) {
@@ -40,7 +40,7 @@ unordered_set<server_thread_t, thread_hash> responsible_global(string key, unsig
 
 // assuming the replication factor will never be greater than the number of worker threads
 // return a set of tids that are responsible for a key
-unordered_set<unsigned> responsible_local(string key, unsigned local_rep, local_hash_t& local_hash_ring) {
+unordered_set<unsigned> responsible_local(string key, unsigned local_rep, LocalHashRing& local_hash_ring) {
   unordered_set<unsigned> tids;
   auto pos = local_hash_ring.find(key);
 
@@ -63,12 +63,12 @@ unordered_set<unsigned> responsible_local(string key, unsigned local_rep, local_
   return tids;
 }
 
-unordered_set<server_thread_t, thread_hash> get_responsible_threads_metadata(
+unordered_set<ServerThread, ThreadHash> get_responsible_threads_metadata(
     string& key,
-    global_hash_t& global_memory_hash_ring,
-    local_hash_t& local_memory_hash_ring) {
+    GlobalHashRing& global_memory_hash_ring,
+    LocalHashRing& local_memory_hash_ring) {
 
-  unordered_set<server_thread_t, thread_hash> threads;
+  unordered_set<ServerThread, ThreadHash> threads;
   auto mts = responsible_global(key, METADATA_REPLICATION_FACTOR, global_memory_hash_ring);
 
   for (auto it = mts.begin(); it != mts.end(); it++) {
@@ -76,7 +76,7 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads_metadata(
     auto tids = responsible_local(key, DEFAULT_LOCAL_REPLICATION, local_memory_hash_ring);
 
     for (auto iter = tids.begin(); iter != tids.end(); iter++) {
-      threads.insert(server_thread_t(ip, *iter));
+      threads.insert(ServerThread(ip, *iter));
     }
   }
 
@@ -86,8 +86,8 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads_metadata(
 void issue_replication_factor_request(
     const string& respond_address,
     const string& key,
-    global_hash_t& global_memory_hash_ring,
-    local_hash_t& local_memory_hash_ring,
+    GlobalHashRing& global_memory_hash_ring,
+    LocalHashRing& local_memory_hash_ring,
     SocketCache& pushers,
 
     unsigned& seed) {
@@ -110,13 +110,13 @@ void issue_replication_factor_request(
 
 // get all threads responsible for a key from the "node_type" tier
 // metadata flag = 0 means the key is a metadata. Otherwise, it is a regular data
-unordered_set<server_thread_t, thread_hash> get_responsible_threads(
+unordered_set<ServerThread, ThreadHash> get_responsible_threads(
     string respond_address,
     string key,
     bool metadata,
-    unordered_map<unsigned, global_hash_t>& global_hash_ring_map,
-    unordered_map<unsigned, local_hash_t>& local_hash_ring_map,
-    unordered_map<string, key_info>& placement,
+    unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+    unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
+    unordered_map<string, KeyInfo>& placement,
     SocketCache& pushers,
     vector<unsigned>& tier_ids,
     bool& succeed,
@@ -126,7 +126,7 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads(
     succeed = true;
     return get_responsible_threads_metadata(key, global_hash_ring_map[1], local_hash_ring_map[1]);
   } else {
-    unordered_set<server_thread_t, thread_hash> result;
+    unordered_set<ServerThread, ThreadHash> result;
 
     if (placement.find(key) == placement.end()) {
       issue_replication_factor_request(respond_address, key, global_hash_ring_map[1], local_hash_ring_map[1], pushers, seed);
@@ -141,7 +141,7 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads(
           auto tids = responsible_local(key, placement[key].local_replication_map_[tier_id], local_hash_ring_map[tier_id]);
 
           for (auto iter = tids.begin(); iter != tids.end(); iter++) {
-            result.insert(server_thread_t(ip, *iter));
+            result.insert(ServerThread(ip, *iter));
           }
         }
       }
@@ -156,7 +156,7 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads(
 
 // query the routing for a key and return all address
 vector<string> get_address_from_routing(
-    user_thread_t& ut,
+    UserThread& ut,
     string key,
     zmq::socket_t& sending_socket,
     zmq::socket_t& receiving_socket,
@@ -186,8 +186,8 @@ vector<string> get_address_from_routing(
   return result;
 }
 
-routing_thread_t get_random_routing_thread(vector<string>& routing_address, unsigned& seed) {
+RoutingThread get_random_routing_thread(vector<string>& routing_address, unsigned& seed) {
   string routing_ip = routing_address[rand_r(&seed) % routing_address.size()];
   unsigned tid = rand_r(&seed) % PROXY_THREAD_NUM;
-  return routing_thread_t(routing_ip, tid);
+  return RoutingThread(routing_ip, tid);
 }

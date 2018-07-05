@@ -9,15 +9,15 @@ using namespace std;
 
 
 // server thread
-class server_thread_t {
+class ServerThread {
   string ip_;
   unsigned tid_;
   unsigned virtual_num_;
 
 public:
-  server_thread_t() {}
-  server_thread_t(string ip, unsigned tid): ip_(ip), tid_(tid) {}
-  server_thread_t(string ip, unsigned tid, unsigned virtual_num): ip_(ip), tid_(tid), virtual_num_(virtual_num) {}
+  ServerThread() {}
+  ServerThread(string ip, unsigned tid): ip_(ip), tid_(tid) {}
+  ServerThread(string ip, unsigned tid, unsigned virtual_num): ip_(ip), tid_(tid), virtual_num_(virtual_num) {}
 
   string get_ip() const {
     return ip_;
@@ -79,7 +79,7 @@ public:
 };
 
 
-inline bool operator==(const server_thread_t& l, const server_thread_t& r) {
+inline bool operator==(const ServerThread& l, const ServerThread& r) {
   if (l.get_id().compare(r.get_id()) == 0) {
     return true;
   } else {
@@ -88,13 +88,13 @@ inline bool operator==(const server_thread_t& l, const server_thread_t& r) {
 }
 
 // routing thread
-class routing_thread_t {
+class RoutingThread {
   string ip_;
   unsigned tid_;
 
 public:
-  routing_thread_t() {}
-  routing_thread_t(string ip, unsigned tid): ip_(ip), tid_(tid) {}
+  RoutingThread() {}
+  RoutingThread(string ip, unsigned tid): ip_(ip), tid_(tid) {}
 
   string get_ip() const {
     return ip_;
@@ -147,12 +147,12 @@ public:
 
 
 // monitoring thread
-class monitoring_thread_t {
+class MonitoringThread {
   string ip_;
 
 public:
-  monitoring_thread_t() {}
-  monitoring_thread_t(string ip): ip_(ip) {}
+  MonitoringThread() {}
+  MonitoringThread(string ip): ip_(ip) {}
 
   string get_ip() const {
     return ip_;
@@ -191,13 +191,13 @@ public:
   }
 };
 
-class user_thread_t {
+class UserThread {
   string ip_;
   unsigned tid_;
 
 public:
-  user_thread_t() {}
-  user_thread_t(string ip, unsigned tid): ip_(ip), tid_(tid) {}
+  UserThread() {}
+  UserThread(string ip, unsigned tid): ip_(ip), tid_(tid) {}
 
   string get_ip() const {
     return ip_;

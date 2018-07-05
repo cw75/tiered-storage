@@ -73,7 +73,7 @@ void handle_request(
     unordered_map<string, unordered_set<string>>& key_address_cache,
     unsigned& seed,
     shared_ptr<spdlog::logger> logger,
-    user_thread_t& ut,
+    UserThread& ut,
     zmq::socket_t& response_puller,
     zmq::socket_t& key_address_puller,
     string& ip,
@@ -211,18 +211,17 @@ void run(unsigned thread_id) {
   // rep factor map
   unordered_map<string, pair<double, unsigned>> rep_factor_map;
 
-  user_thread_t ut = user_thread_t(ip, thread_id);
+  UserThread ut = UserThread(ip, thread_id);
 
   // read the YAML conf
-
   vector<string> routing_address;
-  vector<monitoring_thread_t> mts;
+  vector<MonitoringThread> mts;
 
   YAML::Node routing = conf["routing"];
   YAML::Node monitoring = conf["monitoring"];
 
   for (YAML::const_iterator it = monitoring.begin(); it != monitoring.end(); ++it) {
-    mts.push_back(monitoring_thread_t(it->as<string>()));
+    mts.push_back(MonitoringThread(it->as<string>()));
   }
 
   for (YAML::const_iterator it = routing.begin(); it != routing.end(); ++it) {

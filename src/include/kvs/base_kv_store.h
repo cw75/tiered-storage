@@ -7,15 +7,15 @@
 using namespace std;
 
 template <typename K, typename V>
-class KV_Store{
+class KVStore {
 
 protected:
   MapLattice<K, V> db;
 
 public:
-  KV_Store<K, V>() {}
+  KVStore<K, V>() {}
 
-  KV_Store<K, V>(MapLattice<K, V> &other) {
+  KVStore<K, V>(MapLattice<K, V> &other) {
     db = other;
   }
 
@@ -27,7 +27,7 @@ public:
   }
 
   bool put(const K& k, const V &v) {
-    return db.at(k).Merge(v);
+    return db.at(k).merge(v);
   }
 
   void remove(const K& k) {
