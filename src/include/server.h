@@ -2,6 +2,9 @@
 #define __SERVER_H__
 
 #include "utils/server_utility.h"
+#include "threads.h"
+#include "hash_ring.h"
+
 void join_handler(unsigned int self_tier_id,
              unsigned int thread_num,
              string ip,
