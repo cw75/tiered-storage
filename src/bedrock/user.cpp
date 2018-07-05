@@ -185,7 +185,7 @@ void run(unsigned thread_id, string filename) {
   user_thread_t ut = user_thread_t(ip, thread_id);
 
   // read the YAML conf
-  YAML::Node routing = conf["routing_ips"];
+  YAML::Node routing = conf["routing"];
   vector<string> routing_address;
 
   for (YAML::const_iterator it = routing.begin(); it != routing.end(); ++it) {
