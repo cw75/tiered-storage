@@ -43,5 +43,6 @@ if [[ -z "$TYPE" ]]; then TYPE=Release; fi
 rm -rf build
 mkdir build
 cd build
+
 cmake -std=c++ll -DCMAKE_BUILD_TYPE=$TYPE ..
 make -j${MAKE_THREADS}

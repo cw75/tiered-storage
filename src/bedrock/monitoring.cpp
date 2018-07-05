@@ -8,11 +8,16 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <memory>
+#include "spdlog/spdlog.h"
 #include "communication.pb.h"
 #include "zmq/socket_cache.h"
 #include "zmq/zmq_util.h"
 #include "utils/consistent_hash_map.hpp"
 #include "common.h"
+#include "threads.h"
+#include "requests.h"
+#include "hashers.h"
+#include "hash_ring.h"
 #include "yaml-cpp/yaml.h"
 
 // the default number of nodes to add concurrently for storage
@@ -622,7 +627,7 @@ int main(int argc, char* argv[]) {
   // keep track of the keys' replication info
   unordered_map<string, key_info> placement;
   // warm up for benchmark
-  warmup(placement);
+  warmup_placement_to_defaults(placement);
 
   // keep track of the keys' access by worker address
   unordered_map<string, unordered_map<address_t, unsigned>> key_access_frequency;

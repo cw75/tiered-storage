@@ -12,12 +12,14 @@
 #include <atomic>
 #include <chrono>
 #include <ctime>
+#include "spdlog/spdlog.h"
 #include "kvs/rc_kv_store.h"
 #include "communication.pb.h"
 #include "zmq/socket_cache.h"
 #include "zmq/zmq_util.h"
 #include "utils/consistent_hash_map.hpp"
 #include "common.h"
+#include "hash_ring.h"
 #include "utils/server_utility.h"
 #include "yaml-cpp/yaml.h"
 #include "yaml-cpp/node/node.h"
@@ -525,7 +527,6 @@ void run(unsigned thread_id) {
           }
         }
       }
-
       auto time_elapsed = chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
       working_time += time_elapsed;
       working_time_map[0] += time_elapsed;

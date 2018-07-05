@@ -164,12 +164,4 @@ struct pending_gossip {
   unsigned long long ts_;
 };
 
-// form the timestamp given a time and a thread id
-unsigned long long generate_timestamp(unsigned long long time, unsigned tid) {
-  unsigned pow = 10;
-  while(tid >= pow)
-    pow *= 10;
-  return time * pow + tid;
-}
-
 #endif
