@@ -69,9 +69,8 @@
 #define HOT_KEY_THRESHOLD 5000
 
 // node capacity in KB
-// initialized in common.cpp
-extern unsigned MEM_NODE_CAPACITY;
-extern unsigned EBS_NODE_CAPACITY;
+#define MEM_NODE_CAPACITY 60000000
+#define EBS_NODE_CAPACITY 256000000
 
 // value size in KB
 #define VALUE_SIZE 256
@@ -104,16 +103,41 @@ extern unsigned EBS_NODE_CAPACITY;
 #define USER_KEY_ADDRESS_BASE_PORT 6900
 #define COMMAND_BASE_PORT 6950
 
-void split(const std::string &s, char delim, std::vector<std::string> &elems);
-unsigned long long generate_timestamp(unsigned long long time, unsigned tid);
+using namespace std;
 
-void prepare_get_tuple(communication::Request& req, std::string key);
+inline void split(const std::string &s, char delim, std::vector<std::string> &elems) {
+  std::stringstream ss(s);
+  std::string item;
 
-void prepare_put_tuple(communication::Request& req, std::string key, 
-                       std::string value, unsigned long long timestamp);
+  while (std::getline(ss, item, delim)) {
+    elems.push_back(item);
+  }
+}
 
-void push_request(communication::Request& req, zmq::socket_t& socket);
+// form the timestamp given a time and a thread id
+inline unsigned long long generate_timestamp(unsigned long long time, unsigned tid) {
+  unsigned pow = 10;
+  while(tid >= pow)
+    pow *= 10;
+  return time * pow + tid;
+}
 
-bool is_metadata(std::string key);
+inline void prepare_get_tuple(communication::Request& req, string key) {
+  communication::Request_Tuple* tp = req.add_tuple();
+  tp->set_key(key);
+}
+
+inline void prepare_put_tuple(communication::Request& req, string key, string value, unsigned long long timestamp) {
+  communication::Request_Tuple* tp = req.add_tuple();
+  tp->set_key(key);
+  tp->set_value(value);
+  tp->set_timestamp(timestamp);
+}
+
+inline void push_request(communication::Request& req, zmq::socket_t& socket) {
+  string serialized_req;
+  req.SerializeToString(&serialized_req);
+  zmq_util::send_string(serialized_req, &socket);
+}
 
 #endif

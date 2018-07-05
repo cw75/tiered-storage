@@ -78,6 +78,15 @@ public:
   }
 };
 
+
+inline bool operator==(const server_thread_t& l, const server_thread_t& r) {
+  if (l.get_id().compare(r.get_id()) == 0) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
 // routing thread
 class routing_thread_t {
   string ip_;

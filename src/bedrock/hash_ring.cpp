@@ -8,17 +8,10 @@
 #include "spdlog/spdlog.h"
 #include "yaml-cpp/yaml.h"
 
+#include "common.h"
 #include "threads.h"
 #include "requests.h"
 #include "hash_ring.h"
-
-bool operator==(const server_thread_t& l, const server_thread_t& r) {
-  if (l.get_id().compare(r.get_id()) == 0) {
-    return true;
-  } else {
-    return false;
-  }
-}
 
 // assuming the replication factor will never be greater than the number of nodes in a tier
 // return a set of server_thread_t that are responsible for a key
@@ -197,16 +190,4 @@ routing_thread_t get_random_routing_thread(vector<string>& routing_address, unsi
   string routing_ip = routing_address[rand_r(&seed) % routing_address.size()];
   unsigned tid = rand_r(&seed) % PROXY_THREAD_NUM;
   return routing_thread_t(routing_ip, tid);
-}
-
-
-void warmup(unordered_map<string, key_info>& placement) {
-  for (unsigned i = 1; i <= 1000000; i++) {
-    // key is 8 bytes
-    string key = string(8 - to_string(i).length(), '0') + to_string(i);
-    placement[key].global_replication_map_[1] = DEFAULT_GLOBAL_MEMORY_REPLICATION;
-    placement[key].global_replication_map_[2] = DEFAULT_GLOBAL_EBS_REPLICATION;
-    placement[key].local_replication_map_[1] = DEFAULT_LOCAL_REPLICATION;
-    placement[key].local_replication_map_[2] = DEFAULT_LOCAL_REPLICATION;
-  }
 }

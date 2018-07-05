@@ -71,6 +71,14 @@ vector<std::string> get_address_from_routing(
 routing_thread_t get_random_routing_thread
     (std::vector<std::string>& routing_address, unsigned& seed);
 
-void warmup(std::unordered_map<std::string, key_info>& placement);
-
+inline void warmup(unordered_map<string, key_info>& placement) {
+  for (unsigned i = 1; i <= 1000000; i++) {
+    // key is 8 bytes
+    string key = string(8 - to_string(i).length(), '0') + to_string(i);
+    placement[key].global_replication_map_[1] = DEFAULT_GLOBAL_MEMORY_REPLICATION;
+    placement[key].global_replication_map_[2] = DEFAULT_GLOBAL_EBS_REPLICATION;
+    placement[key].local_replication_map_[1] = DEFAULT_LOCAL_REPLICATION;
+    placement[key].local_replication_map_[2] = DEFAULT_LOCAL_REPLICATION;
+  }
+}
 #endif

@@ -21,4 +21,16 @@ struct tier_data {
   unsigned long long node_capacity_;
 };
 
+
+inline bool is_metadata(string key) {
+  vector<string> v;
+  split(key, '_', v);
+
+  if (v[0] == "BEDROCKMETADATA") {
+    return true;
+  } else {
+    return false;
+  }
+}
+
 #endif
