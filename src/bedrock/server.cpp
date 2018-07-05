@@ -1146,7 +1146,13 @@ int main(int argc, char* argv[]) {
   }
 
   // populate metadata
-  SELF_TIER_ID = atoi(getenv("SERVER_TYPE"));
+  char* stype = getenv("SERVER_TYPE");
+  if (stype != NULL) {
+    SELF_TIER_ID = atoi(stype);
+  } else {
+    cout << "No server type specified. The default behavior is to start the server in memory mode." << endl;
+    SELF_TIER_ID = 1;
+  }
 
   tier_data_map[1] = TierData(MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION, MEM_NODE_CAPACITY);
   tier_data_map[2] = TierData(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION, EBS_NODE_CAPACITY);
