@@ -53,16 +53,16 @@ public:
     return "tcp://*:" + to_string(tid_ + SELF_DEPART_BASE_PORT);
   }
   string get_request_pulling_connect_addr() const {
-    return "tcp://" + ip_ + ":" + to_string(tid_ + REQUEST_PULLING_BASE_PORT);
+    return "tcp://" + ip_ + ":" + to_string(tid_ + SERVER_REQUEST_PULLING_BASE_PORT);
   }
   string get_request_pulling_bind_addr() const {
-    return "tcp://*:" + to_string(tid_ + REQUEST_PULLING_BASE_PORT);
+    return "tcp://*:" + to_string(tid_ + SERVER_REQUEST_PULLING_BASE_PORT);
   }
   string get_replication_factor_connect_addr() const {
-    return "tcp://" + ip_ + ":" + to_string(tid_ + REPLICATION_FACTOR_BASE_PORT);
+    return "tcp://" + ip_ + ":" + to_string(tid_ + SERVER_REPLICATION_FACTOR_BASE_PORT);
   }
   string get_replication_factor_bind_addr() const {
-    return "tcp://*:" + to_string(tid_ + REPLICATION_FACTOR_BASE_PORT);
+    return "tcp://*:" + to_string(tid_ + SERVER_REPLICATION_FACTOR_BASE_PORT);
   }
   string get_gossip_connect_addr() const {
     return "tcp://" + ip_ + ":" + to_string(tid_ + GOSSIP_BASE_PORT);
@@ -71,10 +71,10 @@ public:
     return "tcp://*:" + to_string(tid_ + GOSSIP_BASE_PORT);
   }
   string get_replication_factor_change_connect_addr() const {
-    return "tcp://" + ip_ + ":" + to_string(tid_ + REPLICATION_FACTOR_CHANGE_BASE_PORT);
+    return "tcp://" + ip_ + ":" + to_string(tid_ + SERVER_REPLICATION_FACTOR_CHANGE_BASE_PORT);
   }
   string get_replication_factor_change_bind_addr() const {
-    return "tcp://*:" + to_string(tid_ + REPLICATION_FACTOR_CHANGE_BASE_PORT);
+    return "tcp://*:" + to_string(tid_ + SERVER_REPLICATION_FACTOR_CHANGE_BASE_PORT);
   }
 };
 
@@ -104,35 +104,35 @@ public:
   }
 
   string get_notify_connect_addr() const {
-    return "tcp://" + ip_ + ":" + to_string(tid_ + NOTIFY_BASE_PORT);
+    return "tcp://" + ip_ + ":" + to_string(tid_ + ROUTING_NOTIFY_BASE_PORT);
   }
 
   string get_notify_bind_addr() const {
-    return "tcp://*:" + to_string(tid_ + NOTIFY_BASE_PORT);
+    return "tcp://*:" + to_string(tid_ + ROUTING_NOTIFY_BASE_PORT);
   }
 
   string get_key_address_connect_addr() const {
-    return "tcp://" + ip_ + ":" + to_string(tid_ + KEY_ADDRESS_BASE_PORT);
+    return "tcp://" + ip_ + ":" + to_string(tid_ + ROUTING_KEY_ADDRESS_BASE_PORT);
   }
 
   string get_key_address_bind_addr() const {
-    return "tcp://*:" + to_string(tid_ + KEY_ADDRESS_BASE_PORT);
+    return "tcp://*:" + to_string(tid_ + ROUTING_KEY_ADDRESS_BASE_PORT);
   }
 
   string get_replication_factor_connect_addr() const {
-    return "tcp://" + ip_ + ":" + to_string(tid_ + REPLICATION_FACTOR_BASE_PORT);
+    return "tcp://" + ip_ + ":" + to_string(tid_ + ROUTING_REPLICATION_FACTOR_BASE_PORT);
   }
 
   string get_replication_factor_bind_addr() const {
-    return "tcp://*:" + to_string(tid_ + REPLICATION_FACTOR_BASE_PORT);
+    return "tcp://*:" + to_string(tid_ + ROUTING_REPLICATION_FACTOR_BASE_PORT);
   }
 
   string get_replication_factor_change_connect_addr() const {
-    return "tcp://" + ip_ + ":" + to_string(tid_ + REPLICATION_FACTOR_CHANGE_BASE_PORT);
+    return "tcp://" + ip_ + ":" + to_string(tid_ + ROUTING_REPLICATION_FACTOR_CHANGE_BASE_PORT);
   }
 
   string get_replication_factor_change_bind_addr() const {
-    return "tcp://*:" + to_string(tid_ + REPLICATION_FACTOR_CHANGE_BASE_PORT);
+    return "tcp://*:" + to_string(tid_ + ROUTING_REPLICATION_FACTOR_CHANGE_BASE_PORT);
   }
 };
 
@@ -150,19 +150,19 @@ public:
   }
 
   string get_notify_connect_addr() const {
-    return "tcp://" + ip_ + ":" + to_string(NOTIFY_BASE_PORT);
+    return "tcp://" + ip_ + ":" + to_string(MON_NOTIFY_BASE_PORT);
   }
 
   string get_notify_bind_addr() const {
-    return "tcp://*:" + to_string(NOTIFY_BASE_PORT);
+    return "tcp://*:" + to_string(MON_NOTIFY_BASE_PORT);
   }
 
   string get_request_pulling_connect_addr() const {
-    return "tcp://" + ip_ + ":" + to_string(REQUEST_PULLING_BASE_PORT);
+    return "tcp://" + ip_ + ":" + to_string(MON_REQUEST_PULLING_BASE_PORT);
   }
 
   string get_request_pulling_bind_addr() const {
-    return "tcp://*:" + to_string(REQUEST_PULLING_BASE_PORT);
+    return "tcp://*:" + to_string(MON_REQUEST_PULLING_BASE_PORT);
   }
 
   string get_depart_done_connect_addr() const {
@@ -199,19 +199,19 @@ public:
   }
 
   string get_request_pulling_connect_addr() const {
-    return "tcp://" + ip_ + ":" + to_string(tid_ + REQUEST_PULLING_BASE_PORT);
+    return "tcp://" + ip_ + ":" + to_string(tid_ + USER_REQUEST_PULLING_BASE_PORT);
   }
 
   string get_request_pulling_bind_addr() const {
-    return "tcp://*:" + to_string(tid_ + REQUEST_PULLING_BASE_PORT);
+    return "tcp://*:" + to_string(tid_ + USER_REQUEST_PULLING_BASE_PORT);
   }
 
   string get_key_address_connect_addr() const {
-    return "tcp://" + ip_ + ":" + to_string(tid_ + KEY_ADDRESS_BASE_PORT);
+    return "tcp://" + ip_ + ":" + to_string(tid_ + USER_KEY_ADDRESS_BASE_PORT);
   }
 
   string get_key_address_bind_addr() const {
-    return "tcp://*:" + to_string(tid_ + KEY_ADDRESS_BASE_PORT);
+    return "tcp://*:" + to_string(tid_ + USER_KEY_ADDRESS_BASE_PORT);
   }
 };
 
