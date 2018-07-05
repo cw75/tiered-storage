@@ -39,6 +39,6 @@ ADD_EXECUTABLE(monitoring monitoring.cpp common.cpp hash_ring.cpp ${KV_SRC_DEPEN
 TARGET_LINK_LIBRARIES(monitoring ${KV_LIBRARY_DEPENDENCIES})
 ADD_DEPENDENCIES(monitoring zeromq zeromqcpp)
 
-ADD_EXECUTABLE(server srvr/server.cpp srvr/join_handler.cpp common.cpp hash_ring.cpp ${KV_SRC_DEPENDENCIES} ${ZMQ_DEPENDENCIES})
+ADD_EXECUTABLE(server server.cpp common.cpp hash_ring.cpp ${KV_SRC_DEPENDENCIES} ${ZMQ_DEPENDENCIES})
 TARGET_LINK_LIBRARIES(server ${KV_LIBRARY_DEPENDENCIES})
 ADD_DEPENDENCIES(server zeromq zeromqcpp)
