@@ -44,7 +44,7 @@ void run(unsigned thread_id) {
   unordered_map<string, key_info> placement;
 
   // warm up for benchmark
-  warmup(placement);
+  warmup_placement_to_defaults(placement);
 
   if (thread_id == 0) {
     // read the YAML conf

@@ -627,7 +627,7 @@ int main(int argc, char* argv[]) {
   // keep track of the keys' replication info
   unordered_map<string, key_info> placement;
   // warm up for benchmark
-  warmup(placement);
+  warmup_placement_to_defaults(placement);
 
   // keep track of the keys' access by worker address
   unordered_map<string, unordered_map<address_t, unsigned>> key_access_frequency;
