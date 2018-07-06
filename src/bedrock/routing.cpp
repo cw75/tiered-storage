@@ -262,6 +262,7 @@ void run(unsigned thread_id) {
               }
 
               // send the key address response
+              key_res.set_err_number(0);
               string serialized_key_res;
               key_res.SerializeToString(&serialized_key_res);
               zmq_util::send_string(serialized_key_res, &pushers[it->first]);

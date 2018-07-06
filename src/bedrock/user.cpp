@@ -67,7 +67,8 @@ void handle_request(
     // query the routing and update the cache
     string target_routing_address = get_random_routing_thread(routing_address, seed).get_key_address_connect_addr();
     bool succeed;
-    auto addresses = get_address_from_routing(ut, key, pushers[target_routing_address], key_address_puller, succeed, ip, thread_id, rid);
+    vector<string> addresses = get_address_from_routing(ut, key, pushers[target_routing_address], key_address_puller, succeed, ip, thread_id, rid);
+
     if (succeed) {
       for (auto it = addresses.begin(); it != addresses.end(); it++) {
         key_address_cache[key].insert(*it);
@@ -82,6 +83,7 @@ void handle_request(
       logger->error("Address cache for key " + key + " has size 0.");
       return;
     }
+
     worker_address = *(next(begin(key_address_cache[key]), rand_r(&seed) % key_address_cache[key].size()));
   }
 
