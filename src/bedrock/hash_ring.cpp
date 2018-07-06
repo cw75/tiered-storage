@@ -177,9 +177,13 @@ vector<string> get_address_from_routing(
   key_req.set_request_id(req_id);
   vector<string> result;
 
-  int err_number = 1;
+  int err_number = -1;
 
-  while (err_number == 1) {
+  while (err_number != 0) {
+    if (err_number == 1) {
+      cerr << "No servers have joined the cluster yet. Retrying request." << endl;
+    }
+
     if (count > 0 && count % 5 == 0) {
       cerr << "Pausing for 5 seconds before continuing to query routing layer..." << endl;
       usleep(5000000);
@@ -193,7 +197,6 @@ vector<string> get_address_from_routing(
     if (!succeed) {
       return result;
     } else {
-      cerr << "No servers have joined the cluster yet. Retrying request." << endl;
       err_number = key_response.err_number();
     }
 
