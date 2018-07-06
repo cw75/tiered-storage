@@ -14,78 +14,64 @@
 
 using namespace std;
 
-// Define metadata identifier
-#define METADATA_IDENTIFIER "BEDROCKMETADATA"
+// compile-time constants
+// define metadata identifier
+const string METADATA_IDENTIFIER = "BEDROCKMETADATA";
 
-// Define server report threshold (in second)
-#define SERVER_REPORT_THRESHOLD 15
-// Define server's key monitoring threshold (in second)
-#define KEY_MONITORING_THRESHOLD 60
-// Define monitoring threshold (in second)
-#define MONITORING_THRESHOLD 30
-// Define the threshold for retry rep factor query for gossip handling (in second)
-#define RETRY_THRESHOLD 10
-// Define the grace period for triggering elasticity action (in second)
-#define GRACE_PERIOD 120
+// define the replication factor for the metadata
+const unsigned METADATA_REPLICATION_FACTOR = 2;
+const unsigned METADATA_LOCAL_REPLICATION_FACTOR = 1;
+// define the number of virtual thread per each physical thread
+const unsigned VIRTUAL_THREAD_NUM = 3000;
 
-// Define the replication factor for the metadata
-#define METADATA_REPLICATION_FACTOR 2
-// Define the number of virtual thread per each physical thread
-#define VIRTUAL_THREAD_NUM 3000
+const unsigned MIN_TIER = 1;
+const unsigned MAX_TIER = 2;
 
-#define MEM_CAPACITY_MAX 0.6
-#define MEM_CAPACITY_MIN 0.3
-#define EBS_CAPACITY_MAX 0.75
-#define EBS_CAPACITY_MIN 0.5
-
-#define PROMOTE_THRESHOLD 0
-#define DEMOTE_THRESHOLD 1
-
-#define MIN_TIER 1
-#define MAX_TIER 2
-
-#define MINIMUM_MEMORY_NODE 12
-#define MINIMUM_EBS_NODE 0
-
-#define SLO_WORST 3000
-#define SLO_BEST 1500
-
-#define HOT_KEY_THRESHOLD 5000
+const unsigned SLO_WORST = 3000;
+const unsigned SLO_BEST = 1500;
 
 // node capacity in KB
-unsigned MEM_NODE_CAPACITY = 60000000;
-unsigned EBS_NODE_CAPACITY = 256000000;
-
-// value size in KB
-#define VALUE_SIZE 256
+const unsigned MEM_NODE_CAPACITY = 60000000;
+const unsigned EBS_NODE_CAPACITY = 256000000;
 
 // define server base ports
-#define SERVER_PORT 6000
-#define NODE_JOIN_BASE_PORT 6050
-#define NODE_DEPART_BASE_PORT 6100
-#define SELF_DEPART_BASE_PORT 6150
-#define SERVER_REPLICATION_FACTOR_BASE_PORT 6200
-#define SERVER_REQUEST_PULLING_BASE_PORT 6250
-#define GOSSIP_BASE_PORT 6300
-#define SERVER_REPLICATION_FACTOR_CHANGE_BASE_PORT 6350
+const unsigned SERVER_PORT = 6000;
+const unsigned NODE_JOIN_BASE_PORT = 6050;
+const unsigned NODE_DEPART_BASE_PORT = 6100;
+const unsigned SELF_DEPART_BASE_PORT = 6150;
+const unsigned SERVER_REPLICATION_FACTOR_BASE_PORT = 6200;
+const unsigned SERVER_REQUEST_PULLING_BASE_PORT = 6250;
+const unsigned GOSSIP_BASE_PORT = 6300;
+const unsigned SERVER_REPLICATION_FACTOR_CHANGE_BASE_PORT = 6350;
 
 // define routing base ports
-#define SEED_BASE_PORT 6400
-#define ROUTING_NOTIFY_BASE_PORT 6450
-#define ROUTING_KEY_ADDRESS_BASE_PORT 6500
-#define ROUTING_REPLICATION_FACTOR_BASE_PORT 6550
-#define ROUTING_REPLICATION_FACTOR_CHANGE_BASE_PORT 6600
+const unsigned SEED_BASE_PORT = 6400;
+const unsigned ROUTING_NOTIFY_BASE_PORT = 6450;
+const unsigned ROUTING_KEY_ADDRESS_BASE_PORT = 6500;
+const unsigned ROUTING_REPLICATION_FACTOR_BASE_PORT = 6550;
+const unsigned ROUTING_REPLICATION_FACTOR_CHANGE_BASE_PORT = 6600;
 
 // used by monitoring nodes
-#define MON_NOTIFY_BASE_PORT 6650
-#define MON_REQUEST_PULLING_BASE_PORT 6700
-#define DEPART_DONE_BASE_PORT 6750
-#define LATENCY_REPORT_BASE_PORT 6800
+const unsigned MON_NOTIFY_BASE_PORT = 6650;
+const unsigned MON_REQUEST_PULLING_BASE_PORT = 6700;
+const unsigned DEPART_DONE_BASE_PORT = 6750;
+const unsigned LATENCY_REPORT_BASE_PORT = 6800;
 
 // used by user nodes
-#define USER_REQUEST_PULLING_BASE_PORT 6850
-#define USER_KEY_ADDRESS_BASE_PORT 6900
-#define COMMAND_BASE_PORT 6950
+const unsigned USER_REQUEST_PULLING_BASE_PORT = 6850;
+const unsigned USER_KEY_ADDRESS_BASE_PORT = 6900;
+const unsigned COMMAND_BASE_PORT = 6950;
+
+// run-time constants
+// thread numbers
+unsigned MEMORY_THREAD_NUM;
+unsigned EBS_THREAD_NUM;
+unsigned ROUTING_THREAD_NUM;
+// default replication factors
+unsigned DEFAULT_GLOBAL_MEMORY_REPLICATION;
+unsigned DEFAULT_GLOBAL_EBS_REPLICATION;
+unsigned DEFAULT_LOCAL_REPLICATION;
+unsigned MINIMUM_REPLICA_NUMBER;
 
 // server thread
 class server_thread_t {
@@ -522,7 +508,7 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads_metadata(
 
   for (auto it = mts.begin(); it != mts.end(); it++) {
     string ip = it->get_ip();
-    auto tids = responsible_local(key, 1, local_memory_hash_ring);
+    auto tids = responsible_local(key, METADATA_LOCAL_REPLICATION_FACTOR, local_memory_hash_ring);
 
     for (auto iter = tids.begin(); iter != tids.end(); iter++) {
       threads.insert(server_thread_t(ip, *iter));

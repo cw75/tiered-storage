@@ -15,18 +15,29 @@
 #include "common.h"
 #include "yaml-cpp/yaml.h"
 
+// define monitoring threshold (in second)
+const unsigned MONITORING_THRESHOLD = 30;
+// define the grace period for triggering elasticity action (in second)
+const unsigned GRACE_PERIOD = 120;
 // the default number of nodes to add concurrently for storage
-#define NODE_ADD 2
+const unsigned NODE_ADD = 2;
+// define capacity for both tiers
+const double MEM_CAPACITY_MAX = 0.6;
+const double MEM_CAPACITY_MIN = 0.3;
+const double EBS_CAPACITY_MAX = 0.75;
+const double EBS_CAPACITY_MIN = 0.5;
+// define threshold for promotion/demotion
+const unsigned PROMOTE_THRESHOLD = 0;
+const unsigned DEMOTE_THRESHOLD = 1;
+// define minimum number of nodes for each tier
+const unsigned MINIMUM_MEMORY_NODE = 12;
+const unsigned MINIMUM_EBS_NODE = 0;
+// value size in KB
+const unsigned VALUE_SIZE = 256;
+
 
 using namespace std;
 using address_t = string;
-
-unsigned MEMORY_THREAD_NUM;
-unsigned EBS_THREAD_NUM;
-
-unsigned DEFAULT_GLOBAL_MEMORY_REPLICATION;
-unsigned DEFAULT_GLOBAL_EBS_REPLICATION;
-unsigned MINIMUM_REPLICA_NUMBER;
 
 // read-only per-tier metadata
 unordered_map<unsigned, tier_data> tier_data_map;
@@ -609,17 +620,15 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  YAML::Node conf = YAML::LoadFile("conf/config.yml")["monitoring"];
-  string ip = conf["ip"].as<string>();
+  YAML::Node conf = YAML::LoadFile("conf/config.yml");
+  string ip = conf["monitoring"]["ip"].as<string>();
 
-  YAML::Node conf_thread = YAML::LoadFile("conf/config.yml")["thread"];
-  MEMORY_THREAD_NUM = conf_thread["memory"].as<int>();
-  EBS_THREAD_NUM = conf_thread["ebs"].as<int>();
+  MEMORY_THREAD_NUM = conf["thread"]["memory"].as<int>();
+  EBS_THREAD_NUM = conf["thread"]["ebs"].as<int>();
 
-  YAML::Node conf_replication = YAML::LoadFile("conf/config.yml")["replication"];
-  DEFAULT_GLOBAL_MEMORY_REPLICATION = conf_replication["memory"].as<int>();
-  DEFAULT_GLOBAL_EBS_REPLICATION = conf_replication["ebs"].as<int>();
-  MINIMUM_REPLICA_NUMBER = conf_replication["minimum"].as<int>();
+  DEFAULT_GLOBAL_MEMORY_REPLICATION = conf["replication"]["memory"].as<int>();
+  DEFAULT_GLOBAL_EBS_REPLICATION = conf["replication"]["ebs"].as<int>();
+  MINIMUM_REPLICA_NUMBER = conf["replication"]["minimum"].as<int>();
 
   tier_data_map[1] = tier_data(MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION, MEM_NODE_CAPACITY);
   tier_data_map[2] = tier_data(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION, EBS_NODE_CAPACITY);
@@ -679,7 +688,7 @@ int main(int argc, char* argv[]) {
   vector<address_t> routing_address;
 
   // read the YAML conf
-  address_t management_address = conf["mgmt_ip"].as<string>();
+  address_t management_address = conf["monitoring"]["mgmt_ip"].as<string>();
   monitoring_thread_t mt = monitoring_thread_t(ip);
 
   zmq::context_t context(1);

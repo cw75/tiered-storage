@@ -16,7 +16,6 @@
 
 using namespace std;
 
-unsigned ROUTING_THREAD_NUM;
 unsigned BENCHMARK_THREAD_NUM;
 
 double get_base(unsigned N, double skew) {
@@ -459,9 +458,9 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  YAML::Node conf_thread = YAML::LoadFile("conf/config.yml")["thread"];
-  ROUTING_THREAD_NUM = conf_thread["routing"].as<int>();
-  BENCHMARK_THREAD_NUM = conf_thread["benchmark"].as<int>();
+  YAML::Node conf = YAML::LoadFile("conf/config_benchmark.yml")["thread"];
+  ROUTING_THREAD_NUM = conf["routing"].as<int>();
+  BENCHMARK_THREAD_NUM = conf["benchmark"].as<int>();
 
   vector<thread> benchmark_threads;
   for (unsigned thread_id = 1; thread_id < BENCHMARK_THREAD_NUM; thread_id++) {

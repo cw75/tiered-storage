@@ -17,14 +17,6 @@
 
 using namespace std;
 
-unsigned MEMORY_THREAD_NUM;
-unsigned EBS_THREAD_NUM;
-unsigned ROUTING_THREAD_NUM;
-
-unsigned DEFAULT_GLOBAL_MEMORY_REPLICATION;
-unsigned DEFAULT_GLOBAL_EBS_REPLICATION;
-unsigned DEFAULT_LOCAL_REPLICATION;
-
 // read-only per-tier metadata
 unordered_map<unsigned, tier_data> tier_data_map;
 
@@ -359,15 +351,14 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  YAML::Node conf_thread = YAML::LoadFile("conf/config.yml")["thread"];
-  MEMORY_THREAD_NUM = conf_thread["memory"].as<int>();
-  EBS_THREAD_NUM = conf_thread["ebs"].as<int>();
-  ROUTING_THREAD_NUM = conf_thread["routing"].as<int>();
+  YAML::Node conf = YAML::LoadFile("conf/config.yml");
+  MEMORY_THREAD_NUM = conf["thread"]["memory"].as<int>();
+  EBS_THREAD_NUM = conf["thread"]["ebs"].as<int>();
+  ROUTING_THREAD_NUM = conf["thread"]["routing"].as<int>();
 
-  YAML::Node conf_replication = YAML::LoadFile("conf/config.yml")["replication"];
-  DEFAULT_GLOBAL_MEMORY_REPLICATION = conf_replication["memory"].as<int>();
-  DEFAULT_GLOBAL_EBS_REPLICATION = conf_replication["ebs"].as<int>();
-  DEFAULT_LOCAL_REPLICATION = conf_replication["local"].as<int>();
+  DEFAULT_GLOBAL_MEMORY_REPLICATION = conf["replication"]["memory"].as<int>();
+  DEFAULT_GLOBAL_EBS_REPLICATION = conf["replication"]["ebs"].as<int>();
+  DEFAULT_LOCAL_REPLICATION = conf["replication"]["local"].as<int>();
 
   tier_data_map[1] = tier_data(MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION, MEM_NODE_CAPACITY);
   tier_data_map[2] = tier_data(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION, EBS_NODE_CAPACITY);

@@ -16,8 +16,6 @@
 
 using namespace std;
 
-unsigned ROUTING_THREAD_NUM;
-
 void handle_request(
     string request_line,
     SocketCache& pushers,
@@ -236,7 +234,7 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  YAML::Node conf = YAML::LoadFile("conf/config.yml")["thread"];
+  YAML::Node conf = YAML::LoadFile("conf/config_user.yml")["thread"];
   ROUTING_THREAD_NUM = conf["routing"].as<int>();
 
   if (argc == 1) {

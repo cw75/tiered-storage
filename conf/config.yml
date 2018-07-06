@@ -20,7 +20,6 @@ thread:
   memory: 4
   ebs: 4
   routing: 4
-  benchmark: 4
 replication:
   memory: 1
   ebs: 0
