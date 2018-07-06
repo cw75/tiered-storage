@@ -19,7 +19,7 @@ server:
   seed_ip: 127.0.0.1
   ip: 127.0.0.1
 ebs: ./
-thread:
+threads:
   memory: 4
   ebs: 4
   routing: 4

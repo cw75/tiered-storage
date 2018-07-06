@@ -89,7 +89,6 @@ void issue_replication_factor_request(
     GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring,
     SocketCache& pushers,
-
     unsigned& seed) {
   string key_rep = string(METADATA_IDENTIFIER) + "_" + key + "_replication";
   auto threads = get_responsible_threads_metadata(key_rep, global_memory_hash_ring, local_memory_hash_ring);
@@ -186,8 +185,8 @@ vector<string> get_address_from_routing(
   return result;
 }
 
-RoutingThread get_random_routing_thread(vector<string>& routing_address, unsigned& seed) {
+RoutingThread get_random_routing_thread(vector<string>& routing_address, unsigned& seed, unsigned& ROUTING_THREAD_NUM) {
   string routing_ip = routing_address[rand_r(&seed) % routing_address.size()];
-  unsigned tid = rand_r(&seed) % PROXY_THREAD_NUM;
+  unsigned tid = rand_r(&seed) % ROUTING_THREAD_NUM;
   return RoutingThread(routing_ip, tid);
 }

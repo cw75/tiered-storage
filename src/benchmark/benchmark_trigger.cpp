@@ -15,6 +15,8 @@
 
 using namespace std;
 
+unsigned DEFAULT_LOCAL_REPLICATION;
+
 int main(int argc, char* argv[]) {
   if (argc != 2) {
     cerr << "Usage: " << argv[0] << " <benchmark_threads>" << endl;
@@ -22,6 +24,9 @@ int main(int argc, char* argv[]) {
   }
 
   unsigned thread_num = atoi(argv[1]);
+  // TODO(vikram): this is a hack that we should be able to remove once the
+  // refactor is done
+  DEFAULT_LOCAL_REPLICATION = 1;
 
   // read in the benchmark addresses
   vector<string> benchmark_address;

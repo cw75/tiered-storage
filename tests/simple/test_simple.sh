@@ -34,8 +34,6 @@ DIFF=`diff tmp.out tests/simple/expected`
 
 if [ "$DIFF" != "" ]; then
   echo "Output did not match expected output (tests/simple/expected.out). Observed output was: "
-  cat tmp.out
-  rm tmp.out
   echo $DIFF
   CODE=1
 else
@@ -43,6 +41,7 @@ else
   CODE=0
 fi
 
+rm tmp.out
 echo "Stopping local server..."
 ./scripts/stop_local.sh y
 exit $CODE

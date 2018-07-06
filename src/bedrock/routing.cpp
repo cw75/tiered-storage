@@ -23,6 +23,8 @@ using namespace std;
 
 // read-only per-tier metadata
 unordered_map<unsigned, TierData> tier_data_map;
+unsigned DEFAULT_LOCAL_REPLICATION;
+unsigned ROUTING_THREAD_NUM;
 
 void run(unsigned thread_id) {
   string log_file = "log_" + to_string(thread_id) + ".txt";
@@ -30,6 +32,7 @@ void run(unsigned thread_id) {
   auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
   logger->flush_on(spdlog::level::info);
 
+  // TODO(vikram): we can probably just read this once and pass it into run
   YAML::Node conf = YAML::LoadFile("conf/config.yml")["routing"];
   string ip = conf["ip"].as<string>();
 
@@ -44,7 +47,7 @@ void run(unsigned thread_id) {
   unordered_map<string, KeyInfo> placement;
 
   // warm up for benchmark
-  warmup_placement_to_defaults(placement);
+  // warmup_placement_to_defaults(placement);
 
   if (thread_id == 0) {
     // read the YAML conf
@@ -174,7 +177,7 @@ void run(unsigned thread_id) {
             }
 
             // tell all worker threads about the message
-            for (unsigned tid = 1; tid < PROXY_THREAD_NUM; tid++) {
+            for (unsigned tid = 1; tid < ROUTING_THREAD_NUM; tid++) {
               zmq_util::send_string(message, &pushers[RoutingThread(ip, tid).get_notify_connect_addr()]);
             }
           }
@@ -189,7 +192,7 @@ void run(unsigned thread_id) {
 
         if (thread_id == 0) {
           // tell all worker threads about the message
-          for (unsigned tid = 1; tid < PROXY_THREAD_NUM; tid++) {
+          for (unsigned tid = 1; tid < ROUTING_THREAD_NUM; tid++) {
             zmq_util::send_string(message, &pushers[RoutingThread(ip, tid).get_notify_connect_addr()]);
           }
         }
@@ -280,7 +283,7 @@ void run(unsigned thread_id) {
 
       if (thread_id == 0) {
         // tell all worker threads about the replication factor change
-        for (unsigned tid = 1; tid < PROXY_THREAD_NUM; tid++) {
+        for (unsigned tid = 1; tid < ROUTING_THREAD_NUM; tid++) {
           zmq_util::send_string(serialized_req, &pushers[RoutingThread(ip, tid).get_replication_factor_change_connect_addr()]);
         }
       }
@@ -358,12 +361,21 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
+  YAML::Node conf = YAML::LoadFile("conf/config.yml");
+  unsigned MEMORY_THREAD_NUM = conf["threads"]["memory"].as<unsigned>();
+  unsigned EBS_THREAD_NUM = conf["threads"]["ebs"].as<unsigned>();
+  ROUTING_THREAD_NUM = conf["threads"]["routing"].as<unsigned>();
+
+  unsigned DEFAULT_GLOBAL_MEMORY_REPLICATION = conf["replication"]["memory"].as<unsigned>();
+  unsigned DEFAULT_GLOBAL_EBS_REPLICATION = conf["replication"]["ebs"].as<unsigned>();
+  DEFAULT_LOCAL_REPLICATION = conf["replication"]["local"].as<unsigned>();
+
   tier_data_map[1] = TierData(MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION, MEM_NODE_CAPACITY);
   tier_data_map[2] = TierData(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION, EBS_NODE_CAPACITY);
 
   vector<thread> routing_worker_threads;
 
-  for (unsigned thread_id = 1; thread_id < PROXY_THREAD_NUM; thread_id++) {
+  for (unsigned thread_id = 1; thread_id < ROUTING_THREAD_NUM; thread_id++) {
     routing_worker_threads.push_back(thread(run, thread_id));
   }
 
