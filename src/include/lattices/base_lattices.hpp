@@ -6,7 +6,7 @@
 using namespace std;
 
 template <typename T>
-class Lattice{
+class Lattice {
 protected:
 	T element;
 	const T zero {static_cast<T> (0)};
@@ -59,12 +59,5 @@ public:
 		element = e.reveal();
 	}
 };
-
-// currently destructive to l1, should probably make a copy before calling merge
-template <typename T>
-bool dominated(T l1, T l2) {
-	l1.merge(l2);
-  return l1 == l2;
-}
 
 #endif

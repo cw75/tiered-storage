@@ -8,13 +8,21 @@
 #include <unistd.h>
 #include <memory>
 #include <unordered_set>
+#include "spdlog/spdlog.h"
 #include "communication.pb.h"
-#include "zmq/socket_cache.h"
-#include "zmq/zmq_util.h"
-#include "common.h"
+#include "zmq/socket_cache.hpp"
+#include "zmq/zmq_util.hpp"
+#include "common.hpp"
+#include "threads.hpp"
+#include "requests.hpp"
+#include "hashers.hpp"
+#include "hash_ring.hpp"
 #include "yaml-cpp/yaml.h"
 
 using namespace std;
+
+unsigned ROUTING_THREAD_NUM;
+unsigned DEFAULT_LOCAL_REPLICATION;
 
 void handle_request(
     string request_line,
@@ -23,7 +31,7 @@ void handle_request(
     unordered_map<string, unordered_set<string>>& key_address_cache,
     unsigned& seed,
     shared_ptr<spdlog::logger> logger,
-    user_thread_t& ut,
+    UserThread& ut,
     zmq::socket_t& response_puller,
     zmq::socket_t& key_address_puller,
     string& ip,
@@ -82,7 +90,7 @@ void handle_request(
 
   communication::Request req;
   req.set_respond_address(ut.get_request_pulling_connect_addr());
-  
+
   string req_id = ip + ":" + to_string(thread_id) + "_" + to_string(rid);
   req.set_request_id(req_id);
   rid += 1;
@@ -102,7 +110,7 @@ void handle_request(
     tp->set_timestamp(0);
     tp->set_num_address(key_address_cache[key].size());
   }
-  
+
   bool succeed;
   auto res = send_request<communication::Request, communication::Response>(req, pushers[worker_address], response_puller, succeed);
 
@@ -169,6 +177,7 @@ void run(unsigned thread_id, string filename) {
   auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
   logger->flush_on(spdlog::level::info);
 
+  // read the YAML conf
   YAML::Node conf = YAML::LoadFile("conf/config.yml")["user"];
   string ip = conf["ip"].as<string>();
 
@@ -182,10 +191,9 @@ void run(unsigned thread_id, string filename) {
   // mapping from key to a set of worker addresses
   unordered_map<string, unordered_set<string>> key_address_cache;
 
-  user_thread_t ut = user_thread_t(ip, thread_id);
+  UserThread ut = UserThread(ip, thread_id);
 
-  // read the YAML conf
-  YAML::Node routing = conf["routing_ips"];
+  YAML::Node routing = conf["routing"];
   vector<string> routing_address;
 
   for (YAML::const_iterator it = routing.begin(); it != routing.end(); ++it) {
@@ -196,7 +204,7 @@ void run(unsigned thread_id, string filename) {
   zmq::context_t context(1);
   SocketCache pushers(&context, ZMQ_PUSH);
 
-  
+
   // responsible for pulling response
   zmq::socket_t response_puller(context, ZMQ_PULL);
   response_puller.setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
@@ -211,13 +219,13 @@ void run(unsigned thread_id, string filename) {
 
   string input;
   unsigned trial = 1;
-  if (filename == "") { 
+  if (filename == "") {
     while (true) {
       cout << "kvs> ";
-      
+
       getline(cin, input);
       handle_request(input, pushers, routing_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
-    } 
+    }
   } else {
     ifstream infile(filename);
 
@@ -229,16 +237,17 @@ void run(unsigned thread_id, string filename) {
 
 int main(int argc, char* argv[]) {
   if (argc > 2) {
-    cerr << "Usage: " << argv[0] << "[filename]" << endl;
+    cerr << "Usage: " << argv[0] << "<filename>" << endl;
     cerr << "Filename is optional. Omit the filename to run in interactive mode." << endl;
     return 1;
   }
 
-  YAML::Node conf = YAML::LoadFile("conf/config_user.yml")["thread"];
-  ROUTING_THREAD_NUM = conf["routing"].as<int>();
+  YAML::Node conf = YAML::LoadFile("conf/config.yml");
+  ROUTING_THREAD_NUM = conf["threads"]["routing"].as<unsigned>();
+  DEFAULT_LOCAL_REPLICATION = conf["replication"]["local"].as<unsigned>();
 
   if (argc == 1) {
-    run(0, ""); 
+    run(0, "");
   } else {
     run(0, argv[1]);
   }

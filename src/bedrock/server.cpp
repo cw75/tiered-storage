@@ -12,17 +12,17 @@
 #include <atomic>
 #include <chrono>
 #include <ctime>
-#include "kvs/rc_kv_store.h"
+#include "spdlog/spdlog.h"
+#include "kvs/rc_pair_lattice.hpp"
 #include "communication.pb.h"
-#include "zmq/socket_cache.h"
-#include "zmq/zmq_util.h"
-#include "utils/consistent_hash_map.hpp"
-#include "common.h"
-#include "utils/server_utility.h"
+#include "zmq/socket_cache.hpp"
+#include "zmq/zmq_util.hpp"
+#include "common.hpp"
+#include "hash_ring.hpp"
+#include "utils/server_utility.hpp"
 #include "yaml-cpp/yaml.h"
 #include "yaml-cpp/node/node.h"
 
-// TODO: Everything that's currently writing to cout and cerr should be replaced with a logfile.
 using namespace std;
 
 // define server report threshold (in second)
@@ -37,10 +37,17 @@ unsigned SELF_TIER_ID;
 // number of worker threads
 unsigned THREAD_NUM;
 
-// read-only per-tier metadata
-unordered_map<unsigned, tier_data> tier_data_map;
+unsigned MEMORY_THREAD_NUM;
+unsigned EBS_THREAD_NUM;
 
-pair<RC_KVS_PairLattice<string>, unsigned> process_get(const string& key, Serializer* serializer) {
+unsigned DEFAULT_GLOBAL_MEMORY_REPLICATION;
+unsigned DEFAULT_GLOBAL_EBS_REPLICATION;
+unsigned DEFAULT_LOCAL_REPLICATION;
+
+// read-only per-tier metadata
+unordered_map<unsigned, TierData> tier_data_map;
+
+pair<ReadCommittedPairLattice<string>, unsigned> process_get(const string& key, Serializer* serializer) {
   unsigned err_number = 0;
   auto res = serializer->get(key, err_number);
 
@@ -48,15 +55,15 @@ pair<RC_KVS_PairLattice<string>, unsigned> process_get(const string& key, Serial
   if (res.reveal().value == "") {
     err_number = 1;
   }
-  return pair<RC_KVS_PairLattice<string>, unsigned>(res, err_number);
+  return pair<ReadCommittedPairLattice<string>, unsigned>(res, err_number);
 }
 
 void process_put(const string& key,
     const unsigned long long& timestamp,
     const string& value,
     Serializer* serializer,
-    unordered_map<string, key_stat>& key_stat_map) {
-  
+    unordered_map<string, KeyStat>& key_stat_map) {
+
   if (serializer->put(key, value, timestamp)) {
     // update value size if the value is replaced
     key_stat_map[key].size_ = value.size();
@@ -67,21 +74,21 @@ communication::Response process_request(
     communication::Request& req,
     unordered_set<string>& local_changeset,
     Serializer* serializer,
-    server_thread_t& wt,
-    unordered_map<unsigned, global_hash_t>& global_hash_ring_map,
-    unordered_map<unsigned, local_hash_t>& local_hash_ring_map,
-    unordered_map<string, key_info>& placement,
+    ServerThread& wt,
+    unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+    unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
+    unordered_map<string, KeyInfo>& placement,
     SocketCache& pushers,
-    unordered_map<string, key_stat>& key_stat_map,
+    unordered_map<string, KeyStat>& key_stat_map,
     unordered_map<string, multiset<std::chrono::time_point<std::chrono::system_clock>>>& key_access_timestamp,
     unsigned& total_access,
     chrono::system_clock::time_point& start_time,
-    unordered_map<string, pair<chrono::system_clock::time_point, vector<pending_request>>>& pending_request_map,
+    unordered_map<string, pair<chrono::system_clock::time_point, vector<PendingRequest>>>& pending_request_map,
     unsigned& seed) {
 
   communication::Response response;
   string respond_id = "";
-  
+
   if (req.has_request_id()) {
     respond_id = req.request_id();
     response.set_response_id(respond_id);
@@ -113,7 +120,7 @@ communication::Response process_request(
               pending_request_map[key].first = chrono::system_clock::now();
             }
 
-            pending_request_map[key].second.push_back(pending_request("G", val, req.respond_address(), respond_id));
+            pending_request_map[key].second.push_back(PendingRequest("G", val, req.respond_address(), respond_id));
           }
         } else {
           communication::Response_Tuple* tp = response.add_tuple();
@@ -137,7 +144,7 @@ communication::Response process_request(
           pending_request_map[key].first = chrono::system_clock::now();
         }
 
-        pending_request_map[key].second.push_back(pending_request("G", val, req.respond_address(), respond_id));
+        pending_request_map[key].second.push_back(PendingRequest("G", val, req.respond_address(), respond_id));
       }
     }
   } else if (req.type() == "PUT") {
@@ -161,9 +168,9 @@ communication::Response process_request(
             }
 
             if (req.has_respond_address()) {
-              pending_request_map[key].second.push_back(pending_request("P", req.tuple(i).value(), req.respond_address(), respond_id));
+              pending_request_map[key].second.push_back(PendingRequest("P", req.tuple(i).value(), req.respond_address(), respond_id));
             } else {
-              pending_request_map[key].second.push_back(pending_request("P", req.tuple(i).value(), "", respond_id));
+              pending_request_map[key].second.push_back(PendingRequest("P", req.tuple(i).value(), "", respond_id));
             }
           }
         } else {
@@ -172,10 +179,10 @@ communication::Response process_request(
 
           auto current_time = chrono::system_clock::now();
           auto ts = generate_timestamp(chrono::duration_cast<chrono::milliseconds>(current_time-start_time).count(), wt.get_tid());
-          
+
           process_put(key, ts, req.tuple(i).value(), serializer, key_stat_map);
           tp->set_err_number(0);
-          
+
           if (req.tuple(i).has_num_address() && req.tuple(i).num_address() != threads.size()) {
             tp->set_invalidate(true);
           }
@@ -190,9 +197,9 @@ communication::Response process_request(
         }
 
         if (req.has_respond_address()) {
-          pending_request_map[key].second.push_back(pending_request("P", req.tuple(i).value(), req.respond_address(), respond_id));
+          pending_request_map[key].second.push_back(PendingRequest("P", req.tuple(i).value(), req.respond_address(), respond_id));
         } else {
-          pending_request_map[key].second.push_back(pending_request("P", req.tuple(i).value(), "", respond_id));
+          pending_request_map[key].second.push_back(PendingRequest("P", req.tuple(i).value(), "", respond_id));
         }
       }
     }
@@ -202,14 +209,14 @@ communication::Response process_request(
 
 void process_gossip(
     communication::Request& gossip,
-    server_thread_t& wt,
-    unordered_map<unsigned, global_hash_t>& global_hash_ring_map,
-    unordered_map<unsigned, local_hash_t>& local_hash_ring_map,
-    unordered_map<string, key_info>& placement,
+    ServerThread& wt,
+    unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+    unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
+    unordered_map<string, KeyInfo>& placement,
     SocketCache& pushers,
     Serializer* serializer,
-    unordered_map<string, key_stat>& key_stat_map,
-    unordered_map<string, pair<chrono::system_clock::time_point, vector<pending_gossip>>>& pending_gossip_map,
+    unordered_map<string, KeyStat>& key_stat_map,
+    unordered_map<string, pair<chrono::system_clock::time_point, vector<PendingGossip>>>& pending_gossip_map,
     unsigned& seed) {
   vector<unsigned> tier_ids;
   tier_ids.push_back(SELF_TIER_ID);
@@ -241,7 +248,7 @@ void process_gossip(
             pending_gossip_map[key].first = chrono::system_clock::now();
           }
 
-          pending_gossip_map[key].second.push_back(pending_gossip(gossip.tuple(i).value(), gossip.tuple(i).timestamp()));
+          pending_gossip_map[key].second.push_back(PendingGossip(gossip.tuple(i).value(), gossip.tuple(i).timestamp()));
         }
       }
     } else {
@@ -249,7 +256,7 @@ void process_gossip(
         pending_gossip_map[key].first = chrono::system_clock::now();
       }
 
-      pending_gossip_map[key].second.push_back(pending_gossip(gossip.tuple(i).value(), gossip.tuple(i).timestamp()));
+      pending_gossip_map[key].second.push_back(PendingGossip(gossip.tuple(i).value(), gossip.tuple(i).timestamp()));
     }
   }
 
@@ -259,7 +266,7 @@ void process_gossip(
   }
 }
 
-void send_gossip(address_keyset_map& addr_keyset_map, SocketCache& pushers, Serializer* serializer) {
+void send_gossip(AddressKeysetMap& addr_keyset_map, SocketCache& pushers, Serializer* serializer) {
   unordered_map<string, communication::Request> gossip_map;
 
   for (auto map_it = addr_keyset_map.begin(); map_it != addr_keyset_map.end(); map_it++) {
@@ -286,11 +293,12 @@ void run(unsigned thread_id) {
   auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
   logger->flush_on(spdlog::level::info);
 
+  // TODO(vikram): we can probably just read this once and pass it into run
   YAML::Node conf = YAML::LoadFile("conf/config.yml")["server"];
   string ip = conf["ip"].as<string>();
-  
+
   // each thread has a handle to itself
-  server_thread_t wt = server_thread_t(ip, thread_id);
+  ServerThread wt = ServerThread(ip, thread_id);
 
   unsigned seed = time(NULL);
   seed += thread_id;
@@ -300,36 +308,40 @@ void run(unsigned thread_id) {
   SocketCache pushers(&context, ZMQ_PUSH);
 
   // initialize hash ring maps
-  unordered_map<unsigned, global_hash_t> global_hash_ring_map;
-  unordered_map<unsigned, local_hash_t> local_hash_ring_map;
+  unordered_map<unsigned, GlobalHashRing> global_hash_ring_map;
+  unordered_map<unsigned, LocalHashRing> local_hash_ring_map;
 
   // for periodically redistributing data when node joins
-  address_keyset_map join_addr_keyset_map;
-  
+  AddressKeysetMap join_addr_keyset_map;
+
   // keep track of which key should be removed when node joins
   unordered_set<string> join_remove_set;
 
   // pending events for asynchrony
-  unordered_map<string, pair<chrono::system_clock::time_point, vector<pending_request>>> pending_request_map;
-  unordered_map<string, pair<chrono::system_clock::time_point, vector<pending_gossip>>> pending_gossip_map;
-  
-  unordered_map<string, key_info> placement;
+  unordered_map<string, pair<chrono::system_clock::time_point, vector<PendingRequest>>> pending_request_map;
+  unordered_map<string, pair<chrono::system_clock::time_point, vector<PendingGossip>>> pending_gossip_map;
+
+  unordered_map<string, KeyInfo> placement;
   vector<string> routing_address;
   vector<string> monitoring_address;
 
   // read the YAML conf
-  // TODO: change this to read multiple monitoring IPs
   string seed_ip = conf["seed_ip"].as<string>();
-  monitoring_address.push_back(conf["monitoring_ip"].as<string>());
-  YAML::Node routing = conf["routing_ips"];
+
+  YAML::Node monitoring = conf["monitoring"];
+  YAML::Node routing = conf["routing"];
 
   for (YAML::const_iterator it = routing.begin(); it != routing.end(); ++it) {
     routing_address.push_back(it->as<string>());
   }
 
+  for (YAML::const_iterator it = monitoring.begin(); it != monitoring.end(); ++it) {
+    monitoring_address.push_back(it->as<string>());
+  }
+
   // request server addresses from the seed node
   zmq::socket_t addr_requester(context, ZMQ_REQ);
-  addr_requester.connect(routing_thread_t(seed_ip, 0).get_seed_connect_addr());
+  addr_requester.connect(RoutingThread(seed_ip, 0).get_seed_connect_addr());
   zmq_util::send_string("join", &addr_requester);
 
   // receive and add all the addresses that seed node sent
@@ -344,16 +356,16 @@ void run(unsigned thread_id) {
 
   // populate addresses
   for (int i = 0; i < addresses.tuple_size(); i++) {
-    insert_to_hash_ring<global_hash_t>(global_hash_ring_map[addresses.tuple(i).tier_id()], addresses.tuple(i).ip(), 0);
+    insert_to_hash_ring<GlobalHashRing>(global_hash_ring_map[addresses.tuple(i).tier_id()], addresses.tuple(i).ip(), 0);
   }
 
   // add itself to global hash ring
-  insert_to_hash_ring<global_hash_t>(global_hash_ring_map[SELF_TIER_ID], ip, 0);
+  insert_to_hash_ring<GlobalHashRing>(global_hash_ring_map[SELF_TIER_ID], ip, 0);
 
   // form local hash rings
   for (auto it = tier_data_map.begin(); it != tier_data_map.end(); it++) {
     for (unsigned tid = 0; tid < it->second.thread_number_; tid++) {
-      insert_to_hash_ring<local_hash_t>(local_hash_ring_map[it->first], ip, tid);
+      insert_to_hash_ring<LocalHashRing>(local_hash_ring_map[it->first], ip, tid);
     }
   }
 
@@ -376,22 +388,22 @@ void run(unsigned thread_id) {
 
     // notify proxies that this node has joined
     for (auto it = routing_address.begin(); it != routing_address.end(); it++) {
-      zmq_util::send_string(msg, &pushers[routing_thread_t(*it, 0).get_notify_connect_addr()]);
+      zmq_util::send_string(msg, &pushers[RoutingThread(*it, 0).get_notify_connect_addr()]);
     }
 
     // notify monitoring nodes that this node has joined
     for (auto it = monitoring_address.begin(); it != monitoring_address.end(); it++) {
-      zmq_util::send_string(msg, &pushers[monitoring_thread_t(*it).get_notify_connect_addr()]);
+      zmq_util::send_string(msg, &pushers[MonitoringThread(*it).get_notify_connect_addr()]);
     }
   }
 
   Serializer* serializer;
 
   if (SELF_TIER_ID == 1) {
-    Database* kvs = new Database();
-    serializer = new Memory_Serializer(kvs);
+    MemoryKVS* kvs = new MemoryKVS();
+    serializer = new MemorySerializer(kvs);
   } else if (SELF_TIER_ID == 2) {
-    serializer = new EBS_Serializer(thread_id);
+    serializer = new EBSSerializer(thread_id);
   } else {
     logger->info("Invalid node type");
   }
@@ -400,7 +412,7 @@ void run(unsigned thread_id) {
   unordered_set<string> local_changeset;
 
   // keep track of the key stat
-  unordered_map<string, key_stat> key_stat_map;
+  unordered_map<string, KeyStat> key_stat_map;
   // keep track of key access timestamp
   unordered_map<string, multiset<std::chrono::time_point<std::chrono::system_clock>>> key_access_timestamp;
   // keep track of total access
@@ -471,7 +483,7 @@ void run(unsigned thread_id) {
       string new_server_ip = v[1];
 
       // update global hash ring
-      bool inserted = insert_to_hash_ring<global_hash_t>(global_hash_ring_map[tier], new_server_ip, 0);
+      bool inserted = insert_to_hash_ring<GlobalHashRing>(global_hash_ring_map[tier], new_server_ip, 0);
 
       if (inserted) {
         logger->info("Received a node join for tier {}. New node is {}", tier, new_server_ip);
@@ -498,7 +510,7 @@ void run(unsigned thread_id) {
 
           // tell all worker threads about the new node join
           for (unsigned tid = 1; tid < THREAD_NUM; tid++) {
-            zmq_util::send_string(message, &pushers[server_thread_t(ip, tid).get_node_join_connect_addr()]);
+            zmq_util::send_string(message, &pushers[ServerThread(ip, tid).get_node_join_connect_addr()]);
           }
 
           for (auto it = global_hash_ring_map.begin(); it != global_hash_ring_map.end(); it++) {
@@ -529,7 +541,6 @@ void run(unsigned thread_id) {
           }
         }
       }
-
       auto time_elapsed = chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
       working_time += time_elapsed;
       working_time_map[0] += time_elapsed;
@@ -548,12 +559,12 @@ void run(unsigned thread_id) {
       logger->info("Received departure for node {} on tier {}.", departing_server_ip, tier);
 
       // update hash ring
-      remove_from_hash_ring<global_hash_t>(global_hash_ring_map[tier], departing_server_ip, 0);
+      remove_from_hash_ring<GlobalHashRing>(global_hash_ring_map[tier], departing_server_ip, 0);
 
       if (thread_id == 0) {
         // tell all worker threads about the node departure
         for (unsigned tid = 1; tid < THREAD_NUM; tid++) {
-          zmq_util::send_string(message, &pushers[server_thread_t(ip, tid).get_node_depart_connect_addr()]);
+          zmq_util::send_string(message, &pushers[ServerThread(ip, tid).get_node_depart_connect_addr()]);
         }
 
         for (auto it = global_hash_ring_map.begin(); it != global_hash_ring_map.end(); it++) {
@@ -572,7 +583,7 @@ void run(unsigned thread_id) {
       string ack_addr = zmq_util::recv_string(&self_depart_puller);
 
       logger->info("Node is departing.");
-      remove_from_hash_ring<global_hash_t>(global_hash_ring_map[SELF_TIER_ID], ip, 0);
+      remove_from_hash_ring<GlobalHashRing>(global_hash_ring_map[SELF_TIER_ID], ip, 0);
 
       if (thread_id == 0) {
         for (auto it = global_hash_ring_map.begin(); it != global_hash_ring_map.end(); it++) {
@@ -591,21 +602,21 @@ void run(unsigned thread_id) {
 
         // notify proxies
         for (auto it = routing_address.begin(); it != routing_address.end(); it++) {
-          zmq_util::send_string(msg, &pushers[routing_thread_t(*it, 0).get_notify_connect_addr()]);
+          zmq_util::send_string(msg, &pushers[RoutingThread(*it, 0).get_notify_connect_addr()]);
         }
 
         // notify monitoring nodes
         for (auto it = monitoring_address.begin(); it != monitoring_address.end(); it++) {
-          zmq_util::send_string(msg, &pushers[monitoring_thread_t(*it).get_notify_connect_addr()]);
+          zmq_util::send_string(msg, &pushers[MonitoringThread(*it).get_notify_connect_addr()]);
         }
 
         // tell all worker threads about the self departure
         for (unsigned tid = 1; tid < THREAD_NUM; tid++) {
-          zmq_util::send_string(ack_addr, &pushers[server_thread_t(ip, tid).get_self_depart_connect_addr()]);
+          zmq_util::send_string(ack_addr, &pushers[ServerThread(ip, tid).get_self_depart_connect_addr()]);
         }
       }
 
-      address_keyset_map addr_keyset_map;
+      AddressKeysetMap addr_keyset_map;
       vector<unsigned> tier_ids;
 
       for (unsigned i = MIN_TIER; i <= MAX_TIER; i++) {
@@ -726,7 +737,7 @@ void run(unsigned thread_id) {
             for (auto it = pending_request_map[key].second.begin(); it != pending_request_map[key].second.end(); it++) {
               if (!responsible && it->addr_ != "") {
                 communication::Response response;
-                
+
                 if (it->respond_id_ != "") {
                   response.set_response_id(it->respond_id_);
                 }
@@ -807,7 +818,7 @@ void run(unsigned thread_id) {
               }
             } else {
               unordered_map<string, communication::Request> gossip_map;
-              
+
               // forward the gossip
               for (auto it = threads.begin(); it != threads.end(); it++) {
                 gossip_map[it->get_gossip_connect_addr()].set_type("PUT");
@@ -843,14 +854,14 @@ void run(unsigned thread_id) {
       if (thread_id == 0) {
         // tell all worker threads about the replication factor change
         for (unsigned tid = 1; tid < THREAD_NUM; tid++) {
-          zmq_util::send_string(serialized_req, &pushers[server_thread_t(ip, tid).get_replication_factor_change_connect_addr()]);
+          zmq_util::send_string(serialized_req, &pushers[ServerThread(ip, tid).get_replication_factor_change_connect_addr()]);
         }
       }
 
       communication::Replication_Factor_Request req;
       req.ParseFromString(serialized_req);
 
-      address_keyset_map addr_keyset_map;
+      AddressKeysetMap addr_keyset_map;
       unordered_set<string> remove_set;
 
       // for every key, update the replication factor and check if the node is still responsible for the key
@@ -898,7 +909,7 @@ void run(unsigned thread_id) {
               }
 
               if (!decrement && orig_threads.begin()->get_id() == wt.get_id()) {
-                unordered_set<server_thread_t, thread_hash> new_threads;
+                unordered_set<ServerThread, ThreadHash> new_threads;
 
                 for (auto it = threads.begin(); it != threads.end(); it++) {
                   if (orig_threads.find(*it) == orig_threads.end()) {
@@ -958,7 +969,7 @@ void run(unsigned thread_id) {
       auto work_start = chrono::system_clock::now();
       // only gossip if we have changes
       if (local_changeset.size() > 0) {
-        address_keyset_map addr_keyset_map;
+        AddressKeysetMap addr_keyset_map;
 
         vector<unsigned> tier_ids;
         for (unsigned i = MIN_TIER; i <= MAX_TIER; i++) {
@@ -1106,7 +1117,7 @@ void run(unsigned thread_id) {
       unordered_set<string> remove_address_set;
 
       // assemble gossip
-      address_keyset_map addr_keyset_map;
+      AddressKeysetMap addr_keyset_map;
       for (auto it = join_addr_keyset_map.begin(); it != join_addr_keyset_map.end(); it++) {
         auto address = it->first;
         auto key_set = &(it->second);
@@ -1150,18 +1161,24 @@ int main(int argc, char* argv[]) {
   }
 
   // populate metadata
-  SELF_TIER_ID = atoi(getenv("SERVER_TYPE"));
+  char* stype = getenv("SERVER_TYPE");
+  if (stype != NULL) {
+    SELF_TIER_ID = atoi(stype);
+  } else {
+    cout << "No server type specified. The default behavior is to start the server in memory mode." << endl;
+    SELF_TIER_ID = 1;
+  }
 
   YAML::Node conf = YAML::LoadFile("conf/config.yml");
-  MEMORY_THREAD_NUM = conf["thread"]["memory"].as<int>();
-  EBS_THREAD_NUM = conf["thread"]["ebs"].as<int>();
+  MEMORY_THREAD_NUM = conf["threads"]["memory"].as<unsigned>();
+  EBS_THREAD_NUM = conf["threads"]["ebs"].as<unsigned>();
 
-  DEFAULT_GLOBAL_MEMORY_REPLICATION = conf["replication"]["memory"].as<int>();
-  DEFAULT_GLOBAL_EBS_REPLICATION = conf["replication"]["ebs"].as<int>();
-  DEFAULT_LOCAL_REPLICATION = conf["replication"]["local"].as<int>();
+  DEFAULT_GLOBAL_MEMORY_REPLICATION = conf["replication"]["memory"].as<unsigned>();
+  DEFAULT_GLOBAL_EBS_REPLICATION = conf["replication"]["ebs"].as<unsigned>();
+  DEFAULT_LOCAL_REPLICATION = conf["replication"]["local"].as<unsigned>();
 
-  tier_data_map[1] = tier_data(MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION, MEM_NODE_CAPACITY);
-  tier_data_map[2] = tier_data(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION, EBS_NODE_CAPACITY);
+  tier_data_map[1] = TierData(MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION, MEM_NODE_CAPACITY);
+  tier_data_map[2] = TierData(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION, EBS_NODE_CAPACITY);
 
   THREAD_NUM = tier_data_map[SELF_TIER_ID].thread_number_;
 

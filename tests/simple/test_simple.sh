@@ -1,14 +1,20 @@
 #!/bin/bash
 
-HAS_PATH=`pwd | grep tests/simple | wc -l`
+if [ $# -gt 2 ]; then
+  echo "Usage: $0 <build>"
+  echo "If no build option is specified, the test will default to not building."
 
-if [ $HAS_PATH -eq 1 ]; then
-  echo "Must run this test from the project root directory."
   exit 1
 fi
 
+if [ -z "$1" ]; then
+  BUILD="n"
+else
+  BUILD=$1
+fi
+
 echo "Starting local server..."
-./scripts/start_local.sh n n
+./scripts/start_local.sh $BUILD n
 
 sleep 1
 
@@ -28,8 +34,6 @@ DIFF=`diff tmp.out tests/simple/expected`
 
 if [ "$DIFF" != "" ]; then
   echo "Output did not match expected output (tests/simple/expected.out). Observed output was: "
-  cat tmp.out
-  rm tmp.out
   echo $DIFF
   CODE=1
 else
@@ -37,6 +41,7 @@ else
   CODE=0
 fi
 
+rm tmp.out
 echo "Stopping local server..."
 ./scripts/stop_local.sh y
 exit $CODE

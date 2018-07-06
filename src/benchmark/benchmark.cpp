@@ -9,14 +9,21 @@
 #include <memory>
 #include <unordered_set>
 #include "communication.pb.h"
-#include "zmq/socket_cache.h"
-#include "zmq/zmq_util.h"
-#include "common.h"
+#include "zmq/socket_cache.hpp"
+#include "zmq/zmq_util.hpp"
+#include "common.hpp"
+#include "threads.hpp"
+#include "hash_ring.hpp"
+#include "requests.hpp"
 #include "yaml-cpp/yaml.h"
+#include "spdlog/spdlog.h"
+
 
 using namespace std;
 
 unsigned BENCHMARK_THREAD_NUM;
+unsigned ROUTING_THREAD_NUM;
+unsigned DEFAULT_LOCAL_REPLICATION;
 
 double get_base(unsigned N, double skew) {
   double base = 0;
@@ -70,7 +77,7 @@ void handle_request(
     unordered_map<string, unordered_set<string>>& key_address_cache,
     unsigned& seed,
     shared_ptr<spdlog::logger> logger,
-    user_thread_t& ut,
+    UserThread& ut,
     zmq::socket_t& response_puller,
     zmq::socket_t& key_address_puller,
     string& ip,
@@ -112,7 +119,7 @@ void handle_request(
 
   communication::Request req;
   req.set_respond_address(ut.get_request_pulling_connect_addr());
-  
+
   string req_id = ip + ":" + to_string(thread_id) + "_" + to_string(rid);
   req.set_request_id(req_id);
   rid += 1;
@@ -132,7 +139,7 @@ void handle_request(
     tp->set_timestamp(0);
     tp->set_num_address(key_address_cache[key].size());
   }
-  
+
   bool succeed;
   auto res = send_request<communication::Request, communication::Response>(req, pushers[worker_address], response_puller, succeed);
 
@@ -208,25 +215,28 @@ void run(unsigned thread_id) {
   // rep factor map
   unordered_map<string, pair<double, unsigned>> rep_factor_map;
 
-  user_thread_t ut = user_thread_t(ip, thread_id);
+  UserThread ut = UserThread(ip, thread_id);
 
   // read the YAML conf
-  
-  // TODO: change this to read multiple monitoring addresses
-  string monitoring_address = conf["monitoring_ip"].as<string>();
-  YAML::Node routing = conf["routing_ip"];
   vector<string> routing_address;
+  vector<MonitoringThread> mts;
+
+  YAML::Node routing = conf["routing"];
+  YAML::Node monitoring = conf["monitoring"];
+
+  for (YAML::const_iterator it = monitoring.begin(); it != monitoring.end(); ++it) {
+    mts.push_back(MonitoringThread(it->as<string>()));
+  }
 
   for (YAML::const_iterator it = routing.begin(); it != routing.end(); ++it) {
     routing_address.push_back(it->as<string>());
   }
 
   int timeout = 10000;
-  monitoring_thread_t mt = monitoring_thread_t(monitoring_address);
   zmq::context_t context(1);
   SocketCache pushers(&context, ZMQ_PUSH);
 
-  
+
   // responsible for pulling response
   zmq::socket_t response_puller(context, ZMQ_PULL);
   response_puller.setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
@@ -236,7 +246,7 @@ void run(unsigned thread_id) {
   zmq::socket_t key_address_puller(context, ZMQ_PULL);
   key_address_puller.setsockopt(ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
   key_address_puller.bind(ut.get_key_address_bind_addr());
-  
+
   // responsible for pulling benchmark commands
   zmq::socket_t command_puller(context, ZMQ_PULL);
   command_puller.bind("tcp://*:" + to_string(thread_id + COMMAND_BASE_PORT));
@@ -388,7 +398,10 @@ void run(unsigned thread_id) {
             string serialized_latency;
             l.SerializeToString(&serialized_latency);
 
-            zmq_util::send_string(serialized_latency, &pushers[mt.get_latency_report_connect_addr()]);
+            for (int i = 0; i < mts.size(); i++) {
+              zmq_util::send_string(serialized_latency, &pushers[mts[i].get_latency_report_connect_addr()]);
+            }
+
             count = 0;
             rep_factor_map.clear();
             epoch_start = std::chrono::system_clock::now();
@@ -411,10 +424,13 @@ void run(unsigned thread_id) {
 
         l.set_uid(ip + ":" + to_string(thread_id));
         l.set_finish(true);
-        
+
         string serialized_latency;
         l.SerializeToString(&serialized_latency);
-        zmq_util::send_string(serialized_latency, &pushers[mt.get_latency_report_connect_addr()]);
+
+        for (int i = 0; i < mts.size(); i++) {
+          zmq_util::send_string(serialized_latency, &pushers[mts[i].get_latency_report_connect_addr()]);
+        }
       } else if (mode == "WARM") {
         unsigned num_keys = stoi(v[1]);
         unsigned length = stoi(v[2]);
@@ -461,6 +477,7 @@ int main(int argc, char* argv[]) {
   YAML::Node conf = YAML::LoadFile("conf/config_benchmark.yml")["thread"];
   ROUTING_THREAD_NUM = conf["routing"].as<int>();
   BENCHMARK_THREAD_NUM = conf["benchmark"].as<int>();
+  DEFAULT_LOCAL_REPLICATION = conf["replication"]["local"].as<unsigned>();
 
   vector<thread> benchmark_threads;
   for (unsigned thread_id = 1; thread_id < BENCHMARK_THREAD_NUM; thread_id++) {

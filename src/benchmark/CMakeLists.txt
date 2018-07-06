@@ -21,14 +21,16 @@ SET(KV_SRC_DEPENDENCIES
     ${PROTO_HEADER}
 )
 SET(ZMQ_DEPENDENCIES
-  ../include/zmq/zmq_util.cc
-  ../include/zmq/zmq_util.h
-  ../include/zmq/socket_cache.cc
-  ../include/zmq/socket_cache.h
+  ../include/zmq/zmq_util.cpp
+  ../include/zmq/zmq_util.hpp
+  ../include/zmq/socket_cache.cpp
+  ../include/zmq/socket_cache.hpp
 )
 
-ADD_EXECUTABLE(benchmark benchmark.cpp ${KV_SRC_DEPENDENCIES} ${ZMQ_DEPENDENCIES})
+ADD_EXECUTABLE(benchmark benchmark.cpp ../bedrock/hash_ring.cpp ${KV_SRC_DEPENDENCIES} ${ZMQ_DEPENDENCIES})
 TARGET_LINK_LIBRARIES(benchmark ${KV_LIBRARY_DEPENDENCIES})
+ADD_DEPENDENCIES(benchmark zeromq zeromqcpp)
 
-ADD_EXECUTABLE(benchmark_trigger benchmark_trigger.cpp ${KV_SRC_DEPENDENCIES} ${ZMQ_DEPENDENCIES})
+ADD_EXECUTABLE(benchmark_trigger benchmark_trigger.cpp ../bedrock/hash_ring.cpp ${KV_SRC_DEPENDENCIES} ${ZMQ_DEPENDENCIES})
 TARGET_LINK_LIBRARIES(benchmark_trigger ${KV_LIBRARY_DEPENDENCIES})
+ADD_DEPENDENCIES(benchmark_trigger zeromq zeromqcpp)

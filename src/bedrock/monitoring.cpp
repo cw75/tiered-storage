@@ -8,41 +8,59 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <memory>
+#include "spdlog/spdlog.h"
 #include "communication.pb.h"
-#include "zmq/socket_cache.h"
-#include "zmq/zmq_util.h"
+#include "zmq/socket_cache.hpp"
+#include "zmq/zmq_util.hpp"
 #include "utils/consistent_hash_map.hpp"
-#include "common.h"
+#include "common.hpp"
+#include "threads.hpp"
+#include "requests.hpp"
+#include "hashers.hpp"
+#include "hash_ring.hpp"
 #include "yaml-cpp/yaml.h"
 
 // define monitoring threshold (in second)
 const unsigned MONITORING_THRESHOLD = 30;
+
 // define the grace period for triggering elasticity action (in second)
 const unsigned GRACE_PERIOD = 120;
+
 // the default number of nodes to add concurrently for storage
 const unsigned NODE_ADD = 2;
+
 // define capacity for both tiers
 const double MEM_CAPACITY_MAX = 0.6;
 const double MEM_CAPACITY_MIN = 0.3;
 const double EBS_CAPACITY_MAX = 0.75;
 const double EBS_CAPACITY_MIN = 0.5;
+
 // define threshold for promotion/demotion
 const unsigned PROMOTE_THRESHOLD = 0;
 const unsigned DEMOTE_THRESHOLD = 1;
+
 // define minimum number of nodes for each tier
 const unsigned MINIMUM_MEMORY_NODE = 12;
 const unsigned MINIMUM_EBS_NODE = 0;
+
 // value size in KB
 const unsigned VALUE_SIZE = 256;
 
+unsigned MEMORY_THREAD_NUM;
+unsigned EBS_THREAD_NUM;
+
+unsigned DEFAULT_GLOBAL_MEMORY_REPLICATION;
+unsigned DEFAULT_GLOBAL_EBS_REPLICATION;
+unsigned DEFAULT_LOCAL_REPLICATION;
+unsigned MINIMUM_REPLICA_NUMBER;
 
 using namespace std;
 using address_t = string;
 
 // read-only per-tier metadata
-unordered_map<unsigned, tier_data> tier_data_map;
+unordered_map<unsigned, TierData> tier_data_map;
 
-struct summary_stats {
+struct SummaryStats {
   void clear() {
     key_access_mean = 0;
     key_access_std = 0;
@@ -66,7 +84,7 @@ struct summary_stats {
     avg_latency = 0;
     total_throughput = 0;
   }
-  summary_stats() {
+  SummaryStats() {
     clear();
   }
   double key_access_mean;
@@ -94,13 +112,13 @@ struct summary_stats {
 
 string prepare_metadata_request(
     string& key,
-    global_hash_t& global_memory_hash_ring,
-    local_hash_t& local_memory_hash_ring,
+    GlobalHashRing& global_memory_hash_ring,
+    LocalHashRing& local_memory_hash_ring,
     unordered_map<address_t, communication::Request>& addr_request_map,
-    monitoring_thread_t& mt,
-    unsigned& rid, 
+    MonitoringThread& mt,
+    unsigned& rid,
     string value) {
-  
+
   auto threads = get_responsible_threads_metadata(key, global_memory_hash_ring, local_memory_hash_ring);
   if (threads.size() != 0) {
     string target_address = next(begin(threads), rand() % threads.size())->get_request_pulling_connect_addr();
@@ -114,16 +132,16 @@ string prepare_metadata_request(
 
     return target_address;
   }
-  
+
   return string();
 }
 
 void prepare_metadata_get_request(
     string& key,
-    global_hash_t& global_memory_hash_ring,
-    local_hash_t& local_memory_hash_ring,
+    GlobalHashRing& global_memory_hash_ring,
+    LocalHashRing& local_memory_hash_ring,
     unordered_map<address_t, communication::Request>& addr_request_map,
-    monitoring_thread_t& mt,
+    MonitoringThread& mt,
     unsigned& rid) {
 
   string target_address = prepare_metadata_request(key, global_memory_hash_ring, local_memory_hash_ring, addr_request_map, mt, rid, "GET");
@@ -136,12 +154,12 @@ void prepare_metadata_get_request(
 void prepare_metadata_put_request(
     string& key,
     string& value,
-    global_hash_t& global_memory_hash_ring,
-    local_hash_t& local_memory_hash_ring,
+    GlobalHashRing& global_memory_hash_ring,
+    LocalHashRing& local_memory_hash_ring,
     unordered_map<address_t, communication::Request>& addr_request_map,
-    monitoring_thread_t& mt,
+    MonitoringThread& mt,
     unsigned& rid) {
-  
+
   string target_address = prepare_metadata_request(key, global_memory_hash_ring, local_memory_hash_ring, addr_request_map, mt, rid, "PUT");
 
   if (!target_address.empty()) {
@@ -150,10 +168,10 @@ void prepare_metadata_put_request(
 }
 
 void collect_internal_stats(
-    unordered_map<unsigned, global_hash_t>& global_hash_ring_map,
-    unordered_map<unsigned, local_hash_t>& local_hash_ring_map,
+    unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+    unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     SocketCache& pushers,
-    monitoring_thread_t& mt,
+    MonitoringThread& mt,
     zmq::socket_t& response_puller,
     shared_ptr<spdlog::logger> logger,
     unsigned& rid,
@@ -255,7 +273,7 @@ void compute_summary_stats(
     unordered_map<address_t, unordered_map<unsigned, unsigned>>& memory_tier_access,
     unordered_map<address_t, unordered_map<unsigned, unsigned>>& ebs_tier_access,
     unordered_map<string, unsigned>& key_access_summary,
-    summary_stats& ss,
+    SummaryStats& ss,
     shared_ptr<spdlog::logger> logger,
     unsigned& server_monitoring_epoch) {
   // compute key access summary
@@ -433,7 +451,7 @@ void compute_summary_stats(
 void collect_external_stats(
   unordered_map<address_t, double>& user_latency,
   unordered_map<address_t, double>& user_throughput,
-  summary_stats& ss,
+  SummaryStats& ss,
   shared_ptr<spdlog::logger> logger) {
   // gather latency info
   if (user_latency.size() > 0) {
@@ -462,8 +480,8 @@ void collect_external_stats(
   logger->info("Total throughput is {}.", ss.total_throughput);
 }
 
-key_info create_new_replication_vector(unsigned gm, unsigned ge, unsigned lm, unsigned le) {
-  key_info rep_vector;
+KeyInfo create_new_replication_vector(unsigned gm, unsigned ge, unsigned lm, unsigned le) {
+  KeyInfo rep_vector;
   rep_vector.global_replication_map_[1] = gm;
   rep_vector.global_replication_map_[2] = ge;
   rep_vector.local_replication_map_[1] = lm;
@@ -476,7 +494,7 @@ void prepare_replication_factor_update(
     string& key,
     unordered_map<address_t, communication::Replication_Factor_Request>& replication_factor_map,
     string server_address,
-    unordered_map<string, key_info>& placement) {
+    unordered_map<string, KeyInfo>& placement) {
 
   communication::Replication_Factor_Request_Tuple* tp = replication_factor_map[server_address].add_tuple();
   tp->set_key(key);
@@ -497,19 +515,19 @@ void prepare_replication_factor_update(
 // assume the caller has the replication factor for the keys and the requests are valid
 // (rep factor <= total number of nodes in a tier)
 void change_replication_factor(
-    unordered_map<string, key_info>& requests,
-    unordered_map<unsigned, global_hash_t>& global_hash_ring_map,
-    unordered_map<unsigned, local_hash_t>& local_hash_ring_map,
+    unordered_map<string, KeyInfo>& requests,
+    unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+    unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     vector<address_t>& routing_address,
-    unordered_map<string, key_info>& placement,
+    unordered_map<string, KeyInfo>& placement,
     SocketCache& pushers,
-    monitoring_thread_t& mt,
+    MonitoringThread& mt,
     zmq::socket_t& response_puller,
     shared_ptr<spdlog::logger> logger,
     unsigned& rid) {
 
   // used to keep track of the original replication factors for the requested keys
-  unordered_map<string, key_info> orig_placement_info;
+  unordered_map<string, KeyInfo> orig_placement_info;
 
   // store the new replication factor synchronously in storage servers
   unordered_map<address_t, communication::Request> addr_request_map;
@@ -593,7 +611,7 @@ void change_replication_factor(
 
       // form placement requests for routing nodes
       for (auto routing_iter = routing_address.begin(); routing_iter != routing_address.end(); routing_iter++) {
-        prepare_replication_factor_update(key, replication_factor_map, routing_thread_t(*routing_iter, 0).get_replication_factor_change_connect_addr(), placement);
+        prepare_replication_factor_update(key, replication_factor_map, RoutingThread(*routing_iter, 0).get_replication_factor_change_connect_addr(), placement);
       }
     }
   }
@@ -613,7 +631,7 @@ void change_replication_factor(
 
 int main(int argc, char* argv[]) {
   auto logger = spdlog::basic_logger_mt("monitoring_logger", "log.txt", true);
-  logger->flush_on(spdlog::level::info); 
+  logger->flush_on(spdlog::level::info);
 
   if (argc != 1) {
     cerr << "Usage: " << argv[0] << endl;
@@ -623,65 +641,66 @@ int main(int argc, char* argv[]) {
   YAML::Node conf = YAML::LoadFile("conf/config.yml");
   string ip = conf["monitoring"]["ip"].as<string>();
 
-  MEMORY_THREAD_NUM = conf["thread"]["memory"].as<int>();
-  EBS_THREAD_NUM = conf["thread"]["ebs"].as<int>();
+  MEMORY_THREAD_NUM = conf["threads"]["memory"].as<unsigned>();
+  EBS_THREAD_NUM = conf["threads"]["ebs"].as<unsigned>();
 
-  DEFAULT_GLOBAL_MEMORY_REPLICATION = conf["replication"]["memory"].as<int>();
-  DEFAULT_GLOBAL_EBS_REPLICATION = conf["replication"]["ebs"].as<int>();
-  MINIMUM_REPLICA_NUMBER = conf["replication"]["minimum"].as<int>();
+  DEFAULT_GLOBAL_MEMORY_REPLICATION = conf["replication"]["memory"].as<unsigned>();
+  DEFAULT_GLOBAL_EBS_REPLICATION = conf["replication"]["ebs"].as<unsigned>();
+  DEFAULT_LOCAL_REPLICATION = conf["replication"]["local"].as<unsigned>();
+  MINIMUM_REPLICA_NUMBER = conf["replication"]["minimum"].as<unsigned>();
 
-  tier_data_map[1] = tier_data(MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION, MEM_NODE_CAPACITY);
-  tier_data_map[2] = tier_data(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION, EBS_NODE_CAPACITY);
+  tier_data_map[1] = TierData(MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION, MEM_NODE_CAPACITY);
+  tier_data_map[2] = TierData(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION, EBS_NODE_CAPACITY);
 
   // initialize hash ring maps
-  unordered_map<unsigned, global_hash_t> global_hash_ring_map;
-  unordered_map<unsigned, local_hash_t> local_hash_ring_map;
+  unordered_map<unsigned, GlobalHashRing> global_hash_ring_map;
+  unordered_map<unsigned, LocalHashRing> local_hash_ring_map;
 
   // form local hash rings
   for (auto it = tier_data_map.begin(); it != tier_data_map.end(); it++) {
     for (unsigned tid = 0; tid < it->second.thread_number_; tid++) {
-      insert_to_hash_ring<local_hash_t>(local_hash_ring_map[it->first], ip, tid);
+      insert_to_hash_ring<LocalHashRing>(local_hash_ring_map[it->first], ip, tid);
     }
   }
 
   // keep track of the keys' replication info
-  unordered_map<string, key_info> placement;
+  unordered_map<string, KeyInfo> placement;
   // warm up for benchmark
-  //warmup(placement);
+  // warmup_placement_to_defaults(placement);
 
   // keep track of the keys' access by worker address
   unordered_map<string, unordered_map<address_t, unsigned>> key_access_frequency;
 
   // keep track of the keys' access summary
   unordered_map<string, unsigned> key_access_summary;
-  
+
   // keep track of memory tier storage consumption
   unordered_map<address_t, unordered_map<unsigned, unsigned long long>> memory_tier_storage;
- 
+
   // keep track of ebs tier storage consumption
   unordered_map<address_t, unordered_map<unsigned, unsigned long long>> ebs_tier_storage;
- 
+
   // keep track of memory tier thread occupancy
   unordered_map<address_t, unordered_map<unsigned, pair<double, unsigned>>> memory_tier_occupancy;
-  
+
   // keep track of ebs tier thread occupancy
   unordered_map<address_t, unordered_map<unsigned, pair<double, unsigned>>> ebs_tier_occupancy;
-  
+
   // keep track of memory tier hit
   unordered_map<address_t, unordered_map<unsigned, unsigned>> memory_tier_access;
-  
+
   // keep track of ebs tier hit
   unordered_map<address_t, unordered_map<unsigned, unsigned>> ebs_tier_access;
 
   // keep track of some summary statistics
-  summary_stats ss;
-  
+  SummaryStats ss;
+
   // keep track of user latency info
   unordered_map<address_t, double> user_latency;
-  
+
   // keep track of user throughput info
   unordered_map<address_t, double> user_throughput;
-  
+
   // used for adjusting the replication factors based on feedback from the user
   unordered_map<string, pair<double, unsigned>> rep_factor_map;
 
@@ -689,7 +708,7 @@ int main(int argc, char* argv[]) {
 
   // read the YAML conf
   address_t management_address = conf["monitoring"]["mgmt_ip"].as<string>();
-  monitoring_thread_t mt = monitoring_thread_t(ip);
+  MonitoringThread mt = MonitoringThread(ip);
 
   zmq::context_t context(1);
   SocketCache pushers(&context, ZMQ_PUSH);
@@ -753,7 +772,7 @@ int main(int argc, char* argv[]) {
       if (type == "join") {
         logger->info("Received join from server {} in tier {}.", new_server_ip, to_string(tier));
         if (tier == 1) {
-          insert_to_hash_ring<global_hash_t>(global_hash_ring_map[tier], new_server_ip, 0);
+          insert_to_hash_ring<GlobalHashRing>(global_hash_ring_map[tier], new_server_ip, 0);
 
           if (adding_memory_node > 0) {
             adding_memory_node -= 1;
@@ -762,7 +781,7 @@ int main(int argc, char* argv[]) {
           // reset grace period timer
           grace_start = chrono::system_clock::now();
         } else if (tier == 2) {
-          insert_to_hash_ring<global_hash_t>(global_hash_ring_map[tier], new_server_ip, 0);
+          insert_to_hash_ring<GlobalHashRing>(global_hash_ring_map[tier], new_server_ip, 0);
 
           if (adding_ebs_node > 0) {
             adding_ebs_node -= 1;
@@ -784,7 +803,7 @@ int main(int argc, char* argv[]) {
 
         // update hash ring
         if (tier == 1) {
-          remove_from_hash_ring<global_hash_t>(global_hash_ring_map[tier], new_server_ip, 0);
+          remove_from_hash_ring<GlobalHashRing>(global_hash_ring_map[tier], new_server_ip, 0);
           memory_tier_storage.erase(new_server_ip);
           memory_tier_occupancy.erase(new_server_ip);
 
@@ -794,7 +813,7 @@ int main(int argc, char* argv[]) {
             }
           }
         } else if (tier == 2) {
-          remove_from_hash_ring<global_hash_t>(global_hash_ring_map[tier], new_server_ip, 0);
+          remove_from_hash_ring<GlobalHashRing>(global_hash_ring_map[tier], new_server_ip, 0);
           ebs_tier_storage.erase(new_server_ip);
           ebs_tier_occupancy.erase(new_server_ip);
 
@@ -936,7 +955,7 @@ int main(int argc, char* argv[]) {
       unsigned ebs_node_number = global_hash_ring_map[2].size() / VIRTUAL_THREAD_NUM;
 
       // Policy Start Here:
-      unordered_map<string, key_info> requests;
+      unordered_map<string, KeyInfo> requests;
       unsigned total_rep_to_change = 0;
 
       // 1. first check storage consumption and trigger elasticity if necessary
@@ -979,7 +998,7 @@ int main(int argc, char* argv[]) {
           auto ack_addr = mt.get_depart_done_connect_addr();
           zmq_util::send_string(ack_addr, &pushers[connection_addr]);
           removing_ebs_node = true;
-        } 
+        }
       }
 
       // 2. check key access summary to promote hot keys to memory tier
@@ -1025,7 +1044,7 @@ int main(int argc, char* argv[]) {
       // 3. check key access summary to demote cold keys to ebs tier
       time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
 
-      if (time_elapsed > GRACE_PERIOD) {
+if (time_elapsed > GRACE_PERIOD) {
         unsigned slot = (EBS_CAPACITY_MAX * tier_data_map[2].node_capacity_ * ebs_node_number - ss.total_ebs_consumption) / VALUE_SIZE;
         bool overflow = false;
 
@@ -1058,8 +1077,8 @@ int main(int argc, char* argv[]) {
             system(shell_command.c_str());
             adding_ebs_node = node_to_add;
           }
-        } 
-      } 
+        }
+      }
 
       requests.clear();
       total_rep_to_change = 0;
@@ -1079,7 +1098,7 @@ int main(int argc, char* argv[]) {
             string shell_command = "curl -X POST http://" + management_address + "/add/memory/" + to_string(node_to_add) + " &";
             system(shell_command.c_str());
             adding_memory_node = node_to_add;
-          } 
+          }
         } else { // hot key replication
           // find hot keys
           logger->info("Classifying hot keys...");
@@ -1105,7 +1124,7 @@ int main(int argc, char* argv[]) {
                 if (MEMORY_THREAD_NUM > placement[key].local_replication_map_[1]) {
                   requests[key] = create_new_replication_vector(placement[key].global_replication_map_[1], placement[key].global_replication_map_[2], MEMORY_THREAD_NUM, placement[key].local_replication_map_[2]);
                   logger->info("Local hot key replication for key {}. T: {}->{}.", key, placement[key].local_replication_map_[1], requests[key].local_replication_map_[1]);
-                } 
+                }
               }
             }
           }
@@ -1136,7 +1155,7 @@ int main(int argc, char* argv[]) {
 
           change_replication_factor(requests, global_hash_ring_map, local_hash_ring_map, routing_address, placement, pushers, mt, response_puller, logger, rid);
 
-          server_thread_t node = server_thread_t(ss.min_occupancy_memory_ip, 0);
+          ServerThread node = ServerThread(ss.min_occupancy_memory_ip, 0);
           auto connection_addr = node.get_self_depart_connect_addr();
 
           departing_node_map[ss.min_occupancy_memory_ip] = tier_data_map[1].thread_number_;
@@ -1145,7 +1164,7 @@ int main(int argc, char* argv[]) {
           logger->info("Removing memory node {}.", node.get_ip());
           zmq_util::send_string(ack_addr, &pushers[connection_addr]);
           removing_memory_node = true;
-        } 
+        }
       }
 
       requests.clear();
@@ -1167,7 +1186,7 @@ int main(int argc, char* argv[]) {
 
       logger->info("Adding {} memory nodes is in progress.", adding_memory_node);
       logger->info("Adding {} EBS nodes in progress.", adding_ebs_node);
-      
+
       report_start = std::chrono::system_clock::now();
     }
   }
