@@ -24,5 +24,5 @@ echo $RPID >> pids
 echo $SPID >> pids
 
 if [ "$2" = "y" ] || [ "$2" = "yes" ]; then
-  ./build/src/bedrock/user
+  ./build/src/cli/flcli
 fi
