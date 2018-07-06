@@ -25,8 +25,6 @@ void remove_from_hash_ring(H& hash_ring, std::string ip, unsigned tid) {
   }
 }
 
-bool operator==(const ServerThread& l, const ServerThread& r);
-
 unordered_set<ServerThread, ThreadHash> responsible_global
     (string key, unsigned global_rep, GlobalHashRing& global_hash_ring);
 
