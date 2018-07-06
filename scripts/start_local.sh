@@ -11,12 +11,12 @@ if [ "$1" = "y" ] || [ "$1" = "yes" ]; then
   ./scripts/build.sh
 fi
 
-./build/src/bedrock/monitoring &
+./build/src/bedrock/monitor/flmon &
 MPID=$!
-./build/src/bedrock/routing &
+./build/src/bedrock/route/flroute &
 RPID=$!
 export SERVER_TYPE=1
-./build/src/bedrock/server &
+./build/src/bedrock/kvs/flkvs &
 SPID=$!
 
 echo $MPID > pids
@@ -24,5 +24,5 @@ echo $RPID >> pids
 echo $SPID >> pids
 
 if [ "$2" = "y" ] || [ "$2" = "yes" ]; then
-  ./build/src/bedrock/user
+  ./build/src/cli/flcli
 fi

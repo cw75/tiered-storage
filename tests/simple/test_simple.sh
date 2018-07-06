@@ -17,7 +17,7 @@ echo "Starting local server..."
 ./scripts/start_local.sh $BUILD n
 
 echo "Running tests..."
-./build/src/bedrock/user tests/simple/input > tmp.out
+./build/src/cli/flcli tests/simple/input > tmp.out
 
 DIFF=`diff tmp.out tests/simple/expected`
 
