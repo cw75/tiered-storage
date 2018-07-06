@@ -1,3 +1,5 @@
+CMAKE_MINIMUM_REQUIRED(VERSION 3.6)
+
 ADD_EXECUTABLE(benchmark benchmark.cpp)
 TARGET_LINK_LIBRARIES(benchmark flring ${KV_LIBRARY_DEPENDENCIES})
 ADD_DEPENDENCIES(benchmark zeromq zeromqcpp)

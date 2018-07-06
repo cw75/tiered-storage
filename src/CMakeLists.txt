@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 2.6)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.6)
 
 INCLUDE_DIRECTORIES(include)
 
@@ -7,6 +7,7 @@ FIND_PACKAGE(Protobuf REQUIRED)
 INCLUDE_DIRECTORIES(${PROTOBUF_INCLUDE_DIR})
 PROTOBUF_GENERATE_CPP(PROTO_SRC PROTO_HEADER ./include/communication.proto)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR})
+
 # need to build a target at this level or subdirs won't have the 
 # protobuf files generated.
 ADD_LIBRARY(flproto ${PROTO_HEADER} ${PROTO_SRC})

@@ -1,3 +1,5 @@
+CMAKE_MINIMUM_REQUIRED(VERSION 3.6)
+
 SET(ZMQ_DEPENDENCIES
   ../../include/zmq/zmq_util.cpp
   ../../include/zmq/zmq_util.hpp
