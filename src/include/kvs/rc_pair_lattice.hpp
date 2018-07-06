@@ -1,3 +1,6 @@
+#ifndef __RC_PAIR_LATTICE_H__
+#define __RC_PAIR_LATTICE_H__
+
 #include <stdio.h>
 #include <stdlib.h>
 #include "base_kv_store.hpp"
@@ -54,3 +57,5 @@ public:
       return merge(pl.reveal());
     }
 };
+
+#endif
