@@ -21,6 +21,10 @@
 
 using namespace std;
 
+unsigned BENCHMARK_THREAD_NUM;
+unsigned ROUTING_THREAD_NUM;
+unsigned DEFAULT_LOCAL_REPLICATION;
+
 double get_base(unsigned N, double skew) {
   double base = 0;
   for (unsigned k = 1; k <= N; k++) {
@@ -93,7 +97,7 @@ void handle_request(
   string worker_address;
   if (key_address_cache.find(key) == key_address_cache.end()) {
     // query the routing and update the cache
-    string target_routing_address = get_random_routing_thread(routing_address, seed).get_key_address_connect_addr();
+    string target_routing_address = get_random_routing_thread(routing_address, seed, ROUTING_THREAD_NUM).get_key_address_connect_addr();
     bool succeed;
     auto addresses = get_address_from_routing(ut, key, pushers[target_routing_address], key_address_puller, succeed, ip, thread_id, rid);
     if (succeed) {
@@ -277,7 +281,7 @@ void run(unsigned thread_id) {
             logger->info("warming up cache for key {}", key);
           }
 
-          string target_routing_address = get_random_routing_thread(routing_address, seed).get_key_address_connect_addr();
+          string target_routing_address = get_random_routing_thread(routing_address, seed, ROUTING_THREAD_NUM).get_key_address_connect_addr();
           bool succeed;
           auto addresses = get_address_from_routing(ut, key, pushers[target_routing_address], key_address_puller, succeed, ip, thread_id, rid);
 
@@ -469,6 +473,11 @@ int main(int argc, char* argv[]) {
     cerr << "Usage: " << argv[0] << endl;
     return 1;
   }
+
+  YAML::Node conf = YAML::LoadFile("conf/config_benchmark.yml")["thread"];
+  ROUTING_THREAD_NUM = conf["routing"].as<int>();
+  BENCHMARK_THREAD_NUM = conf["benchmark"].as<int>();
+  DEFAULT_LOCAL_REPLICATION = conf["replication"]["local"].as<unsigned>();
 
   vector<thread> benchmark_threads;
   for (unsigned thread_id = 1; thread_id < BENCHMARK_THREAD_NUM; thread_id++) {

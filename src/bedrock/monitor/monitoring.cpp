@@ -20,8 +20,39 @@
 #include "hash_ring.hpp"
 #include "yaml-cpp/yaml.h"
 
+// define monitoring threshold (in second)
+const unsigned MONITORING_THRESHOLD = 30;
+
+// define the grace period for triggering elasticity action (in second)
+const unsigned GRACE_PERIOD = 120;
+
 // the default number of nodes to add concurrently for storage
-#define NODE_ADD 2
+const unsigned NODE_ADD = 2;
+
+// define capacity for both tiers
+const double MEM_CAPACITY_MAX = 0.6;
+const double MEM_CAPACITY_MIN = 0.3;
+const double EBS_CAPACITY_MAX = 0.75;
+const double EBS_CAPACITY_MIN = 0.5;
+
+// define threshold for promotion/demotion
+const unsigned PROMOTE_THRESHOLD = 0;
+const unsigned DEMOTE_THRESHOLD = 1;
+
+// define minimum number of nodes for each tier
+const unsigned MINIMUM_MEMORY_NODE = 12;
+const unsigned MINIMUM_EBS_NODE = 0;
+
+// value size in KB
+const unsigned VALUE_SIZE = 256;
+
+unsigned MEMORY_THREAD_NUM;
+unsigned EBS_THREAD_NUM;
+
+unsigned DEFAULT_GLOBAL_MEMORY_REPLICATION;
+unsigned DEFAULT_GLOBAL_EBS_REPLICATION;
+unsigned DEFAULT_LOCAL_REPLICATION;
+unsigned MINIMUM_REPLICA_NUMBER;
 
 using namespace std;
 using address_t = string;
@@ -607,8 +638,16 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
-  YAML::Node conf = YAML::LoadFile("conf/config.yml")["monitoring"];
-  string ip = conf["ip"].as<string>();
+  YAML::Node conf = YAML::LoadFile("conf/config.yml");
+  string ip = conf["monitoring"]["ip"].as<string>();
+
+  MEMORY_THREAD_NUM = conf["threads"]["memory"].as<unsigned>();
+  EBS_THREAD_NUM = conf["threads"]["ebs"].as<unsigned>();
+
+  DEFAULT_GLOBAL_MEMORY_REPLICATION = conf["replication"]["memory"].as<unsigned>();
+  DEFAULT_GLOBAL_EBS_REPLICATION = conf["replication"]["ebs"].as<unsigned>();
+  DEFAULT_LOCAL_REPLICATION = conf["replication"]["local"].as<unsigned>();
+  MINIMUM_REPLICA_NUMBER = conf["replication"]["minimum"].as<unsigned>();
 
   tier_data_map[1] = TierData(MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION, MEM_NODE_CAPACITY);
   tier_data_map[2] = TierData(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION, EBS_NODE_CAPACITY);
@@ -627,7 +666,7 @@ int main(int argc, char* argv[]) {
   // keep track of the keys' replication info
   unordered_map<string, KeyInfo> placement;
   // warm up for benchmark
-  warmup_placement_to_defaults(placement);
+  // warmup_placement_to_defaults(placement);
 
   // keep track of the keys' access by worker address
   unordered_map<string, unordered_map<address_t, unsigned>> key_access_frequency;
@@ -668,7 +707,7 @@ int main(int argc, char* argv[]) {
   vector<address_t> routing_address;
 
   // read the YAML conf
-  address_t management_address = conf["mgmt_ip"].as<string>();
+  address_t management_address = conf["monitoring"]["mgmt_ip"].as<string>();
   MonitoringThread mt = MonitoringThread(ip);
 
   zmq::context_t context(1);
@@ -1005,7 +1044,7 @@ int main(int argc, char* argv[]) {
       // 3. check key access summary to demote cold keys to ebs tier
       time_elapsed = chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now()-grace_start).count();
 
-      if (time_elapsed > GRACE_PERIOD) {
+if (time_elapsed > GRACE_PERIOD) {
         unsigned slot = (EBS_CAPACITY_MAX * tier_data_map[2].node_capacity_ * ebs_node_number - ss.total_ebs_consumption) / VALUE_SIZE;
         bool overflow = false;
 

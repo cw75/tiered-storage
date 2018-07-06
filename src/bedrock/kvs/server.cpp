@@ -25,10 +25,24 @@
 
 using namespace std;
 
+// define server report threshold (in second)
+const unsigned SERVER_REPORT_THRESHOLD = 15;
+// define server's key monitoring threshold (in second)
+const unsigned KEY_MONITORING_THRESHOLD = 60;
+// define the threshold for retry rep factor query for gossip handling (in second)
+const unsigned RETRY_THRESHOLD = 10;
+
 unsigned SELF_TIER_ID;
 
 // number of worker threads
 unsigned THREAD_NUM;
+
+unsigned MEMORY_THREAD_NUM;
+unsigned EBS_THREAD_NUM;
+
+unsigned DEFAULT_GLOBAL_MEMORY_REPLICATION;
+unsigned DEFAULT_GLOBAL_EBS_REPLICATION;
+unsigned DEFAULT_LOCAL_REPLICATION;
 
 // read-only per-tier metadata
 unordered_map<unsigned, TierData> tier_data_map;
@@ -279,6 +293,7 @@ void run(unsigned thread_id) {
   auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
   logger->flush_on(spdlog::level::info);
 
+  // TODO(vikram): we can probably just read this once and pass it into run
   YAML::Node conf = YAML::LoadFile("conf/config.yml")["server"];
   string ip = conf["ip"].as<string>();
 
@@ -1153,6 +1168,14 @@ int main(int argc, char* argv[]) {
     cout << "No server type specified. The default behavior is to start the server in memory mode." << endl;
     SELF_TIER_ID = 1;
   }
+
+  YAML::Node conf = YAML::LoadFile("conf/config.yml");
+  MEMORY_THREAD_NUM = conf["threads"]["memory"].as<unsigned>();
+  EBS_THREAD_NUM = conf["threads"]["ebs"].as<unsigned>();
+
+  DEFAULT_GLOBAL_MEMORY_REPLICATION = conf["replication"]["memory"].as<unsigned>();
+  DEFAULT_GLOBAL_EBS_REPLICATION = conf["replication"]["ebs"].as<unsigned>();
+  DEFAULT_LOCAL_REPLICATION = conf["replication"]["local"].as<unsigned>();
 
   tier_data_map[1] = TierData(MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION, MEM_NODE_CAPACITY);
   tier_data_map[2] = TierData(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION, EBS_NODE_CAPACITY);

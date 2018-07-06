@@ -21,6 +21,9 @@
 
 using namespace std;
 
+unsigned ROUTING_THREAD_NUM;
+unsigned DEFAULT_LOCAL_REPLICATION;
+
 void handle_request(
     string request_line,
     SocketCache& pushers,
@@ -65,9 +68,10 @@ void handle_request(
   string worker_address;
   if (key_address_cache.find(key) == key_address_cache.end()) {
     // query the routing and update the cache
-    string target_routing_address = get_random_routing_thread(routing_address, seed).get_key_address_connect_addr();
+    string target_routing_address = get_random_routing_thread(routing_address, seed, ROUTING_THREAD_NUM).get_key_address_connect_addr();
     bool succeed;
-    auto addresses = get_address_from_routing(ut, key, pushers[target_routing_address], key_address_puller, succeed, ip, thread_id, rid);
+    vector<string> addresses = get_address_from_routing(ut, key, pushers[target_routing_address], key_address_puller, succeed, ip, thread_id, rid);
+
     if (succeed) {
       for (auto it = addresses.begin(); it != addresses.end(); it++) {
         key_address_cache[key].insert(*it);
@@ -82,6 +86,7 @@ void handle_request(
       logger->error("Address cache for key " + key + " has size 0.");
       return;
     }
+
     worker_address = *(next(begin(key_address_cache[key]), rand_r(&seed) % key_address_cache[key].size()));
   }
 
@@ -174,6 +179,7 @@ void run(unsigned thread_id, string filename) {
   auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
   logger->flush_on(spdlog::level::info);
 
+  // read the YAML conf
   YAML::Node conf = YAML::LoadFile("conf/config.yml")["user"];
   string ip = conf["ip"].as<string>();
 
@@ -189,7 +195,6 @@ void run(unsigned thread_id, string filename) {
 
   UserThread ut = UserThread(ip, thread_id);
 
-  // read the YAML conf
   YAML::Node routing = conf["routing"];
   vector<string> routing_address;
 
@@ -234,10 +239,14 @@ void run(unsigned thread_id, string filename) {
 
 int main(int argc, char* argv[]) {
   if (argc > 2) {
-    cerr << "Usage: " << argv[0] << "[filename]" << endl;
+    cerr << "Usage: " << argv[0] << "<filename>" << endl;
     cerr << "Filename is optional. Omit the filename to run in interactive mode." << endl;
     return 1;
   }
+
+  YAML::Node conf = YAML::LoadFile("conf/config.yml");
+  ROUTING_THREAD_NUM = conf["threads"]["routing"].as<unsigned>();
+  DEFAULT_LOCAL_REPLICATION = conf["replication"]["local"].as<unsigned>();
 
   if (argc == 1) {
     run(0, "");

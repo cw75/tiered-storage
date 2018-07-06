@@ -1,6 +1,7 @@
 #include <atomic>
 #include <string>
 #include <functional>
+#include <unistd.h>
 #include "communication.pb.h"
 #include "zmq/socket_cache.hpp"
 #include "zmq/zmq_util.hpp"
@@ -89,7 +90,6 @@ void issue_replication_factor_request(
     GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring,
     SocketCache& pushers,
-
     unsigned& seed) {
   string key_rep = string(METADATA_IDENTIFIER) + "_" + key + "_replication";
   auto threads = get_responsible_threads_metadata(key_rep, global_memory_hash_ring, local_memory_hash_ring);
@@ -165,29 +165,53 @@ vector<string> get_address_from_routing(
     unsigned& thread_id,
     unsigned& rid) {
 
+  int count = 0;
+
   communication::Key_Request key_req;
+  communication::Key_Response key_response;
   key_req.set_respond_address(ut.get_key_address_connect_addr());
   key_req.add_keys(key);
 
   string req_id = ip + ":" + to_string(thread_id) + "_" + to_string(rid);
   key_req.set_request_id(req_id);
-  rid += 1;
-
-  // query routing for addresses on the other tier
-  auto key_response = send_request<communication::Key_Request, communication::Key_Response>(key_req, sending_socket, receiving_socket, succeed);
   vector<string> result;
 
-  if (succeed) {
-    for (int j = 0; j < key_response.tuple(0).addresses_size(); j++) {
-      result.push_back(key_response.tuple(0).addresses(j));
+  int err_number = -1;
+
+  while (err_number != 0) {
+    if (err_number == 1) {
+      cerr << "No servers have joined the cluster yet. Retrying request." << endl;
     }
+
+    if (count > 0 && count % 5 == 0) {
+      cerr << "Pausing for 5 seconds before continuing to query routing layer..." << endl;
+      usleep(5000000);
+    }
+
+    rid += 1;
+
+    // query routing for addresses on the other tier
+    key_response = send_request<communication::Key_Request, communication::Key_Response>(key_req, sending_socket, receiving_socket, succeed);
+
+    if (!succeed) {
+      return result;
+    } else {
+      err_number = key_response.err_number();
+    }
+
+    count++;
+  }
+
+  for (int j = 0; j < key_response.tuple(0).addresses_size(); j++) {
+    result.push_back(key_response.tuple(0).addresses(j));
   }
 
   return result;
+
 }
 
-RoutingThread get_random_routing_thread(vector<string>& routing_address, unsigned& seed) {
+RoutingThread get_random_routing_thread(vector<string>& routing_address, unsigned& seed, unsigned& ROUTING_THREAD_NUM) {
   string routing_ip = routing_address[rand_r(&seed) % routing_address.size()];
-  unsigned tid = rand_r(&seed) % PROXY_THREAD_NUM;
+  unsigned tid = rand_r(&seed) % ROUTING_THREAD_NUM;
   return RoutingThread(routing_ip, tid);
 }

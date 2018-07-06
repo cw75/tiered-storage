@@ -16,17 +16,6 @@ fi
 echo "Starting local server..."
 ./scripts/start_local.sh $BUILD n
 
-sleep 1
-
-# wait until the routing tier has received a join from the server before making
-# a request
-JOIN=`cat log* | grep routing | grep 'Received join' | wc -l`
-while [ $JOIN -eq 0 ]; do
-  JOIN=`cat log* | grep routing | grep 'Received join' | wc -l`
-done
-
-sleep 3
-
 echo "Running tests..."
 ./build/src/cli/flcli tests/simple/input > tmp.out
 
@@ -34,8 +23,6 @@ DIFF=`diff tmp.out tests/simple/expected`
 
 if [ "$DIFF" != "" ]; then
   echo "Output did not match expected output (tests/simple/expected.out). Observed output was: "
-  cat tmp.out
-  rm tmp.out
   echo $DIFF
   CODE=1
 else
@@ -43,6 +30,7 @@ else
   CODE=0
 fi
 
+rm tmp.out
 echo "Stopping local server..."
 ./scripts/stop_local.sh y
 exit $CODE

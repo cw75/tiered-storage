@@ -1,8 +1,8 @@
 #ifndef __HASH_RING_H__
 #define __HASH_RING_H__
 
-#include "threads.hpp"
 #include "hashers.hpp"
+#include "threads.hpp"
 
 typedef ConsistentHashMap<ServerThread, GlobalHasher> GlobalHashRing;
 typedef ConsistentHashMap<ServerThread, LocalHasher> LocalHashRing;
@@ -67,9 +67,13 @@ vector<std::string> get_address_from_routing(
     unsigned& rid);
 
 RoutingThread get_random_routing_thread
-    (std::vector<std::string>& routing_address, unsigned& seed);
+    (std::vector<std::string>& routing_address, unsigned& seed, unsigned& ROUTING_THREAD_NUM);
 
-inline void warmup_placement_to_defaults(unordered_map<string, KeyInfo>& placement) {
+inline void warmup_placement_to_defaults(unordered_map<string, 
+    KeyInfo>& placement,
+    unsigned& DEFAULT_GLOBAL_MEMORY_REPLICATION,
+    unsigned& DEFAULT_GLOBAL_EBS_REPLICATION,
+    unsigned &DEFAULT_LOCAL_REPLICATION) {
   for (unsigned i = 1; i <= 1000000; i++) {
     // key is 8 bytes
     string key = string(8 - to_string(i).length(), '0') + to_string(i);
