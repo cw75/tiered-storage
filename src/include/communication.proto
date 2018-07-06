@@ -38,8 +38,10 @@ message Key_Response {
     required string key = 1;
     repeated string addresses = 2;
   }
+    
   repeated Tuple tuple = 1;
   optional string response_id = 2;
+  required uint32 err_number = 3;
 }
 
 message Payload {

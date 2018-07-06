@@ -1,5 +1,7 @@
+# project specific
 build
 vendor/gtest/build
+log*.txt
 
 # ignore compiled byte code
 target
