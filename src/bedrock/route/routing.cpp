@@ -1,4 +1,5 @@
 #include "spdlog/spdlog.h"
+#include "hash_ring.hpp"
 #include "route/routing_handlers.hpp"
 #include "yaml-cpp/yaml.h"
 

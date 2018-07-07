@@ -1,8 +1,6 @@
 #ifndef __ROUTING_HANDLERS_H__
 #define __ROUTING_HANDLERS_H__
 
-#include "hash_ring.hpp"
-
 using namespace std;
 
 void
