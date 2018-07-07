@@ -137,7 +137,7 @@ public:
   }
 };
 
-// used for key stat monitoring
+// TODO(vikram): change this to key size?
 struct KeyStat {
   KeyStat() : size_(0) {}
   KeyStat(unsigned size)
@@ -149,6 +149,8 @@ struct PendingRequest {
   PendingRequest() {}
   PendingRequest(string type, const string& value, string addr, string respond_id)
     : type_(type), value_(value), addr_(addr), respond_id_(respond_id) {}
+
+  // TODO(vikram): change these type names
   string type_;
   string value_;
   string addr_;
