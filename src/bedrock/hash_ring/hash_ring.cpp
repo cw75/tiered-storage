@@ -16,7 +16,7 @@
 
 // assuming the replication factor will never be greater than the number of nodes in a tier
 // return a set of ServerThread that are responsible for a key
-unordered_set<ServerThread, ThreadHash> responsible_global(string key, unsigned global_rep, GlobalHashRing& global_hash_ring) {
+unordered_set<ServerThread, ThreadHash> responsible_global(const string& key, unsigned global_rep, GlobalHashRing& global_hash_ring) {
   unordered_set<ServerThread, ThreadHash> threads;
   auto pos = global_hash_ring.find(key);
 
@@ -41,7 +41,7 @@ unordered_set<ServerThread, ThreadHash> responsible_global(string key, unsigned 
 
 // assuming the replication factor will never be greater than the number of worker threads
 // return a set of tids that are responsible for a key
-unordered_set<unsigned> responsible_local(string key, unsigned local_rep, LocalHashRing& local_hash_ring) {
+unordered_set<unsigned> responsible_local(const string& key, unsigned local_rep, LocalHashRing& local_hash_ring) {
   unordered_set<unsigned> tids;
   auto pos = local_hash_ring.find(key);
 
@@ -65,7 +65,7 @@ unordered_set<unsigned> responsible_local(string key, unsigned local_rep, LocalH
 }
 
 unordered_set<ServerThread, ThreadHash> get_responsible_threads_metadata(
-    string& key,
+    const string& key,
     GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring) {
 
@@ -112,7 +112,7 @@ void issue_replication_factor_request(
 // metadata flag = 0 means the key is a metadata. Otherwise, it is a regular data
 unordered_set<ServerThread, ThreadHash> get_responsible_threads(
     string respond_address,
-    string key,
+    const string& key,
     bool metadata,
     unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
@@ -157,7 +157,7 @@ unordered_set<ServerThread, ThreadHash> get_responsible_threads(
 // query the routing for a key and return all address
 vector<string> get_address_from_routing(
     UserThread& ut,
-    string key,
+    const string& key,
     zmq::socket_t& sending_socket,
     zmq::socket_t& receiving_socket,
     bool& succeed,

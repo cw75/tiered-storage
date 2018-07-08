@@ -3,33 +3,7 @@
 #include "hash_ring.hpp"
 #include "monitor/monitoring_utils.hpp"
 #include "monitor/monitoring_handlers.hpp"
-#include "monitor/policy_algorithm.hpp"
-
-// define monitoring threshold (in second)
-const unsigned MONITORING_THRESHOLD = 30;
-
-// define the grace period for triggering elasticity action (in second)
-const unsigned GRACE_PERIOD = 120;
-
-// the default number of nodes to add concurrently for storage
-const unsigned NODE_ADD = 2;
-
-// define capacity for both tiers
-const double MEM_CAPACITY_MAX = 0.6;
-const double MEM_CAPACITY_MIN = 0.3;
-const double EBS_CAPACITY_MAX = 0.75;
-const double EBS_CAPACITY_MIN = 0.5;
-
-// define threshold for promotion/demotion
-const unsigned PROMOTE_THRESHOLD = 0;
-const unsigned DEMOTE_THRESHOLD = 1;
-
-// define minimum number of nodes for each tier
-const unsigned MINIMUM_MEMORY_NODE = 12;
-const unsigned MINIMUM_EBS_NODE = 0;
-
-// value size in KB
-const unsigned VALUE_SIZE = 256;
+#include "monitor/policies.hpp"
 
 unsigned MEMORY_THREAD_NUM;
 unsigned EBS_THREAD_NUM;
@@ -83,39 +57,30 @@ int main(int argc, char* argv[]) {
   // warm up for benchmark
   // warmup_placement_to_defaults(placement);
 
+  unsigned memory_node_number;
+  unsigned ebs_node_number;
   // keep track of the keys' access by worker address
   unordered_map<string, unordered_map<string, unsigned>> key_access_frequency;
-
   // keep track of the keys' access summary
   unordered_map<string, unsigned> key_access_summary;
-
   // keep track of memory tier storage consumption
   unordered_map<string, unordered_map<unsigned, unsigned long long>> memory_tier_storage;
-
   // keep track of ebs tier storage consumption
   unordered_map<string, unordered_map<unsigned, unsigned long long>> ebs_tier_storage;
-
   // keep track of memory tier thread occupancy
   unordered_map<string, unordered_map<unsigned, pair<double, unsigned>>> memory_tier_occupancy;
-
   // keep track of ebs tier thread occupancy
   unordered_map<string, unordered_map<unsigned, pair<double, unsigned>>> ebs_tier_occupancy;
-
   // keep track of memory tier hit
   unordered_map<string, unordered_map<unsigned, unsigned>> memory_tier_access;
-
   // keep track of ebs tier hit
   unordered_map<string, unordered_map<unsigned, unsigned>> ebs_tier_access;
-
   // keep track of some summary statistics
   SummaryStats ss;
-
   // keep track of user latency info
   unordered_map<string, double> user_latency;
-
   // keep track of user throughput info
   unordered_map<string, double> user_throughput;
-
   // used for adjusting the replication factors based on feedback from the user
   unordered_map<string, pair<double, unsigned>> rep_factor_map;
 
@@ -213,6 +178,8 @@ int main(int argc, char* argv[]) {
     if (chrono::duration_cast<std::chrono::seconds>(report_end-report_start).count() >= MONITORING_THRESHOLD) {
       server_monitoring_epoch += 1;
 
+      memory_node_number = global_hash_ring_map[1].size() / VIRTUAL_THREAD_NUM;
+      ebs_node_number = global_hash_ring_map[2].size() / VIRTUAL_THREAD_NUM;
       // clear stats
       key_access_frequency.clear();
       key_access_summary.clear();
@@ -231,71 +198,92 @@ int main(int argc, char* argv[]) {
 
       // collect internal statistics
       collect_internal_stats(global_hash_ring_map,
-          local_hash_ring_map,
-          pushers,
-          mt,
-          response_puller,
-          logger,
-          rid,
-          key_access_frequency,
-          memory_tier_storage,
-          ebs_tier_storage,
-          memory_tier_occupancy,
-          ebs_tier_occupancy,
-          memory_tier_access,
-          ebs_tier_access,
-          tier_data_map);
+                             local_hash_ring_map,
+                             pushers,
+                             mt,
+                             response_puller,
+                             logger,
+                             rid,
+                             key_access_frequency,
+                             memory_tier_storage,
+                             ebs_tier_storage,
+                             memory_tier_occupancy,
+                             ebs_tier_occupancy,
+                             memory_tier_access,
+                             ebs_tier_access,
+                             tier_data_map);
 
       // compute summary statistics
       compute_summary_stats(key_access_frequency,
-          memory_tier_storage,
-          ebs_tier_storage,
-          memory_tier_occupancy,
-          ebs_tier_occupancy,
-          memory_tier_access,
-          ebs_tier_access,
-          key_access_summary,
-          ss,
-          logger,
-          server_monitoring_epoch,
-          tier_data_map,
-          MEM_CAPACITY_MAX,
-          EBS_CAPACITY_MAX);
+                            memory_tier_storage,
+                            ebs_tier_storage,
+                            memory_tier_occupancy,
+                            ebs_tier_occupancy,
+                            memory_tier_access,
+                            ebs_tier_access,
+                            key_access_summary,
+                            ss,
+                            logger,
+                            server_monitoring_epoch,
+                            tier_data_map);
 
       // collect external statistics
       collect_external_stats(user_latency, user_throughput, ss, logger);
 
-      policy_algorithm(logger,
-                       global_hash_ring_map,
-                       local_hash_ring_map,
-                       grace_start,
-                       ss,
-                       adding_memory_node,
-                       adding_ebs_node,
-                       removing_memory_node,
-                       removing_ebs_node,
-                       management_address,
-                       placement,
-                       key_access_summary,
-                       mt,
-                       tier_data_map,
-                       departing_node_map,
-                       pushers,
-                       response_puller,
-                       routing_address,
-                       rid,
-                       rep_factor_map,
-                       MINIMUM_MEMORY_NODE,
-                       MINIMUM_EBS_NODE,
-                       PROMOTE_THRESHOLD,
-                       DEMOTE_THRESHOLD,
-                       MEM_CAPACITY_MAX,
-                       EBS_CAPACITY_MAX,
-                       EBS_CAPACITY_MIN,
-                       VALUE_SIZE,
-                       VIRTUAL_THREAD_NUM,
-                       GRACE_PERIOD,
-                       NODE_ADD);
+      // execute policies
+      storage_policy(logger,
+                     global_hash_ring_map,
+                     grace_start,
+                     ss,
+                     memory_node_number,
+                     ebs_node_number,
+                     adding_memory_node,
+                     adding_ebs_node,
+                     removing_ebs_node,
+                     management_address,
+                     mt,
+                     tier_data_map,
+                     departing_node_map,
+                     pushers);
+
+      movement_policy(logger,
+                      global_hash_ring_map,
+                      local_hash_ring_map,
+                      grace_start,
+                      ss,
+                      memory_node_number,
+                      ebs_node_number,
+                      adding_memory_node,
+                      adding_ebs_node,
+                      management_address,
+                      placement,
+                      key_access_summary,
+                      mt,
+                      tier_data_map,
+                      pushers,
+                      response_puller,
+                      routing_address,
+                      rid);
+
+      slo_policy(logger,
+                 global_hash_ring_map,
+                 local_hash_ring_map,
+                 grace_start,
+                 ss,
+                 memory_node_number,
+                 adding_memory_node,
+                 removing_memory_node,
+                 management_address,
+                 placement,
+                 key_access_summary,
+                 mt,
+                 tier_data_map,
+                 departing_node_map,
+                 pushers,
+                 response_puller,
+                 routing_address,
+                 rid,
+                 rep_factor_map);
 
       report_start = std::chrono::system_clock::now();
     }
