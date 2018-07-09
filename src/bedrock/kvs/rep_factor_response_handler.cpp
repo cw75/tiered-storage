@@ -67,13 +67,12 @@ void rep_factor_response_handler(
     }
   }
 
-  std::vector<unsigned> tier_ids = {kSelfTierId};
   bool succeed;
 
   if (pending_request_map.find(key) != pending_request_map.end()) {
     auto threads = get_responsible_threads(
         wt.get_replication_factor_connect_addr(), key, is_metadata(key),
-        global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids,
+        global_hash_ring_map, local_hash_ring_map, placement, pushers, kSelfTierIdVector,
         succeed, seed);
 
     if (succeed) {
@@ -167,7 +166,7 @@ void rep_factor_response_handler(
   if (pending_gossip_map.find(key) != pending_gossip_map.end()) {
     auto threads = get_responsible_threads(
         wt.get_replication_factor_connect_addr(), key, is_metadata(key),
-        global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids,
+        global_hash_ring_map, local_hash_ring_map, placement, pushers, kSelfTierIdVector,
         succeed, seed);
 
     if (succeed) {

@@ -39,13 +39,6 @@ void rep_factor_change_handler(
 
   // for every key, update the replication factor and check if the node is still
   // responsible for the key
-  // TODO: make a global vec with all tier ids once instead of
-  // redefining it everywhere, as well as a global vec with just my tier's id
-  std::vector<unsigned> tier_ids;
-  for (unsigned i = kMinTier; i <= kMaxTier; i++) {
-    tier_ids.push_back(i);
-  }
-
   bool succeed;
 
   for (int i = 0; i < req.tuple_size(); i++) {
@@ -57,7 +50,7 @@ void rep_factor_change_handler(
       auto orig_threads = get_responsible_threads(
           wt.get_replication_factor_connect_addr(), key, is_metadata(key),
           global_hash_ring_map, local_hash_ring_map, placement, pushers,
-          tier_ids, succeed, seed);
+          kAllTierIds, succeed, seed);
 
       if (succeed) {
         // update the replication factor
@@ -88,7 +81,7 @@ void rep_factor_change_handler(
         auto threads = get_responsible_threads(
             wt.get_replication_factor_connect_addr(), key, is_metadata(key),
             global_hash_ring_map, local_hash_ring_map, placement, pushers,
-            tier_ids, succeed, seed);
+            kAllTierIds, succeed, seed);
 
         if (succeed) {
           if (threads.find(wt) == threads.end()) {  // this thread is no longer

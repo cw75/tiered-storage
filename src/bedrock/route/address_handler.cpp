@@ -38,41 +38,36 @@ void address_handler(
                           &pushers[key_req.respond_address()]);
   } else {  // if there are servers, attempt to return the correct threads
     for (int i = 0; i < key_req.keys_size(); i++) {
-      std::vector<unsigned> tier_ids;
-      tier_ids.push_back(1);
-
+      unsigned tier_id = 1;
+      std::unordered_set<ServerThread, ThreadHash> threads = {};
       std::string key = key_req.keys(i);
-      auto threads = get_responsible_threads(
-          rt.get_replication_factor_connect_addr(), key, false,
-          global_hash_ring_map, local_hash_ring_map, placement, pushers,
-          tier_ids, succeed, seed);
 
-      if (succeed) {
-        if (threads.size() == 0) {
-          // check ebs tier
-          tier_ids.clear();
-          tier_ids.push_back(2);
-          threads = get_responsible_threads(
-              rt.get_replication_factor_connect_addr(), key, false,
-              global_hash_ring_map, local_hash_ring_map, placement, pushers,
-              tier_ids, succeed, seed);
+      while (threads.size() == 0 && tier_id < kMaxTier) {
+        threads = get_responsible_threads(
+            rt.get_replication_factor_connect_addr(), key, false,
+            global_hash_ring_map, local_hash_ring_map, placement, pushers,
+            { tier_id }, succeed, seed);
+
+        if (!succeed) { // this means we don't have the replication factor for the key
+          if (pending_key_request_map.find(key) ==
+              pending_key_request_map.end()) {
+            pending_key_request_map[key].first = std::chrono::system_clock::now();
+          }
+
+          pending_key_request_map[key].second.push_back(
+              std::pair<std::string, std::string>(key_req.respond_address(),
+                key_req.request_id()));
+          return;
         }
 
-        communication::Key_Response_Tuple* tp = key_res.add_tuple();
-        tp->set_key(key);
+        tier_id++;
+      }
 
-        for (auto it = threads.begin(); it != threads.end(); it++) {
-          tp->add_addresses(it->get_request_pulling_connect_addr());
-        }
-      } else {
-        if (pending_key_request_map.find(key) ==
-            pending_key_request_map.end()) {
-          pending_key_request_map[key].first = std::chrono::system_clock::now();
-        }
+      communication::Key_Response_Tuple* tp = key_res.add_tuple();
+      tp->set_key(key);
 
-        pending_key_request_map[key].second.push_back(
-            std::pair<std::string, std::string>(key_req.respond_address(),
-                                                key_req.request_id()));
+      for (auto it = threads.begin(); it != threads.end(); it++) {
+        tp->add_addresses(it->get_request_pulling_connect_addr());
       }
     }
 

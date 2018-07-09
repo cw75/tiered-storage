@@ -43,7 +43,7 @@ std::unordered_set<ServerThread, ThreadHash> get_responsible_threads(
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     std::unordered_map<std::string, KeyInfo>& placement, SocketCache& pushers,
-    std::vector<unsigned>& tier_ids, bool& succeed, unsigned& seed);
+    const std::vector<unsigned>& tier_ids, bool& succeed, unsigned& seed);
 
 void issue_replication_factor_request(const std::string& respond_address,
                                       const std::string& key,

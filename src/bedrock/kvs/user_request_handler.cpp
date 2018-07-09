@@ -36,7 +36,6 @@ void user_request_handler(
     response.set_response_id(respond_id);
   }
 
-  std::vector<unsigned> tier_ids = {kSelfTierId};
   bool succeed;
 
   if (req.type() == "GET") {
@@ -46,7 +45,7 @@ void user_request_handler(
       auto threads = get_responsible_threads(
           wt.get_replication_factor_connect_addr(), key, is_metadata(key),
           global_hash_ring_map, local_hash_ring_map, placement, pushers,
-          tier_ids, succeed, seed);
+          kSelfTierIdVector, succeed, seed);
 
       if (succeed) {
         if (threads.find(wt) == threads.end()) {
@@ -103,7 +102,7 @@ void user_request_handler(
       auto threads = get_responsible_threads(
           wt.get_replication_factor_connect_addr(), key, is_metadata(key),
           global_hash_ring_map, local_hash_ring_map, placement, pushers,
-          tier_ids, succeed, seed);
+          kSelfTierIdVector, succeed, seed);
 
       if (succeed) {
         if (threads.find(wt) == threads.end()) {

@@ -66,19 +66,13 @@ void self_depart_handler(
   }
 
   AddressKeysetMap addr_keyset_map;
-  std::vector<unsigned> tier_ids;
-
-  for (unsigned i = kMinTier; i <= kMaxTier; i++) {
-    tier_ids.push_back(i);
-  }
-
   bool succeed;
 
   for (auto it = key_stat_map.begin(); it != key_stat_map.end(); it++) {
     std::string key = it->first;
     auto threads = get_responsible_threads(
         wt.get_replication_factor_connect_addr(), key, is_metadata(key),
-        global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids,
+        global_hash_ring_map, local_hash_ring_map, placement, pushers, kAllTierIds,
         succeed, seed);
 
     if (succeed) {

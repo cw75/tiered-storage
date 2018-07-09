@@ -33,9 +33,10 @@ const unsigned KEY_MONITORING_THRESHOLD = 60;
 // define the threshold for retry rep factor query for gossip handling (in
 // second)
 const unsigned RETRY_THRESHOLD = 10;
+unsigned THREAD_NUM;
 
 unsigned kSelfTierId;
-unsigned THREAD_NUM;
+std::vector<unsigned> kSelfTierIdVector;
 
 unsigned kMemoryThreadCount;
 unsigned kEbsThreadCount;
@@ -372,11 +373,6 @@ void run(unsigned thread_id) {
       if (local_changeset.size() > 0) {
         AddressKeysetMap addr_keyset_map;
 
-        std::vector<unsigned> tier_ids;
-        for (unsigned i = kMinTier; i <= kMaxTier; i++) {
-          tier_ids.push_back(i);
-        }
-
         bool succeed;
         for (auto it = local_changeset.begin(); it != local_changeset.end();
              it++) {
@@ -384,7 +380,7 @@ void run(unsigned thread_id) {
           auto threads = get_responsible_threads(
               wt.get_replication_factor_connect_addr(), key, is_metadata(key),
               global_hash_ring_map, local_hash_ring_map, placement, pushers,
-              tier_ids, succeed, seed);
+              kAllTierIds, succeed, seed);
 
           if (succeed) {
             for (auto iter = threads.begin(); iter != threads.end(); iter++) {
@@ -585,6 +581,8 @@ int main(int argc, char *argv[]) {
         << std::endl;
     kSelfTierId = 1;
   }
+
+  kSelfTierIdVector = { kSelfTierId };
 
   YAML::Node conf = YAML::LoadFile("conf/config.yml");
   kMemoryThreadCount = conf["threads"]["memory"].as<unsigned>();

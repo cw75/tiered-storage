@@ -55,47 +55,41 @@ void replication_response_handler(
     // process pending key address requests
     if (pending_key_request_map.find(key) != pending_key_request_map.end()) {
       bool succeed;
-      std::vector<unsigned> tier_ids;
+      unsigned tier_id = 1;
+      std::unordered_set<ServerThread, ThreadHash> threads = {};
 
-      // first check memory tier
-      tier_ids.push_back(1);
-      auto threads = get_responsible_threads(
-          rt.get_replication_factor_connect_addr(), key, false,
-          global_hash_ring_map, local_hash_ring_map, placement, pushers,
-          tier_ids, succeed, seed);
+      while (threads.size() == 0 && tier_id < kMaxTier) {
+        threads = get_responsible_threads(
+            rt.get_replication_factor_connect_addr(), key, false,
+            global_hash_ring_map, local_hash_ring_map, placement, pushers,
+            { tier_id }, succeed, seed);
 
-      if (succeed) {
-        if (threads.size() == 0) {
-          // check ebs tier
-          tier_ids.clear();
-          tier_ids.push_back(2);
-          threads = get_responsible_threads(
-              rt.get_replication_factor_connect_addr(), key, false,
-              global_hash_ring_map, local_hash_ring_map, placement, pushers,
-              tier_ids, succeed, seed);
+        if (!succeed) {
+          logger->error("Missing replication factor for key {}.", key);
+          return;
         }
 
-        for (auto it = pending_key_request_map[key].second.begin();
-             it != pending_key_request_map[key].second.end(); it++) {
-          communication::Key_Response key_res;
-          key_res.set_response_id(it->second);
-          communication::Key_Response_Tuple* tp = key_res.add_tuple();
-          tp->set_key(key);
-
-          for (auto iter = threads.begin(); iter != threads.end(); iter++) {
-            tp->add_addresses(iter->get_request_pulling_connect_addr());
-          }
-
-          // send the key address response
-          key_res.set_err_number(0);
-          std::string serialized_key_res;
-          key_res.SerializeToString(&serialized_key_res);
-          zmq_util::send_string(serialized_key_res, &pushers[it->first]);
-        }
-      } else {
-        logger->info("Error: Missing replication factor for key {}.", key);
+        tier_id++;
       }
-      pending_key_request_map.erase(key);
+
+      for (auto it = pending_key_request_map[key].second.begin();
+           it != pending_key_request_map[key].second.end(); it++) {
+        communication::Key_Response key_res;
+        key_res.set_response_id(it->second);
+        communication::Key_Response_Tuple* tp = key_res.add_tuple();
+        tp->set_key(key);
+
+        for (auto iter = threads.begin(); iter != threads.end(); iter++) {
+          tp->add_addresses(iter->get_request_pulling_connect_addr());
+        }
+
+        // send the key address response
+        key_res.set_err_number(0);
+        std::string serialized_key_res;
+        key_res.SerializeToString(&serialized_key_res);
+        zmq_util::send_string(serialized_key_res, &pushers[it->first]);
+      }
+    pending_key_request_map.erase(key);
     }
   }
 }

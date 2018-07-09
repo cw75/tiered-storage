@@ -120,7 +120,7 @@ std::unordered_set<ServerThread, ThreadHash> get_responsible_threads(
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     std::unordered_map<std::string, KeyInfo>& placement, SocketCache& pushers,
-    std::vector<unsigned>& tier_ids, bool& succeed, unsigned& seed) {
+    const std::vector<unsigned>& tier_ids, bool& succeed, unsigned& seed) {
   if (metadata) {
     succeed = true;
     return get_responsible_threads_metadata(key, global_hash_ring_map[1],
@@ -134,9 +134,7 @@ std::unordered_set<ServerThread, ThreadHash> get_responsible_threads(
                                        local_hash_ring_map[1], pushers, seed);
       succeed = false;
     } else {
-      for (auto id_iter = tier_ids.begin(); id_iter != tier_ids.end();
-           id_iter++) {
-        unsigned tier_id = *id_iter;
+      for (const unsigned tier_id : tier_ids) {
         auto mts = responsible_global(
             key, placement[key].global_replication_map_[tier_id],
             global_hash_ring_map[tier_id]);

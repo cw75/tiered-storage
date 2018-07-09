@@ -19,6 +19,7 @@ const unsigned kVirtualThreadNum = 3000;
 
 const unsigned kMinTier = 1;
 const unsigned kMaxTier = 2;
+const std::vector<unsigned> kAllTierIds = { 1, 2 };
 
 const unsigned kSloWorst = 3000;
 const unsigned SLO_BEST = 1500;
@@ -55,6 +56,7 @@ const unsigned kBenchmarkCommandBasePort = 6900;
 
 // run-time constants
 extern unsigned kSelfTierId;
+extern std::vector<unsigned> kSelfTierIdVector;
 
 extern unsigned kMemoryThreadCount;
 extern unsigned kEbsThreadCount;

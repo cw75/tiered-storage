@@ -72,7 +72,6 @@ void node_join_handler(
     }
 
     if (tier == kSelfTierId) {
-      std::vector<unsigned> tier_ids = {kSelfTierId};
       bool succeed;
 
       for (auto it = key_stat_map.begin(); it != key_stat_map.end(); it++) {
@@ -80,7 +79,7 @@ void node_join_handler(
         auto threads = get_responsible_threads(
             wt.get_replication_factor_connect_addr(), key, is_metadata(key),
             global_hash_ring_map, local_hash_ring_map, placement, pushers,
-            tier_ids, succeed, seed);
+            kSelfTierIdVector, succeed, seed);
 
         if (succeed) {
           if (threads.find(wt) == threads.end()) {

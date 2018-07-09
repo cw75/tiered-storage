@@ -21,7 +21,6 @@ void gossip_handler(
   communication::Request gossip;
   gossip.ParseFromString(gossip_string);
 
-  std::vector<unsigned> tier_ids = {kSelfTierId};
   bool succeed;
   std::unordered_map<std::string, communication::Request> gossip_map;
 
@@ -30,7 +29,7 @@ void gossip_handler(
     std::string key = gossip.tuple(i).key();
     auto threads = get_responsible_threads(
         wt.get_replication_factor_connect_addr(), key, is_metadata(key),
-        global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids,
+        global_hash_ring_map, local_hash_ring_map, placement, pushers, kSelfTierIdVector,
         succeed, seed);
 
     if (succeed) {
