@@ -21,23 +21,23 @@
 #include "zmq/socket_cache.hpp"
 #include "zmq/zmq_util.hpp"
 
-using namespace std;
-
 unsigned ROUTING_THREAD_NUM;
 unsigned DEFAULT_LOCAL_REPLICATION;
 
 void handle_request(
-    string request_line, SocketCache& pushers, vector<string>& routing_address,
-    unordered_map<string, unordered_set<string>>& key_address_cache,
-    unsigned& seed, shared_ptr<spdlog::logger> logger, UserThread& ut,
+    std::string request_line, SocketCache& pushers,
+    std::vector<std::string>& routing_address,
+    std::unordered_map<std::string, std::unordered_set<std::string>>&
+        key_address_cache,
+    unsigned& seed, std::shared_ptr<spdlog::logger> logger, UserThread& ut,
     zmq::socket_t& response_puller, zmq::socket_t& key_address_puller,
-    string& ip, unsigned& thread_id, unsigned& rid, unsigned& trial) {
-  vector<string> v;
+    std::string& ip, unsigned& thread_id, unsigned& rid, unsigned& trial) {
+  std::vector<std::string> v;
   split(request_line, ' ', v);
-  string key, value;
+  std::string key, value;
 
   if (!((v.size() == 2 && v[0] == "GET") || (v.size() == 3 && v[0] == "PUT"))) {
-    cout << "Usage: GET <key> | PUT <key> <value>" << endl;
+    std::cerr << "Usage: GET <key> | PUT <key> <value>" << std::endl;
     return;
   } else {
     if (v[0] == "GET") {
@@ -52,20 +52,20 @@ void handle_request(
   if (trial > 5) {
     logger->info("Trial #{} for request for key {}.", trial, key);
     logger->info("Waiting 5 seconds.");
-    chrono::seconds dura(5);
-    this_thread::sleep_for(dura);
+    std::chrono::seconds dura(5);
+    std::this_thread::sleep_for(dura);
     logger->info("Waited 5s.");
   }
 
   // get worker address
-  string worker_address;
+  std::string worker_address;
   if (key_address_cache.find(key) == key_address_cache.end()) {
     // query the routing and update the cache
-    string target_routing_address =
+    std::string target_routing_address =
         get_random_routing_thread(routing_address, seed, ROUTING_THREAD_NUM)
             .get_key_address_connect_addr();
     bool succeed;
-    vector<string> addresses = get_address_from_routing(
+    std::vector<std::string> addresses = get_address_from_routing(
         ut, key, pushers[target_routing_address], key_address_puller, succeed,
         ip, thread_id, rid);
 
@@ -92,7 +92,8 @@ void handle_request(
   communication::Request req;
   req.set_respond_address(ut.get_request_pulling_connect_addr());
 
-  string req_id = ip + ":" + to_string(thread_id) + "_" + to_string(rid);
+  std::string req_id =
+      ip + ":" + std::to_string(thread_id) + "_" + std::to_string(rid);
   req.set_request_id(req_id);
   rid += 1;
 
@@ -143,12 +144,12 @@ void handle_request(
         key_address_cache.erase(key);
       }
       if (value == "" && res.tuple(0).err_number() == 0) {
-        cout << "value of key " + res.tuple(0).key() + " is " +
-                    res.tuple(0).value() + "\n";
+        std::cout << "value of key " + res.tuple(0).key() + " is " +
+                         res.tuple(0).value() + "\n";
       } else if (value == "" && res.tuple(0).err_number() == 1) {
-        cout << "key " + res.tuple(0).key() + " does not exist\n";
+        std::cout << "key " + res.tuple(0).key() + " does not exist\n";
       } else if (value != "") {
-        cout << "successfully put key " + res.tuple(0).key() + "\n";
+        std::cout << "successfully put key " + res.tuple(0).key() + "\n";
       }
     }
   } else {
@@ -157,15 +158,15 @@ void handle_request(
         "possible node membership changes.");
     // likely the node has departed. We clear the entries relavant to the
     // worker_address
-    vector<string> tokens;
+    std::vector<std::string> tokens;
     split(worker_address, ':', tokens);
-    string signature = tokens[1];
-    unordered_set<string> remove_set;
+    std::string signature = tokens[1];
+    std::unordered_set<std::string> remove_set;
 
     for (auto it = key_address_cache.begin(); it != key_address_cache.end();
          it++) {
       for (auto iter = it->second.begin(); iter != it->second.end(); iter++) {
-        vector<string> v;
+        std::vector<std::string> v;
         split(*iter, ':', v);
         if (v[1] == signature) {
           remove_set.insert(it->first);
@@ -184,32 +185,33 @@ void handle_request(
   }
 }
 
-void run(unsigned thread_id, string filename) {
-  string log_file = "log_user.txt";
-  string logger_name = "user_log";
+void run(unsigned thread_id, std::string filename) {
+  std::string log_file = "log_user.txt";
+  std::string logger_name = "user_log";
   auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
   logger->flush_on(spdlog::level::info);
 
   // read the YAML conf
   YAML::Node conf = YAML::LoadFile("conf/config.yml")["user"];
-  string ip = conf["ip"].as<string>();
+  std::string ip = conf["ip"].as<std::string>();
 
-  hash<string> hasher;
+  std::hash<std::string> hasher;
   unsigned seed = time(NULL);
   seed += hasher(ip);
   seed += thread_id;
   logger->info("Random seed is {}.", seed);
 
   // mapping from key to a set of worker addresses
-  unordered_map<string, unordered_set<string>> key_address_cache;
+  std::unordered_map<std::string, std::unordered_set<std::string>>
+      key_address_cache;
 
   UserThread ut = UserThread(ip, thread_id);
 
   YAML::Node routing = conf["routing"];
-  vector<string> routing_address;
+  std::vector<std::string> routing_address;
 
   for (YAML::const_iterator it = routing.begin(); it != routing.end(); ++it) {
-    routing_address.push_back(it->as<string>());
+    routing_address.push_back(it->as<std::string>());
   }
 
   int timeout = 10000;
@@ -228,19 +230,19 @@ void run(unsigned thread_id, string filename) {
 
   unsigned rid = 0;
 
-  string input;
+  std::string input;
   unsigned trial = 1;
   if (filename == "") {
     while (true) {
-      cout << "kvs> ";
+      std::cout << "kvs> ";
 
-      getline(cin, input);
+      getline(std::cin, input);
       handle_request(input, pushers, routing_address, key_address_cache, seed,
                      logger, ut, response_puller, key_address_puller, ip,
                      thread_id, rid, trial);
     }
   } else {
-    ifstream infile(filename);
+    std::ifstream infile(filename);
 
     while (getline(infile, input)) {
       handle_request(input, pushers, routing_address, key_address_cache, seed,
@@ -252,10 +254,10 @@ void run(unsigned thread_id, string filename) {
 
 int main(int argc, char* argv[]) {
   if (argc > 2) {
-    cerr << "Usage: " << argv[0] << "<filename>" << endl;
-    cerr
+    std::cerr << "Usage: " << argv[0] << "<filename>" << std::endl;
+    std::cerr
         << "Filename is optional. Omit the filename to run in interactive mode."
-        << endl;
+        << std::endl;
     return 1;
   }
 

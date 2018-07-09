@@ -1,13 +1,13 @@
 #include "common.hpp"
 #include "spdlog/spdlog.h"
 
-using namespace std;
-
 void feedback_handler(
-    zmq::socket_t* feedback_puller, unordered_map<string, double>& user_latency,
-    unordered_map<string, double>& user_throughput,
-    unordered_map<string, pair<double, unsigned>>& rep_factor_map) {
-  string serialized_feedback = zmq_util::recv_string(feedback_puller);
+    zmq::socket_t* feedback_puller,
+    std::unordered_map<std::string, double>& user_latency,
+    std::unordered_map<std::string, double>& user_throughput,
+    std::unordered_map<std::string, std::pair<double, unsigned>>&
+        rep_factor_map) {
+  std::string serialized_feedback = zmq_util::recv_string(feedback_puller);
   communication::Feedback fb;
   fb.ParseFromString(serialized_feedback);
 
@@ -20,7 +20,7 @@ void feedback_handler(
 
     // collect replication factor adjustment factors
     for (int i = 0; i < fb.rep_size(); i++) {
-      string key = fb.rep(i).key();
+      std::string key = fb.rep(i).key();
       double factor = fb.rep(i).factor();
 
       if (rep_factor_map.find(key) == rep_factor_map.end()) {

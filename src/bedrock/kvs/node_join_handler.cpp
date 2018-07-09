@@ -8,22 +8,20 @@
 #include "spdlog/spdlog.h"
 #include "zmq/socket_cache.hpp"
 
-using namespace std;
-
 void node_join_handler(
-    unsigned int thread_num, unsigned thread_id, unsigned& seed, string ip,
+    unsigned int thread_num, unsigned thread_id, unsigned& seed, std::string ip,
     std::shared_ptr<spdlog::logger> logger, zmq::socket_t* join_puller,
-    unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
-    unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    unordered_map<string, KeyStat>& key_stat_map,
-    unordered_map<string, KeyInfo>& placement,
-    unordered_set<string>& join_remove_set, SocketCache& pushers,
+    std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+    std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
+    std::unordered_map<std::string, KeyStat>& key_stat_map,
+    std::unordered_map<std::string, KeyInfo>& placement,
+    std::unordered_set<std::string>& join_remove_set, SocketCache& pushers,
     ServerThread& wt, AddressKeysetMap& join_addr_keyset_map) {
-  string message = zmq_util::recv_string(join_puller);
-  vector<string> v;
+  std::string message = zmq_util::recv_string(join_puller);
+  std::vector<std::string> v;
   split(message, ':', v);
   unsigned tier = stoi(v[0]);
-  string new_server_ip = v[1];
+  std::string new_server_ip = v[1];
 
   // update global hash ring
   bool inserted = insert_to_hash_ring<GlobalHashRing>(
@@ -38,7 +36,7 @@ void node_join_handler(
     // own machine
     if (thread_id == 0) {
       // send my IP to the new server node
-      zmq_util::send_string(to_string(SELF_TIER_ID) + ":" + ip,
+      zmq_util::send_string(std::to_string(SELF_TIER_ID) + ":" + ip,
                             &pushers[ServerThread(new_server_ip, 0)
                                          .get_node_join_connect_addr()]);
 
@@ -46,7 +44,7 @@ void node_join_handler(
       for (auto it = global_hash_ring_map.begin();
            it != global_hash_ring_map.end(); ++it) {
         auto hash_ring = &(it->second);
-        unordered_set<string> observed_ip;
+        std::unordered_set<std::string> observed_ip;
 
         for (auto iter = hash_ring->begin(); iter != hash_ring->end(); iter++) {
           // if the node is not myself and not the newly joined node, send the
@@ -60,8 +58,9 @@ void node_join_handler(
           }
         }
 
-        logger->info("Hash ring for tier {} is size {}.", to_string(it->first),
-                     to_string(it->second.size()));
+        logger->info("Hash ring for tier {} is size {}.",
+                     std::to_string(it->first),
+                     std::to_string(it->second.size()));
       }
 
       // tell all worker threads about the new node join
@@ -73,11 +72,11 @@ void node_join_handler(
     }
 
     if (tier == SELF_TIER_ID) {
-      vector<unsigned> tier_ids = {SELF_TIER_ID};
+      std::vector<unsigned> tier_ids = {SELF_TIER_ID};
       bool succeed;
 
       for (auto it = key_stat_map.begin(); it != key_stat_map.end(); it++) {
-        string key = it->first;
+        std::string key = it->first;
         auto threads = get_responsible_threads(
             wt.get_replication_factor_connect_addr(), key, is_metadata(key),
             global_hash_ring_map, local_hash_ring_map, placement, pushers,

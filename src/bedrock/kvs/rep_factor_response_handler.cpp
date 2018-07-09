@@ -11,29 +11,34 @@ void rep_factor_response_handler(
     unsigned& seed, unsigned& total_access,
     std::shared_ptr<spdlog::logger> logger,
     zmq::socket_t* rep_factor_response_puller,
-    chrono::system_clock::time_point& start_time,
-    unordered_map<unsigned, TierData> tier_data_map,
-    unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
-    unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    unordered_map<string, pair<chrono::system_clock::time_point,
-                               vector<PendingRequest>>>& pending_request_map,
-    unordered_map<string,
-                  pair<chrono::system_clock::time_point, vector<PendingGossip>>>
+    std::chrono::system_clock::time_point& start_time,
+    std::unordered_map<unsigned, TierData> tier_data_map,
+    std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+    std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
+    std::unordered_map<std::string,
+                       std::pair<std::chrono::system_clock::time_point,
+                                 std::vector<PendingRequest>>>&
+        pending_request_map,
+    std::unordered_map<std::string,
+                       std::pair<std::chrono::system_clock::time_point,
+                                 std::vector<PendingGossip>>>
         pending_gossip_map,
-    unordered_map<string,
-                  multiset<std::chrono::time_point<std::chrono::system_clock>>>&
+    std::unordered_map<
+        std::string,
+        std::multiset<std::chrono::time_point<std::chrono::system_clock>>>&
         key_access_timestamp,
-    unordered_map<string, KeyInfo> placement,
-    unordered_map<string, KeyStat>& key_stat_map,
-    unordered_set<string>& local_changeset, ServerThread& wt,
+    std::unordered_map<std::string, KeyInfo> placement,
+    std::unordered_map<std::string, KeyStat>& key_stat_map,
+    std::unordered_set<std::string>& local_changeset, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers) {
-  string response_string = zmq_util::recv_string(rep_factor_response_puller);
+  std::string response_string =
+      zmq_util::recv_string(rep_factor_response_puller);
   communication::Response response;
   response.ParseFromString(response_string);
 
-  vector<string> tokens;
+  std::vector<std::string> tokens;
   split(response.tuple(0).key(), '_', tokens);
-  string key = tokens[1];
+  std::string key = tokens[1];
 
   if (response.tuple(0).err_number() == 2) {
     auto respond_address = wt.get_replication_factor_connect_addr();
@@ -62,7 +67,7 @@ void rep_factor_response_handler(
     }
   }
 
-  vector<unsigned> tier_ids = {SELF_TIER_ID};
+  std::vector<unsigned> tier_ids = {SELF_TIER_ID};
   bool succeed;
 
   if (pending_request_map.find(key) != pending_request_map.end()) {
@@ -73,10 +78,10 @@ void rep_factor_response_handler(
 
     if (succeed) {
       bool responsible = threads.find(wt) != threads.end();
-      vector<PendingRequest> request_vec = pending_request_map[key].second;
+      std::vector<PendingRequest> request_vec = pending_request_map[key].second;
 
       for (auto it = request_vec.begin(); it != request_vec.end(); ++it) {
-        auto now = chrono::system_clock::now();
+        auto now = std::chrono::system_clock::now();
 
         if (!responsible && it->addr_ != "") {
           communication::Response response;
@@ -93,7 +98,7 @@ void rep_factor_response_handler(
             tp->add_addresses(iter->get_request_pulling_connect_addr());
           }
 
-          string serialized_response;
+          std::string serialized_response;
           response.SerializeToString(&serialized_response);
           zmq_util::send_string(serialized_response, &pushers[it->addr_]);
         } else if (responsible &&
@@ -101,7 +106,8 @@ void rep_factor_response_handler(
                                        // this category
           if (it->type_ == "P") {
             auto time_diff =
-                chrono::duration_cast<chrono::milliseconds>(now - start_time)
+                std::chrono::duration_cast<std::chrono::milliseconds>(
+                    now - start_time)
                     .count();
             auto ts = generate_timestamp(time_diff, wt.get_tid());
 
@@ -132,7 +138,8 @@ void rep_factor_response_handler(
             total_access += 1;
           } else {
             auto time_diff =
-                chrono::duration_cast<chrono::milliseconds>(now - start_time)
+                std::chrono::duration_cast<std::chrono::milliseconds>(
+                    now - start_time)
                     .count();
             auto ts = generate_timestamp(time_diff, wt.get_tid());
 
@@ -144,7 +151,7 @@ void rep_factor_response_handler(
             local_changeset.insert(key);
           }
 
-          string serialized_response;
+          std::string serialized_response;
           response.SerializeToString(&serialized_response);
           zmq_util::send_string(serialized_response, &pushers[it->addr_]);
         }
@@ -170,7 +177,7 @@ void rep_factor_response_handler(
           process_put(key, it->ts_, it->value_, serializer, key_stat_map);
         }
       } else {
-        unordered_map<string, communication::Request> gossip_map;
+        std::unordered_map<std::string, communication::Request> gossip_map;
 
         // forward the gossip
         for (auto it = threads.begin(); it != threads.end(); it++) {

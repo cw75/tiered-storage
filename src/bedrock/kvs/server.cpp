@@ -25,10 +25,9 @@
 #include "zmq/socket_cache.hpp"
 #include "zmq/zmq_util.hpp"
 
-using namespace std;
-
 // define server report threshold (in second)
 const unsigned SERVER_REPORT_THRESHOLD = 15;
+
 // define server's key monitoring threshold (in second)
 const unsigned KEY_MONITORING_THRESHOLD = 60;
 // define the threshold for retry rep factor query for gossip handling (in
@@ -46,18 +45,18 @@ unsigned DEFAULT_GLOBAL_EBS_REPLICATION;
 unsigned DEFAULT_LOCAL_REPLICATION;
 
 // read-only per-tier metadata
-unordered_map<unsigned, TierData> tier_data_map;
+std::unordered_map<unsigned, TierData> tier_data_map;
 
 // thread entry point
 void run(unsigned thread_id) {
-  string log_file = "log_" + to_string(thread_id) + ".txt";
-  string logger_name = "server_logger_" + to_string(thread_id);
+  std::string log_file = "log_" + std::to_string(thread_id) + ".txt";
+  std::string logger_name = "server_logger_" + std::to_string(thread_id);
   auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
   logger->flush_on(spdlog::level::info);
 
   // TODO(vikram): we can probably just read this once and pass it into run
   YAML::Node conf = YAML::LoadFile("conf/config.yml")["server"];
-  string ip = conf["ip"].as<string>();
+  std::string ip = conf["ip"].as<std::string>();
 
   // each thread has a handle to itself
   ServerThread wt = ServerThread(ip, thread_id);
@@ -70,40 +69,42 @@ void run(unsigned thread_id) {
   SocketCache pushers(&context, ZMQ_PUSH);
 
   // initialize hash ring maps
-  unordered_map<unsigned, GlobalHashRing> global_hash_ring_map;
-  unordered_map<unsigned, LocalHashRing> local_hash_ring_map;
+  std::unordered_map<unsigned, GlobalHashRing> global_hash_ring_map;
+  std::unordered_map<unsigned, LocalHashRing> local_hash_ring_map;
 
   // for periodically redistributing data when node joins
   AddressKeysetMap join_addr_keyset_map;
 
   // keep track of which key should be removed when node joins
-  unordered_set<string> join_remove_set;
+  std::unordered_set<std::string> join_remove_set;
 
   // pending events for asynchrony
-  unordered_map<string,
-                pair<chrono::system_clock::time_point, vector<PendingRequest>>>
+  std::unordered_map<std::string,
+                     std::pair<std::chrono::system_clock::time_point,
+                               std::vector<PendingRequest>>>
       pending_request_map;
-  unordered_map<string,
-                pair<chrono::system_clock::time_point, vector<PendingGossip>>>
+  std::unordered_map<std::string,
+                     std::pair<std::chrono::system_clock::time_point,
+                               std::vector<PendingGossip>>>
       pending_gossip_map;
 
-  unordered_map<string, KeyInfo> placement;
-  vector<string> routing_address;
-  vector<string> monitoring_address;
+  std::unordered_map<std::string, KeyInfo> placement;
+  std::vector<std::string> routing_address;
+  std::vector<std::string> monitoring_address;
 
   // read the YAML conf
-  string seed_ip = conf["seed_ip"].as<string>();
+  std::string seed_ip = conf["seed_ip"].as<std::string>();
 
   YAML::Node monitoring = conf["monitoring"];
   YAML::Node routing = conf["routing"];
 
   for (YAML::const_iterator it = routing.begin(); it != routing.end(); ++it) {
-    routing_address.push_back(it->as<string>());
+    routing_address.push_back(it->as<std::string>());
   }
 
   for (YAML::const_iterator it = monitoring.begin(); it != monitoring.end();
        ++it) {
-    monitoring_address.push_back(it->as<string>());
+    monitoring_address.push_back(it->as<std::string>());
   }
 
   // request server addresses from the seed node
@@ -112,14 +113,14 @@ void run(unsigned thread_id) {
   zmq_util::send_string("join", &addr_requester);
 
   // receive and add all the addresses that seed node sent
-  string serialized_addresses = zmq_util::recv_string(&addr_requester);
+  std::string serialized_addresses = zmq_util::recv_string(&addr_requester);
   communication::Address addresses;
   addresses.ParseFromString(serialized_addresses);
 
   // populate start time
   unsigned long long duration = addresses.start_time();
-  chrono::milliseconds dur(duration);
-  chrono::system_clock::time_point start_time(dur);
+  std::chrono::milliseconds dur(duration);
+  std::chrono::system_clock::time_point start_time(dur);
 
   // populate addresses
   for (int i = 0; i < addresses.tuple_size(); i++) {
@@ -146,20 +147,20 @@ void run(unsigned thread_id) {
          it != global_hash_ring_map.end(); it++) {
       unsigned tier_id = it->first;
       auto hash_ring = &(it->second);
-      unordered_set<string> observed_ip;
+      std::unordered_set<std::string> observed_ip;
 
       for (auto iter = hash_ring->begin(); iter != hash_ring->end(); iter++) {
         if (iter->second.get_ip().compare(ip) != 0 &&
             observed_ip.find(iter->second.get_ip()) == observed_ip.end()) {
           zmq_util::send_string(
-              to_string(SELF_TIER_ID) + ":" + ip,
+              std::to_string(SELF_TIER_ID) + ":" + ip,
               &pushers[(iter->second).get_node_join_connect_addr()]);
           observed_ip.insert(iter->second.get_ip());
         }
       }
     }
 
-    string msg = "join:" + to_string(SELF_TIER_ID) + ":" + ip;
+    std::string msg = "join:" + std::to_string(SELF_TIER_ID) + ":" + ip;
 
     // notify proxies that this node has joined
     for (auto it = routing_address.begin(); it != routing_address.end(); it++) {
@@ -188,13 +189,14 @@ void run(unsigned thread_id) {
   }
 
   // the set of changes made on this thread since the last round of gossip
-  unordered_set<string> local_changeset;
+  std::unordered_set<std::string> local_changeset;
 
   // keep track of the key stat
-  unordered_map<string, KeyStat> key_stat_map;
+  std::unordered_map<std::string, KeyStat> key_stat_map;
   // keep track of key access timestamp
-  unordered_map<string,
-                multiset<std::chrono::time_point<std::chrono::system_clock>>>
+  std::unordered_map<
+      std::string,
+      std::multiset<std::chrono::time_point<std::chrono::system_clock>>>
       key_access_timestamp;
   // keep track of total access
   unsigned total_access;
@@ -229,7 +231,7 @@ void run(unsigned thread_id) {
       wt.get_replication_factor_change_bind_addr());
 
   //  Initialize poll set
-  vector<zmq::pollitem_t> pollitems = {
+  std::vector<zmq::pollitem_t> pollitems = {
       {static_cast<void *>(join_puller), 0, ZMQ_POLLIN, 0},
       {static_cast<void *>(depart_puller), 0, ZMQ_POLLIN, 0},
       {static_cast<void *>(self_depart_puller), 0, ZMQ_POLLIN, 0},
@@ -239,10 +241,10 @@ void run(unsigned thread_id) {
       {static_cast<void *>(replication_factor_change_puller), 0, ZMQ_POLLIN,
        0}};
 
-  auto gossip_start = chrono::system_clock::now();
-  auto gossip_end = chrono::system_clock::now();
-  auto report_start = chrono::system_clock::now();
-  auto report_end = chrono::system_clock::now();
+  auto gossip_start = std::chrono::system_clock::now();
+  auto gossip_end = std::chrono::system_clock::now();
+  auto report_start = std::chrono::system_clock::now();
+  auto report_end = std::chrono::system_clock::now();
 
   unsigned long long working_time = 0;
   unsigned long long working_time_map[8] = {0, 0, 0, 0, 0, 0, 0, 0};
@@ -253,50 +255,50 @@ void run(unsigned thread_id) {
     zmq_util::poll(0, &pollitems);
     // receives a node join
     if (pollitems[0].revents & ZMQ_POLLIN) {
-      auto work_start = chrono::system_clock::now();
+      auto work_start = std::chrono::system_clock::now();
 
       node_join_handler(THREAD_NUM, thread_id, seed, ip, logger, &join_puller,
                         global_hash_ring_map, local_hash_ring_map, key_stat_map,
                         placement, join_remove_set, pushers, wt,
                         join_addr_keyset_map);
 
-      auto time_elapsed = chrono::duration_cast<chrono::microseconds>(
-                              chrono::system_clock::now() - work_start)
+      auto time_elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
+                              std::chrono::system_clock::now() - work_start)
                               .count();
       working_time += time_elapsed;
       working_time_map[0] += time_elapsed;
     }
 
     if (pollitems[1].revents & ZMQ_POLLIN) {
-      auto work_start = chrono::system_clock::now();
+      auto work_start = std::chrono::system_clock::now();
 
       node_depart_handler(THREAD_NUM, thread_id, ip, global_hash_ring_map,
                           logger, &depart_puller, pushers);
 
-      auto time_elapsed = chrono::duration_cast<chrono::microseconds>(
-                              chrono::system_clock::now() - work_start)
+      auto time_elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
+                              std::chrono::system_clock::now() - work_start)
                               .count();
       working_time += time_elapsed;
       working_time_map[1] += time_elapsed;
     }
 
     if (pollitems[2].revents & ZMQ_POLLIN) {
-      auto work_start = chrono::system_clock::now();
+      auto work_start = std::chrono::system_clock::now();
 
       self_depart_handler(
           THREAD_NUM, thread_id, seed, ip, logger, &self_depart_puller,
           global_hash_ring_map, local_hash_ring_map, key_stat_map, placement,
           routing_address, monitoring_address, wt, pushers, serializer);
 
-      auto time_elapsed = chrono::duration_cast<chrono::microseconds>(
-                              chrono::system_clock::now() - work_start)
+      auto time_elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
+                              std::chrono::system_clock::now() - work_start)
                               .count();
       working_time += time_elapsed;
       working_time_map[2] += time_elapsed;
     }
 
     if (pollitems[3].revents & ZMQ_POLLIN) {
-      auto work_start = chrono::system_clock::now();
+      auto work_start = std::chrono::system_clock::now();
 
       user_request_handler(total_access, seed, &request_puller, start_time,
                            global_hash_ring_map, local_hash_ring_map,
@@ -304,8 +306,8 @@ void run(unsigned thread_id) {
                            key_access_timestamp, placement, local_changeset, wt,
                            serializer, pushers);
 
-      auto time_elapsed = chrono::duration_cast<chrono::microseconds>(
-                              chrono::system_clock::now() - work_start)
+      auto time_elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
+                              std::chrono::system_clock::now() - work_start)
                               .count();
       working_time += time_elapsed;
       working_time_map[3] += time_elapsed;
@@ -313,14 +315,14 @@ void run(unsigned thread_id) {
 
     // receive gossip
     if (pollitems[4].revents & ZMQ_POLLIN) {
-      auto work_start = chrono::system_clock::now();
+      auto work_start = std::chrono::system_clock::now();
 
       gossip_handler(seed, &gossip_puller, global_hash_ring_map,
                      local_hash_ring_map, key_stat_map, pending_gossip_map,
                      placement, wt, serializer, pushers);
 
-      auto time_elapsed = chrono::duration_cast<chrono::microseconds>(
-                              chrono::system_clock::now() - work_start)
+      auto time_elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
+                              std::chrono::system_clock::now() - work_start)
                               .count();
       working_time += time_elapsed;
       working_time_map[4] += time_elapsed;
@@ -328,7 +330,7 @@ void run(unsigned thread_id) {
 
     // receives replication factor response
     if (pollitems[5].revents & ZMQ_POLLIN) {
-      auto work_start = chrono::system_clock::now();
+      auto work_start = std::chrono::system_clock::now();
 
       rep_factor_response_handler(
           seed, total_access, logger, &replication_factor_puller, start_time,
@@ -336,8 +338,8 @@ void run(unsigned thread_id) {
           pending_request_map, pending_gossip_map, key_access_timestamp,
           placement, key_stat_map, local_changeset, wt, serializer, pushers);
 
-      auto time_elapsed = chrono::duration_cast<chrono::microseconds>(
-                              chrono::system_clock::now() - work_start)
+      auto time_elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
+                              std::chrono::system_clock::now() - work_start)
                               .count();
       working_time += time_elapsed;
       working_time_map[5] += time_elapsed;
@@ -345,7 +347,7 @@ void run(unsigned thread_id) {
 
     // receive replication factor change
     if (pollitems[6].revents & ZMQ_POLLIN) {
-      auto work_start = chrono::system_clock::now();
+      auto work_start = std::chrono::system_clock::now();
 
       rep_factor_change_handler(ip, thread_id, THREAD_NUM, seed, logger,
                                 &replication_factor_change_puller,
@@ -353,23 +355,24 @@ void run(unsigned thread_id) {
                                 placement, key_stat_map, local_changeset, wt,
                                 serializer, pushers);
 
-      auto time_elapsed = chrono::duration_cast<chrono::microseconds>(
-                              chrono::system_clock::now() - work_start)
+      auto time_elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
+                              std::chrono::system_clock::now() - work_start)
                               .count();
       working_time += time_elapsed;
       working_time_map[6] += time_elapsed;
     }
 
     // gossip updates to other threads
-    gossip_end = chrono::system_clock::now();
-    if (chrono::duration_cast<chrono::microseconds>(gossip_end - gossip_start)
+    gossip_end = std::chrono::system_clock::now();
+    if (std::chrono::duration_cast<std::chrono::microseconds>(gossip_end -
+                                                              gossip_start)
             .count() >= PERIOD) {
-      auto work_start = chrono::system_clock::now();
+      auto work_start = std::chrono::system_clock::now();
       // only gossip if we have changes
       if (local_changeset.size() > 0) {
         AddressKeysetMap addr_keyset_map;
 
-        vector<unsigned> tier_ids;
+        std::vector<unsigned> tier_ids;
         for (unsigned i = MIN_TIER; i <= MAX_TIER; i++) {
           tier_ids.push_back(i);
         }
@@ -377,7 +380,7 @@ void run(unsigned thread_id) {
         bool succeed;
         for (auto it = local_changeset.begin(); it != local_changeset.end();
              it++) {
-          string key = *it;
+          std::string key = *it;
           auto threads = get_responsible_threads(
               wt.get_replication_factor_connect_addr(), key, is_metadata(key),
               global_hash_ring_map, local_hash_ring_map, placement, pushers,
@@ -400,9 +403,9 @@ void run(unsigned thread_id) {
         local_changeset.clear();
       }
 
-      gossip_start = chrono::system_clock::now();
-      auto time_elapsed = chrono::duration_cast<chrono::microseconds>(
-                              chrono::system_clock::now() - work_start)
+      gossip_start = std::chrono::system_clock::now();
+      auto time_elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
+                              std::chrono::system_clock::now() - work_start)
                               .count();
 
       working_time += time_elapsed;
@@ -410,16 +413,16 @@ void run(unsigned thread_id) {
     }
 
     // collect and store internal statistics
-    report_end = chrono::system_clock::now();
-    auto duration =
-        chrono::duration_cast<chrono::seconds>(report_end - report_start)
-            .count();
+    report_end = std::chrono::system_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::seconds>(
+                        report_end - report_start)
+                        .count();
 
     if (duration >= SERVER_REPORT_THRESHOLD) {
       epoch += 1;
-      string key = string(METADATA_IDENTIFIER) + "_" + wt.get_ip() + "_" +
-                   to_string(wt.get_tid()) + "_" + to_string(SELF_TIER_ID) +
-                   "_stat";
+      std::string key = std::string(METADATA_IDENTIFIER) + "_" + wt.get_ip() +
+                        "_" + std::to_string(wt.get_tid()) + "_" +
+                        std::to_string(SELF_TIER_ID) + "_stat";
 
       // compute total storage consumption
       unsigned long long consumption = 0;
@@ -434,14 +437,14 @@ void run(unsigned thread_id) {
             (double)working_time_map[i] / ((double)duration * 1000000);
 
         if (event_occupancy > 0.02) {
-          logger->info("Event {} occupancy is {}.", to_string(i),
-                       to_string(event_occupancy));
+          logger->info("Event {} occupancy is {}.", std::to_string(i),
+                       std::to_string(event_occupancy));
         }
       }
 
       double occupancy = (double)working_time / ((double)duration * 1000000);
       if (occupancy > 0.02) {
-        logger->info("Occupancy is {}.", to_string(occupancy));
+        logger->info("Occupancy is {}.", std::to_string(occupancy));
       }
 
       communication::Server_Stat stat;
@@ -450,7 +453,7 @@ void run(unsigned thread_id) {
       stat.set_epoch(epoch);
       stat.set_total_access(total_access);
 
-      string serialized_stat;
+      std::string serialized_stat;
       stat.SerializeToString(&serialized_stat);
 
       communication::Request req;
@@ -460,7 +463,7 @@ void run(unsigned thread_id) {
       auto threads = get_responsible_threads_metadata(
           key, global_hash_ring_map[1], local_hash_ring_map[1]);
       if (threads.size() != 0) {
-        string target_address =
+        std::string target_address =
             next(begin(threads), rand_r(&seed) % threads.size())
                 ->get_request_pulling_connect_addr();
         push_request(req, pushers[target_address]);
@@ -468,18 +471,18 @@ void run(unsigned thread_id) {
 
       // compute key access stats
       communication::Key_Access access;
-      auto current_time = chrono::system_clock::now();
+      auto current_time = std::chrono::system_clock::now();
 
       for (auto it = key_access_timestamp.begin();
            it != key_access_timestamp.end(); it++) {
-        string key = it->first;
+        std::string key = it->first;
         auto mset = &(it->second);
 
         // garbage collect
         for (auto set_iter = mset->rbegin(); set_iter != mset->rend();
              set_iter++) {
-          if (chrono::duration_cast<std::chrono::seconds>(current_time -
-                                                          *set_iter)
+          if (std::chrono::duration_cast<std::chrono::seconds>(current_time -
+                                                               *set_iter)
                   .count() >= KEY_MONITORING_THRESHOLD) {
             mset->erase(mset->begin(), set_iter.base());
             break;
@@ -493,9 +496,10 @@ void run(unsigned thread_id) {
       }
 
       // report key access stats
-      key = string(METADATA_IDENTIFIER) + "_" + wt.get_ip() + "_" +
-            to_string(wt.get_tid()) + "_" + to_string(SELF_TIER_ID) + "_access";
-      string serialized_access;
+      key = std::string(METADATA_IDENTIFIER) + "_" + wt.get_ip() + "_" +
+            std::to_string(wt.get_tid()) + "_" + std::to_string(SELF_TIER_ID) +
+            "_access";
+      std::string serialized_access;
       access.SerializeToString(&serialized_access);
 
       req.Clear();
@@ -506,13 +510,13 @@ void run(unsigned thread_id) {
                                                  local_hash_ring_map[1]);
 
       if (threads.size() != 0) {
-        string target_address =
+        std::string target_address =
             next(begin(threads), rand_r(&seed) % threads.size())
                 ->get_request_pulling_connect_addr();
         push_request(req, pushers[target_address]);
       }
 
-      report_start = chrono::system_clock::now();
+      report_start = std::chrono::system_clock::now();
 
       // reset stats tracked in memory
       working_time = 0;
@@ -522,7 +526,7 @@ void run(unsigned thread_id) {
 
     // redistribute data after node joins
     if (join_addr_keyset_map.size() != 0) {
-      unordered_set<string> remove_address_set;
+      std::unordered_set<std::string> remove_address_set;
 
       // assemble gossip
       AddressKeysetMap addr_keyset_map;
@@ -533,7 +537,7 @@ void run(unsigned thread_id) {
         unsigned count = 0;
 
         while (count < DATA_REDISTRIBUTE_THRESHOLD && key_set->size() > 0) {
-          string k = *(key_set->begin());
+          std::string k = *(key_set->begin());
           addr_keyset_map[address].insert(k);
 
           key_set->erase(k);
@@ -566,7 +570,7 @@ void run(unsigned thread_id) {
 
 int main(int argc, char *argv[]) {
   if (argc != 1) {
-    cerr << "Usage: " << argv[0] << endl;
+    std::cerr << "Usage: " << argv[0] << std::endl;
     return 1;
   }
 
@@ -575,9 +579,10 @@ int main(int argc, char *argv[]) {
   if (stype != NULL) {
     SELF_TIER_ID = atoi(stype);
   } else {
-    cout << "No server type specified. The default behavior is to start the "
-            "server in memory mode."
-         << endl;
+    std::cout
+        << "No server type specified. The default behavior is to start the "
+           "server in memory mode."
+        << std::endl;
     SELF_TIER_ID = 1;
   }
 
@@ -598,9 +603,9 @@ int main(int argc, char *argv[]) {
   THREAD_NUM = tier_data_map[SELF_TIER_ID].thread_number_;
 
   // start the initial threads based on THREAD_NUM
-  vector<thread> worker_threads;
+  std::vector<std::thread> worker_threads;
   for (unsigned thread_id = 1; thread_id < THREAD_NUM; thread_id++) {
-    worker_threads.push_back(thread(run, thread_id));
+    worker_threads.push_back(std::thread(run, thread_id));
   }
 
   run(0);

@@ -4,17 +4,15 @@
 #include <map>
 #include <string>
 
-using namespace ::std;
-
 #ifndef __CONSISTENT_HASH_H__
 #define __CONSISTENT_HASH_H__
 
 template <typename T, typename Hash,
           typename Alloc =
-              std::allocator<std::pair<const typename Hash::result_type, T>>>
+              std::allocator<std::pair<const typename Hash::ResultType, T>>>
 class ConsistentHashMap {
  public:
-  typedef typename Hash::result_type size_type;
+  typedef typename Hash::ResultType size_type;
   typedef std::map<size_type, T, std::less<size_type>, Alloc> map_type;
   typedef typename map_type::value_type value_type;
   typedef value_type& reference;
@@ -59,7 +57,7 @@ class ConsistentHashMap {
     return it;
   }
 
-  iterator find(string key) { return find(hasher_(key)); }
+  iterator find(std::string key) { return find(hasher_(key)); }
 
   iterator begin() { return nodes_.begin(); }
 

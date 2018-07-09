@@ -2,22 +2,22 @@
 #include "monitor/monitoring_utils.hpp"
 #include "spdlog/spdlog.h"
 
-using namespace std;
-
-void add_node(shared_ptr<spdlog::logger> logger, string tier, unsigned number,
-              unsigned& adding, const string& management_address) {
-  logger->info("Adding {} {} node.", to_string(number), tier);
-  string shell_command = "curl -X POST http://" + management_address + "/add/" +
-                         tier + "/" + to_string(number) + " &";
+void add_node(std::shared_ptr<spdlog::logger> logger, std::string tier,
+              unsigned number, unsigned& adding,
+              const std::string& management_address) {
+  logger->info("Adding {} {} node.", std::to_string(number), tier);
+  std::string shell_command = "curl -X POST http://" + management_address +
+                              "/add/" + tier + "/" + std::to_string(number) +
+                              " &";
   system(shell_command.c_str());
   adding = number;
 }
 
-void remove_node(shared_ptr<spdlog::logger> logger, ServerThread& node,
-                 string tier, bool& removing_flag, SocketCache& pushers,
-                 unordered_map<string, unsigned>& departing_node_map,
+void remove_node(std::shared_ptr<spdlog::logger> logger, ServerThread& node,
+                 std::string tier, bool& removing_flag, SocketCache& pushers,
+                 std::unordered_map<std::string, unsigned>& departing_node_map,
                  MonitoringThread& mt,
-                 unordered_map<unsigned, TierData>& tier_data_map) {
+                 std::unordered_map<unsigned, TierData>& tier_data_map) {
   auto connection_addr = node.get_self_depart_connect_addr();
   departing_node_map[node.get_ip()] = tier_data_map[1].thread_number_;
   auto ack_addr = mt.get_depart_done_connect_addr();

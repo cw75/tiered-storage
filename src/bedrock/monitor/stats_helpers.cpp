@@ -3,47 +3,51 @@
 #include "requests.hpp"
 #include "spdlog/spdlog.h"
 
-using namespace std;
-
 void collect_internal_stats(
-    unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
-    unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
+    std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+    std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     SocketCache& pushers, MonitoringThread& mt, zmq::socket_t& response_puller,
-    shared_ptr<spdlog::logger> logger, unsigned& rid,
-    unordered_map<string, unordered_map<string, unsigned>>&
+    std::shared_ptr<spdlog::logger> logger, unsigned& rid,
+    std::unordered_map<std::string, std::unordered_map<std::string, unsigned>>&
         key_access_frequency,
-    unordered_map<string, unordered_map<unsigned, unsigned long long>>&
+    std::unordered_map<std::string,
+                       std::unordered_map<unsigned, unsigned long long>>&
         memory_tier_storage,
-    unordered_map<string, unordered_map<unsigned, unsigned long long>>&
+    std::unordered_map<std::string,
+                       std::unordered_map<unsigned, unsigned long long>>&
         ebs_tier_storage,
-    unordered_map<string, unordered_map<unsigned, pair<double, unsigned>>>&
+    std::unordered_map<
+        std::string, std::unordered_map<unsigned, std::pair<double, unsigned>>>&
         memory_tier_occupancy,
-    unordered_map<string, unordered_map<unsigned, pair<double, unsigned>>>&
+    std::unordered_map<
+        std::string, std::unordered_map<unsigned, std::pair<double, unsigned>>>&
         ebs_tier_occupancy,
-    unordered_map<string, unordered_map<unsigned, unsigned>>&
+    std::unordered_map<std::string, std::unordered_map<unsigned, unsigned>>&
         memory_tier_access,
-    unordered_map<string, unordered_map<unsigned, unsigned>>& ebs_tier_access,
-    unordered_map<unsigned, TierData>& tier_data_map) {
-  unordered_map<string, communication::Request> addr_request_map;
+    std::unordered_map<std::string, std::unordered_map<unsigned, unsigned>>&
+        ebs_tier_access,
+    std::unordered_map<unsigned, TierData>& tier_data_map) {
+  std::unordered_map<std::string, communication::Request> addr_request_map;
 
   for (auto it = global_hash_ring_map.begin(); it != global_hash_ring_map.end();
        it++) {
     unsigned tier_id = it->first;
     auto hash_ring = &(it->second);
-    unordered_set<string> observed_ip;
+    std::unordered_set<std::string> observed_ip;
 
     for (auto iter = hash_ring->begin(); iter != hash_ring->end(); iter++) {
       if (observed_ip.find(iter->second.get_ip()) == observed_ip.end()) {
         for (unsigned i = 0; i < tier_data_map[tier_id].thread_number_; i++) {
-          string key = string(METADATA_IDENTIFIER) + "_" +
-                       iter->second.get_ip() + "_" + to_string(i) + "_" +
-                       to_string(tier_id) + "_stat";
+          std::string key = std::string(METADATA_IDENTIFIER) + "_" +
+                            iter->second.get_ip() + "_" + std::to_string(i) +
+                            "_" + std::to_string(tier_id) + "_stat";
           prepare_metadata_get_request(key, global_hash_ring_map[1],
                                        local_hash_ring_map[1], addr_request_map,
                                        mt, rid);
 
-          key = string(METADATA_IDENTIFIER) + "_" + iter->second.get_ip() +
-                "_" + to_string(i) + "_" + to_string(tier_id) + "_access";
+          key = std::string(METADATA_IDENTIFIER) + "_" + iter->second.get_ip() +
+                "_" + std::to_string(i) + "_" + std::to_string(tier_id) +
+                "_access";
           prepare_metadata_get_request(key, global_hash_ring_map[1],
                                        local_hash_ring_map[1], addr_request_map,
                                        mt, rid);
@@ -61,13 +65,13 @@ void collect_internal_stats(
     if (succeed) {
       for (int i = 0; i < res.tuple_size(); i++) {
         if (res.tuple(i).err_number() == 0) {
-          vector<string> tokens;
+          std::vector<std::string> tokens;
           split(res.tuple(i).key(), '_', tokens);
-          string ip = tokens[1];
+          std::string ip = tokens[1];
 
           unsigned tid = stoi(tokens[2]);
           unsigned tier_id = stoi(tokens[3]);
-          string metadata_type = tokens[4];
+          std::string metadata_type = tokens[4];
 
           if (metadata_type == "stat") {
             // deserialized the value
@@ -77,12 +81,12 @@ void collect_internal_stats(
             if (tier_id == 1) {
               memory_tier_storage[ip][tid] = stat.storage_consumption();
               memory_tier_occupancy[ip][tid] =
-                  pair<double, unsigned>(stat.occupancy(), stat.epoch());
+                  std::pair<double, unsigned>(stat.occupancy(), stat.epoch());
               memory_tier_access[ip][tid] = stat.total_access();
             } else {
               ebs_tier_storage[ip][tid] = stat.storage_consumption();
               ebs_tier_occupancy[ip][tid] =
-                  pair<double, unsigned>(stat.occupancy(), stat.epoch());
+                  std::pair<double, unsigned>(stat.occupancy(), stat.epoch());
               ebs_tier_access[ip][tid] = stat.total_access();
             }
           } else if (metadata_type == "access") {
@@ -92,14 +96,14 @@ void collect_internal_stats(
 
             if (tier_id == 1) {
               for (int j = 0; j < access.tuple_size(); j++) {
-                string key = access.tuple(j).key();
-                key_access_frequency[key][ip + ":" + to_string(tid)] =
+                std::string key = access.tuple(j).key();
+                key_access_frequency[key][ip + ":" + std::to_string(tid)] =
                     access.tuple(j).access();
               }
             } else {
               for (int j = 0; j < access.tuple_size(); j++) {
-                string key = access.tuple(j).key();
-                key_access_frequency[key][ip + ":" + to_string(tid)] =
+                std::string key = access.tuple(j).key();
+                key_access_frequency[key][ip + ":" + std::to_string(tid)] =
                     access.tuple(j).access();
               }
             }
@@ -120,22 +124,28 @@ void collect_internal_stats(
 }
 
 void compute_summary_stats(
-    unordered_map<string, unordered_map<string, unsigned>>&
+    std::unordered_map<std::string, std::unordered_map<std::string, unsigned>>&
         key_access_frequency,
-    unordered_map<string, unordered_map<unsigned, unsigned long long>>&
+    std::unordered_map<std::string,
+                       std::unordered_map<unsigned, unsigned long long>>&
         memory_tier_storage,
-    unordered_map<string, unordered_map<unsigned, unsigned long long>>&
+    std::unordered_map<std::string,
+                       std::unordered_map<unsigned, unsigned long long>>&
         ebs_tier_storage,
-    unordered_map<string, unordered_map<unsigned, pair<double, unsigned>>>&
+    std::unordered_map<
+        std::string, std::unordered_map<unsigned, std::pair<double, unsigned>>>&
         memory_tier_occupancy,
-    unordered_map<string, unordered_map<unsigned, pair<double, unsigned>>>&
+    std::unordered_map<
+        std::string, std::unordered_map<unsigned, std::pair<double, unsigned>>>&
         ebs_tier_occupancy,
-    unordered_map<string, unordered_map<unsigned, unsigned>>&
+    std::unordered_map<std::string, std::unordered_map<unsigned, unsigned>>&
         memory_tier_access,
-    unordered_map<string, unordered_map<unsigned, unsigned>>& ebs_tier_access,
-    unordered_map<string, unsigned>& key_access_summary, SummaryStats& ss,
-    shared_ptr<spdlog::logger> logger, unsigned& server_monitoring_epoch,
-    unordered_map<unsigned, TierData>& tier_data_map) {
+    std::unordered_map<std::string, std::unordered_map<unsigned, unsigned>>&
+        ebs_tier_access,
+    std::unordered_map<std::string, unsigned>& key_access_summary,
+    SummaryStats& ss, std::shared_ptr<spdlog::logger> logger,
+    unsigned& server_monitoring_epoch,
+    std::unordered_map<unsigned, TierData>& tier_data_map) {
   // compute key access summary
   unsigned cnt = 0;
   double mean = 0;
@@ -143,7 +153,7 @@ void compute_summary_stats(
 
   for (auto it = key_access_frequency.begin(); it != key_access_frequency.end();
        it++) {
-    string key = it->first;
+    std::string key = it->first;
     unsigned total_access = 0;
 
     for (auto iter = it->second.begin(); iter != it->second.end(); iter++) {
@@ -299,11 +309,11 @@ void compute_summary_stats(
 
   ss.avg_memory_occupancy = sum_memory_occupancy / count;
   logger->info("Max memory node occupancy is {}.",
-               to_string(ss.max_memory_occupancy));
+               std::to_string(ss.max_memory_occupancy));
   logger->info("Min memory node occupancy is {}.",
-               to_string(ss.min_memory_occupancy));
+               std::to_string(ss.min_memory_occupancy));
   logger->info("Average memory node occupancy is {}.",
-               to_string(ss.avg_memory_occupancy));
+               std::to_string(ss.avg_memory_occupancy));
 
   double sum_ebs_occupancy = 0.0;
 
@@ -340,17 +350,17 @@ void compute_summary_stats(
 
   ss.avg_ebs_occupancy = sum_ebs_occupancy / count;
   logger->info("Max EBS node occupancy is {}.",
-               to_string(ss.max_ebs_occupancy));
+               std::to_string(ss.max_ebs_occupancy));
   logger->info("Min EBS node occupancy is {}.",
-               to_string(ss.min_ebs_occupancy));
+               std::to_string(ss.min_ebs_occupancy));
   logger->info("Average EBS node occupancy is {}.",
-               to_string(ss.avg_ebs_occupancy));
+               std::to_string(ss.avg_ebs_occupancy));
 }
 
-void collect_external_stats(unordered_map<string, double>& user_latency,
-                            unordered_map<string, double>& user_throughput,
-                            SummaryStats& ss,
-                            shared_ptr<spdlog::logger> logger) {
+void collect_external_stats(
+    std::unordered_map<std::string, double>& user_latency,
+    std::unordered_map<std::string, double>& user_throughput, SummaryStats& ss,
+    std::shared_ptr<spdlog::logger> logger) {
   // gather latency info
   if (user_latency.size() > 0) {
     // compute latency from users

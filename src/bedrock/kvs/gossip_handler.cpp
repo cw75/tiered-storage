@@ -9,24 +9,25 @@
 
 void gossip_handler(
     unsigned& seed, zmq::socket_t* gossip_puller,
-    unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
-    unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    unordered_map<string, KeyStat>& key_stat_map,
-    unordered_map<string, pair<chrono::system_clock::time_point,
-                               vector<PendingGossip>>>& pending_gossip_map,
-    unordered_map<string, KeyInfo>& placement, ServerThread& wt,
+    std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+    std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
+    std::unordered_map<std::string, KeyStat>& key_stat_map,
+    std::unordered_map<
+        std::string, std::pair<std::chrono::system_clock::time_point,
+                               std::vector<PendingGossip>>>& pending_gossip_map,
+    std::unordered_map<std::string, KeyInfo>& placement, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers) {
-  string gossip_string = zmq_util::recv_string(gossip_puller);
+  std::string gossip_string = zmq_util::recv_string(gossip_puller);
   communication::Request gossip;
   gossip.ParseFromString(gossip_string);
 
-  vector<unsigned> tier_ids = {SELF_TIER_ID};
+  std::vector<unsigned> tier_ids = {SELF_TIER_ID};
   bool succeed;
-  unordered_map<string, communication::Request> gossip_map;
+  std::unordered_map<std::string, communication::Request> gossip_map;
 
   for (int i = 0; i < gossip.tuple_size(); i++) {
     // first check if the thread is responsible for the key
-    string key = gossip.tuple(i).key();
+    std::string key = gossip.tuple(i).key();
     auto threads = get_responsible_threads(
         wt.get_replication_factor_connect_addr(), key, is_metadata(key),
         global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids,
@@ -56,7 +57,7 @@ void gossip_handler(
               global_hash_ring_map[1], local_hash_ring_map[1], pushers, seed);
 
           if (pending_gossip_map.find(key) == pending_gossip_map.end()) {
-            pending_gossip_map[key].first = chrono::system_clock::now();
+            pending_gossip_map[key].first = std::chrono::system_clock::now();
           }
 
           pending_gossip_map[key].second.push_back(PendingGossip(
@@ -65,7 +66,7 @@ void gossip_handler(
       }
     } else {
       if (pending_gossip_map.find(key) == pending_gossip_map.end()) {
-        pending_gossip_map[key].first = chrono::system_clock::now();
+        pending_gossip_map[key].first = std::chrono::system_clock::now();
       }
 
       pending_gossip_map[key].second.push_back(

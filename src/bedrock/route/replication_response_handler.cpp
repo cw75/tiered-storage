@@ -1,26 +1,27 @@
 #include "hash_ring.hpp"
 #include "spdlog/spdlog.h"
 
-using namespace std;
-
 void replication_response_handler(
     std::shared_ptr<spdlog::logger> logger,
     zmq::socket_t* replication_factor_puller, SocketCache& pushers,
-    RoutingThread& rt, unordered_map<unsigned, TierData>& tier_data_map,
-    unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
-    unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    unordered_map<string, KeyInfo>& placement,
-    unordered_map<string, pair<chrono::system_clock::time_point,
-                               vector<pair<string, string>>>>&
+    RoutingThread& rt, std::unordered_map<unsigned, TierData>& tier_data_map,
+    std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+    std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
+    std::unordered_map<std::string, KeyInfo>& placement,
+    std::unordered_map<
+        std::string,
+        std::pair<std::chrono::system_clock::time_point,
+                  std::vector<std::pair<std::string, std::string>>>>&
         pending_key_request_map,
     unsigned& seed) {
-  string serialized_response = zmq_util::recv_string(replication_factor_puller);
+  std::string serialized_response =
+      zmq_util::recv_string(replication_factor_puller);
   communication::Response response;
   response.ParseFromString(serialized_response);
 
-  vector<string> tokens;
+  std::vector<std::string> tokens;
   split(response.tuple(0).key(), '_', tokens);
-  string key = tokens[1];
+  std::string key = tokens[1];
 
   if (response.tuple(0).err_number() == 0) {
     communication::Replication_Factor rep_data;
@@ -54,7 +55,7 @@ void replication_response_handler(
     // process pending key address requests
     if (pending_key_request_map.find(key) != pending_key_request_map.end()) {
       bool succeed;
-      vector<unsigned> tier_ids;
+      std::vector<unsigned> tier_ids;
 
       // first check memory tier
       tier_ids.push_back(1);
@@ -87,7 +88,7 @@ void replication_response_handler(
 
           // send the key address response
           key_res.set_err_number(0);
-          string serialized_key_res;
+          std::string serialized_key_res;
           key_res.SerializeToString(&serialized_key_res);
           zmq_util::send_string(serialized_key_res, &pushers[it->first]);
         }

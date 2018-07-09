@@ -1,24 +1,22 @@
 #include "hash_ring.hpp"
 #include "spdlog/spdlog.h"
 
-using namespace std;
-
 void membership_handler(
     std::shared_ptr<spdlog::logger> logger, zmq::socket_t* notify_puller,
     SocketCache& pushers,
-    unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
-    unsigned thread_id, string ip) {
-  string message = zmq_util::recv_string(notify_puller);
-  vector<string> v;
+    std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+    unsigned thread_id, std::string ip) {
+  std::string message = zmq_util::recv_string(notify_puller);
+  std::vector<std::string> v;
 
   split(message, ':', v);
-  string type = v[0];
+  std::string type = v[0];
   unsigned tier = stoi(v[1]);
-  string new_server_ip = v[2];
+  std::string new_server_ip = v[2];
 
   if (type == "join") {
     logger->info("Received join from server {} in tier {}.", new_server_ip,
-                 to_string(tier));
+                 std::to_string(tier));
 
     // update hash ring
     bool inserted = insert_to_hash_ring<GlobalHashRing>(
@@ -32,7 +30,7 @@ void membership_handler(
              it != global_hash_ring_map.end(); it++) {
           unsigned tier_id = it->first;
           auto hash_ring = &(it->second);
-          unordered_set<string> observed_ip;
+          std::unordered_set<std::string> observed_ip;
 
           for (auto iter = hash_ring->begin(); iter != hash_ring->end();
                iter++) {
@@ -41,7 +39,7 @@ void membership_handler(
             if (iter->second.get_ip().compare(new_server_ip) != 0 &&
                 observed_ip.find(iter->second.get_ip()) == observed_ip.end()) {
               zmq_util::send_string(
-                  to_string(tier) + ":" + new_server_ip,
+                  std::to_string(tier) + ":" + new_server_ip,
                   &pushers[(iter->second).get_node_join_connect_addr()]);
               observed_ip.insert(iter->second.get_ip());
             }
@@ -59,8 +57,9 @@ void membership_handler(
 
     for (auto it = global_hash_ring_map.begin();
          it != global_hash_ring_map.end(); it++) {
-      logger->info("Hash ring for tier {} size is {}.", to_string(it->first),
-                   to_string(it->second.size()));
+      logger->info("Hash ring for tier {} size is {}.",
+                   std::to_string(it->first),
+                   std::to_string(it->second.size()));
     }
   } else if (type == "depart") {
     logger->info("Received depart from server {}.", new_server_ip);
@@ -78,8 +77,9 @@ void membership_handler(
 
     for (auto it = global_hash_ring_map.begin();
          it != global_hash_ring_map.end(); it++) {
-      logger->info("Hash ring for tier {} size is {}.", to_string(it->first),
-                   to_string(it->second.size()));
+      logger->info("Hash ring for tier {} size is {}.",
+                   std::to_string(it->first),
+                   std::to_string(it->second.size()));
     }
   }
 }

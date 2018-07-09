@@ -3,22 +3,20 @@
 #include "spdlog/spdlog.h"
 #include "yaml-cpp/yaml.h"
 
-using namespace std;
-
 // read-only per-tier metadata
-unordered_map<unsigned, TierData> tier_data_map;
+std::unordered_map<unsigned, TierData> tier_data_map;
 unsigned DEFAULT_LOCAL_REPLICATION;
 unsigned ROUTING_THREAD_NUM;
 
 void run(unsigned thread_id) {
-  string log_file = "log_" + to_string(thread_id) + ".txt";
-  string logger_name = "routing_logger_" + to_string(thread_id);
+  std::string log_file = "log_" + std::to_string(thread_id) + ".txt";
+  std::string logger_name = "routing_logger_" + std::to_string(thread_id);
   auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
   logger->flush_on(spdlog::level::info);
 
   // TODO(vikram): we can probably just read this once and pass it into run
   YAML::Node conf = YAML::LoadFile("conf/config.yml")["routing"];
-  string ip = conf["ip"].as<string>();
+  std::string ip = conf["ip"].as<std::string>();
 
   RoutingThread rt = RoutingThread(ip, thread_id);
 
@@ -28,19 +26,19 @@ void run(unsigned thread_id) {
   // prepare the zmq context
   zmq::context_t context(1);
   SocketCache pushers(&context, ZMQ_PUSH);
-  unordered_map<string, KeyInfo> placement;
+  std::unordered_map<std::string, KeyInfo> placement;
 
   // warm up for benchmark
   // warmup_placement_to_defaults(placement);
 
   if (thread_id == 0) {
     // read the YAML conf
-    vector<string> monitoring_address;
+    std::vector<std::string> monitoring_address;
     YAML::Node monitoring = conf["monitoring"];
 
     for (YAML::const_iterator it = monitoring.begin(); it != monitoring.end();
          ++it) {
-      monitoring_address.push_back(it->as<string>());
+      monitoring_address.push_back(it->as<std::string>());
     }
 
     // notify monitoring nodes
@@ -53,12 +51,13 @@ void run(unsigned thread_id) {
   }
 
   // initialize hash ring maps
-  unordered_map<unsigned, GlobalHashRing> global_hash_ring_map;
-  unordered_map<unsigned, LocalHashRing> local_hash_ring_map;
+  std::unordered_map<unsigned, GlobalHashRing> global_hash_ring_map;
+  std::unordered_map<unsigned, LocalHashRing> local_hash_ring_map;
 
   // pending events for asynchrony
-  unordered_map<string, pair<chrono::system_clock::time_point,
-                             vector<pair<string, string>>>>
+  std::unordered_map<
+      std::string, std::pair<std::chrono::system_clock::time_point,
+                             std::vector<std::pair<std::string, std::string>>>>
       pending_key_request_map;
 
   // form local hash rings
@@ -92,16 +91,16 @@ void run(unsigned thread_id) {
   zmq::socket_t key_address_puller(context, ZMQ_PULL);
   key_address_puller.bind(rt.get_key_address_bind_addr());
 
-  vector<zmq::pollitem_t> pollitems = {
+  std::vector<zmq::pollitem_t> pollitems = {
       {static_cast<void *>(addr_responder), 0, ZMQ_POLLIN, 0},
       {static_cast<void *>(notify_puller), 0, ZMQ_POLLIN, 0},
       {static_cast<void *>(replication_factor_puller), 0, ZMQ_POLLIN, 0},
       {static_cast<void *>(replication_factor_change_puller), 0, ZMQ_POLLIN, 0},
       {static_cast<void *>(key_address_puller), 0, ZMQ_POLLIN, 0}};
 
-  auto start_time = chrono::system_clock::now();
+  auto start_time = std::chrono::system_clock::now();
   auto start_time_ms =
-      chrono::time_point_cast<std::chrono::milliseconds>(start_time);
+      std::chrono::time_point_cast<std::chrono::milliseconds>(start_time);
 
   auto value = start_time_ms.time_since_epoch();
   unsigned long long duration = value.count();
@@ -143,7 +142,7 @@ void run(unsigned thread_id) {
 
 int main(int argc, char *argv[]) {
   if (argc != 1) {
-    cerr << "Usage: " << argv[0] << endl;
+    std::cerr << "Usage: " << argv[0] << std::endl;
     return 1;
   }
 
@@ -163,10 +162,10 @@ int main(int argc, char *argv[]) {
   tier_data_map[2] = TierData(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION,
                               EBS_NODE_CAPACITY);
 
-  vector<thread> routing_worker_threads;
+  std::vector<std::thread> routing_worker_threads;
 
   for (unsigned thread_id = 1; thread_id < ROUTING_THREAD_NUM; thread_id++) {
-    routing_worker_threads.push_back(thread(run, thread_id));
+    routing_worker_threads.push_back(std::thread(run, thread_id));
   }
 
   run(0);

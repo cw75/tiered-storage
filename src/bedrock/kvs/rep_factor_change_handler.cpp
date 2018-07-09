@@ -8,16 +8,16 @@
 #include "zmq/socket_cache.hpp"
 
 void rep_factor_change_handler(
-    string ip, unsigned thread_id, unsigned thread_num, unsigned& seed,
+    std::string ip, unsigned thread_id, unsigned thread_num, unsigned& seed,
     std::shared_ptr<spdlog::logger> logger,
     zmq::socket_t* rep_factor_change_puller,
-    unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
-    unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    unordered_map<string, KeyInfo> placement,
-    unordered_map<string, KeyStat>& key_stat_map,
-    unordered_set<string>& local_changeset, ServerThread& wt,
+    std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+    std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
+    std::unordered_map<std::string, KeyInfo> placement,
+    std::unordered_map<std::string, KeyStat>& key_stat_map,
+    std::unordered_set<std::string>& local_changeset, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers) {
-  string change_string = zmq_util::recv_string(rep_factor_change_puller);
+  std::string change_string = zmq_util::recv_string(rep_factor_change_puller);
 
   // TODO(vikram): make logging in all handlers consistent
   logger->info("Received replication factor change.");
@@ -35,13 +35,13 @@ void rep_factor_change_handler(
   req.ParseFromString(change_string);
 
   AddressKeysetMap addr_keyset_map;
-  unordered_set<string> remove_set;
+  std::unordered_set<std::string> remove_set;
 
   // for every key, update the replication factor and check if the node is still
   // responsible for the key
   // TODO: make a global vec with all tier ids once instead of
   // redefining it everywhere, as well as a global vec with just my tier's id
-  vector<unsigned> tier_ids;
+  std::vector<unsigned> tier_ids;
   for (unsigned i = MIN_TIER; i <= MAX_TIER; i++) {
     tier_ids.push_back(i);
   }
@@ -50,7 +50,7 @@ void rep_factor_change_handler(
 
   for (int i = 0; i < req.tuple_size(); i++) {
     auto curr_tuple = req.tuple(i);
-    string key = curr_tuple.key();
+    std::string key = curr_tuple.key();
 
     // if this thread was responsible for the key before the change
     if (key_stat_map.find(key) != key_stat_map.end()) {
@@ -106,7 +106,7 @@ void rep_factor_change_handler(
           // thread responsible for this key, then I gossip it to the new
           // threads that are responsible for it
           if (!decrement && orig_threads.begin()->get_id() == wt.get_id()) {
-            unordered_set<ServerThread, ThreadHash> new_threads;
+            std::unordered_set<ServerThread, ThreadHash> new_threads;
 
             for (auto it = threads.begin(); it != threads.end(); it++) {
               if (orig_threads.find(*it) == orig_threads.end()) {

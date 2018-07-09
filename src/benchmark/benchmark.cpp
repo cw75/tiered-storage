@@ -20,8 +20,6 @@
 #include "zmq/socket_cache.hpp"
 #include "zmq/zmq_util.hpp"
 
-using namespace std;
-
 unsigned BENCHMARK_THREAD_NUM;
 unsigned ROUTING_THREAD_NUM;
 unsigned DEFAULT_LOCAL_REPLICATION;
@@ -39,7 +37,7 @@ double get_zipf_prob(unsigned rank, double skew, double base) {
 }
 
 int sample(int n, unsigned& seed, double base,
-           unordered_map<unsigned, double>& sum_probs) {
+           std::unordered_map<unsigned, double>& sum_probs) {
   double z;            // Uniform random number (0 < z < 1)
   int zipf_value;      // Computed exponential value to be returned
   int i;               // Loop counter
@@ -72,25 +70,26 @@ int sample(int n, unsigned& seed, double base,
 }
 
 void handle_request(
-    string key, string value, SocketCache& pushers,
-    vector<string>& routing_address,
-    unordered_map<string, unordered_set<string>>& key_address_cache,
-    unsigned& seed, shared_ptr<spdlog::logger> logger, UserThread& ut,
+    std::string key, std::string value, SocketCache& pushers,
+    std::vector<std::string>& routing_address,
+    std::unordered_map<std::string, std::unordered_set<std::string>>&
+        key_address_cache,
+    unsigned& seed, std::shared_ptr<spdlog::logger> logger, UserThread& ut,
     zmq::socket_t& response_puller, zmq::socket_t& key_address_puller,
-    string& ip, unsigned& thread_id, unsigned& rid, unsigned& trial) {
+    std::string& ip, unsigned& thread_id, unsigned& rid, unsigned& trial) {
   if (trial > 5) {
     logger->info("Trial #{} for request for key {}.", trial, key);
     logger->info("Waiting 5 seconds.");
-    chrono::seconds dura(5);
-    this_thread::sleep_for(dura);
+    std::chrono::seconds dura(5);
+    std::this_thread::sleep_for(dura);
     logger->info("Waited 5s.");
   }
 
   // get worker address
-  string worker_address;
+  std::string worker_address;
   if (key_address_cache.find(key) == key_address_cache.end()) {
     // query the routing and update the cache
-    string target_routing_address =
+    std::string target_routing_address =
         get_random_routing_thread(routing_address, seed, ROUTING_THREAD_NUM)
             .get_key_address_connect_addr();
     bool succeed;
@@ -119,7 +118,8 @@ void handle_request(
   communication::Request req;
   req.set_respond_address(ut.get_request_pulling_connect_addr());
 
-  string req_id = ip + ":" + to_string(thread_id) + "_" + to_string(rid);
+  std::string req_id =
+      ip + ":" + std::to_string(thread_id) + "_" + std::to_string(rid);
   req.set_request_id(req_id);
   rid += 1;
 
@@ -176,15 +176,15 @@ void handle_request(
         "possible node membership changes.");
     // likely the node has departed. We clear the entries relavant to the
     // worker_address
-    vector<string> tokens;
+    std::vector<std::string> tokens;
     split(worker_address, ':', tokens);
-    string signature = tokens[1];
-    unordered_set<string> remove_set;
+    std::string signature = tokens[1];
+    std::unordered_set<std::string> remove_set;
 
     for (auto it = key_address_cache.begin(); it != key_address_cache.end();
          it++) {
       for (auto iter = it->second.begin(); iter != it->second.end(); iter++) {
-        vector<string> v;
+        std::vector<std::string> v;
         split(*iter, ':', v);
         if (v[1] == signature) {
           remove_set.insert(it->first);
@@ -204,42 +204,43 @@ void handle_request(
 }
 
 void run(unsigned thread_id) {
-  string log_file = "log_" + to_string(thread_id) + ".txt";
-  string logger_name = "benchmark_log_" + to_string(thread_id);
+  std::string log_file = "log_" + std::to_string(thread_id) + ".txt";
+  std::string logger_name = "benchmark_log_" + std::to_string(thread_id);
   auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
   logger->flush_on(spdlog::level::info);
 
   YAML::Node conf = YAML::LoadFile("conf/config.yml")["user"];
-  string ip = conf["ip"].as<string>();
+  std::string ip = conf["ip"].as<std::string>();
 
-  hash<string> hasher;
+  std::hash<std::string> hasher;
   unsigned seed = time(NULL);
   seed += hasher(ip);
   seed += thread_id;
   logger->info("Random seed is {}.", seed);
 
   // mapping from key to a set of worker addresses
-  unordered_map<string, unordered_set<string>> key_address_cache;
+  std::unordered_map<std::string, std::unordered_set<std::string>>
+      key_address_cache;
 
   // rep factor map
-  unordered_map<string, pair<double, unsigned>> rep_factor_map;
+  std::unordered_map<std::string, std::pair<double, unsigned>> rep_factor_map;
 
   UserThread ut = UserThread(ip, thread_id);
 
   // read the YAML conf
-  vector<string> routing_address;
-  vector<MonitoringThread> mts;
+  std::vector<std::string> routing_address;
+  std::vector<MonitoringThread> mts;
 
   YAML::Node routing = conf["routing"];
   YAML::Node monitoring = conf["monitoring"];
 
   for (YAML::const_iterator it = monitoring.begin(); it != monitoring.end();
        ++it) {
-    mts.push_back(MonitoringThread(it->as<string>()));
+    mts.push_back(MonitoringThread(it->as<std::string>()));
   }
 
   for (YAML::const_iterator it = routing.begin(); it != routing.end(); ++it) {
-    routing_address.push_back(it->as<string>());
+    routing_address.push_back(it->as<std::string>());
   }
 
   int timeout = 10000;
@@ -258,9 +259,10 @@ void run(unsigned thread_id) {
 
   // responsible for pulling benchmark commands
   zmq::socket_t command_puller(context, ZMQ_PULL);
-  command_puller.bind("tcp://*:" + to_string(thread_id + COMMAND_BASE_PORT));
+  command_puller.bind("tcp://*:" +
+                      std::to_string(thread_id + COMMAND_BASE_PORT));
 
-  vector<zmq::pollitem_t> pollitems = {
+  std::vector<zmq::pollitem_t> pollitems = {
       {static_cast<void*>(command_puller), 0, ZMQ_POLLIN, 0}};
 
   unsigned rid = 0;
@@ -270,10 +272,10 @@ void run(unsigned thread_id) {
 
     if (pollitems[0].revents & ZMQ_POLLIN) {
       logger->info("Received benchmark command!");
-      vector<string> v;
+      std::vector<std::string> v;
 
       split(zmq_util::recv_string(&command_puller), ':', v);
-      string mode = v[0];
+      std::string mode = v[0];
 
       if (mode == "CACHE") {
         unsigned num_keys = stoi(v[1]);
@@ -283,13 +285,14 @@ void run(unsigned thread_id) {
 
         for (unsigned i = 1; i <= num_keys; i++) {
           // key is 8 bytes
-          string key = string(8 - to_string(i).length(), '0') + to_string(i);
+          std::string key = std::string(8 - std::to_string(i).length(), '0') +
+                            std::to_string(i);
 
           if (i % 50000 == 0) {
             logger->info("warming up cache for key {}", key);
           }
 
-          string target_routing_address =
+          std::string target_routing_address =
               get_random_routing_thread(routing_address, seed,
                                         ROUTING_THREAD_NUM)
                   .get_key_address_connect_addr();
@@ -307,19 +310,19 @@ void run(unsigned thread_id) {
           }
         }
 
-        auto warmup_time = chrono::duration_cast<std::chrono::seconds>(
+        auto warmup_time = std::chrono::duration_cast<std::chrono::seconds>(
                                std::chrono::system_clock::now() - warmup_start)
                                .count();
         logger->info("Cache warm-up took {} seconds.", warmup_time);
       } else if (mode == "LOAD") {
-        string type = v[1];
+        std::string type = v[1];
         unsigned num_keys = stoi(v[2]);
         unsigned length = stoi(v[3]);
         unsigned report_period = stoi(v[4]);
         unsigned time = stoi(v[5]);
         double contention = stod(v[6]);
 
-        unordered_map<unsigned, double> sum_probs;
+        std::unordered_map<unsigned, double> sum_probs;
         double base;
 
         double zipf = contention;
@@ -341,13 +344,13 @@ void run(unsigned thread_id) {
         auto benchmark_end = std::chrono::system_clock::now();
         auto epoch_start = std::chrono::system_clock::now();
         auto epoch_end = std::chrono::system_clock::now();
-        auto total_time = chrono::duration_cast<std::chrono::seconds>(
+        auto total_time = std::chrono::duration_cast<std::chrono::seconds>(
                               benchmark_end - benchmark_start)
                               .count();
         unsigned epoch = 1;
 
         while (true) {
-          string key;
+          std::string key;
           unsigned k;
 
           if (zipf > 0) {
@@ -356,7 +359,8 @@ void run(unsigned thread_id) {
             k = rand_r(&seed) % (num_keys) + 1;
           }
 
-          key = string(8 - to_string(k).length(), '0') + to_string(k);
+          key = std::string(8 - std::to_string(k).length(), '0') +
+                std::to_string(k);
           unsigned trial = 1;
 
           if (type == "G") {
@@ -365,15 +369,17 @@ void run(unsigned thread_id) {
                            key_address_puller, ip, thread_id, rid, trial);
             count += 1;
           } else if (type == "P") {
-            handle_request(key, string(length, 'a'), pushers, routing_address,
-                           key_address_cache, seed, logger, ut, response_puller,
-                           key_address_puller, ip, thread_id, rid, trial);
+            handle_request(key, std::string(length, 'a'), pushers,
+                           routing_address, key_address_cache, seed, logger, ut,
+                           response_puller, key_address_puller, ip, thread_id,
+                           rid, trial);
             count += 1;
           } else if (type == "M") {
             auto req_start = std::chrono::system_clock::now();
-            handle_request(key, string(length, 'a'), pushers, routing_address,
-                           key_address_cache, seed, logger, ut, response_puller,
-                           key_address_puller, ip, thread_id, rid, trial);
+            handle_request(key, std::string(length, 'a'), pushers,
+                           routing_address, key_address_cache, seed, logger, ut,
+                           response_puller, key_address_puller, ip, thread_id,
+                           rid, trial);
             trial = 1;
 
             handle_request(key, "", pushers, routing_address, key_address_cache,
@@ -383,7 +389,7 @@ void run(unsigned thread_id) {
             auto req_end = std::chrono::system_clock::now();
 
             double factor =
-                (double)chrono::duration_cast<std::chrono::microseconds>(
+                (double)std::chrono::duration_cast<std::chrono::microseconds>(
                     req_end - req_start)
                     .count() /
                 2 / SLO_WORST;
@@ -403,7 +409,7 @@ void run(unsigned thread_id) {
           }
 
           epoch_end = std::chrono::system_clock::now();
-          auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(
+          auto time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
                                   epoch_end - epoch_start)
                                   .count();
 
@@ -417,7 +423,7 @@ void run(unsigned thread_id) {
             auto latency = (double)1000000 / throughput;
             communication::Feedback l;
 
-            l.set_uid(ip + ":" + to_string(thread_id));
+            l.set_uid(ip + ":" + std::to_string(thread_id));
             l.set_latency(latency);
             l.set_throughput(throughput);
 
@@ -432,7 +438,7 @@ void run(unsigned thread_id) {
               }
             }
 
-            string serialized_latency;
+            std::string serialized_latency;
             l.SerializeToString(&serialized_latency);
 
             for (int i = 0; i < mts.size(); i++) {
@@ -447,7 +453,7 @@ void run(unsigned thread_id) {
           }
 
           benchmark_end = std::chrono::system_clock::now();
-          total_time = chrono::duration_cast<std::chrono::seconds>(
+          total_time = std::chrono::duration_cast<std::chrono::seconds>(
                            benchmark_end - benchmark_start)
                            .count();
           if (total_time > time) {
@@ -463,10 +469,10 @@ void run(unsigned thread_id) {
         logger->info("Finished");
         communication::Feedback l;
 
-        l.set_uid(ip + ":" + to_string(thread_id));
+        l.set_uid(ip + ":" + std::to_string(thread_id));
         l.set_finish(true);
 
-        string serialized_latency;
+        std::string serialized_latency;
         l.SerializeToString(&serialized_latency);
 
         for (int i = 0; i < mts.size(); i++) {
@@ -482,16 +488,18 @@ void run(unsigned thread_id) {
         unsigned start = thread_id * range + 1;
         unsigned end = thread_id * range + 1 + range;
 
-        string key;
+        std::string key;
         logger->info("Warming up data");
         auto warmup_start = std::chrono::system_clock::now();
 
         for (unsigned i = start; i < end; i++) {
           unsigned trial = 1;
-          key = string(8 - to_string(i).length(), '0') + to_string(i);
-          handle_request(key, string(length, 'a'), pushers, routing_address,
-                         key_address_cache, seed, logger, ut, response_puller,
-                         key_address_puller, ip, thread_id, rid, trial);
+          key = std::string(8 - std::to_string(i).length(), '0') +
+                std::to_string(i);
+          handle_request(key, std::string(length, 'a'), pushers,
+                         routing_address, key_address_cache, seed, logger, ut,
+                         response_puller, key_address_puller, ip, thread_id,
+                         rid, trial);
 
           // reset rid
           if (rid > 10000000) {
@@ -503,7 +511,7 @@ void run(unsigned thread_id) {
           }
         }
 
-        auto warmup_time = chrono::duration_cast<std::chrono::seconds>(
+        auto warmup_time = std::chrono::duration_cast<std::chrono::seconds>(
                                std::chrono::system_clock::now() - warmup_start)
                                .count();
         logger->info("Warming up data took {} seconds.", warmup_time);
@@ -516,7 +524,7 @@ void run(unsigned thread_id) {
 
 int main(int argc, char* argv[]) {
   if (argc != 1) {
-    cerr << "Usage: " << argv[0] << endl;
+    std::cerr << "Usage: " << argv[0] << std::endl;
     return 1;
   }
 
@@ -525,9 +533,9 @@ int main(int argc, char* argv[]) {
   BENCHMARK_THREAD_NUM = conf["benchmark"].as<int>();
   DEFAULT_LOCAL_REPLICATION = conf["replication"]["local"].as<unsigned>();
 
-  vector<thread> benchmark_threads;
+  std::vector<std::thread> benchmark_threads;
   for (unsigned thread_id = 1; thread_id < BENCHMARK_THREAD_NUM; thread_id++) {
-    benchmark_threads.push_back(thread(run, thread_id));
+    benchmark_threads.push_back(std::thread(run, thread_id));
   }
 
   run(0);

@@ -2,25 +2,24 @@
 #include "monitor/monitoring_utils.hpp"
 #include "spdlog/spdlog.h"
 
-using namespace std;
-
-void slo_policy(shared_ptr<spdlog::logger> logger,
-                unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
-                unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-                chrono::time_point<chrono::system_clock>& grace_start,
-                SummaryStats& ss, unsigned& memory_node_number,
-                unsigned& adding_memory_node, bool& removing_memory_node,
-                string management_address,
-                unordered_map<string, KeyInfo>& placement,
-                unordered_map<string, unsigned>& key_access_summary,
-                MonitoringThread& mt,
-                unordered_map<unsigned, TierData>& tier_data_map,
-                unordered_map<string, unsigned>& departing_node_map,
-                SocketCache& pushers, zmq::socket_t& response_puller,
-                vector<string>& routing_address, unsigned& rid,
-                unordered_map<string, pair<double, unsigned>>& rep_factor_map) {
+void slo_policy(
+    std::shared_ptr<spdlog::logger> logger,
+    std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+    std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
+    std::chrono::time_point<std::chrono::system_clock>& grace_start,
+    SummaryStats& ss, unsigned& memory_node_number,
+    unsigned& adding_memory_node, bool& removing_memory_node,
+    std::string management_address,
+    std::unordered_map<std::string, KeyInfo>& placement,
+    std::unordered_map<std::string, unsigned>& key_access_summary,
+    MonitoringThread& mt, std::unordered_map<unsigned, TierData>& tier_data_map,
+    std::unordered_map<std::string, unsigned>& departing_node_map,
+    SocketCache& pushers, zmq::socket_t& response_puller,
+    std::vector<std::string>& routing_address, unsigned& rid,
+    std::unordered_map<std::string, std::pair<double, unsigned>>&
+        rep_factor_map) {
   // check latency to trigger elasticity or selective replication
-  unordered_map<string, KeyInfo> requests;
+  std::unordered_map<std::string, KeyInfo> requests;
   if (ss.avg_latency > SLO_WORST && adding_memory_node == 0) {
     logger->info("Observed latency ({}) violates SLO({}).", ss.avg_latency,
                  SLO_WORST);
@@ -31,7 +30,7 @@ void slo_policy(shared_ptr<spdlog::logger> logger,
           ceil((ss.avg_latency / SLO_WORST - 1) * memory_node_number);
 
       // trigger elasticity
-      auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(
+      auto time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
                               std::chrono::system_clock::now() - grace_start)
                               .count();
       if (time_elapsed > GRACE_PERIOD) {
@@ -43,7 +42,7 @@ void slo_policy(shared_ptr<spdlog::logger> logger,
       logger->info("Classifying hot keys...");
       for (auto it = key_access_summary.begin(); it != key_access_summary.end();
            it++) {
-        string key = it->first;
+        std::string key = it->first;
         unsigned total_access = it->second;
 
         if (!is_metadata(key) &&
@@ -62,9 +61,10 @@ void slo_policy(shared_ptr<spdlog::logger> logger,
           unsigned current_mem_rep = placement[key].global_replication_map_[1];
           if (target_rep_factor > current_mem_rep &&
               current_mem_rep < memory_node_number) {
-            unsigned new_mem_rep = min(memory_node_number, target_rep_factor);
+            unsigned new_mem_rep =
+                std::min(memory_node_number, target_rep_factor);
             unsigned new_ebs_rep =
-                max(MINIMUM_REPLICA_NUMBER - new_mem_rep, (unsigned)0);
+                std::max(MINIMUM_REPLICA_NUMBER - new_mem_rep, (unsigned)0);
             requests[key] = create_new_replication_vector(
                 new_mem_rep, new_ebs_rep,
                 placement[key].local_replication_map_[1],
@@ -91,11 +91,11 @@ void slo_policy(shared_ptr<spdlog::logger> logger,
                                 pushers, mt, response_puller, logger, rid);
     }
   } else if (ss.min_memory_occupancy < 0.05 && !removing_memory_node &&
-             memory_node_number >
-                 max(ss.required_memory_node, (unsigned)MINIMUM_MEMORY_NODE)) {
+             memory_node_number > std::max(ss.required_memory_node,
+                                           (unsigned)MINIMUM_MEMORY_NODE)) {
     logger->info("Node {} is severely underutilized.",
                  ss.min_occupancy_memory_ip);
-    auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(
+    auto time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
                             std::chrono::system_clock::now() - grace_start)
                             .count();
 
@@ -104,14 +104,14 @@ void slo_policy(shared_ptr<spdlog::logger> logger,
       // factor
       for (auto it = key_access_summary.begin(); it != key_access_summary.end();
            it++) {
-        string key = it->first;
+        std::string key = it->first;
 
         if (!is_metadata(key) &&
             placement[key].global_replication_map_[1] ==
                 (global_hash_ring_map[1].size() / VIRTUAL_THREAD_NUM)) {
           unsigned new_mem_rep = placement[key].global_replication_map_[1] - 1;
           unsigned new_ebs_rep =
-              max(MINIMUM_REPLICA_NUMBER - new_mem_rep, (unsigned)0);
+              std::max(MINIMUM_REPLICA_NUMBER - new_mem_rep, (unsigned)0);
           requests[key] = create_new_replication_vector(
               new_mem_rep, new_ebs_rep,
               placement[key].local_replication_map_[1],

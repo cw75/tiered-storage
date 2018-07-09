@@ -2,22 +2,21 @@
 #include "monitor/monitoring_utils.hpp"
 #include "spdlog/spdlog.h"
 
-using namespace std;
-
 void movement_policy(
-    shared_ptr<spdlog::logger> logger,
-    unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
-    unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    chrono::time_point<chrono::system_clock>& grace_start, SummaryStats& ss,
-    unsigned& memory_node_number, unsigned& ebs_node_number,
+    std::shared_ptr<spdlog::logger> logger,
+    std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+    std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
+    std::chrono::time_point<std::chrono::system_clock>& grace_start,
+    SummaryStats& ss, unsigned& memory_node_number, unsigned& ebs_node_number,
     unsigned& adding_memory_node, unsigned& adding_ebs_node,
-    string management_address, unordered_map<string, KeyInfo>& placement,
-    unordered_map<string, unsigned>& key_access_summary, MonitoringThread& mt,
-    unordered_map<unsigned, TierData>& tier_data_map, SocketCache& pushers,
-    zmq::socket_t& response_puller, vector<string>& routing_address,
-    unsigned& rid) {
+    std::string management_address,
+    std::unordered_map<std::string, KeyInfo>& placement,
+    std::unordered_map<std::string, unsigned>& key_access_summary,
+    MonitoringThread& mt, std::unordered_map<unsigned, TierData>& tier_data_map,
+    SocketCache& pushers, zmq::socket_t& response_puller,
+    std::vector<std::string>& routing_address, unsigned& rid) {
   // promote hot keys to memory tier
-  unordered_map<string, KeyInfo> requests;
+  std::unordered_map<std::string, KeyInfo> requests;
   unsigned total_rep_to_change = 0;
   unsigned slot =
       (MEM_CAPACITY_MAX * tier_data_map[1].node_capacity_ * memory_node_number -
@@ -27,7 +26,7 @@ void movement_policy(
 
   for (auto it = key_access_summary.begin(); it != key_access_summary.end();
        it++) {
-    string key = it->first;
+    std::string key = it->first;
     unsigned total_access = it->second;
 
     if (!is_metadata(key) && total_access > PROMOTE_THRESHOLD &&
@@ -51,7 +50,7 @@ void movement_policy(
                             response_puller, logger, rid);
   logger->info("Promoting {} keys into {} memory slots.", total_rep_to_change,
                slot);
-  auto time_elapsed = chrono::duration_cast<std::chrono::seconds>(
+  auto time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
                           std::chrono::system_clock::now() - grace_start)
                           .count();
 
@@ -79,7 +78,7 @@ void movement_policy(
 
   for (auto it = key_access_summary.begin(); it != key_access_summary.end();
        it++) {
-    string key = it->first;
+    std::string key = it->first;
     unsigned total_access = it->second;
 
     if (!is_metadata(key) && total_access < DEMOTE_THRESHOLD &&
@@ -118,7 +117,7 @@ void movement_policy(
   // reduce the replication factor of some keys that are not so hot anymore
   for (auto it = key_access_summary.begin(); it != key_access_summary.end();
        it++) {
-    string key = it->first;
+    std::string key = it->first;
     unsigned total_access = it->second;
 
     if (!is_metadata(key) && total_access <= ss.key_access_mean &&

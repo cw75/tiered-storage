@@ -3,8 +3,6 @@
 
 #include "spdlog/spdlog.h"
 
-using namespace std;
-
 // define monitoring threshold (in second)
 const unsigned MONITORING_THRESHOLD = 30;
 
@@ -51,7 +49,7 @@ struct SummaryStats {
     max_ebs_occupancy = 0;
     min_ebs_occupancy = 1;
     avg_ebs_occupancy = 0;
-    min_occupancy_memory_ip = string();
+    min_occupancy_memory_ip = std::string();
     avg_latency = 0;
     total_throughput = 0;
   }
@@ -74,97 +72,111 @@ struct SummaryStats {
   double max_ebs_occupancy;
   double min_ebs_occupancy;
   double avg_ebs_occupancy;
-  string min_occupancy_memory_ip;
+  std::string min_occupancy_memory_ip;
   double avg_latency;
   double total_throughput;
 };
 
-string prepare_metadata_request(
-    const string& key, GlobalHashRing& global_memory_hash_ring,
+std::string prepare_metadata_request(
+    const std::string& key, GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring,
-    unordered_map<string, communication::Request>& addr_request_map,
-    MonitoringThread& mt, unsigned& rid, string type);
+    std::unordered_map<std::string, communication::Request>& addr_request_map,
+    MonitoringThread& mt, unsigned& rid, std::string type);
 
 void prepare_metadata_get_request(
-    const string& key, GlobalHashRing& global_memory_hash_ring,
+    const std::string& key, GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring,
-    unordered_map<string, communication::Request>& addr_request_map,
+    std::unordered_map<std::string, communication::Request>& addr_request_map,
     MonitoringThread& mt, unsigned& rid);
 
 void prepare_metadata_put_request(
-    const string& key, const string& value,
+    const std::string& key, const std::string& value,
     GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring,
-    unordered_map<string, communication::Request>& addr_request_map,
+    std::unordered_map<std::string, communication::Request>& addr_request_map,
     MonitoringThread& mt, unsigned& rid);
 
 void collect_internal_stats(
-    unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
-    unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
+    std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+    std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     SocketCache& pushers, MonitoringThread& mt, zmq::socket_t& response_puller,
-    shared_ptr<spdlog::logger> logger, unsigned& rid,
-    unordered_map<string, unordered_map<string, unsigned>>&
+    std::shared_ptr<spdlog::logger> logger, unsigned& rid,
+    std::unordered_map<std::string, std::unordered_map<std::string, unsigned>>&
         key_access_frequency,
-    unordered_map<string, unordered_map<unsigned, unsigned long long>>&
+    std::unordered_map<std::string,
+                       std::unordered_map<unsigned, unsigned long long>>&
         memory_tier_storage,
-    unordered_map<string, unordered_map<unsigned, unsigned long long>>&
+    std::unordered_map<std::string,
+                       std::unordered_map<unsigned, unsigned long long>>&
         ebs_tier_storage,
-    unordered_map<string, unordered_map<unsigned, pair<double, unsigned>>>&
+    std::unordered_map<
+        std::string, std::unordered_map<unsigned, std::pair<double, unsigned>>>&
         memory_tier_occupancy,
-    unordered_map<string, unordered_map<unsigned, pair<double, unsigned>>>&
+    std::unordered_map<
+        std::string, std::unordered_map<unsigned, std::pair<double, unsigned>>>&
         ebs_tier_occupancy,
-    unordered_map<string, unordered_map<unsigned, unsigned>>&
+    std::unordered_map<std::string, std::unordered_map<unsigned, unsigned>>&
         memory_tier_access,
-    unordered_map<string, unordered_map<unsigned, unsigned>>& ebs_tier_access,
-    unordered_map<unsigned, TierData>& tier_data_map);
+    std::unordered_map<std::string, std::unordered_map<unsigned, unsigned>>&
+        ebs_tier_access,
+    std::unordered_map<unsigned, TierData>& tier_data_map);
 
 void compute_summary_stats(
-    unordered_map<string, unordered_map<string, unsigned>>&
+    std::unordered_map<std::string, std::unordered_map<std::string, unsigned>>&
         key_access_frequency,
-    unordered_map<string, unordered_map<unsigned, unsigned long long>>&
+    std::unordered_map<std::string,
+                       std::unordered_map<unsigned, unsigned long long>>&
         memory_tier_storage,
-    unordered_map<string, unordered_map<unsigned, unsigned long long>>&
+    std::unordered_map<std::string,
+                       std::unordered_map<unsigned, unsigned long long>>&
         ebs_tier_storage,
-    unordered_map<string, unordered_map<unsigned, pair<double, unsigned>>>&
+    std::unordered_map<
+        std::string, std::unordered_map<unsigned, std::pair<double, unsigned>>>&
         memory_tier_occupancy,
-    unordered_map<string, unordered_map<unsigned, pair<double, unsigned>>>&
+    std::unordered_map<
+        std::string, std::unordered_map<unsigned, std::pair<double, unsigned>>>&
         ebs_tier_occupancy,
-    unordered_map<string, unordered_map<unsigned, unsigned>>&
+    std::unordered_map<std::string, std::unordered_map<unsigned, unsigned>>&
         memory_tier_access,
-    unordered_map<string, unordered_map<unsigned, unsigned>>& ebs_tier_access,
-    unordered_map<string, unsigned>& key_access_summary, SummaryStats& ss,
-    shared_ptr<spdlog::logger> logger, unsigned& server_monitoring_epoch,
-    unordered_map<unsigned, TierData>& tier_data_map);
+    std::unordered_map<std::string, std::unordered_map<unsigned, unsigned>>&
+        ebs_tier_access,
+    std::unordered_map<std::string, unsigned>& key_access_summary,
+    SummaryStats& ss, std::shared_ptr<spdlog::logger> logger,
+    unsigned& server_monitoring_epoch,
+    std::unordered_map<unsigned, TierData>& tier_data_map);
 
-void collect_external_stats(unordered_map<string, double>& user_latency,
-                            unordered_map<string, double>& user_throughput,
-                            SummaryStats& ss,
-                            shared_ptr<spdlog::logger> logger);
+void collect_external_stats(
+    std::unordered_map<std::string, double>& user_latency,
+    std::unordered_map<std::string, double>& user_throughput, SummaryStats& ss,
+    std::shared_ptr<spdlog::logger> logger);
 
 KeyInfo create_new_replication_vector(unsigned gm, unsigned ge, unsigned lm,
                                       unsigned le);
 
 void prepare_replication_factor_update(
-    const string& key,
-    unordered_map<string, communication::Replication_Factor_Request>&
+    const std::string& key,
+    std::unordered_map<std::string, communication::Replication_Factor_Request>&
         replication_factor_map,
-    string server_address, unordered_map<string, KeyInfo>& placement);
+    std::string server_address,
+    std::unordered_map<std::string, KeyInfo>& placement);
 
 void change_replication_factor(
-    unordered_map<string, KeyInfo>& requests,
-    unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
-    unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    vector<string>& routing_address, unordered_map<string, KeyInfo>& placement,
-    SocketCache& pushers, MonitoringThread& mt, zmq::socket_t& response_puller,
-    shared_ptr<spdlog::logger> logger, unsigned& rid);
+    std::unordered_map<std::string, KeyInfo>& requests,
+    std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+    std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
+    std::vector<std::string>& routing_address,
+    std::unordered_map<std::string, KeyInfo>& placement, SocketCache& pushers,
+    MonitoringThread& mt, zmq::socket_t& response_puller,
+    std::shared_ptr<spdlog::logger> logger, unsigned& rid);
 
-void add_node(shared_ptr<spdlog::logger> logger, string tier, unsigned number,
-              unsigned& adding, const string& management_address);
+void add_node(std::shared_ptr<spdlog::logger> logger, std::string tier,
+              unsigned number, unsigned& adding,
+              const std::string& management_address);
 
-void remove_node(shared_ptr<spdlog::logger> logger, ServerThread& node,
-                 string tier, bool& removing_flag, SocketCache& pushers,
-                 unordered_map<string, unsigned>& departing_node_map,
+void remove_node(std::shared_ptr<spdlog::logger> logger, ServerThread& node,
+                 std::string tier, bool& removing_flag, SocketCache& pushers,
+                 std::unordered_map<std::string, unsigned>& departing_node_map,
                  MonitoringThread& mt,
-                 unordered_map<unsigned, TierData>& tier_data_map);
+                 std::unordered_map<unsigned, TierData>& tier_data_map);
 
 #endif

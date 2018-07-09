@@ -10,8 +10,7 @@
 #include "zmq/socket_cache.hpp"
 #include "zmq/zmq_util.hpp"
 
-using namespace std;
-const string METADATA_IDENTIFIER = "BEDROCKMETADATA";
+const std::string METADATA_IDENTIFIER = "BEDROCKMETADATA";
 
 const unsigned METADATA_REPLICATION_FACTOR = 2;
 const unsigned METADATA_LOCAL_REPLICATION_FACTOR = 1;
@@ -85,13 +84,13 @@ inline unsigned long long generate_timestamp(unsigned long long time,
   return time * pow + tid;
 }
 
-inline void prepare_get_tuple(communication::Request& req, string key) {
+inline void prepare_get_tuple(communication::Request& req, std::string key) {
   communication::Request_Tuple* tp = req.add_tuple();
   tp->set_key(key);
 }
 
-inline void prepare_put_tuple(communication::Request& req, string key,
-                              string value, unsigned long long timestamp) {
+inline void prepare_put_tuple(communication::Request& req, std::string key,
+                              std::string value, unsigned long long timestamp) {
   communication::Request_Tuple* tp = req.add_tuple();
   tp->set_key(key);
   tp->set_value(value);
@@ -99,7 +98,7 @@ inline void prepare_put_tuple(communication::Request& req, string key,
 }
 
 inline void push_request(communication::Request& req, zmq::socket_t& socket) {
-  string serialized_req;
+  std::string serialized_req;
   req.SerializeToString(&serialized_req);
   zmq_util::send_string(serialized_req, &socket);
 }

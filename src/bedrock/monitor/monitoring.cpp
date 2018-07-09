@@ -13,22 +13,20 @@ unsigned DEFAULT_GLOBAL_EBS_REPLICATION;
 unsigned DEFAULT_LOCAL_REPLICATION;
 unsigned MINIMUM_REPLICA_NUMBER;
 
-using namespace std;
-
 // read-only per-tier metadata
-unordered_map<unsigned, TierData> tier_data_map;
+std::unordered_map<unsigned, TierData> tier_data_map;
 
 int main(int argc, char *argv[]) {
   auto logger = spdlog::basic_logger_mt("monitoring_logger", "log.txt", true);
   logger->flush_on(spdlog::level::info);
 
   if (argc != 1) {
-    cerr << "Usage: " << argv[0] << endl;
+    std::cerr << "Usage: " << argv[0] << std::endl;
     return 1;
   }
 
   YAML::Node conf = YAML::LoadFile("conf/config.yml");
-  string ip = conf["monitoring"]["ip"].as<string>();
+  std::string ip = conf["monitoring"]["ip"].as<std::string>();
 
   MEMORY_THREAD_NUM = conf["threads"]["memory"].as<unsigned>();
   EBS_THREAD_NUM = conf["threads"]["ebs"].as<unsigned>();
@@ -45,8 +43,8 @@ int main(int argc, char *argv[]) {
                               EBS_NODE_CAPACITY);
 
   // initialize hash ring maps
-  unordered_map<unsigned, GlobalHashRing> global_hash_ring_map;
-  unordered_map<unsigned, LocalHashRing> local_hash_ring_map;
+  std::unordered_map<unsigned, GlobalHashRing> global_hash_ring_map;
+  std::unordered_map<unsigned, LocalHashRing> local_hash_ring_map;
 
   // form local hash rings
   for (auto it = tier_data_map.begin(); it != tier_data_map.end(); it++) {
@@ -57,45 +55,53 @@ int main(int argc, char *argv[]) {
   }
 
   // keep track of the keys' replication info
-  unordered_map<string, KeyInfo> placement;
+  std::unordered_map<std::string, KeyInfo> placement;
   // warm up for benchmark
   // warmup_placement_to_defaults(placement);
 
   unsigned memory_node_number;
   unsigned ebs_node_number;
   // keep track of the keys' access by worker address
-  unordered_map<string, unordered_map<string, unsigned>> key_access_frequency;
+  std::unordered_map<std::string, std::unordered_map<std::string, unsigned>>
+      key_access_frequency;
   // keep track of the keys' access summary
-  unordered_map<string, unsigned> key_access_summary;
+  std::unordered_map<std::string, unsigned> key_access_summary;
   // keep track of memory tier storage consumption
-  unordered_map<string, unordered_map<unsigned, unsigned long long>>
+  std::unordered_map<std::string,
+                     std::unordered_map<unsigned, unsigned long long>>
       memory_tier_storage;
   // keep track of ebs tier storage consumption
-  unordered_map<string, unordered_map<unsigned, unsigned long long>>
+  std::unordered_map<std::string,
+                     std::unordered_map<unsigned, unsigned long long>>
       ebs_tier_storage;
   // keep track of memory tier thread occupancy
-  unordered_map<string, unordered_map<unsigned, pair<double, unsigned>>>
+  std::unordered_map<std::string,
+                     std::unordered_map<unsigned, std::pair<double, unsigned>>>
       memory_tier_occupancy;
   // keep track of ebs tier thread occupancy
-  unordered_map<string, unordered_map<unsigned, pair<double, unsigned>>>
+  std::unordered_map<std::string,
+                     std::unordered_map<unsigned, std::pair<double, unsigned>>>
       ebs_tier_occupancy;
   // keep track of memory tier hit
-  unordered_map<string, unordered_map<unsigned, unsigned>> memory_tier_access;
+  std::unordered_map<std::string, std::unordered_map<unsigned, unsigned>>
+      memory_tier_access;
   // keep track of ebs tier hit
-  unordered_map<string, unordered_map<unsigned, unsigned>> ebs_tier_access;
+  std::unordered_map<std::string, std::unordered_map<unsigned, unsigned>>
+      ebs_tier_access;
   // keep track of some summary statistics
   SummaryStats ss;
   // keep track of user latency info
-  unordered_map<string, double> user_latency;
+  std::unordered_map<std::string, double> user_latency;
   // keep track of user throughput info
-  unordered_map<string, double> user_throughput;
+  std::unordered_map<std::string, double> user_throughput;
   // used for adjusting the replication factors based on feedback from the user
-  unordered_map<string, pair<double, unsigned>> rep_factor_map;
+  std::unordered_map<std::string, std::pair<double, unsigned>> rep_factor_map;
 
-  vector<string> routing_address;
+  std::vector<std::string> routing_address;
 
   // read the YAML conf
-  string management_address = conf["monitoring"]["mgmt_ip"].as<string>();
+  std::string management_address =
+      conf["monitoring"]["mgmt_ip"].as<std::string>();
   MonitoringThread mt = MonitoringThread(ip);
 
   zmq::context_t context(1);
@@ -110,7 +116,7 @@ int main(int argc, char *argv[]) {
   response_puller.bind(mt.get_request_pulling_bind_addr());
 
   // keep track of departing node status
-  unordered_map<string, unsigned> departing_node_map;
+  std::unordered_map<std::string, unsigned> departing_node_map;
 
   // responsible for both node join and departure
   zmq::socket_t notify_puller(context, ZMQ_PULL);
@@ -124,15 +130,15 @@ int main(int argc, char *argv[]) {
   zmq::socket_t feedback_puller(context, ZMQ_PULL);
   feedback_puller.bind(mt.get_latency_report_bind_addr());
 
-  vector<zmq::pollitem_t> pollitems = {
+  std::vector<zmq::pollitem_t> pollitems = {
       {static_cast<void *>(notify_puller), 0, ZMQ_POLLIN, 0},
       {static_cast<void *>(depart_done_puller), 0, ZMQ_POLLIN, 0},
       {static_cast<void *>(feedback_puller), 0, ZMQ_POLLIN, 0}};
 
-  auto report_start = chrono::system_clock::now();
-  auto report_end = chrono::system_clock::now();
+  auto report_start = std::chrono::system_clock::now();
+  auto report_end = std::chrono::system_clock::now();
 
-  auto grace_start = chrono::system_clock::now();
+  auto grace_start = std::chrono::system_clock::now();
 
   unsigned adding_memory_node = 0;
   unsigned adding_ebs_node = 0;
@@ -170,7 +176,8 @@ int main(int argc, char *argv[]) {
 
     report_end = std::chrono::system_clock::now();
 
-    if (chrono::duration_cast<std::chrono::seconds>(report_end - report_start)
+    if (std::chrono::duration_cast<std::chrono::seconds>(report_end -
+                                                         report_start)
             .count() >= MONITORING_THRESHOLD) {
       server_monitoring_epoch += 1;
 

@@ -3,8 +3,8 @@
 
 // represents the replication state for each key
 struct KeyInfo {
-  unordered_map<unsigned, unsigned> global_replication_map_;
-  unordered_map<unsigned, unsigned> local_replication_map_;
+  std::unordered_map<unsigned, unsigned> global_replication_map_;
+  std::unordered_map<unsigned, unsigned> local_replication_map_;
 };
 
 // per-tier metadata
@@ -23,8 +23,8 @@ struct TierData {
   unsigned long long node_capacity_;
 };
 
-inline bool is_metadata(string key) {
-  vector<string> v;
+inline bool is_metadata(std::string key) {
+  std::vector<std::string> v;
   split(key, '_', v);
 
   if (v[0] == "BEDROCKMETADATA") {

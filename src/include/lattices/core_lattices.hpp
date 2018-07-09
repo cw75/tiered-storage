@@ -13,8 +13,6 @@
 
 #include "base_lattices.hpp"
 
-using namespace std;
-
 class BoolLattice : public Lattice<bool> {
  protected:
   void do_merge(const bool &e) { element |= e; }
@@ -46,25 +44,26 @@ class MaxLattice : public Lattice<T> {
 };
 
 template <typename T>
-class SetLattice : public Lattice<unordered_set<T>> {
+class SetLattice : public Lattice<std::unordered_set<T>> {
  protected:
-  void do_merge(const unordered_set<T> &e) {
+  void do_merge(const std::unordered_set<T> &e) {
     for (auto it = e.begin(); it != e.end(); ++it) {
       this->element.insert(*it);
     }
   }
 
  public:
-  SetLattice() : Lattice<unordered_set<T>>() {}
+  SetLattice() : Lattice<std::unordered_set<T>>() {}
 
-  SetLattice(const unordered_set<T> &e) : Lattice<unordered_set<T>>(e) {}
+  SetLattice(const std::unordered_set<T> &e) :
+      Lattice<std::unordered_set<T>>(e) {}
 
   MaxLattice<int> size() const { return MaxLattice<int>(this->element.size()); }
 
   void insert(const T &e) { this->element.insert(e); }
 
-  SetLattice<T> intersect(unordered_set<T> s) const {
-    unordered_set<T> res;
+  SetLattice<T> intersect(std::unordered_set<T> s) const {
+    std::unordered_set<T> res;
 
     for (auto iter_i = s.begin(); iter_i != s.end(); ++iter_i) {
       for (auto iter_j = this->element.begin(); iter_j != this->element.end();
@@ -77,7 +76,7 @@ class SetLattice : public Lattice<unordered_set<T>> {
   }
 
   SetLattice<T> project(bool (*f)(T)) const {
-    unordered_set<T> res;
+    std::unordered_set<T> res;
 
     for (auto it = this->element.begin(); it != this->element.end(); ++it) {
       if (f(*it)) res.insert(*it);
@@ -88,7 +87,7 @@ class SetLattice : public Lattice<unordered_set<T>> {
 };
 
 template <typename K, typename V>
-class MapLattice : public Lattice<unordered_map<K, V>> {
+class MapLattice : public Lattice<std::unordered_map<K, V>> {
  protected:
   void insert_pair(const K &k, const V &v) {
     auto search = this->element.find(k);
@@ -101,20 +100,21 @@ class MapLattice : public Lattice<unordered_map<K, V>> {
     }
   }
 
-  void do_merge(const unordered_map<K, V> &m) {
+  void do_merge(const std::unordered_map<K, V> &m) {
     for (auto ms = m.begin(); ms != m.end(); ++ms) {
       this->insert_pair(ms->first, ms->second);
     }
   }
 
  public:
-  MapLattice() : Lattice<unordered_map<K, V>>() {}
-  MapLattice(const unordered_map<K, V> &m) : Lattice<unordered_map<K, V>>(m) {}
+  MapLattice() : Lattice<std::unordered_map<K, V>>() {}
+  MapLattice(const std::unordered_map<K, V> &m) :
+      Lattice<std::unordered_map<K, V>>(m) {}
   MaxLattice<int> size() const { return this->element.size(); }
 
   MapLattice<K, V> intersect(MapLattice<K, V> other) const {
     MapLattice<K, V> res;
-    unordered_map<K, V> m = other.reveal();
+    std::unordered_map<K, V> m = other.reveal();
     for (auto it = m.begin(); it != this->m.end(); ++it) {
       if (this->contain(it->first).reveal()) {
         res.insert_pair(it->first, this->at(it->first));
@@ -125,7 +125,7 @@ class MapLattice : public Lattice<unordered_map<K, V>> {
   }
 
   MapLattice<K, V> project(bool (*f)(V)) const {
-    unordered_map<K, V> res;
+    std::unordered_map<K, V> res;
     for (auto it = this->element.begin(); it != this->element.end(); ++it) {
       if (f(it->second)) res.emplace(it->first, it->second);
     }
@@ -141,7 +141,7 @@ class MapLattice : public Lattice<unordered_map<K, V>> {
   }
 
   SetLattice<K> key_set() const {
-    unordered_set<K> res;
+    std::unordered_set<K> res;
     for (auto it = this->element.begin(); it != this->element.end(); ++it) {
       res.insert(it->first);
     }

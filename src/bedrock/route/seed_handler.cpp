@@ -1,12 +1,11 @@
 #include "hash_ring.hpp"
 #include "spdlog/spdlog.h"
 
-using namespace std;
-
-void seed_handler(std::shared_ptr<spdlog::logger> logger,
-                  zmq::socket_t* addr_responder,
-                  unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
-                  unsigned long long duration) {
+// TODO(vikram): shorten some of these variable names for readability
+void seed_handler(
+    std::shared_ptr<spdlog::logger> logger, zmq::socket_t* addr_responder,
+    std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+    unsigned long long duration) {
   logger->info("Received an address request.");
   zmq_util::recv_string(addr_responder);
 
@@ -16,7 +15,7 @@ void seed_handler(std::shared_ptr<spdlog::logger> logger,
        it++) {
     unsigned tier_id = it->first;
     auto hash_ring = &(it->second);
-    unordered_set<string> observed_ip;
+    std::unordered_set<std::string> observed_ip;
 
     for (auto iter = hash_ring->begin(); iter != hash_ring->end(); iter++) {
       if (observed_ip.find(iter->second.get_ip()) == observed_ip.end()) {
@@ -29,7 +28,7 @@ void seed_handler(std::shared_ptr<spdlog::logger> logger,
     }
   }
 
-  string serialized_address;
+  std::string serialized_address;
   address.SerializeToString(&serialized_address);
   zmq_util::send_string(serialized_address, addr_responder);
 }

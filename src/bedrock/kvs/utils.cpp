@@ -8,7 +8,7 @@
 
 void send_gossip(AddressKeysetMap& addr_keyset_map, SocketCache& pushers,
                  Serializer* serializer) {
-  unordered_map<string, communication::Request> gossip_map;
+  std::unordered_map<std::string, communication::Request> gossip_map;
 
   for (auto map_it = addr_keyset_map.begin(); map_it != addr_keyset_map.end();
        map_it++) {
@@ -32,8 +32,8 @@ void send_gossip(AddressKeysetMap& addr_keyset_map, SocketCache& pushers,
   }
 }
 
-pair<ReadCommittedPairLattice<string>, unsigned> process_get(
-    const string& key, Serializer* serializer) {
+std::pair<ReadCommittedPairLattice<std::string>, unsigned> process_get(
+    const std::string& key, Serializer* serializer) {
   unsigned err_number = 0;
   auto res = serializer->get(key, err_number);
 
@@ -41,12 +41,13 @@ pair<ReadCommittedPairLattice<string>, unsigned> process_get(
   if (res.reveal().value == "") {
     err_number = 1;
   }
-  return pair<ReadCommittedPairLattice<string>, unsigned>(res, err_number);
+  return std::pair<ReadCommittedPairLattice<std::string>, unsigned>(res,
+                                                                    err_number);
 }
 
-void process_put(const string& key, const unsigned long long& timestamp,
-                 const string& value, Serializer* serializer,
-                 unordered_map<string, KeyStat>& key_stat_map) {
+void process_put(const std::string& key, const unsigned long long& timestamp,
+                 const std::string& value, Serializer* serializer,
+                 std::unordered_map<std::string, KeyStat>& key_stat_map) {
   if (serializer->put(key, value, timestamp)) {
     // update value size if the value is replaced
     key_stat_map[key].size_ = value.size();

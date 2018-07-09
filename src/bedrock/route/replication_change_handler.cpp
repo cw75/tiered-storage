@@ -1,15 +1,13 @@
 #include "spdlog/spdlog.h"
 #include "threads.hpp"
 
-using namespace std;
-
-void replication_change_handler(std::shared_ptr<spdlog::logger> logger,
-                                zmq::socket_t* replication_factor_change_puller,
-                                SocketCache& pushers,
-                                unordered_map<string, KeyInfo>& placement,
-                                unsigned thread_id, string ip) {
+void replication_change_handler(
+    std::shared_ptr<spdlog::logger> logger,
+    zmq::socket_t* replication_factor_change_puller, SocketCache& pushers,
+    std::unordered_map<std::string, KeyInfo>& placement, unsigned thread_id,
+    std::string ip) {
   logger->info("Received a replication factor change.");
-  string serialized_req =
+  std::string serialized_req =
       zmq_util::recv_string(replication_factor_change_puller);
 
   if (thread_id == 0) {
@@ -26,7 +24,7 @@ void replication_change_handler(std::shared_ptr<spdlog::logger> logger,
   req.ParseFromString(serialized_req);
 
   for (int i = 0; i < req.tuple_size(); i++) {
-    string key = req.tuple(i).key();
+    std::string key = req.tuple(i).key();
     // update the replication factor
 
     for (int j = 0; j < req.tuple(i).global_size(); j++) {

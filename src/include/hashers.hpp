@@ -5,7 +5,7 @@
 
 struct ThreadHash {
   std::size_t operator()(const ServerThread& st) const {
-    return std::hash<string>{}(st.get_id());
+    return std::hash<std::string>{}(st.get_id());
   }
 };
 
@@ -13,29 +13,29 @@ struct GlobalHasher {
   uint32_t operator()(const ServerThread& th) {
     // prepend a string to make the hash value different than
     // what it would be on the naked input
-    return std::hash<string>{}("GLOBAL" + th.get_virtual_id());
+    return std::hash<std::string>{}("GLOBAL" + th.get_virtual_id());
   }
 
-  uint32_t operator()(const string& key) {
+  uint32_t operator()(const std::string& key) {
     // prepend a string to make the hash value different than
     // what it would be on the naked input
-    return std::hash<string>{}("GLOBAL" + key);
+    return std::hash<std::string>{}("GLOBAL" + key);
   }
 
-  typedef uint32_t result_type;
+  typedef uint32_t ResultType;
 };
 
 struct LocalHasher {
-  hash<string>::result_type operator()(const ServerThread& th) {
-    return hash<string>{}(to_string(th.get_tid()) + "_" +
-                          to_string(th.get_virtual_num()));
+  typedef std::hash<std::string>::result_type ResultType;
+
+  ResultType operator()(const ServerThread& th) {
+    return std::hash<std::string>{}(std::to_string(th.get_tid()) + "_" +
+                                    std::to_string(th.get_virtual_num()));
   }
 
-  hash<string>::result_type operator()(const string& key) {
-    return hash<string>{}(key);
+  ResultType operator()(const std::string& key) {
+    return std::hash<std::string>{}(key);
   }
-
-  typedef hash<string>::result_type result_type;
 };
 
 #endif

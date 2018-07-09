@@ -9,8 +9,6 @@
 
 #include "../lattices/core_lattices.hpp"
 
-using namespace std;
-
 template <typename K, typename V>
 class KVStore {
  protected:

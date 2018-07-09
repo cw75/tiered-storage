@@ -9,16 +9,16 @@
 #include "zmq/socket_cache.hpp"
 
 void node_depart_handler(
-    unsigned int thread_num, unsigned thread_id, string ip,
-    unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+    unsigned int thread_num, unsigned thread_id, std::string ip,
+    std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::shared_ptr<spdlog::logger> logger, zmq::socket_t* depart_puller,
     SocketCache& pushers) {
-  string message = zmq_util::recv_string(depart_puller);
-  vector<string> v;
+  std::string message = zmq_util::recv_string(depart_puller);
+  std::vector<std::string> v;
   split(message, ':', v);
 
   unsigned tier = stoi(v[0]);
-  string departing_server_ip = v[1];
+  std::string departing_server_ip = v[1];
   logger->info("Received departure for node {} on tier {}.",
                departing_server_ip, tier);
 
@@ -36,8 +36,9 @@ void node_depart_handler(
 
     for (auto it = global_hash_ring_map.begin();
          it != global_hash_ring_map.end(); it++) {
-      logger->info("Hash ring for tier {} size is {}.", to_string(it->first),
-                   to_string(it->second.size()));
+      logger->info("Hash ring for tier {} size is {}.",
+                   std::to_string(it->first),
+                   std::to_string(it->second.size()));
     }
   }
 }

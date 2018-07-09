@@ -15,13 +15,11 @@
 #include "zmq/socket_cache.hpp"
 #include "zmq/zmq_util.hpp"
 
-using namespace std;
-
 unsigned DEFAULT_LOCAL_REPLICATION;
 
 int main(int argc, char* argv[]) {
   if (argc != 2) {
-    cerr << "Usage: " << argv[0] << " <benchmark_threads>" << endl;
+    std::cerr << "Usage: " << argv[0] << " <benchmark_threads>" << std::endl;
     return 1;
   }
 
@@ -31,32 +29,32 @@ int main(int argc, char* argv[]) {
   DEFAULT_LOCAL_REPLICATION = 1;
 
   // read in the benchmark addresses
-  vector<string> benchmark_address;
+  std::vector<std::string> benchmark_address;
 
   // read the YAML conf
-  vector<string> ips;
+  std::vector<std::string> ips;
   YAML::Node conf = YAML::LoadFile("conf/config.yml");
   YAML::Node benchmark = conf["benchmark"];
 
   for (YAML::const_iterator it = benchmark.begin(); it != benchmark.end();
        ++it) {
-    ips.push_back(it->as<string>());
+    ips.push_back(it->as<std::string>());
   }
 
   zmq::context_t context(1);
   SocketCache pushers(&context, ZMQ_PUSH);
 
-  string command;
+  std::string command;
   while (true) {
-    cout << "command> ";
-    getline(cin, command);
+    std::cout << "command> ";
+    getline(std::cin, command);
 
     for (auto it = benchmark_address.begin(); it != benchmark_address.end();
          it++) {
       for (unsigned tid = 0; tid < thread_num; tid++) {
-        zmq_util::send_string(command,
-                              &pushers["tcp://" + *it + ":" +
-                                       to_string(tid + COMMAND_BASE_PORT)]);
+        zmq_util::send_string(
+            command, &pushers["tcp://" + *it + ":" +
+                              std::to_string(tid + COMMAND_BASE_PORT)]);
       }
     }
   }
