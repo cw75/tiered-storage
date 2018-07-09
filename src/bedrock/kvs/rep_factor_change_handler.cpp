@@ -42,7 +42,7 @@ void rep_factor_change_handler(
   // TODO: make a global vec with all tier ids once instead of
   // redefining it everywhere, as well as a global vec with just my tier's id
   std::vector<unsigned> tier_ids;
-  for (unsigned i = MIN_TIER; i <= MAX_TIER; i++) {
+  for (unsigned i = kMinTier; i <= kMaxTier; i++) {
     tier_ids.push_back(i);
   }
 

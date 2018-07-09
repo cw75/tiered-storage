@@ -89,7 +89,7 @@ void movement_policy(
         overflow = true;
       } else {
         requests[key] =
-            create_new_replication_vector(0, MINIMUM_REPLICA_NUMBER, 1, 1);
+            create_new_replication_vector(0, kMinimumReplicaNumber, 1, 1);
       }
     }
   }
@@ -121,11 +121,11 @@ void movement_policy(
     unsigned total_access = it->second;
 
     if (!is_metadata(key) && total_access <= ss.key_access_mean &&
-        placement[key].global_replication_map_[1] > MINIMUM_REPLICA_NUMBER) {
+        placement[key].global_replication_map_[1] > kMinimumReplicaNumber) {
       logger->info("Key {} accessed {} times (threshold is {}).", key,
                    total_access, ss.key_access_mean);
       requests[key] =
-          create_new_replication_vector(1, MINIMUM_REPLICA_NUMBER - 1, 1, 1);
+          create_new_replication_vector(1, kMinimumReplicaNumber - 1, 1, 1);
       logger->info("Dereplication for key {}. M: {}->{}. E: {}->{}", key,
                    placement[key].global_replication_map_[1],
                    requests[key].global_replication_map_[1],

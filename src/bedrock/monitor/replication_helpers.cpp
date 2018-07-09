@@ -92,7 +92,7 @@ void change_replication_factor(
     }
 
     std::string rep_key =
-        std::string(METADATA_IDENTIFIER) + "_" + key + "_replication";
+        std::string(kMetadataIdentifier) + "_" + key + "_replication";
 
     std::string serialized_rep_data;
     rep_data.SerializeToString(&serialized_rep_data);
@@ -136,7 +136,7 @@ void change_replication_factor(
     std::string key = it->first;
 
     if (failed_keys.find(key) == failed_keys.end()) {
-      for (unsigned tier = MIN_TIER; tier <= MAX_TIER; tier++) {
+      for (unsigned tier = kMinTier; tier <= kMaxTier; tier++) {
         unsigned rep =
             std::max(placement[key].global_replication_map_[tier],
                      orig_placement_info[key].global_replication_map_[tier]);

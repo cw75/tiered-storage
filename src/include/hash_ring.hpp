@@ -10,7 +10,7 @@ template <typename H>
 bool insert_to_hash_ring(H& hash_ring, std::string ip, unsigned tid) {
   bool succeed;
 
-  for (unsigned virtual_num = 0; virtual_num < VIRTUAL_THREAD_NUM;
+  for (unsigned virtual_num = 0; virtual_num < kVirtualThreadNum;
        virtual_num++) {
     succeed = hash_ring.insert(ServerThread(ip, tid, virtual_num)).second;
   }
@@ -20,7 +20,7 @@ bool insert_to_hash_ring(H& hash_ring, std::string ip, unsigned tid) {
 
 template <typename H>
 void remove_from_hash_ring(H& hash_ring, std::string ip, unsigned tid) {
-  for (unsigned virtual_num = 0; virtual_num < VIRTUAL_THREAD_NUM;
+  for (unsigned virtual_num = 0; virtual_num < kVirtualThreadNum;
        virtual_num++) {
     hash_ring.erase(ServerThread(ip, tid, virtual_num));
   }
@@ -58,22 +58,22 @@ std::vector<std::string> get_address_from_routing(
 
 RoutingThread get_random_routing_thread(
     std::vector<std::string>& routing_address, unsigned& seed,
-    unsigned& ROUTING_THREAD_NUM);
+    unsigned& kRoutingThreadCount);
 
 inline void warmup_placement_to_defaults(
     std::unordered_map<std::string, KeyInfo>& placement,
-    unsigned& DEFAULT_GLOBAL_MEMORY_REPLICATION,
-    unsigned& DEFAULT_GLOBAL_EBS_REPLICATION,
-    unsigned& DEFAULT_LOCAL_REPLICATION) {
+    unsigned& kDefaultGlobalMemoryReplication,
+    unsigned& kDefaultGlobalEbsReplication,
+    unsigned& kDefaultLocalReplication) {
   for (unsigned i = 1; i <= 1000000; i++) {
     // key is 8 bytes
     std::string key =
         std::string(8 - std::to_string(i).length(), '0') + std::to_string(i);
     placement[key].global_replication_map_[1] =
-        DEFAULT_GLOBAL_MEMORY_REPLICATION;
-    placement[key].global_replication_map_[2] = DEFAULT_GLOBAL_EBS_REPLICATION;
-    placement[key].local_replication_map_[1] = DEFAULT_LOCAL_REPLICATION;
-    placement[key].local_replication_map_[2] = DEFAULT_LOCAL_REPLICATION;
+        kDefaultGlobalMemoryReplication;
+    placement[key].global_replication_map_[2] = kDefaultGlobalEbsReplication;
+    placement[key].local_replication_map_[1] = kDefaultLocalReplication;
+    placement[key].local_replication_map_[2] = kDefaultLocalReplication;
   }
 }
 #endif

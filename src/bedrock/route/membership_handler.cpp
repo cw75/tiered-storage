@@ -47,7 +47,7 @@ void membership_handler(
         }
 
         // tell all worker threads about the message
-        for (unsigned tid = 1; tid < ROUTING_THREAD_NUM; tid++) {
+        for (unsigned tid = 1; tid < kRoutingThreadCount; tid++) {
           zmq_util::send_string(
               message,
               &pushers[RoutingThread(ip, tid).get_notify_connect_addr()]);
@@ -68,7 +68,7 @@ void membership_handler(
 
     if (thread_id == 0) {
       // tell all worker threads about the message
-      for (unsigned tid = 1; tid < ROUTING_THREAD_NUM; tid++) {
+      for (unsigned tid = 1; tid < kRoutingThreadCount; tid++) {
         zmq_util::send_string(
             message,
             &pushers[RoutingThread(ip, tid).get_notify_connect_addr()]);

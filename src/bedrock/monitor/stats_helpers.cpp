@@ -38,14 +38,14 @@ void collect_internal_stats(
     for (auto iter = hash_ring->begin(); iter != hash_ring->end(); iter++) {
       if (observed_ip.find(iter->second.get_ip()) == observed_ip.end()) {
         for (unsigned i = 0; i < tier_data_map[tier_id].thread_number_; i++) {
-          std::string key = std::string(METADATA_IDENTIFIER) + "_" +
+          std::string key = std::string(kMetadataIdentifier) + "_" +
                             iter->second.get_ip() + "_" + std::to_string(i) +
                             "_" + std::to_string(tier_id) + "_stat";
           prepare_metadata_get_request(key, global_hash_ring_map[1],
                                        local_hash_ring_map[1], addr_request_map,
                                        mt, rid);
 
-          key = std::string(METADATA_IDENTIFIER) + "_" + iter->second.get_ip() +
+          key = std::string(kMetadataIdentifier) + "_" + iter->second.get_ip() +
                 "_" + std::to_string(i) + "_" + std::to_string(tier_id) +
                 "_access";
           prepare_metadata_get_request(key, global_hash_ring_map[1],

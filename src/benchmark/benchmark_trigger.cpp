@@ -15,7 +15,7 @@
 #include "zmq/socket_cache.hpp"
 #include "zmq/zmq_util.hpp"
 
-unsigned DEFAULT_LOCAL_REPLICATION;
+unsigned kDefaultLocalReplication;
 
 int main(int argc, char* argv[]) {
   if (argc != 2) {
@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
   unsigned thread_num = atoi(argv[1]);
   // TODO(vikram): this is a hack that we should be able to remove once the
   // refactor is done
-  DEFAULT_LOCAL_REPLICATION = 1;
+  kDefaultLocalReplication = 1;
 
   // read in the benchmark addresses
   std::vector<std::string> benchmark_address;
@@ -54,7 +54,7 @@ int main(int argc, char* argv[]) {
       for (unsigned tid = 0; tid < thread_num; tid++) {
         zmq_util::send_string(
             command, &pushers["tcp://" + *it + ":" +
-                              std::to_string(tid + COMMAND_BASE_PORT)]);
+                              std::to_string(tid + kBenchmarkCommandBasePort)]);
       }
     }
   }

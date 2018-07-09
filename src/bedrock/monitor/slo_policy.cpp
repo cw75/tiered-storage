@@ -20,14 +20,14 @@ void slo_policy(
         rep_factor_map) {
   // check latency to trigger elasticity or selective replication
   std::unordered_map<std::string, KeyInfo> requests;
-  if (ss.avg_latency > SLO_WORST && adding_memory_node == 0) {
+  if (ss.avg_latency > kSloWorst && adding_memory_node == 0) {
     logger->info("Observed latency ({}) violates SLO({}).", ss.avg_latency,
-                 SLO_WORST);
+                 kSloWorst);
 
     // figure out if we should do hot key replication or add nodes
     if (ss.min_memory_occupancy > 0.15) {
       unsigned node_to_add =
-          ceil((ss.avg_latency / SLO_WORST - 1) * memory_node_number);
+          ceil((ss.avg_latency / kSloWorst - 1) * memory_node_number);
 
       // trigger elasticity
       auto time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
@@ -64,7 +64,7 @@ void slo_policy(
             unsigned new_mem_rep =
                 std::min(memory_node_number, target_rep_factor);
             unsigned new_ebs_rep =
-                std::max(MINIMUM_REPLICA_NUMBER - new_mem_rep, (unsigned)0);
+                std::max(kMinimumReplicaNumber - new_mem_rep, (unsigned)0);
             requests[key] = create_new_replication_vector(
                 new_mem_rep, new_ebs_rep,
                 placement[key].local_replication_map_[1],
@@ -73,10 +73,10 @@ void slo_policy(
                          key, placement[key].global_replication_map_[1],
                          requests[key].global_replication_map_[1]);
           } else {
-            if (MEMORY_THREAD_NUM > placement[key].local_replication_map_[1]) {
+            if (kMemoryThreadCount > placement[key].local_replication_map_[1]) {
               requests[key] = create_new_replication_vector(
                   placement[key].global_replication_map_[1],
-                  placement[key].global_replication_map_[2], MEMORY_THREAD_NUM,
+                  placement[key].global_replication_map_[2], kMemoryThreadCount,
                   placement[key].local_replication_map_[2]);
               logger->info("Local hot key replication for key {}. T: {}->{}.",
                            key, placement[key].local_replication_map_[1],
@@ -108,10 +108,10 @@ void slo_policy(
 
         if (!is_metadata(key) &&
             placement[key].global_replication_map_[1] ==
-                (global_hash_ring_map[1].size() / VIRTUAL_THREAD_NUM)) {
+                (global_hash_ring_map[1].size() / kVirtualThreadNum)) {
           unsigned new_mem_rep = placement[key].global_replication_map_[1] - 1;
           unsigned new_ebs_rep =
-              std::max(MINIMUM_REPLICA_NUMBER - new_mem_rep, (unsigned)0);
+              std::max(kMinimumReplicaNumber - new_mem_rep, (unsigned)0);
           requests[key] = create_new_replication_vector(
               new_mem_rep, new_ebs_rep,
               placement[key].local_replication_map_[1],

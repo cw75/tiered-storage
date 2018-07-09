@@ -28,7 +28,7 @@ std::unordered_set<ServerThread, ThreadHash> responsible_global(
     unsigned i = 0;
 
     while (i < global_rep &&
-           i != global_hash_ring.size() / VIRTUAL_THREAD_NUM) {
+           i != global_hash_ring.size() / kVirtualThreadNum) {
       bool succeed = threads.insert(pos->second).second;
       if (++pos == global_hash_ring.end()) {
         pos = global_hash_ring.begin();
@@ -55,7 +55,7 @@ std::unordered_set<unsigned> responsible_local(const std::string& key,
     // iterate for every value in the replication factor
     unsigned i = 0;
 
-    while (i < local_rep && i != local_hash_ring.size() / VIRTUAL_THREAD_NUM) {
+    while (i < local_rep && i != local_hash_ring.size() / kVirtualThreadNum) {
       bool succeed = tids.insert(pos->second.get_tid()).second;
       if (++pos == local_hash_ring.end()) {
         pos = local_hash_ring.begin();
@@ -74,12 +74,12 @@ std::unordered_set<ServerThread, ThreadHash> get_responsible_threads_metadata(
     const std::string& key, GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring) {
   std::unordered_set<ServerThread, ThreadHash> threads;
-  auto mts = responsible_global(key, METADATA_REPLICATION_FACTOR,
+  auto mts = responsible_global(key, kMetadataReplicationFactor,
                                 global_memory_hash_ring);
 
   for (auto it = mts.begin(); it != mts.end(); it++) {
     std::string ip = it->get_ip();
-    auto tids = responsible_local(key, DEFAULT_LOCAL_REPLICATION,
+    auto tids = responsible_local(key, kDefaultLocalReplication,
                                   local_memory_hash_ring);
 
     for (auto iter = tids.begin(); iter != tids.end(); iter++) {
@@ -96,7 +96,7 @@ void issue_replication_factor_request(const std::string& respond_address,
                                       LocalHashRing& local_memory_hash_ring,
                                       SocketCache& pushers, unsigned& seed) {
   std::string key_rep =
-      std::string(METADATA_IDENTIFIER) + "_" + key + "_replication";
+      std::string(kMetadataIdentifier) + "_" + key + "_replication";
   auto threads = get_responsible_threads_metadata(
       key_rep, global_memory_hash_ring, local_memory_hash_ring);
 
@@ -109,7 +109,7 @@ void issue_replication_factor_request(const std::string& respond_address,
   req.set_respond_address(respond_address);
 
   prepare_get_tuple(
-      req, std::string(METADATA_IDENTIFIER) + "_" + key + "_replication");
+      req, std::string(kMetadataIdentifier) + "_" + key + "_replication");
   push_request(req, pushers[target_address]);
 }
 
@@ -217,9 +217,9 @@ std::vector<std::string> get_address_from_routing(
 
 RoutingThread get_random_routing_thread(
     std::vector<std::string>& routing_address, unsigned& seed,
-    unsigned& ROUTING_THREAD_NUM) {
+    unsigned& kRoutingThreadCount) {
   std::string routing_ip =
       routing_address[rand_r(&seed) % routing_address.size()];
-  unsigned tid = rand_r(&seed) % ROUTING_THREAD_NUM;
+  unsigned tid = rand_r(&seed) % kRoutingThreadCount;
   return RoutingThread(routing_ip, tid);
 }

@@ -12,7 +12,7 @@ void replication_change_handler(
 
   if (thread_id == 0) {
     // tell all worker threads about the replication factor change
-    for (unsigned tid = 1; tid < ROUTING_THREAD_NUM; tid++) {
+    for (unsigned tid = 1; tid < kRoutingThreadCount; tid++) {
       zmq_util::send_string(
           serialized_req,
           &pushers[RoutingThread(ip, tid)

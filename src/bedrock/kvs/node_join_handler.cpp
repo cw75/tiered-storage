@@ -36,7 +36,7 @@ void node_join_handler(
     // own machine
     if (thread_id == 0) {
       // send my IP to the new server node
-      zmq_util::send_string(std::to_string(SELF_TIER_ID) + ":" + ip,
+      zmq_util::send_string(std::to_string(kSelfTierId) + ":" + ip,
                             &pushers[ServerThread(new_server_ip, 0)
                                          .get_node_join_connect_addr()]);
 
@@ -71,8 +71,8 @@ void node_join_handler(
       }
     }
 
-    if (tier == SELF_TIER_ID) {
-      std::vector<unsigned> tier_ids = {SELF_TIER_ID};
+    if (tier == kSelfTierId) {
+      std::vector<unsigned> tier_ids = {kSelfTierId};
       bool succeed;
 
       for (auto it = key_stat_map.begin(); it != key_stat_map.end(); it++) {

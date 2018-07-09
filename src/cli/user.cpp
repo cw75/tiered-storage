@@ -21,8 +21,8 @@
 #include "zmq/socket_cache.hpp"
 #include "zmq/zmq_util.hpp"
 
-unsigned ROUTING_THREAD_NUM;
-unsigned DEFAULT_LOCAL_REPLICATION;
+unsigned kRoutingThreadCount;
+unsigned kDefaultLocalReplication;
 
 void handle_request(
     std::string request_line, SocketCache& pushers,
@@ -62,7 +62,7 @@ void handle_request(
   if (key_address_cache.find(key) == key_address_cache.end()) {
     // query the routing and update the cache
     std::string target_routing_address =
-        get_random_routing_thread(routing_address, seed, ROUTING_THREAD_NUM)
+        get_random_routing_thread(routing_address, seed, kRoutingThreadCount)
             .get_key_address_connect_addr();
     bool succeed;
     std::vector<std::string> addresses = get_address_from_routing(
@@ -262,8 +262,8 @@ int main(int argc, char* argv[]) {
   }
 
   YAML::Node conf = YAML::LoadFile("conf/config.yml");
-  ROUTING_THREAD_NUM = conf["threads"]["routing"].as<unsigned>();
-  DEFAULT_LOCAL_REPLICATION = conf["replication"]["local"].as<unsigned>();
+  kRoutingThreadCount = conf["threads"]["routing"].as<unsigned>();
+  kDefaultLocalReplication = conf["replication"]["local"].as<unsigned>();
 
   if (argc == 1) {
     run(0, "");

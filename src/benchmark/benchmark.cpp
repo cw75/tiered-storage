@@ -21,8 +21,8 @@
 #include "zmq/zmq_util.hpp"
 
 unsigned BENCHMARK_THREAD_NUM;
-unsigned ROUTING_THREAD_NUM;
-unsigned DEFAULT_LOCAL_REPLICATION;
+unsigned kRoutingThreadCount;
+unsigned kDefaultLocalReplication;
 
 double get_base(unsigned N, double skew) {
   double base = 0;
@@ -90,7 +90,7 @@ void handle_request(
   if (key_address_cache.find(key) == key_address_cache.end()) {
     // query the routing and update the cache
     std::string target_routing_address =
-        get_random_routing_thread(routing_address, seed, ROUTING_THREAD_NUM)
+        get_random_routing_thread(routing_address, seed, kRoutingThreadCount)
             .get_key_address_connect_addr();
     bool succeed;
     auto addresses = get_address_from_routing(
@@ -260,7 +260,7 @@ void run(unsigned thread_id) {
   // responsible for pulling benchmark commands
   zmq::socket_t command_puller(context, ZMQ_PULL);
   command_puller.bind("tcp://*:" +
-                      std::to_string(thread_id + COMMAND_BASE_PORT));
+                      std::to_string(thread_id + kBenchmarkCommandBasePort));
 
   std::vector<zmq::pollitem_t> pollitems = {
       {static_cast<void*>(command_puller), 0, ZMQ_POLLIN, 0}};
@@ -294,7 +294,7 @@ void run(unsigned thread_id) {
 
           std::string target_routing_address =
               get_random_routing_thread(routing_address, seed,
-                                        ROUTING_THREAD_NUM)
+                                        kRoutingThreadCount)
                   .get_key_address_connect_addr();
           bool succeed;
           auto addresses = get_address_from_routing(
@@ -392,7 +392,7 @@ void run(unsigned thread_id) {
                 (double)std::chrono::duration_cast<std::chrono::microseconds>(
                     req_end - req_start)
                     .count() /
-                2 / SLO_WORST;
+                2 / kSloWorst;
 
             if (rep_factor_map.find(key) == rep_factor_map.end()) {
               rep_factor_map[key].first = factor;
@@ -529,9 +529,9 @@ int main(int argc, char* argv[]) {
   }
 
   YAML::Node conf = YAML::LoadFile("conf/config_benchmark.yml")["thread"];
-  ROUTING_THREAD_NUM = conf["routing"].as<int>();
+  kRoutingThreadCount = conf["routing"].as<int>();
   BENCHMARK_THREAD_NUM = conf["benchmark"].as<int>();
-  DEFAULT_LOCAL_REPLICATION = conf["replication"]["local"].as<unsigned>();
+  kDefaultLocalReplication = conf["replication"]["local"].as<unsigned>();
 
   std::vector<std::thread> benchmark_threads;
   for (unsigned thread_id = 1; thread_id < BENCHMARK_THREAD_NUM; thread_id++) {

@@ -10,61 +10,60 @@
 #include "zmq/socket_cache.hpp"
 #include "zmq/zmq_util.hpp"
 
-const std::string METADATA_IDENTIFIER = "BEDROCKMETADATA";
+const std::string kMetadataIdentifier = "BEDROCKMETADATA";
 
-const unsigned METADATA_REPLICATION_FACTOR = 2;
-const unsigned METADATA_LOCAL_REPLICATION_FACTOR = 1;
+const unsigned kMetadataReplicationFactor = 2;
+const unsigned kMetadataLocalReplicationFactor = 1;
 
-const unsigned VIRTUAL_THREAD_NUM = 3000;
+const unsigned kVirtualThreadNum = 3000;
 
-const unsigned MIN_TIER = 1;
-const unsigned MAX_TIER = 2;
+const unsigned kMinTier = 1;
+const unsigned kMaxTier = 2;
 
-const unsigned SLO_WORST = 3000;
+const unsigned kSloWorst = 3000;
 const unsigned SLO_BEST = 1500;
 
-const unsigned MEM_NODE_CAPACITY = 60000000;
-const unsigned EBS_NODE_CAPACITY = 256000000;
+const unsigned kMemoryNodeCapacity = 60000000;
+const unsigned kEbsNodeCapacity = 256000000;
 
 // define server base ports
-const unsigned SERVER_PORT = 6000;
-const unsigned NODE_JOIN_BASE_PORT = 6050;
-const unsigned NODE_DEPART_BASE_PORT = 6100;
-const unsigned SELF_DEPART_BASE_PORT = 6150;
-const unsigned SERVER_REPLICATION_FACTOR_BASE_PORT = 6200;
-const unsigned SERVER_REQUEST_PULLING_BASE_PORT = 6250;
-const unsigned GOSSIP_BASE_PORT = 6300;
-const unsigned SERVER_REPLICATION_FACTOR_CHANGE_BASE_PORT = 6350;
+const unsigned kNodeJoinBasePort = 6000;
+const unsigned kNodeDepartBasePort = 6050;
+const unsigned kSelfDepartBasePort = 6100;
+const unsigned kServerReplicationFactorBasePort = 6150;
+const unsigned kServerRequestPullingBasePort = 6200;
+const unsigned kGossipBasePort = 6250;
+const unsigned kServerReplicationFactorChangeBasePort = 6300;
 
 // define routing base ports
-const unsigned SEED_BASE_PORT = 6400;
-const unsigned ROUTING_NOTIFY_BASE_PORT = 6450;
-const unsigned ROUTING_KEY_ADDRESS_BASE_PORT = 6500;
-const unsigned ROUTING_REPLICATION_FACTOR_BASE_PORT = 6550;
-const unsigned ROUTING_REPLICATION_FACTOR_CHANGE_BASE_PORT = 6600;
+const unsigned kSeedBasePort = 6350;
+const unsigned kRoutingNotifyBasePort = 6400;
+const unsigned kRoutingKeyAddressBasePort = 6450;
+const unsigned kRoutingReplicationFactorBasePort = 6500;
+const unsigned kRoutingReplicationFactorChangeBasePort = 6550;
 
 // used by monitoring nodes
-const unsigned MON_NOTIFY_BASE_PORT = 6650;
-const unsigned MON_REQUEST_PULLING_BASE_PORT = 6700;
-const unsigned DEPART_DONE_BASE_PORT = 6750;
-const unsigned LATENCY_REPORT_BASE_PORT = 6800;
+const unsigned kMonitoringNotifyBasePort = 6600;
+const unsigned kMonitoringRequestPullingBasePort = 6650;
+const unsigned kDepartDoneBasePort = 6700;
+const unsigned kLatencyReportBasePort = 6750;
 
 // used by user nodes
-const unsigned USER_REQUEST_PULLING_BASE_PORT = 6850;
-const unsigned USER_KEY_ADDRESS_BASE_PORT = 6900;
-const unsigned COMMAND_BASE_PORT = 6950;
+const unsigned kUserRequestBasePort = 6800;
+const unsigned kUserKeyAddressBasePort = 6850;
+const unsigned kBenchmarkCommandBasePort = 6900;
 
 // run-time constants
-extern unsigned SELF_TIER_ID;
+extern unsigned kSelfTierId;
 
-extern unsigned MEMORY_THREAD_NUM;
-extern unsigned EBS_THREAD_NUM;
-extern unsigned ROUTING_THREAD_NUM;
+extern unsigned kMemoryThreadCount;
+extern unsigned kEbsThreadCount;
+extern unsigned kRoutingThreadCount;
 
-extern unsigned DEFAULT_GLOBAL_MEMORY_REPLICATION;
-extern unsigned DEFAULT_GLOBAL_EBS_REPLICATION;
-extern unsigned DEFAULT_LOCAL_REPLICATION;
-extern unsigned MINIMUM_REPLICA_NUMBER;
+extern unsigned kDefaultGlobalMemoryReplication;
+extern unsigned kDefaultGlobalEbsReplication;
+extern unsigned kDefaultLocalReplication;
+extern unsigned kMinimumReplicaNumber;
 
 inline void split(const std::string& s, char delim,
                   std::vector<std::string>& elems) {

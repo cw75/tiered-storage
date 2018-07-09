@@ -76,7 +76,7 @@ void membership_handler(
 
       for (auto it = key_access_frequency.begin();
            it != key_access_frequency.end(); it++) {
-        for (unsigned i = 0; i < MEMORY_THREAD_NUM; i++) {
+        for (unsigned i = 0; i < kMemoryThreadCount; i++) {
           it->second.erase(new_server_ip + ":" + std::to_string(i));
         }
       }
@@ -88,7 +88,7 @@ void membership_handler(
 
       for (auto it = key_access_frequency.begin();
            it != key_access_frequency.end(); it++) {
-        for (unsigned i = 0; i < EBS_THREAD_NUM; i++) {
+        for (unsigned i = 0; i < kEbsThreadCount; i++) {
           it->second.erase(new_server_ip + ":" + std::to_string(i));
         }
       }

@@ -60,14 +60,14 @@ void rep_factor_response_handler(
           rep_data.local(i).local_replication();
     }
   } else {
-    for (unsigned i = MIN_TIER; i <= MAX_TIER; i++) {
+    for (unsigned i = kMinTier; i <= kMaxTier; i++) {
       placement[key].global_replication_map_[i] =
           tier_data_map[i].default_replication_;
-      placement[key].local_replication_map_[i] = DEFAULT_LOCAL_REPLICATION;
+      placement[key].local_replication_map_[i] = kDefaultLocalReplication;
     }
   }
 
-  std::vector<unsigned> tier_ids = {SELF_TIER_ID};
+  std::vector<unsigned> tier_ids = {kSelfTierId};
   bool succeed;
 
   if (pending_request_map.find(key) != pending_request_map.end()) {

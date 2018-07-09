@@ -23,58 +23,58 @@ class ServerThread {
   unsigned get_tid() const { return tid_; }
   unsigned get_virtual_num() const { return virtual_num_; }
   std::string get_id() const {
-    return ip_ + ":" + std::to_string(SERVER_PORT + tid_);
+    return ip_ + ":" + std::to_string(tid_);
   }
   std::string get_virtual_id() const {
-    return ip_ + ":" + std::to_string(SERVER_PORT + tid_) + "_" +
+    return ip_ + ":" + std::to_string(tid_) + "_" +
            std::to_string(virtual_num_);
   }
   std::string get_node_join_connect_addr() const {
-    return "tcp://" + ip_ + ":" + std::to_string(tid_ + NODE_JOIN_BASE_PORT);
+    return "tcp://" + ip_ + ":" + std::to_string(tid_ + kNodeJoinBasePort);
   }
   std::string get_node_join_bind_addr() const {
-    return "tcp://*:" + std::to_string(tid_ + NODE_JOIN_BASE_PORT);
+    return "tcp://*:" + std::to_string(tid_ + kNodeJoinBasePort);
   }
   std::string get_node_depart_connect_addr() const {
-    return "tcp://" + ip_ + ":" + std::to_string(tid_ + NODE_DEPART_BASE_PORT);
+    return "tcp://" + ip_ + ":" + std::to_string(tid_ + kNodeDepartBasePort);
   }
   std::string get_node_depart_bind_addr() const {
-    return "tcp://*:" + std::to_string(tid_ + NODE_DEPART_BASE_PORT);
+    return "tcp://*:" + std::to_string(tid_ + kNodeDepartBasePort);
   }
   std::string get_self_depart_connect_addr() const {
-    return "tcp://" + ip_ + ":" + std::to_string(tid_ + SELF_DEPART_BASE_PORT);
+    return "tcp://" + ip_ + ":" + std::to_string(tid_ + kSelfDepartBasePort);
   }
   std::string get_self_depart_bind_addr() const {
-    return "tcp://*:" + std::to_string(tid_ + SELF_DEPART_BASE_PORT);
+    return "tcp://*:" + std::to_string(tid_ + kSelfDepartBasePort);
   }
   std::string get_request_pulling_connect_addr() const {
     return "tcp://" + ip_ + ":" +
-           std::to_string(tid_ + SERVER_REQUEST_PULLING_BASE_PORT);
+           std::to_string(tid_ + kServerRequestPullingBasePort);
   }
   std::string get_request_pulling_bind_addr() const {
-    return "tcp://*:" + std::to_string(tid_ + SERVER_REQUEST_PULLING_BASE_PORT);
+    return "tcp://*:" + std::to_string(tid_ + kServerRequestPullingBasePort);
   }
   std::string get_replication_factor_connect_addr() const {
     return "tcp://" + ip_ + ":" +
-           std::to_string(tid_ + SERVER_REPLICATION_FACTOR_BASE_PORT);
+           std::to_string(tid_ + kServerReplicationFactorBasePort);
   }
   std::string get_replication_factor_bind_addr() const {
     return "tcp://*:" +
-           std::to_string(tid_ + SERVER_REPLICATION_FACTOR_BASE_PORT);
+           std::to_string(tid_ + kServerReplicationFactorBasePort);
   }
   std::string get_gossip_connect_addr() const {
-    return "tcp://" + ip_ + ":" + std::to_string(tid_ + GOSSIP_BASE_PORT);
+    return "tcp://" + ip_ + ":" + std::to_string(tid_ + kGossipBasePort);
   }
   std::string get_gossip_bind_addr() const {
-    return "tcp://*:" + std::to_string(tid_ + GOSSIP_BASE_PORT);
+    return "tcp://*:" + std::to_string(tid_ + kGossipBasePort);
   }
   std::string get_replication_factor_change_connect_addr() const {
     return "tcp://" + ip_ + ":" +
-           std::to_string(tid_ + SERVER_REPLICATION_FACTOR_CHANGE_BASE_PORT);
+           std::to_string(tid_ + kServerReplicationFactorChangeBasePort);
   }
   std::string get_replication_factor_change_bind_addr() const {
     return "tcp://*:" +
-           std::to_string(tid_ + SERVER_REPLICATION_FACTOR_CHANGE_BASE_PORT);
+           std::to_string(tid_ + kServerReplicationFactorChangeBasePort);
   }
 };
 
@@ -100,49 +100,49 @@ class RoutingThread {
   unsigned get_tid() const { return tid_; }
 
   std::string get_seed_connect_addr() const {
-    return "tcp://" + ip_ + ":" + std::to_string(tid_ + SEED_BASE_PORT);
+    return "tcp://" + ip_ + ":" + std::to_string(tid_ + kSeedBasePort);
   }
 
   std::string get_seed_bind_addr() const {
-    return "tcp://*:" + std::to_string(tid_ + SEED_BASE_PORT);
+    return "tcp://*:" + std::to_string(tid_ + kSeedBasePort);
   }
 
   std::string get_notify_connect_addr() const {
     return "tcp://" + ip_ + ":" +
-           std::to_string(tid_ + ROUTING_NOTIFY_BASE_PORT);
+           std::to_string(tid_ + kRoutingNotifyBasePort);
   }
 
   std::string get_notify_bind_addr() const {
-    return "tcp://*:" + std::to_string(tid_ + ROUTING_NOTIFY_BASE_PORT);
+    return "tcp://*:" + std::to_string(tid_ + kRoutingNotifyBasePort);
   }
 
   std::string get_key_address_connect_addr() const {
     return "tcp://" + ip_ + ":" +
-           std::to_string(tid_ + ROUTING_KEY_ADDRESS_BASE_PORT);
+           std::to_string(tid_ + kRoutingKeyAddressBasePort);
   }
 
   std::string get_key_address_bind_addr() const {
-    return "tcp://*:" + std::to_string(tid_ + ROUTING_KEY_ADDRESS_BASE_PORT);
+    return "tcp://*:" + std::to_string(tid_ + kRoutingKeyAddressBasePort);
   }
 
   std::string get_replication_factor_connect_addr() const {
     return "tcp://" + ip_ + ":" +
-           std::to_string(tid_ + ROUTING_REPLICATION_FACTOR_BASE_PORT);
+           std::to_string(tid_ + kRoutingReplicationFactorBasePort);
   }
 
   std::string get_replication_factor_bind_addr() const {
     return "tcp://*:" +
-           std::to_string(tid_ + ROUTING_REPLICATION_FACTOR_BASE_PORT);
+           std::to_string(tid_ + kRoutingReplicationFactorBasePort);
   }
 
   std::string get_replication_factor_change_connect_addr() const {
     return "tcp://" + ip_ + ":" +
-           std::to_string(tid_ + ROUTING_REPLICATION_FACTOR_CHANGE_BASE_PORT);
+           std::to_string(tid_ + kRoutingReplicationFactorChangeBasePort);
   }
 
   std::string get_replication_factor_change_bind_addr() const {
     return "tcp://*:" +
-           std::to_string(tid_ + ROUTING_REPLICATION_FACTOR_CHANGE_BASE_PORT);
+           std::to_string(tid_ + kRoutingReplicationFactorChangeBasePort);
   }
 };
 
@@ -157,35 +157,35 @@ class MonitoringThread {
   std::string get_ip() const { return ip_; }
 
   std::string get_notify_connect_addr() const {
-    return "tcp://" + ip_ + ":" + std::to_string(MON_NOTIFY_BASE_PORT);
+    return "tcp://" + ip_ + ":" + std::to_string(kMonitoringNotifyBasePort);
   }
 
   std::string get_notify_bind_addr() const {
-    return "tcp://*:" + std::to_string(MON_NOTIFY_BASE_PORT);
+    return "tcp://*:" + std::to_string(kMonitoringNotifyBasePort);
   }
 
   std::string get_request_pulling_connect_addr() const {
-    return "tcp://" + ip_ + ":" + std::to_string(MON_REQUEST_PULLING_BASE_PORT);
+    return "tcp://" + ip_ + ":" + std::to_string(kMonitoringRequestPullingBasePort);
   }
 
   std::string get_request_pulling_bind_addr() const {
-    return "tcp://*:" + std::to_string(MON_REQUEST_PULLING_BASE_PORT);
+    return "tcp://*:" + std::to_string(kMonitoringRequestPullingBasePort);
   }
 
   std::string get_depart_done_connect_addr() const {
-    return "tcp://" + ip_ + ":" + std::to_string(DEPART_DONE_BASE_PORT);
+    return "tcp://" + ip_ + ":" + std::to_string(kDepartDoneBasePort);
   }
 
   std::string get_depart_done_bind_addr() const {
-    return "tcp://*:" + std::to_string(DEPART_DONE_BASE_PORT);
+    return "tcp://*:" + std::to_string(kDepartDoneBasePort);
   }
 
   std::string get_latency_report_connect_addr() const {
-    return "tcp://" + ip_ + ":" + std::to_string(LATENCY_REPORT_BASE_PORT);
+    return "tcp://" + ip_ + ":" + std::to_string(kLatencyReportBasePort);
   }
 
   std::string get_latency_report_bind_addr() const {
-    return "tcp://*:" + std::to_string(LATENCY_REPORT_BASE_PORT);
+    return "tcp://*:" + std::to_string(kLatencyReportBasePort);
   }
 };
 
@@ -203,20 +203,20 @@ class UserThread {
 
   std::string get_request_pulling_connect_addr() const {
     return "tcp://" + ip_ + ":" +
-           std::to_string(tid_ + USER_REQUEST_PULLING_BASE_PORT);
+           std::to_string(tid_ + kUserRequestBasePort);
   }
 
   std::string get_request_pulling_bind_addr() const {
-    return "tcp://*:" + std::to_string(tid_ + USER_REQUEST_PULLING_BASE_PORT);
+    return "tcp://*:" + std::to_string(tid_ + kUserRequestBasePort);
   }
 
   std::string get_key_address_connect_addr() const {
     return "tcp://" + ip_ + ":" +
-           std::to_string(tid_ + USER_KEY_ADDRESS_BASE_PORT);
+           std::to_string(tid_ + kUserKeyAddressBasePort);
   }
 
   std::string get_key_address_bind_addr() const {
-    return "tcp://*:" + std::to_string(tid_ + USER_KEY_ADDRESS_BASE_PORT);
+    return "tcp://*:" + std::to_string(tid_ + kUserKeyAddressBasePort);
   }
 };
 

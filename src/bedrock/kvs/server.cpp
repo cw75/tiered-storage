@@ -34,15 +34,15 @@ const unsigned KEY_MONITORING_THRESHOLD = 60;
 // second)
 const unsigned RETRY_THRESHOLD = 10;
 
-unsigned SELF_TIER_ID;
+unsigned kSelfTierId;
 unsigned THREAD_NUM;
 
-unsigned MEMORY_THREAD_NUM;
-unsigned EBS_THREAD_NUM;
+unsigned kMemoryThreadCount;
+unsigned kEbsThreadCount;
 
-unsigned DEFAULT_GLOBAL_MEMORY_REPLICATION;
-unsigned DEFAULT_GLOBAL_EBS_REPLICATION;
-unsigned DEFAULT_LOCAL_REPLICATION;
+unsigned kDefaultGlobalMemoryReplication;
+unsigned kDefaultGlobalEbsReplication;
+unsigned kDefaultLocalReplication;
 
 // read-only per-tier metadata
 std::unordered_map<unsigned, TierData> tier_data_map;
@@ -130,7 +130,7 @@ void run(unsigned thread_id) {
   }
 
   // add itself to global hash ring
-  insert_to_hash_ring<GlobalHashRing>(global_hash_ring_map[SELF_TIER_ID], ip,
+  insert_to_hash_ring<GlobalHashRing>(global_hash_ring_map[kSelfTierId], ip,
                                       0);
 
   // form local hash rings
@@ -153,14 +153,14 @@ void run(unsigned thread_id) {
         if (iter->second.get_ip().compare(ip) != 0 &&
             observed_ip.find(iter->second.get_ip()) == observed_ip.end()) {
           zmq_util::send_string(
-              std::to_string(SELF_TIER_ID) + ":" + ip,
+              std::to_string(kSelfTierId) + ":" + ip,
               &pushers[(iter->second).get_node_join_connect_addr()]);
           observed_ip.insert(iter->second.get_ip());
         }
       }
     }
 
-    std::string msg = "join:" + std::to_string(SELF_TIER_ID) + ":" + ip;
+    std::string msg = "join:" + std::to_string(kSelfTierId) + ":" + ip;
 
     // notify proxies that this node has joined
     for (auto it = routing_address.begin(); it != routing_address.end(); it++) {
@@ -178,10 +178,10 @@ void run(unsigned thread_id) {
 
   Serializer *serializer;
 
-  if (SELF_TIER_ID == 1) {
+  if (kSelfTierId == 1) {
     MemoryKVS *kvs = new MemoryKVS();
     serializer = new MemorySerializer(kvs);
-  } else if (SELF_TIER_ID == 2) {
+  } else if (kSelfTierId == 2) {
     serializer = new EBSSerializer(thread_id);
   } else {
     logger->info("Invalid node type");
@@ -373,7 +373,7 @@ void run(unsigned thread_id) {
         AddressKeysetMap addr_keyset_map;
 
         std::vector<unsigned> tier_ids;
-        for (unsigned i = MIN_TIER; i <= MAX_TIER; i++) {
+        for (unsigned i = kMinTier; i <= kMaxTier; i++) {
           tier_ids.push_back(i);
         }
 
@@ -420,9 +420,9 @@ void run(unsigned thread_id) {
 
     if (duration >= SERVER_REPORT_THRESHOLD) {
       epoch += 1;
-      std::string key = std::string(METADATA_IDENTIFIER) + "_" + wt.get_ip() +
+      std::string key = std::string(kMetadataIdentifier) + "_" + wt.get_ip() +
                         "_" + std::to_string(wt.get_tid()) + "_" +
-                        std::to_string(SELF_TIER_ID) + "_stat";
+                        std::to_string(kSelfTierId) + "_stat";
 
       // compute total storage consumption
       unsigned long long consumption = 0;
@@ -496,8 +496,8 @@ void run(unsigned thread_id) {
       }
 
       // report key access stats
-      key = std::string(METADATA_IDENTIFIER) + "_" + wt.get_ip() + "_" +
-            std::to_string(wt.get_tid()) + "_" + std::to_string(SELF_TIER_ID) +
+      key = std::string(kMetadataIdentifier) + "_" + wt.get_ip() + "_" +
+            std::to_string(wt.get_tid()) + "_" + std::to_string(kSelfTierId) +
             "_access";
       std::string serialized_access;
       access.SerializeToString(&serialized_access);
@@ -577,30 +577,30 @@ int main(int argc, char *argv[]) {
   // populate metadata
   char *stype = getenv("SERVER_TYPE");
   if (stype != NULL) {
-    SELF_TIER_ID = atoi(stype);
+    kSelfTierId = atoi(stype);
   } else {
     std::cout
         << "No server type specified. The default behavior is to start the "
            "server in memory mode."
         << std::endl;
-    SELF_TIER_ID = 1;
+    kSelfTierId = 1;
   }
 
   YAML::Node conf = YAML::LoadFile("conf/config.yml");
-  MEMORY_THREAD_NUM = conf["threads"]["memory"].as<unsigned>();
-  EBS_THREAD_NUM = conf["threads"]["ebs"].as<unsigned>();
+  kMemoryThreadCount = conf["threads"]["memory"].as<unsigned>();
+  kEbsThreadCount = conf["threads"]["ebs"].as<unsigned>();
 
-  DEFAULT_GLOBAL_MEMORY_REPLICATION =
+  kDefaultGlobalMemoryReplication =
       conf["replication"]["memory"].as<unsigned>();
-  DEFAULT_GLOBAL_EBS_REPLICATION = conf["replication"]["ebs"].as<unsigned>();
-  DEFAULT_LOCAL_REPLICATION = conf["replication"]["local"].as<unsigned>();
+  kDefaultGlobalEbsReplication = conf["replication"]["ebs"].as<unsigned>();
+  kDefaultLocalReplication = conf["replication"]["local"].as<unsigned>();
 
   tier_data_map[1] = TierData(
-      MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION, MEM_NODE_CAPACITY);
-  tier_data_map[2] = TierData(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION,
-                              EBS_NODE_CAPACITY);
+      kMemoryThreadCount, kDefaultGlobalMemoryReplication, kMemoryNodeCapacity);
+  tier_data_map[2] = TierData(kEbsThreadCount, kDefaultGlobalEbsReplication,
+                              kEbsNodeCapacity);
 
-  THREAD_NUM = tier_data_map[SELF_TIER_ID].thread_number_;
+  THREAD_NUM = tier_data_map[kSelfTierId].thread_number_;
 
   // start the initial threads based on THREAD_NUM
   std::vector<std::thread> worker_threads;

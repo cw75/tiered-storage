@@ -5,8 +5,8 @@
 
 // read-only per-tier metadata
 std::unordered_map<unsigned, TierData> tier_data_map;
-unsigned DEFAULT_LOCAL_REPLICATION;
-unsigned ROUTING_THREAD_NUM;
+unsigned kDefaultLocalReplication;
+unsigned kRoutingThreadCount;
 
 void run(unsigned thread_id) {
   std::string log_file = "log_" + std::to_string(thread_id) + ".txt";
@@ -147,24 +147,24 @@ int main(int argc, char *argv[]) {
   }
 
   YAML::Node conf = YAML::LoadFile("conf/config.yml");
-  unsigned MEMORY_THREAD_NUM = conf["threads"]["memory"].as<unsigned>();
-  unsigned EBS_THREAD_NUM = conf["threads"]["ebs"].as<unsigned>();
-  ROUTING_THREAD_NUM = conf["threads"]["routing"].as<unsigned>();
+  unsigned kMemoryThreadCount = conf["threads"]["memory"].as<unsigned>();
+  unsigned kEbsThreadCount = conf["threads"]["ebs"].as<unsigned>();
+  kRoutingThreadCount = conf["threads"]["routing"].as<unsigned>();
 
-  unsigned DEFAULT_GLOBAL_MEMORY_REPLICATION =
+  unsigned kDefaultGlobalMemoryReplication =
       conf["replication"]["memory"].as<unsigned>();
-  unsigned DEFAULT_GLOBAL_EBS_REPLICATION =
+  unsigned kDefaultGlobalEbsReplication =
       conf["replication"]["ebs"].as<unsigned>();
-  DEFAULT_LOCAL_REPLICATION = conf["replication"]["local"].as<unsigned>();
+  kDefaultLocalReplication = conf["replication"]["local"].as<unsigned>();
 
   tier_data_map[1] = TierData(
-      MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION, MEM_NODE_CAPACITY);
-  tier_data_map[2] = TierData(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION,
-                              EBS_NODE_CAPACITY);
+      kMemoryThreadCount, kDefaultGlobalMemoryReplication, kMemoryNodeCapacity);
+  tier_data_map[2] = TierData(kEbsThreadCount, kDefaultGlobalEbsReplication,
+                              kEbsNodeCapacity);
 
   std::vector<std::thread> routing_worker_threads;
 
-  for (unsigned thread_id = 1; thread_id < ROUTING_THREAD_NUM; thread_id++) {
+  for (unsigned thread_id = 1; thread_id < kRoutingThreadCount; thread_id++) {
     routing_worker_threads.push_back(std::thread(run, thread_id));
   }
 

@@ -36,7 +36,7 @@ void user_request_handler(
     response.set_response_id(respond_id);
   }
 
-  std::vector<unsigned> tier_ids = {SELF_TIER_ID};
+  std::vector<unsigned> tier_ids = {kSelfTierId};
   bool succeed;
 
   if (req.type() == "GET") {

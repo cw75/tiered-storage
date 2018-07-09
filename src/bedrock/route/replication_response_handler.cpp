@@ -44,10 +44,10 @@ void replication_response_handler(
                                      global_hash_ring_map[1],
                                      local_hash_ring_map[1], pushers, seed);
   } else {
-    for (unsigned i = MIN_TIER; i <= MAX_TIER; i++) {
+    for (unsigned i = kMinTier; i <= kMaxTier; i++) {
       placement[key].global_replication_map_[i] =
           tier_data_map[i].default_replication_;
-      placement[key].local_replication_map_[i] = DEFAULT_LOCAL_REPLICATION;
+      placement[key].local_replication_map_[i] = kDefaultLocalReplication;
     }
   }
 

@@ -21,7 +21,7 @@ void gossip_handler(
   communication::Request gossip;
   gossip.ParseFromString(gossip_string);
 
-  std::vector<unsigned> tier_ids = {SELF_TIER_ID};
+  std::vector<unsigned> tier_ids = {kSelfTierId};
   bool succeed;
   std::unordered_map<std::string, communication::Request> gossip_map;
 

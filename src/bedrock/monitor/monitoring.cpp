@@ -5,13 +5,13 @@
 #include "spdlog/spdlog.h"
 #include "yaml-cpp/yaml.h"
 
-unsigned MEMORY_THREAD_NUM;
-unsigned EBS_THREAD_NUM;
+unsigned kMemoryThreadCount;
+unsigned kEbsThreadCount;
 
-unsigned DEFAULT_GLOBAL_MEMORY_REPLICATION;
-unsigned DEFAULT_GLOBAL_EBS_REPLICATION;
-unsigned DEFAULT_LOCAL_REPLICATION;
-unsigned MINIMUM_REPLICA_NUMBER;
+unsigned kDefaultGlobalMemoryReplication;
+unsigned kDefaultGlobalEbsReplication;
+unsigned kDefaultLocalReplication;
+unsigned kMinimumReplicaNumber;
 
 // read-only per-tier metadata
 std::unordered_map<unsigned, TierData> tier_data_map;
@@ -28,19 +28,19 @@ int main(int argc, char *argv[]) {
   YAML::Node conf = YAML::LoadFile("conf/config.yml");
   std::string ip = conf["monitoring"]["ip"].as<std::string>();
 
-  MEMORY_THREAD_NUM = conf["threads"]["memory"].as<unsigned>();
-  EBS_THREAD_NUM = conf["threads"]["ebs"].as<unsigned>();
+  kMemoryThreadCount = conf["threads"]["memory"].as<unsigned>();
+  kEbsThreadCount = conf["threads"]["ebs"].as<unsigned>();
 
-  DEFAULT_GLOBAL_MEMORY_REPLICATION =
+  kDefaultGlobalMemoryReplication =
       conf["replication"]["memory"].as<unsigned>();
-  DEFAULT_GLOBAL_EBS_REPLICATION = conf["replication"]["ebs"].as<unsigned>();
-  DEFAULT_LOCAL_REPLICATION = conf["replication"]["local"].as<unsigned>();
-  MINIMUM_REPLICA_NUMBER = conf["replication"]["minimum"].as<unsigned>();
+  kDefaultGlobalEbsReplication = conf["replication"]["ebs"].as<unsigned>();
+  kDefaultLocalReplication = conf["replication"]["local"].as<unsigned>();
+  kMinimumReplicaNumber = conf["replication"]["minimum"].as<unsigned>();
 
   tier_data_map[1] = TierData(
-      MEMORY_THREAD_NUM, DEFAULT_GLOBAL_MEMORY_REPLICATION, MEM_NODE_CAPACITY);
-  tier_data_map[2] = TierData(EBS_THREAD_NUM, DEFAULT_GLOBAL_EBS_REPLICATION,
-                              EBS_NODE_CAPACITY);
+      kMemoryThreadCount, kDefaultGlobalMemoryReplication, kMemoryNodeCapacity);
+  tier_data_map[2] = TierData(kEbsThreadCount, kDefaultGlobalEbsReplication,
+                              kEbsNodeCapacity);
 
   // initialize hash ring maps
   std::unordered_map<unsigned, GlobalHashRing> global_hash_ring_map;
@@ -181,8 +181,8 @@ int main(int argc, char *argv[]) {
             .count() >= MONITORING_THRESHOLD) {
       server_monitoring_epoch += 1;
 
-      memory_node_number = global_hash_ring_map[1].size() / VIRTUAL_THREAD_NUM;
-      ebs_node_number = global_hash_ring_map[2].size() / VIRTUAL_THREAD_NUM;
+      memory_node_number = global_hash_ring_map[1].size() / kVirtualThreadNum;
+      ebs_node_number = global_hash_ring_map[2].size() / kVirtualThreadNum;
       // clear stats
       key_access_frequency.clear();
       key_access_summary.clear();
