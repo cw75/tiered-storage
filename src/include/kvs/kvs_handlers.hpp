@@ -6,7 +6,7 @@
 
 void node_join_handler(unsigned int thread_num,
     unsigned thread_id,
-    unsigned seed,
+    unsigned& seed,
     string ip,
     std::shared_ptr<spdlog::logger> logger,
     zmq::socket_t* join_puller,
@@ -28,7 +28,7 @@ void node_depart_handler(unsigned int thread_num,
 
 void self_depart_handler(unsigned thread_num,
     unsigned thread_id,
-    unsigned seed,
+    unsigned& seed,
     string ip,
     std::shared_ptr<spdlog::logger> logger,
     zmq::socket_t* self_depart_puller,
@@ -68,7 +68,7 @@ void process_gossip(unsigned& seed,
     SocketCache& pushers,
     Serializer* serializer);
 
-void process_rep_factor_response(unsigned seed,
+void process_rep_factor_response(unsigned& seed,
     unsigned& total_access,
     std::shared_ptr<spdlog::logger> logger,
     zmq::socket_t* rep_factor_response_puller,

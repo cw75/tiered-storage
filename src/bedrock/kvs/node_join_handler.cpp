@@ -11,7 +11,7 @@ using namespace std;
 
 void node_join_handler(unsigned int thread_num,
     unsigned thread_id,
-    unsigned seed,
+    unsigned& seed,
     string ip,
     std::shared_ptr<spdlog::logger> logger,
     zmq::socket_t* join_puller,

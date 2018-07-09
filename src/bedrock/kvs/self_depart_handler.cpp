@@ -9,7 +9,7 @@
 
 void self_depart_handler(unsigned thread_num,
     unsigned thread_id,
-    unsigned seed,
+    unsigned& seed,
     string ip,
     std::shared_ptr<spdlog::logger> logger,
     zmq::socket_t* self_depart_puller,

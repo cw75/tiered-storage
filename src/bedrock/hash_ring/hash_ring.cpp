@@ -89,7 +89,7 @@ void issue_replication_factor_request(const string& respond_address,
     GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring,
     SocketCache& pushers,
-    unsigned seed) {
+    unsigned& seed) {
 
   string key_rep = string(METADATA_IDENTIFIER) + "_" + key + "_replication";
   auto threads = get_responsible_threads_metadata(key_rep, global_memory_hash_ring, local_memory_hash_ring);
@@ -116,7 +116,7 @@ unordered_set<ServerThread, ThreadHash> get_responsible_threads(
     SocketCache& pushers,
     vector<unsigned>& tier_ids,
     bool& succeed,
-    unsigned seed) {
+    unsigned& seed) {
 
   if (metadata) {
     succeed = true;

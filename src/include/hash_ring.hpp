@@ -46,7 +46,7 @@ unordered_set<ServerThread, ThreadHash> get_responsible_threads(
     SocketCache& pushers,
     vector<unsigned>& tier_ids,
     bool& succeed,
-    unsigned seed);
+    unsigned& seed);
 
 void issue_replication_factor_request(
     const std::string& respond_address,
@@ -54,7 +54,7 @@ void issue_replication_factor_request(
     GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring,
     SocketCache& pushers,
-    unsigned seed);
+    unsigned& seed);
 
 vector<std::string> get_address_from_routing(
     UserThread& ut,
