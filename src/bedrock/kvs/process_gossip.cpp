@@ -14,10 +14,10 @@ void process_gossip(unsigned& seed,
     unordered_map<string, pair<chrono::system_clock::time_point, vector<PendingGossip>>>& pending_gossip_map,
     unordered_map<string, KeyInfo>& placement,
     ServerThread& wt,
-    SocketCache& pushers,
-    Serializer* serializer) {
+    Serializer* serializer,
+    SocketCache& pushers) {
 
-  string serialized_gossip = zmq_util::recv_string(gossip_puller);
+  string gossip_string = zmq_util::recv_string(gossip_puller);
   communication::Request gossip;
   gossip.ParseFromString(gossip_string);
 

@@ -24,7 +24,7 @@ void process_rep_factor_response(unsigned& seed,
     Serializer* serializer,
     SocketCache& pushers) {
 
-  string response_string = zmq_util::recv_string(&replication_factor_puller);
+  string response_string = zmq_util::recv_string(rep_factor_response_puller);
   communication::Response response;
   response.ParseFromString(response_string);
 

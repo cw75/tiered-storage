@@ -10,8 +10,8 @@ void process_rep_factor_change(string ip,
     unsigned thread_id,
     unsigned thread_num,
     unsigned& seed,
-    zmq::socket_t* rep_factor_change_puller,
     std::shared_ptr<spdlog::logger> logger,
+    zmq::socket_t* rep_factor_change_puller,
     unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     unordered_map<string, KeyInfo> placement,
@@ -21,7 +21,7 @@ void process_rep_factor_change(string ip,
     Serializer* serializer,
     SocketCache& pushers) {
 
-  string change_string = zmq_util::recv_string(replication_factor_change_puller);
+  string change_string = zmq_util::recv_string(rep_factor_change_puller);
 
   // TODO(vikram): make logging in all handlers consistent
   logger->info("Received replication factor change.");

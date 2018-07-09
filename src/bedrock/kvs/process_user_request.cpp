@@ -8,7 +8,7 @@
 
 void process_user_request(unsigned& total_access,
     unsigned& seed,
-    zmq::socket_t*
+    zmq::socket_t* request_puller,
     chrono::system_clock::time_point& start_time,
     unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,

@@ -65,8 +65,8 @@ void process_gossip(unsigned& seed,
     unordered_map<string, pair<chrono::system_clock::time_point, vector<PendingGossip>>>& pending_gossip_map,
     unordered_map<string, KeyInfo>& placement,
     ServerThread& wt,
-    SocketCache& pushers,
-    Serializer* serializer);
+    Serializer* serializer,
+    SocketCache& pushers);
 
 void process_rep_factor_response(unsigned& seed,
     unsigned& total_access,

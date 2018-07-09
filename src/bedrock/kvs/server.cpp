@@ -282,9 +282,8 @@ void run(unsigned thread_id) {
     if (pollitems[4].revents & ZMQ_POLLIN) {
       auto work_start = chrono::system_clock::now();
 
-      process_gossip(wt, &gossip_puller, global_hash_ring_map, local_hash_ring_map,
-          placement, pushers, serializer, key_stat_map, pending_gossip_map,
-          seed);
+      process_gossip(seed, &gossip_puller, global_hash_ring_map, local_hash_ring_map,
+          key_stat_map, pending_gossip_map, placement, wt, serializer, pushers);
 
       auto time_elapsed = chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
       working_time += time_elapsed;
@@ -295,8 +294,8 @@ void run(unsigned thread_id) {
     if (pollitems[5].revents & ZMQ_POLLIN) {
       auto work_start = chrono::system_clock::now();
 
-      process_rep_factor_response(seed, total_access, &rep_factor_response_puller,
-          logger, start_time, tier_data_map, global_hash_ring_map, local_hash_ring_map,
+      process_rep_factor_response(seed, total_access, logger, &replication_factor_puller,
+          start_time, tier_data_map, global_hash_ring_map, local_hash_ring_map,
           pending_request_map, pending_gossip_map, key_access_timestamp,
           placement, key_stat_map, local_changeset, wt, serializer, pushers);
 
@@ -309,7 +308,7 @@ void run(unsigned thread_id) {
     if (pollitems[6].revents & ZMQ_POLLIN) {
       auto work_start = chrono::system_clock::now();
 
-      process_rep_factor_change(serialized_req, ip, thread_id, THREAD_NUM, seed, logger, &rep_factor_change_puller, global_hash_ring_map, local_hash_ring_map, placement, key_stat_map, local_changeset, wt, serializer, pushers);
+      process_rep_factor_change(ip, thread_id, THREAD_NUM, seed, logger, &replication_factor_change_puller, global_hash_ring_map, local_hash_ring_map, placement, key_stat_map, local_changeset, wt, serializer, pushers);
 
       auto time_elapsed = chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
       working_time += time_elapsed;
