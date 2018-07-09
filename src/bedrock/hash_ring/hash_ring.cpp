@@ -84,19 +84,15 @@ unordered_set<ServerThread, ThreadHash> get_responsible_threads_metadata(
   return threads;
 }
 
-void issue_replication_factor_request(
-    const string& respond_address,
+void issue_replication_factor_request(const string& respond_address,
     const string& key,
     GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring,
     SocketCache& pushers,
     unsigned& seed) {
+
   string key_rep = string(METADATA_IDENTIFIER) + "_" + key + "_replication";
   auto threads = get_responsible_threads_metadata(key_rep, global_memory_hash_ring, local_memory_hash_ring);
-
-  if (threads.size() == 0) {
-    cerr << "error!\n";
-  }
 
   string target_address = next(begin(threads), rand_r(&seed) % threads.size())->get_request_pulling_connect_addr();
 
@@ -109,7 +105,7 @@ void issue_replication_factor_request(
 }
 
 // get all threads responsible for a key from the "node_type" tier
-// metadata flag = 0 means the key is a metadata. Otherwise, it is a regular data
+// metadata flag = 0 means the key is  metadata; otherwise, it is  regular data
 unordered_set<ServerThread, ThreadHash> get_responsible_threads(
     string respond_address,
     const string& key,

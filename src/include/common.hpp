@@ -54,49 +54,9 @@ const unsigned USER_REQUEST_PULLING_BASE_PORT = 6850;
 const unsigned USER_KEY_ADDRESS_BASE_PORT = 6900;
 const unsigned COMMAND_BASE_PORT = 6950;
 
-// compile time constants
-// extern const string METADATA_IDENTIFIER;
-// 
-// extern const unsigned METADATA_REPLICATION_FACTOR;
-// extern const unsigned METADATA_LOCAL_REPLICATION_FACTOR;
-// 
-// extern const unsigned VIRTUAL_THREAD_NUM;
-// 
-// extern const unsigned MIN_TIER;
-// extern const unsigned MAX_TIER;
-// 
-// extern const unsigned MEM_NODE_CAPACITY;
-// extern const unsigned EBS_NODE_CAPACITY;
-// 
-// // define server base ports
-// extern const unsigned SERVER_PORT;
-// extern const unsigned NODE_JOIN_BASE_PORT;
-// extern const unsigned NODE_DEPART_BASE_PORT;
-// extern const unsigned SELF_DEPART_BASE_PORT;
-// extern const unsigned SERVER_REPLICATION_FACTOR_BASE_PORT;
-// extern const unsigned SERVER_REQUEST_PULLING_BASE_PORT;
-// extern const unsigned GOSSIP_BASE_PORT;
-// extern const unsigned SERVER_REPLICATION_FACTOR_CHANGE_BASE_PORT;
-// 
-// // define routing base ports
-// extern const unsigned SEED_BASE_PORT;
-// extern const unsigned ROUTING_NOTIFY_BASE_PORT;
-// extern const unsigned ROUTING_KEY_ADDRESS_BASE_PORT;
-// extern const unsigned ROUTING_REPLICATION_FACTOR_BASE_PORT;
-// extern const unsigned ROUTING_REPLICATION_FACTOR_CHANGE_BASE_PORT;
-// 
-// // used by monitoring nodes
-// extern const unsigned MON_NOTIFY_BASE_PORT;
-// extern const unsigned MON_REQUEST_PULLING_BASE_PORT;
-// extern const unsigned DEPART_DONE_BASE_PORT;
-// extern const unsigned LATENCY_REPORT_BASE_PORT;
-// 
-// // used by user nodes
-// extern const unsigned USER_REQUEST_PULLING_BASE_PORT;
-// extern const unsigned USER_KEY_ADDRESS_BASE_PORT;
-// extern const unsigned COMMAND_BASE_PORT;
-
 // run-time constants
+extern unsigned SELF_TIER_ID;
+
 extern unsigned MEMORY_THREAD_NUM;
 extern unsigned EBS_THREAD_NUM;
 extern unsigned ROUTING_THREAD_NUM;

@@ -37,7 +37,7 @@ while getopts ":j:t:" opt; do
   esac
 done
 
-if [[ -z "$MAKE_THREADS" ]]; then MAKE_THREADS= 1; fi
+if [[ -z "$MAKE_THREADS" ]]; then MAKE_THREADS=1; fi
 if [[ -z "$TYPE" ]]; then TYPE=Release; fi
 
 rm -rf build
