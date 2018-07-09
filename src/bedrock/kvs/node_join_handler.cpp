@@ -13,17 +13,17 @@ void node_join_handler(unsigned int thread_num,
     unsigned thread_id,
     unsigned seed,
     string ip,
-    string message,
     std::shared_ptr<spdlog::logger> logger,
+    zmq::socket_t* join_puller,
     unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     unordered_map<string, KeyStat>& key_stat_map,
     unordered_map<string, KeyInfo>& placement,
-    unordered_set<string>& join_remove_set,
-    SocketCache& pushers,
+    unordered_set<string>& join_remove_set, SocketCache& pushers,
     ServerThread& wt,
     AddressKeysetMap& join_addr_keyset_map) {
 
+  string message = zmq_util::recv_string(join_puller);
   vector<string> v;
   split(message, ':', v);
   unsigned tier = stoi(v[0]);

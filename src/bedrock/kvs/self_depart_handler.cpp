@@ -11,8 +11,8 @@ void self_depart_handler(unsigned thread_num,
     unsigned thread_id,
     unsigned seed,
     string ip,
-    string ack_addr,
     std::shared_ptr<spdlog::logger> logger,
+    zmq::socket_t* self_depart_puller,
     unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     unordered_map<string, KeyStat>& key_stat_map,
@@ -23,6 +23,7 @@ void self_depart_handler(unsigned thread_num,
     SocketCache& pushers,
     Serializer* serializer) {
 
+  string ack_addr = zmq_util::recv_string(self_depart_puller);
   logger->info("Node is departing.");
   remove_from_hash_ring<GlobalHashRing>(global_hash_ring_map[SELF_TIER_ID], ip, 0);
 

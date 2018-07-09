@@ -6,9 +6,9 @@
 #include "kvs/rc_pair_lattice.hpp"
 #include "kvs/kvs_handlers.hpp"
 
-void process_user_request(string req_string,
-    unsigned& total_access,
+void process_user_request(unsigned& total_access,
     unsigned& seed,
+    zmq::socket_t*
     chrono::system_clock::time_point& start_time,
     unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
@@ -21,6 +21,7 @@ void process_user_request(string req_string,
     Serializer* serializer,
     SocketCache& pushers) {
 
+  string req_string = zmq_util::recv_string(request_puller);
   communication::Request req;
   req.ParseFromString(req_string);
 

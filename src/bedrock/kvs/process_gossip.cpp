@@ -6,17 +6,18 @@
 #include "kvs/rc_pair_lattice.hpp"
 #include "kvs/kvs_handlers.hpp"
 
-void process_gossip(string gossip_string,
-    ServerThread& wt,
+void process_gossip(unsigned& seed,
+    zmq::socket_t* gossip_puller,
     unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    unordered_map<string, KeyInfo>& placement,
-    SocketCache& pushers,
-    Serializer* serializer,
     unordered_map<string, KeyStat>& key_stat_map,
     unordered_map<string, pair<chrono::system_clock::time_point, vector<PendingGossip>>>& pending_gossip_map,
-    unsigned& seed) {
+    unordered_map<string, KeyInfo>& placement,
+    ServerThread& wt,
+    SocketCache& pushers,
+    Serializer* serializer) {
 
+  string serialized_gossip = zmq_util::recv_string(gossip_puller);
   communication::Request gossip;
   gossip.ParseFromString(gossip_string);
 

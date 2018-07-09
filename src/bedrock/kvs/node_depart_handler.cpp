@@ -10,11 +10,12 @@
 void node_depart_handler(unsigned int thread_num,
     unsigned thread_id,
     string ip,
-    string message,
     unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::shared_ptr<spdlog::logger> logger,
+    zmq::socket_t* depart_puller,
     SocketCache& pushers) {
 
+  string message = zmq_util::recv_string(depart_puller);
   vector<string> v;
   split(message, ':', v);
 

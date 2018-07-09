@@ -6,10 +6,10 @@
 #include "kvs/rc_pair_lattice.hpp"
 #include "kvs/kvs_handlers.hpp"
 
-void process_rep_factor_response(string response_string,
-    unsigned seed,
+void process_rep_factor_response(unsigned seed,
     unsigned& total_access,
     std::shared_ptr<spdlog::logger> logger,
+    zmq::socket_t* rep_factor_response_puller,
     chrono::system_clock::time_point& start_time,
     unordered_map<unsigned, TierData> tier_data_map,
     unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
@@ -23,6 +23,8 @@ void process_rep_factor_response(string response_string,
     ServerThread& wt,
     Serializer* serializer,
     SocketCache& pushers) {
+
+  string response_string = zmq_util::recv_string(&replication_factor_puller);
   communication::Response response;
   response.ParseFromString(response_string);
 

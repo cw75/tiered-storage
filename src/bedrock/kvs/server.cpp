@@ -234,8 +234,7 @@ void run(unsigned thread_id) {
     if (pollitems[0].revents & ZMQ_POLLIN) {
       auto work_start = chrono::system_clock::now();
 
-      string message = zmq_util::recv_string(&join_puller);
-      node_join_handler(THREAD_NUM, thread_id, seed, ip, message, logger,
+      node_join_handler(THREAD_NUM, thread_id, seed, ip, logger, &join_puller,
           global_hash_ring_map, local_hash_ring_map, key_stat_map, placement,
           join_remove_set, pushers, wt, join_addr_keyset_map);
 
@@ -247,8 +246,7 @@ void run(unsigned thread_id) {
     if (pollitems[1].revents & ZMQ_POLLIN) {
       auto work_start = chrono::system_clock::now();
 
-      string message = zmq_util::recv_string(&depart_puller);
-      node_depart_handler(THREAD_NUM, thread_id, ip, message, global_hash_ring_map, logger, pushers);
+      node_depart_handler(THREAD_NUM, thread_id, ip, global_hash_ring_map, logger, &depart_puller, pushers);
 
       auto time_elapsed = chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
       working_time += time_elapsed;
@@ -257,8 +255,8 @@ void run(unsigned thread_id) {
 
     if (pollitems[2].revents & ZMQ_POLLIN) {
       auto work_start = chrono::system_clock::now();
-      string ack_addr = zmq_util::recv_string(&self_depart_puller);
-      self_depart_handler(THREAD_NUM, thread_id, seed, ip, ack_addr, logger,
+
+      self_depart_handler(THREAD_NUM, thread_id, seed, ip, logger, &self_depart_puller,
           global_hash_ring_map, local_hash_ring_map, key_stat_map, placement,
           routing_address, monitoring_address, wt, pushers, serializer);
 
@@ -269,9 +267,8 @@ void run(unsigned thread_id) {
 
     if (pollitems[3].revents & ZMQ_POLLIN) {
       auto work_start = chrono::system_clock::now();
-      string req_string = zmq_util::recv_string(&request_puller);
 
-      process_user_request(req_string, total_access, seed, start_time,
+      process_user_request(total_access, seed, &request_puller, start_time,
           global_hash_ring_map, local_hash_ring_map, key_stat_map,
           pending_request_map, key_access_timestamp, placement, local_changeset,
           wt, serializer, pushers);
@@ -284,9 +281,8 @@ void run(unsigned thread_id) {
     // receive gossip
     if (pollitems[4].revents & ZMQ_POLLIN) {
       auto work_start = chrono::system_clock::now();
-      string serialized_gossip = zmq_util::recv_string(&gossip_puller);
 
-      process_gossip(serialized_gossip, wt, global_hash_ring_map, local_hash_ring_map,
+      process_gossip(wt, &gossip_puller, global_hash_ring_map, local_hash_ring_map,
           placement, pushers, serializer, key_stat_map, pending_gossip_map,
           seed);
 
@@ -298,9 +294,8 @@ void run(unsigned thread_id) {
     // receives replication factor response
     if (pollitems[5].revents & ZMQ_POLLIN) {
       auto work_start = chrono::system_clock::now();
-      string serialized_response = zmq_util::recv_string(&replication_factor_puller);
 
-      process_rep_factor_response(serialized_response, seed, total_access,
+      process_rep_factor_response(seed, total_access, &rep_factor_response_puller,
           logger, start_time, tier_data_map, global_hash_ring_map, local_hash_ring_map,
           pending_request_map, pending_gossip_map, key_access_timestamp,
           placement, key_stat_map, local_changeset, wt, serializer, pushers);
@@ -314,8 +309,7 @@ void run(unsigned thread_id) {
     if (pollitems[6].revents & ZMQ_POLLIN) {
       auto work_start = chrono::system_clock::now();
 
-      string serialized_req = zmq_util::recv_string(&replication_factor_change_puller);
-      process_rep_factor_change(serialized_req, ip, thread_id, THREAD_NUM, seed, logger, global_hash_ring_map, local_hash_ring_map, placement, key_stat_map, local_changeset, wt, serializer, pushers);
+      process_rep_factor_change(serialized_req, ip, thread_id, THREAD_NUM, seed, logger, &rep_factor_change_puller, global_hash_ring_map, local_hash_ring_map, placement, key_stat_map, local_changeset, wt, serializer, pushers);
 
       auto time_elapsed = chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
       working_time += time_elapsed;

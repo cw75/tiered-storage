@@ -6,11 +6,11 @@
 #include "kvs/rc_pair_lattice.hpp"
 #include "kvs/kvs_handlers.hpp"
 
-void process_rep_factor_change(string change_string,
-    string ip,
+void process_rep_factor_change(string ip,
     unsigned thread_id,
     unsigned thread_num,
     unsigned& seed,
+    zmq::socket_t* rep_factor_change_puller,
     std::shared_ptr<spdlog::logger> logger,
     unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
@@ -20,6 +20,8 @@ void process_rep_factor_change(string change_string,
     ServerThread& wt,
     Serializer* serializer,
     SocketCache& pushers) {
+
+  string change_string = zmq_util::recv_string(replication_factor_change_puller);
 
   // TODO(vikram): make logging in all handlers consistent
   logger->info("Received replication factor change.");
