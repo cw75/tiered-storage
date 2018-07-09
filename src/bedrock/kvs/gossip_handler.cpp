@@ -6,7 +6,7 @@
 #include "kvs/rc_pair_lattice.hpp"
 #include "kvs/kvs_handlers.hpp"
 
-void process_gossip(unsigned& seed,
+void gossip_handler(unsigned& seed,
     zmq::socket_t* gossip_puller,
     unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,

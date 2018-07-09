@@ -195,7 +195,7 @@ void run(unsigned thread_id) {
   zmq::socket_t request_puller(context, ZMQ_PULL);
   request_puller.bind(wt.get_request_pulling_bind_addr());
 
-  // responsible for processing gossips
+  // responsible for processing gossip
   zmq::socket_t gossip_puller(context, ZMQ_PULL);
   gossip_puller.bind(wt.get_gossip_bind_addr());
 
@@ -268,7 +268,7 @@ void run(unsigned thread_id) {
     if (pollitems[3].revents & ZMQ_POLLIN) {
       auto work_start = chrono::system_clock::now();
 
-      process_user_request(total_access, seed, &request_puller, start_time,
+      user_request_handler(total_access, seed, &request_puller, start_time,
           global_hash_ring_map, local_hash_ring_map, key_stat_map,
           pending_request_map, key_access_timestamp, placement, local_changeset,
           wt, serializer, pushers);
@@ -282,7 +282,7 @@ void run(unsigned thread_id) {
     if (pollitems[4].revents & ZMQ_POLLIN) {
       auto work_start = chrono::system_clock::now();
 
-      process_gossip(seed, &gossip_puller, global_hash_ring_map, local_hash_ring_map,
+      gossip_handler(seed, &gossip_puller, global_hash_ring_map, local_hash_ring_map,
           key_stat_map, pending_gossip_map, placement, wt, serializer, pushers);
 
       auto time_elapsed = chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
@@ -294,7 +294,7 @@ void run(unsigned thread_id) {
     if (pollitems[5].revents & ZMQ_POLLIN) {
       auto work_start = chrono::system_clock::now();
 
-      process_rep_factor_response(seed, total_access, logger, &replication_factor_puller,
+      rep_factor_response_handler(seed, total_access, logger, &replication_factor_puller,
           start_time, tier_data_map, global_hash_ring_map, local_hash_ring_map,
           pending_request_map, pending_gossip_map, key_access_timestamp,
           placement, key_stat_map, local_changeset, wt, serializer, pushers);
@@ -308,7 +308,7 @@ void run(unsigned thread_id) {
     if (pollitems[6].revents & ZMQ_POLLIN) {
       auto work_start = chrono::system_clock::now();
 
-      process_rep_factor_change(ip, thread_id, THREAD_NUM, seed, logger, &replication_factor_change_puller, global_hash_ring_map, local_hash_ring_map, placement, key_stat_map, local_changeset, wt, serializer, pushers);
+     rep_factor_change_handler(ip, thread_id, THREAD_NUM, seed, logger, &replication_factor_change_puller, global_hash_ring_map, local_hash_ring_map, placement, key_stat_map, local_changeset, wt, serializer, pushers);
 
       auto time_elapsed = chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
       working_time += time_elapsed;

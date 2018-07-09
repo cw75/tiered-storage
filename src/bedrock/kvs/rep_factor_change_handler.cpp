@@ -6,7 +6,7 @@
 #include "kvs/rc_pair_lattice.hpp"
 #include "kvs/kvs_handlers.hpp"
 
-void process_rep_factor_change(string ip,
+void rep_factor_change_handler(string ip,
     unsigned thread_id,
     unsigned thread_num,
     unsigned& seed,

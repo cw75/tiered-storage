@@ -6,7 +6,7 @@
 #include "kvs/rc_pair_lattice.hpp"
 #include "kvs/kvs_handlers.hpp"
 
-void process_user_request(unsigned& total_access,
+void user_request_handler(unsigned& total_access,
     unsigned& seed,
     zmq::socket_t* request_puller,
     chrono::system_clock::time_point& start_time,

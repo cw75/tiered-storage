@@ -42,7 +42,7 @@ void self_depart_handler(unsigned thread_num,
     SocketCache& pushers,
     Serializer* serializer);
 
-void process_user_request(unsigned& total_access,
+void user_request_handler(unsigned& total_access,
     unsigned& seed,
     zmq::socket_t* request_puller,
     chrono::system_clock::time_point& start_time,
@@ -57,7 +57,7 @@ void process_user_request(unsigned& total_access,
     Serializer* serializer,
     SocketCache& pushers);
 
-void process_gossip(unsigned& seed,
+void gossip_handler(unsigned& seed,
     zmq::socket_t* gossip_puller,
     unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
@@ -68,7 +68,7 @@ void process_gossip(unsigned& seed,
     Serializer* serializer,
     SocketCache& pushers);
 
-void process_rep_factor_response(unsigned& seed,
+void rep_factor_response_handler(unsigned& seed,
     unsigned& total_access,
     std::shared_ptr<spdlog::logger> logger,
     zmq::socket_t* rep_factor_response_puller,
@@ -86,7 +86,7 @@ void process_rep_factor_response(unsigned& seed,
     Serializer* serializer,
     SocketCache& pushers);
 
-void process_rep_factor_change(string ip,
+void rep_factor_change_handler(string ip,
     unsigned thread_id,
     unsigned thread_num,
     unsigned& seed,
