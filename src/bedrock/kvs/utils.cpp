@@ -47,9 +47,9 @@ std::pair<ReadCommittedPairLattice<std::string>, unsigned> process_get(
 
 void process_put(const std::string& key, const unsigned long long& timestamp,
                  const std::string& value, Serializer* serializer,
-                 std::unordered_map<std::string, KeyStat>& key_stat_map) {
+                 std::unordered_map<std::string, unsigned>& key_size_map) {
   if (serializer->put(key, value, timestamp)) {
     // update value size if the value is replaced
-    key_stat_map[key].size_ = value.size();
+    key_size_map[key] = value.size();
   }
 }

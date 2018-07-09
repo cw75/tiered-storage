@@ -12,7 +12,7 @@ void user_request_handler(
     std::chrono::system_clock::time_point& start_time,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<std::string, KeyStat>& key_stat_map,
+    std::unordered_map<std::string, unsigned>& key_size_map,
     std::unordered_map<std::string,
                        std::pair<std::chrono::system_clock::time_point,
                                  std::vector<PendingRequest>>>&
@@ -141,7 +141,7 @@ void user_request_handler(
                   .count();
           auto ts = generate_timestamp(time_diff, wt.get_tid());
 
-          process_put(key, ts, req.tuple(i).value(), serializer, key_stat_map);
+          process_put(key, ts, req.tuple(i).value(), serializer, key_size_map);
           tp->set_err_number(0);
 
           if (req.tuple(i).has_num_address() &&

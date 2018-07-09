@@ -11,7 +11,7 @@ void gossip_handler(
     unsigned& seed, zmq::socket_t* gossip_puller,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<std::string, KeyStat>& key_stat_map,
+    std::unordered_map<std::string, unsigned>& key_size_map,
     std::unordered_map<
         std::string, std::pair<std::chrono::system_clock::time_point,
                                std::vector<PendingGossip>>>& pending_gossip_map,
@@ -37,7 +37,7 @@ void gossip_handler(
           threads.end()) {  // this means this worker thread is one of the
                             // responsible threads
         process_put(gossip.tuple(i).key(), gossip.tuple(i).timestamp(),
-                    gossip.tuple(i).value(), serializer, key_stat_map);
+                    gossip.tuple(i).value(), serializer, key_size_map);
       } else {
         if (is_metadata(key)) {  // forward the gossip
           for (auto it = threads.begin(); it != threads.end(); it++) {

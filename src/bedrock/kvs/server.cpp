@@ -193,7 +193,7 @@ void run(unsigned thread_id) {
   std::unordered_set<std::string> local_changeset;
 
   // keep track of the key stat
-  std::unordered_map<std::string, KeyStat> key_stat_map;
+  std::unordered_map<std::string, unsigned> key_size_map;
   // keep track of key access timestamp
   std::unordered_map<
       std::string,
@@ -259,7 +259,7 @@ void run(unsigned thread_id) {
       auto work_start = std::chrono::system_clock::now();
 
       node_join_handler(THREAD_NUM, thread_id, seed, ip, logger, &join_puller,
-                        global_hash_ring_map, local_hash_ring_map, key_stat_map,
+                        global_hash_ring_map, local_hash_ring_map, key_size_map,
                         placement, join_remove_set, pushers, wt,
                         join_addr_keyset_map);
 
@@ -288,7 +288,7 @@ void run(unsigned thread_id) {
 
       self_depart_handler(
           THREAD_NUM, thread_id, seed, ip, logger, &self_depart_puller,
-          global_hash_ring_map, local_hash_ring_map, key_stat_map, placement,
+          global_hash_ring_map, local_hash_ring_map, key_size_map, placement,
           routing_address, monitoring_address, wt, pushers, serializer);
 
       auto time_elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
@@ -303,7 +303,7 @@ void run(unsigned thread_id) {
 
       user_request_handler(total_access, seed, &request_puller, start_time,
                            global_hash_ring_map, local_hash_ring_map,
-                           key_stat_map, pending_request_map,
+                           key_size_map, pending_request_map,
                            key_access_timestamp, placement, local_changeset, wt,
                            serializer, pushers);
 
@@ -319,7 +319,7 @@ void run(unsigned thread_id) {
       auto work_start = std::chrono::system_clock::now();
 
       gossip_handler(seed, &gossip_puller, global_hash_ring_map,
-                     local_hash_ring_map, key_stat_map, pending_gossip_map,
+                     local_hash_ring_map, key_size_map, pending_gossip_map,
                      placement, wt, serializer, pushers);
 
       auto time_elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
@@ -337,7 +337,7 @@ void run(unsigned thread_id) {
           seed, total_access, logger, &replication_factor_puller, start_time,
           tier_data_map, global_hash_ring_map, local_hash_ring_map,
           pending_request_map, pending_gossip_map, key_access_timestamp,
-          placement, key_stat_map, local_changeset, wt, serializer, pushers);
+          placement, key_size_map, local_changeset, wt, serializer, pushers);
 
       auto time_elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
                               std::chrono::system_clock::now() - work_start)
@@ -353,7 +353,7 @@ void run(unsigned thread_id) {
       rep_factor_change_handler(ip, thread_id, THREAD_NUM, seed, logger,
                                 &replication_factor_change_puller,
                                 global_hash_ring_map, local_hash_ring_map,
-                                placement, key_stat_map, local_changeset, wt,
+                                placement, key_size_map, local_changeset, wt,
                                 serializer, pushers);
 
       auto time_elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
@@ -422,8 +422,8 @@ void run(unsigned thread_id) {
 
       // compute total storage consumption
       unsigned long long consumption = 0;
-      for (auto it = key_stat_map.begin(); it != key_stat_map.end(); it++) {
-        consumption += it->second.size_;
+      for (auto it = key_size_map.begin(); it != key_size_map.end(); it++) {
+        consumption += it->second;
       }
 
       for (int i = 0; i < sizeof(working_time_map) / sizeof(unsigned long long);
@@ -556,7 +556,7 @@ void run(unsigned thread_id) {
       if (join_addr_keyset_map.size() == 0) {
         for (auto it = join_remove_set.begin(); it != join_remove_set.end();
              it++) {
-          key_stat_map.erase(*it);
+          key_size_map.erase(*it);
           serializer->remove(*it);
         }
       }

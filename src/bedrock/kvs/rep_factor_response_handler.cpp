@@ -28,7 +28,7 @@ void rep_factor_response_handler(
         std::multiset<std::chrono::time_point<std::chrono::system_clock>>>&
         key_access_timestamp,
     std::unordered_map<std::string, KeyInfo> placement,
-    std::unordered_map<std::string, KeyStat>& key_stat_map,
+    std::unordered_map<std::string, unsigned>& key_size_map,
     std::unordered_set<std::string>& local_changeset, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers) {
   std::string response_string =
@@ -110,7 +110,7 @@ void rep_factor_response_handler(
                     .count();
             auto ts = generate_timestamp(time_diff, wt.get_tid());
 
-            process_put(key, ts, it->value_, serializer, key_stat_map);
+            process_put(key, ts, it->value_, serializer, key_size_map);
             key_access_timestamp[key].insert(now);
 
             total_access += 1;
@@ -142,7 +142,7 @@ void rep_factor_response_handler(
                     .count();
             auto ts = generate_timestamp(time_diff, wt.get_tid());
 
-            process_put(key, ts, it->value_, serializer, key_stat_map);
+            process_put(key, ts, it->value_, serializer, key_size_map);
             tp->set_err_number(0);
 
             key_access_timestamp[key].insert(now);
@@ -173,7 +173,7 @@ void rep_factor_response_handler(
       if (threads.find(wt) != threads.end()) {
         for (auto it = pending_gossip_map[key].second.begin();
              it != pending_gossip_map[key].second.end(); ++it) {
-          process_put(key, it->ts_, it->value_, serializer, key_stat_map);
+          process_put(key, it->ts_, it->value_, serializer, key_size_map);
         }
       } else {
         std::unordered_map<std::string, communication::Request> gossip_map;

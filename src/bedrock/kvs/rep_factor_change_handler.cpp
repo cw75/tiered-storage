@@ -14,7 +14,7 @@ void rep_factor_change_handler(
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     std::unordered_map<std::string, KeyInfo> placement,
-    std::unordered_map<std::string, KeyStat>& key_stat_map,
+    std::unordered_map<std::string, unsigned>& key_size_map,
     std::unordered_set<std::string>& local_changeset, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers) {
   std::string change_string = zmq_util::recv_string(rep_factor_change_puller);
@@ -46,7 +46,7 @@ void rep_factor_change_handler(
     std::string key = curr_tuple.key();
 
     // if this thread was responsible for the key before the change
-    if (key_stat_map.find(key) != key_stat_map.end()) {
+    if (key_size_map.find(key) != key_size_map.end()) {
       auto orig_threads = get_responsible_threads(
           wt.get_replication_factor_connect_addr(), key, is_metadata(key),
           global_hash_ring_map, local_hash_ring_map, placement, pushers,
@@ -149,7 +149,7 @@ void rep_factor_change_handler(
 
   // remove keys
   for (auto it = remove_set.begin(); it != remove_set.end(); it++) {
-    key_stat_map.erase(*it);
+    key_size_map.erase(*it);
     serializer->remove(*it);
     local_changeset.erase(*it);
   }

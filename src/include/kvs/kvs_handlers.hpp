@@ -9,7 +9,7 @@ void node_join_handler(
     std::shared_ptr<spdlog::logger> logger, zmq::socket_t* join_puller,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<std::string, KeyStat>& key_stat_map,
+    std::unordered_map<std::string, unsigned>& key_size_map,
     std::unordered_map<std::string, KeyInfo>& placement,
     std::unordered_set<std::string>& join_remove_set, SocketCache& pushers,
     ServerThread& wt, AddressKeysetMap& join_addr_keyset_map);
@@ -25,7 +25,7 @@ void self_depart_handler(
     std::shared_ptr<spdlog::logger> logger, zmq::socket_t* self_depart_puller,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<std::string, KeyStat>& key_stat_map,
+    std::unordered_map<std::string, unsigned>& key_size_map,
     std::unordered_map<std::string, KeyInfo>& placement,
     std::vector<std::string> routing_address,
     std::vector<std::string> monitoring_address, ServerThread wt,
@@ -36,7 +36,7 @@ void user_request_handler(
     std::chrono::system_clock::time_point& start_time,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<std::string, KeyStat>& key_stat_map,
+    std::unordered_map<std::string, unsigned>& key_size_map,
     std::unordered_map<std::string,
                        std::pair<std::chrono::system_clock::time_point,
                                  std::vector<PendingRequest>>>&
@@ -53,7 +53,7 @@ void gossip_handler(
     unsigned& seed, zmq::socket_t* gossip_puller,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<std::string, KeyStat>& key_stat_map,
+    std::unordered_map<std::string, unsigned>& key_size_map,
     std::unordered_map<
         std::string, std::pair<std::chrono::system_clock::time_point,
                                std::vector<PendingGossip>>>& pending_gossip_map,
@@ -81,7 +81,7 @@ void rep_factor_response_handler(
         std::multiset<std::chrono::time_point<std::chrono::system_clock>>>&
         key_access_timestamp,
     std::unordered_map<std::string, KeyInfo> placement,
-    std::unordered_map<std::string, KeyStat>& key_stat_map,
+    std::unordered_map<std::string, unsigned>& key_size_map,
     std::unordered_set<std::string>& local_changeset, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers);
 
@@ -92,7 +92,7 @@ void rep_factor_change_handler(
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     std::unordered_map<std::string, KeyInfo> placement,
-    std::unordered_map<std::string, KeyStat>& key_stat_map,
+    std::unordered_map<std::string, unsigned>& key_size_map,
     std::unordered_set<std::string>& local_changeset, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers);
 
@@ -104,5 +104,5 @@ std::pair<ReadCommittedPairLattice<std::string>, unsigned> process_get(
 
 void process_put(const std::string& key, const unsigned long long& timestamp,
                  const std::string& value, Serializer* serializer,
-                 std::unordered_map<std::string, KeyStat>& key_stat_map);
+                 std::unordered_map<std::string, unsigned>& key_size_map);
 #endif

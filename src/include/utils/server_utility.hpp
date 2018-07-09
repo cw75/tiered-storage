@@ -154,13 +154,6 @@ class EBSSerializer : public Serializer {
   }
 };
 
-// TODO(vikram): change this to key size?
-struct KeyStat {
-  KeyStat() : size_(0) {}
-  KeyStat(unsigned size) : size_(size) {}
-  unsigned size_;
-};
-
 struct PendingRequest {
   PendingRequest() {}
   PendingRequest(std::string type, const std::string& value, std::string addr,
