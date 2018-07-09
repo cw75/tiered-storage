@@ -224,11 +224,9 @@ void run(unsigned thread_id) {
   auto report_end = chrono::system_clock::now();
 
   unsigned long long working_time = 0;
-  unordered_map<unsigned, unsigned long long> working_time_map;
-  for (unsigned i = 0; i < 8; i++) {
-    working_time_map[i] = 0;
-  }
+  unsigned long long working_time_map[8] = { 0, 0, 0, 0, 0, 0, 0 , 0};
   unsigned epoch = 0;
+
   // enter event loop
   while (true) {
     zmq_util::poll(0, &pollitems);
@@ -315,8 +313,8 @@ void run(unsigned thread_id) {
     // receive replication factor change
     if (pollitems[6].revents & ZMQ_POLLIN) {
       auto work_start = chrono::system_clock::now();
-      string serialized_req = zmq_util::recv_string(&replication_factor_change_puller);
 
+      string serialized_req = zmq_util::recv_string(&replication_factor_change_puller);
       process_rep_factor_change(serialized_req, ip, thread_id, THREAD_NUM, seed, logger, global_hash_ring_map, local_hash_ring_map, placement, key_stat_map, local_changeset, wt, serializer, pushers);
 
       auto time_elapsed = chrono::duration_cast<chrono::microseconds>(chrono::system_clock::now()-work_start).count();
@@ -327,7 +325,6 @@ void run(unsigned thread_id) {
     // gossip updates to other threads
     gossip_end = chrono::system_clock::now();
     if (chrono::duration_cast<chrono::microseconds>(gossip_end-gossip_start).count() >= PERIOD) {
-      //cerr << "thread " + to_string(thread_id) + " entering event gossip\n";
       auto work_start = chrono::system_clock::now();
       // only gossip if we have changes
       if (local_changeset.size() > 0) {
@@ -379,12 +376,12 @@ void run(unsigned thread_id) {
         consumption += it->second.size_;
       }
 
-      for (auto it = working_time_map.begin(); it != working_time_map.end(); it++) {
+      for (int i = 0; i < sizeof(working_time_map) / sizeof(unsigned long long); i++) {
         // cast to microsecond
-        double event_occupancy = (double) it->second / ((double) duration * 1000000);
+        double event_occupancy = (double) working_time_map[i] / ((double) duration * 1000000);
 
         if (event_occupancy > 0.02) {
-          logger->info("Event {} occupancy is {}.", to_string(it->first), to_string(event_occupancy));
+          logger->info("Event {} occupancy is {}.", to_string(i), to_string(event_occupancy));
         }
       }
 
@@ -452,26 +449,10 @@ void run(unsigned thread_id) {
 
       report_start = chrono::system_clock::now();
 
-      // reset
+      // reset stats tracked in memory
       working_time = 0;
-      for (unsigned i = 0; i < 8; i++) {
-        working_time_map[i] = 0;
-      }
-      // reset total access
       total_access = 0;
-    }
-
-    // retry pending gossips
-    for (auto it = pending_gossip_map.begin(); it != pending_gossip_map.end(); it++) {
-      auto t = chrono::duration_cast<chrono::seconds>(chrono::system_clock::now()-it->second.first).count();
-
-      if (t > RETRY_THRESHOLD) {
-        auto respond_address = wt.get_replication_factor_connect_addr();
-        issue_replication_factor_request(respond_address, it->first, global_hash_ring_map[1], local_hash_ring_map[1], pushers, seed);
-
-        // refresh time
-        it->second.first = chrono::system_clock::now();
-      }
+      memset(working_time_map, 0, sizeof(working_time_map));
     }
 
     // redistribute data after node joins
