@@ -1,14 +1,12 @@
-#include "spdlog/spdlog.h"
 #include "common.hpp"
+#include "spdlog/spdlog.h"
 
 using namespace std;
 
-void
-feedback_handler(zmq::socket_t *feedback_puller,
-                 unordered_map<string, double>& user_latency,
-                 unordered_map<string, double>& user_throughput,
-                 unordered_map<string, pair<double, unsigned>>& rep_factor_map
-                 ) {
+void feedback_handler(
+    zmq::socket_t* feedback_puller, unordered_map<string, double>& user_latency,
+    unordered_map<string, double>& user_throughput,
+    unordered_map<string, pair<double, unsigned>>& rep_factor_map) {
   string serialized_feedback = zmq_util::recv_string(feedback_puller);
   communication::Feedback fb;
   fb.ParseFromString(serialized_feedback);
@@ -29,7 +27,9 @@ feedback_handler(zmq::socket_t *feedback_puller,
         rep_factor_map[key].first = factor;
         rep_factor_map[key].second = 1;
       } else {
-        rep_factor_map[key].first = (rep_factor_map[key].first * rep_factor_map[key].second + factor) / (rep_factor_map[key].second + 1);
+        rep_factor_map[key].first =
+            (rep_factor_map[key].first * rep_factor_map[key].second + factor) /
+            (rep_factor_map[key].second + 1);
         rep_factor_map[key].second += 1;
       }
     }

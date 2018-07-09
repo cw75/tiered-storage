@@ -2,7 +2,6 @@
 
 #include <utility>
 
-
 zmq::socket_t& SocketCache::At(const std::string& addr) {
   auto iter = cache_.find(addr);
   if (iter != cache_.end()) {
@@ -20,6 +19,4 @@ zmq::socket_t& SocketCache::operator[](const std::string& addr) {
   return At(addr);
 }
 
-void SocketCache::clear_cache() {
-  cache_.clear();
-}
+void SocketCache::clear_cache() { cache_.clear(); }

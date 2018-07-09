@@ -2,9 +2,12 @@
 #define __SERVER_UTILITY_H__
 
 #include <string>
-#include "communication.pb.h"
+
+#include "../kvs/base_kv_store.hpp"
+#include "../kvs/rc_pair_lattice.hpp"
 #include "../zmq/socket_cache.hpp"
 #include "../zmq/zmq_util.hpp"
+#include "communication.pb.h"
 #include "yaml-cpp/yaml.h"
 
 using namespace std;
@@ -24,19 +27,22 @@ typedef KVStore<string, ReadCommittedPairLattice<string>> MemoryKVS;
 typedef unordered_map<string, unordered_set<string>> AddressKeysetMap;
 
 class Serializer {
-public:
-  virtual ReadCommittedPairLattice<string> get(const string& key, unsigned& err_number) = 0;
-  virtual bool put(const string& key, const string& value, const unsigned& timestamp) = 0;
+ public:
+  virtual ReadCommittedPairLattice<string> get(const string& key,
+                                               unsigned& err_number) = 0;
+  virtual bool put(const string& key, const string& value,
+                   const unsigned& timestamp) = 0;
   virtual void remove(const string& key) = 0;
 };
 
 class MemorySerializer : public Serializer {
   MemoryKVS* kvs_;
 
-public:
-  MemorySerializer(MemoryKVS* kvs): kvs_(kvs) {}
+ public:
+  MemorySerializer(MemoryKVS* kvs) : kvs_(kvs) {}
 
-  ReadCommittedPairLattice<string> get(const string& key, unsigned& err_number) {
+  ReadCommittedPairLattice<string> get(const string& key,
+                                       unsigned& err_number) {
     return kvs_->get(key, err_number);
   }
 
@@ -45,17 +51,15 @@ public:
     return kvs_->put(key, ReadCommittedPairLattice<string>(p));
   }
 
-  void remove(const string& key) {
-    kvs_->remove(key);
-  }
+  void remove(const string& key) { kvs_->remove(key); }
 };
 
 class EBSSerializer : public Serializer {
   unsigned tid_;
   string ebs_root_;
 
-public:
-  EBSSerializer(unsigned& tid): tid_(tid) {
+ public:
+  EBSSerializer(unsigned& tid) : tid_(tid) {
     YAML::Node conf = YAML::LoadFile("conf/config.yml");
 
     string monitoring_address = conf["ebs"].as<string>();
@@ -65,7 +69,8 @@ public:
     }
   }
 
-  ReadCommittedPairLattice<string> get(const string& key, unsigned& err_number) {
+  ReadCommittedPairLattice<string> get(const string& key,
+                                       unsigned& err_number) {
     ReadCommittedPairLattice<string> res;
     communication::Payload pl;
 
@@ -79,7 +84,8 @@ public:
       cerr << "Failed to parse payload." << endl;
       err_number = 1;
     } else {
-      res = ReadCommittedPairLattice<string>(TimestampValuePair<string>(pl.timestamp(), pl.value()));
+      res = ReadCommittedPairLattice<string>(
+          TimestampValuePair<string>(pl.timestamp(), pl.value()));
     }
     return res;
   }
@@ -94,7 +100,8 @@ public:
     string fname = ebs_root_ + "ebs_" + to_string(tid_) + "/" + key;
     fstream input(fname, ios::in | ios::binary);
 
-    if (!input) { // in this case, this key has never been seen before, so we attempt to create a new file for it
+    if (!input) {  // in this case, this key has never been seen before, so we
+                   // attempt to create a new file for it
       replaced = true;
       pl.set_timestamp(timestamp);
       pl.set_value(value);
@@ -104,15 +111,19 @@ public:
       if (!pl.SerializeToOstream(&output)) {
         cerr << "Failed to write payload." << endl;
       }
-    } else if (!pl_orig.ParseFromIstream(&input)) { // if we have seen the key before, attempt to parse what was there before
+    } else if (!pl_orig.ParseFromIstream(
+                   &input)) {  // if we have seen the key before, attempt to
+                               // parse what was there before
       cerr << "Failed to parse payload." << endl;
     } else {
       // get the existing value that we have and merge
-      ReadCommittedPairLattice<string> l = ReadCommittedPairLattice<string>(TimestampValuePair<string>(pl_orig.timestamp(), pl_orig.value()));
+      ReadCommittedPairLattice<string> l = ReadCommittedPairLattice<string>(
+          TimestampValuePair<string>(pl_orig.timestamp(), pl_orig.value()));
       replaced = l.merge(p);
 
       if (replaced) {
-        // set the payload's data to the merged values of the value and timestamp
+        // set the payload's data to the merged values of the value and
+        // timestamp
         pl.set_timestamp(l.reveal().timestamp);
         pl.set_value(l.reveal().value);
 
@@ -131,7 +142,7 @@ public:
   void remove(const string& key) {
     string fname = ebs_root_ + "ebs_" + to_string(tid_) + "/" + key;
 
-    if(std::remove(fname.c_str()) != 0) {
+    if (std::remove(fname.c_str()) != 0) {
       cout << "Error deleting file";
     }
   }
@@ -140,15 +151,18 @@ public:
 // TODO(vikram): change this to key size?
 struct KeyStat {
   KeyStat() : size_(0) {}
-  KeyStat(unsigned size)
-    : size_(size) {}
+  KeyStat(unsigned size) : size_(size) {}
   unsigned size_;
 };
 
 struct PendingRequest {
   PendingRequest() {}
-  PendingRequest(string type, const string& value, string addr, string respond_id)
-    : type_(type), value_(value), addr_(addr), respond_id_(respond_id) {}
+  PendingRequest(string type, const string& value, string addr,
+                 string respond_id) :
+      type_(type),
+      value_(value),
+      addr_(addr),
+      respond_id_(respond_id) {}
 
   // TODO(vikram): change these type names
   string type_;
@@ -159,8 +173,9 @@ struct PendingRequest {
 
 struct PendingGossip {
   PendingGossip() {}
-  PendingGossip(const string& value, const unsigned long long& ts)
-    : value_(value), ts_(ts) {}
+  PendingGossip(const string& value, const unsigned long long& ts) :
+      value_(value),
+      ts_(ts) {}
   string value_;
   unsigned long long ts_;
 };

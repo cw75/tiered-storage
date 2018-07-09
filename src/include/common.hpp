@@ -1,10 +1,11 @@
 #ifndef __COMMON_H__
 #define __COMMON_H__
 
-#include <string>
 #include <sstream>
-#include <vector>
+#include <string>
 #include <unordered_map>
+#include <vector>
+
 #include "communication.pb.h"
 #include "zmq/socket_cache.hpp"
 #include "zmq/zmq_util.hpp"
@@ -66,7 +67,8 @@ extern unsigned DEFAULT_GLOBAL_EBS_REPLICATION;
 extern unsigned DEFAULT_LOCAL_REPLICATION;
 extern unsigned MINIMUM_REPLICA_NUMBER;
 
-inline void split(const std::string &s, char delim, std::vector<std::string> &elems) {
+inline void split(const std::string& s, char delim,
+                  std::vector<std::string>& elems) {
   std::stringstream ss(s);
   std::string item;
 
@@ -76,10 +78,10 @@ inline void split(const std::string &s, char delim, std::vector<std::string> &el
 }
 
 // form the timestamp given a time and a thread id
-inline unsigned long long generate_timestamp(unsigned long long time, unsigned tid) {
+inline unsigned long long generate_timestamp(unsigned long long time,
+                                             unsigned tid) {
   unsigned pow = 10;
-  while(tid >= pow)
-    pow *= 10;
+  while (tid >= pow) pow *= 10;
   return time * pow + tid;
 }
 
@@ -88,7 +90,8 @@ inline void prepare_get_tuple(communication::Request& req, string key) {
   tp->set_key(key);
 }
 
-inline void prepare_put_tuple(communication::Request& req, string key, string value, unsigned long long timestamp) {
+inline void prepare_put_tuple(communication::Request& req, string key,
+                              string value, unsigned long long timestamp) {
   communication::Request_Tuple* tp = req.add_tuple();
   tp->set_key(key);
   tp->set_value(value);

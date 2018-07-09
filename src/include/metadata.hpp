@@ -11,8 +11,10 @@ struct KeyInfo {
 struct TierData {
   TierData() : thread_number_(1), default_replication_(1), node_capacity_(0) {}
 
-  TierData(unsigned t_num, unsigned rep, unsigned long long node_capacity)
-    : thread_number_(t_num), default_replication_(rep), node_capacity_(node_capacity) {}
+  TierData(unsigned t_num, unsigned rep, unsigned long long node_capacity) :
+      thread_number_(t_num),
+      default_replication_(rep),
+      node_capacity_(node_capacity) {}
 
   unsigned thread_number_;
 
@@ -20,7 +22,6 @@ struct TierData {
 
   unsigned long long node_capacity_;
 };
-
 
 inline bool is_metadata(string key) {
   vector<string> v;

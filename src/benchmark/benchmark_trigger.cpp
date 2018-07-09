@@ -1,17 +1,19 @@
-#include <zmq.hpp>
-#include <string>
 #include <stdlib.h>
-#include <sstream>
-#include <fstream>
-#include <vector>
-#include <iostream>
 #include <unistd.h>
+
+#include <fstream>
+#include <iostream>
 #include <memory>
+#include <sstream>
+#include <string>
 #include <unordered_set>
-#include "zmq/socket_cache.hpp"
-#include "zmq/zmq_util.hpp"
+#include <vector>
+#include <zmq.hpp>
+
 #include "common.hpp"
 #include "yaml-cpp/yaml.h"
+#include "zmq/socket_cache.hpp"
+#include "zmq/zmq_util.hpp"
 
 using namespace std;
 
@@ -36,7 +38,8 @@ int main(int argc, char* argv[]) {
   YAML::Node conf = YAML::LoadFile("conf/config.yml");
   YAML::Node benchmark = conf["benchmark"];
 
-  for (YAML::const_iterator it = benchmark.begin(); it != benchmark.end(); ++it) {
+  for (YAML::const_iterator it = benchmark.begin(); it != benchmark.end();
+       ++it) {
     ips.push_back(it->as<string>());
   }
 
@@ -48,11 +51,13 @@ int main(int argc, char* argv[]) {
     cout << "command> ";
     getline(cin, command);
 
-    for (auto it = benchmark_address.begin(); it != benchmark_address.end(); it++) {
+    for (auto it = benchmark_address.begin(); it != benchmark_address.end();
+         it++) {
       for (unsigned tid = 0; tid < thread_num; tid++) {
-        zmq_util::send_string(command, &pushers["tcp://" + *it + ":" + to_string(tid + COMMAND_BASE_PORT)]);
+        zmq_util::send_string(command,
+                              &pushers["tcp://" + *it + ":" +
+                                       to_string(tid + COMMAND_BASE_PORT)]);
       }
     }
   }
 }
-

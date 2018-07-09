@@ -24,7 +24,9 @@
 //   zmq::socket_t& another_a = cache.At("inproc://a");
 class SocketCache {
  public:
-  explicit SocketCache(zmq::context_t* context, int type) : context_(context), type_(type) {}
+  explicit SocketCache(zmq::context_t* context, int type) :
+      context_(context),
+      type_(type) {}
   zmq::socket_t& At(const std::string& addr);
   zmq::socket_t& operator[](const std::string& addr);
   void clear_cache();
@@ -34,6 +36,5 @@ class SocketCache {
   std::map<std::string, zmq::socket_t> cache_;
   int type_;
 };
-
 
 #endif  // SOCKET_CACHE_H_

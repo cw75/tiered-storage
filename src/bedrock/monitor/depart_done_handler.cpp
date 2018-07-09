@@ -1,17 +1,14 @@
-#include "spdlog/spdlog.h"
 #include "common.hpp"
+#include "spdlog/spdlog.h"
 
 using namespace std;
 
-void
-depart_done_handler(std::shared_ptr<spdlog::logger> logger,
-                   zmq::socket_t *depart_done_puller,
-                   unordered_map<string, unsigned>& departing_node_map,
-                   string management_address,
-                   bool& removing_memory_node,
-                   bool& removing_ebs_node,
-                   chrono::time_point<chrono::system_clock>& grace_start
-                   ) {
+void depart_done_handler(
+    std::shared_ptr<spdlog::logger> logger, zmq::socket_t* depart_done_puller,
+    unordered_map<string, unsigned>& departing_node_map,
+    string management_address, bool& removing_memory_node,
+    bool& removing_ebs_node,
+    chrono::time_point<chrono::system_clock>& grace_start) {
   string msg = zmq_util::recv_string(depart_done_puller);
   vector<string> tokens;
   split(msg, '_', tokens);
@@ -26,14 +23,16 @@ depart_done_handler(std::shared_ptr<spdlog::logger> logger,
       if (tier_id == 1) {
         logger->info("Removing memory node {}.", departed_ip);
 
-        string shell_command = "curl -X POST http://" + management_address + "/remove/memory/" + departed_ip;
+        string shell_command = "curl -X POST http://" + management_address +
+                               "/remove/memory/" + departed_ip;
         system(shell_command.c_str());
 
         removing_memory_node = false;
       } else {
         logger->info("Removing ebs node {}", departed_ip);
 
-        string shell_command = "curl -X POST http://" + management_address + "/remove/ebs/" + departed_ip;
+        string shell_command = "curl -X POST http://" + management_address +
+                               "/remove/ebs/" + departed_ip;
         system(shell_command.c_str());
 
         removing_ebs_node = false;

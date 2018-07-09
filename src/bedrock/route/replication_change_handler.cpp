@@ -3,21 +3,22 @@
 
 using namespace std;
 
-void
-replication_change_handler(std::shared_ptr<spdlog::logger> logger,
-                           zmq::socket_t *replication_factor_change_puller,
-                           SocketCache& pushers,
-                           unordered_map<string, KeyInfo>& placement,
-                           unsigned thread_id,
-                           string ip
-                           ) {
+void replication_change_handler(std::shared_ptr<spdlog::logger> logger,
+                                zmq::socket_t* replication_factor_change_puller,
+                                SocketCache& pushers,
+                                unordered_map<string, KeyInfo>& placement,
+                                unsigned thread_id, string ip) {
   logger->info("Received a replication factor change.");
-  string serialized_req = zmq_util::recv_string(replication_factor_change_puller);
+  string serialized_req =
+      zmq_util::recv_string(replication_factor_change_puller);
 
   if (thread_id == 0) {
     // tell all worker threads about the replication factor change
     for (unsigned tid = 1; tid < ROUTING_THREAD_NUM; tid++) {
-      zmq_util::send_string(serialized_req, &pushers[RoutingThread(ip, tid).get_replication_factor_change_connect_addr()]);
+      zmq_util::send_string(
+          serialized_req,
+          &pushers[RoutingThread(ip, tid)
+                       .get_replication_factor_change_connect_addr()]);
     }
   }
 
@@ -29,11 +30,13 @@ replication_change_handler(std::shared_ptr<spdlog::logger> logger,
     // update the replication factor
 
     for (int j = 0; j < req.tuple(i).global_size(); j++) {
-      placement[key].global_replication_map_[req.tuple(i).global(j).tier_id()] = req.tuple(i).global(j).global_replication();
+      placement[key].global_replication_map_[req.tuple(i).global(j).tier_id()] =
+          req.tuple(i).global(j).global_replication();
     }
 
     for (int j = 0; j < req.tuple(i).local_size(); j++) {
-      placement[key].local_replication_map_[req.tuple(i).local(j).tier_id()] = req.tuple(i).local(j).local_replication();
+      placement[key].local_replication_map_[req.tuple(i).local(j).tier_id()] =
+          req.tuple(i).local(j).local_replication();
     }
   }
 }

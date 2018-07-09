@@ -1,29 +1,32 @@
-#include <fstream>
 #include <chrono>
-#include "zmq/socket_cache.hpp"
+#include <fstream>
+
 #include "common.hpp"
 #include "hash_ring.hpp"
-#include "kvs/rc_pair_lattice.hpp"
 #include "kvs/kvs_handlers.hpp"
+#include "kvs/rc_pair_lattice.hpp"
+#include "zmq/socket_cache.hpp"
 
-void rep_factor_response_handler(unsigned& seed,
-    unsigned& total_access,
+void rep_factor_response_handler(
+    unsigned& seed, unsigned& total_access,
     std::shared_ptr<spdlog::logger> logger,
     zmq::socket_t* rep_factor_response_puller,
     chrono::system_clock::time_point& start_time,
     unordered_map<unsigned, TierData> tier_data_map,
     unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    unordered_map<string, pair<chrono::system_clock::time_point, vector<PendingRequest>>>& pending_request_map,
-    unordered_map<string, pair<chrono::system_clock::time_point, vector<PendingGossip>>> pending_gossip_map,
-    unordered_map<string, multiset<std::chrono::time_point<std::chrono::system_clock>>>& key_access_timestamp,
+    unordered_map<string, pair<chrono::system_clock::time_point,
+                               vector<PendingRequest>>>& pending_request_map,
+    unordered_map<string,
+                  pair<chrono::system_clock::time_point, vector<PendingGossip>>>
+        pending_gossip_map,
+    unordered_map<string,
+                  multiset<std::chrono::time_point<std::chrono::system_clock>>>&
+        key_access_timestamp,
     unordered_map<string, KeyInfo> placement,
     unordered_map<string, KeyStat>& key_stat_map,
-    unordered_set<string>& local_changeset,
-    ServerThread& wt,
-    Serializer* serializer,
-    SocketCache& pushers) {
-
+    unordered_set<string>& local_changeset, ServerThread& wt,
+    Serializer* serializer, SocketCache& pushers) {
   string response_string = zmq_util::recv_string(rep_factor_response_puller);
   communication::Response response;
   response.ParseFromString(response_string);
@@ -34,31 +37,39 @@ void rep_factor_response_handler(unsigned& seed,
 
   if (response.tuple(0).err_number() == 2) {
     auto respond_address = wt.get_replication_factor_connect_addr();
-    issue_replication_factor_request(respond_address, key, global_hash_ring_map[1], local_hash_ring_map[1], pushers, seed);
+    issue_replication_factor_request(respond_address, key,
+                                     global_hash_ring_map[1],
+                                     local_hash_ring_map[1], pushers, seed);
     return;
   } else if (response.tuple(0).err_number() == 0) {
     communication::Replication_Factor rep_data;
     rep_data.ParseFromString(response.tuple(0).value());
 
     for (int i = 0; i < rep_data.global_size(); i++) {
-      placement[key].global_replication_map_[rep_data.global(i).tier_id()] = rep_data.global(i).global_replication();
+      placement[key].global_replication_map_[rep_data.global(i).tier_id()] =
+          rep_data.global(i).global_replication();
     }
 
     for (int i = 0; i < rep_data.local_size(); i++) {
-      placement[key].local_replication_map_[rep_data.local(i).tier_id()] = rep_data.local(i).local_replication();
+      placement[key].local_replication_map_[rep_data.local(i).tier_id()] =
+          rep_data.local(i).local_replication();
     }
   } else {
     for (unsigned i = MIN_TIER; i <= MAX_TIER; i++) {
-      placement[key].global_replication_map_[i] = tier_data_map[i].default_replication_;
+      placement[key].global_replication_map_[i] =
+          tier_data_map[i].default_replication_;
       placement[key].local_replication_map_[i] = DEFAULT_LOCAL_REPLICATION;
     }
   }
 
-  vector<unsigned> tier_ids = { SELF_TIER_ID };
+  vector<unsigned> tier_ids = {SELF_TIER_ID};
   bool succeed;
 
   if (pending_request_map.find(key) != pending_request_map.end()) {
-    auto threads = get_responsible_threads(wt.get_replication_factor_connect_addr(), key, is_metadata(key), global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids, succeed, seed);
+    auto threads = get_responsible_threads(
+        wt.get_replication_factor_connect_addr(), key, is_metadata(key),
+        global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids,
+        succeed, seed);
 
     if (succeed) {
       bool responsible = threads.find(wt) != threads.end();
@@ -85,9 +96,13 @@ void rep_factor_response_handler(unsigned& seed,
           string serialized_response;
           response.SerializeToString(&serialized_response);
           zmq_util::send_string(serialized_response, &pushers[it->addr_]);
-        } else if (responsible && it->addr_ == "") { // only put requests should fall into this category
+        } else if (responsible &&
+                   it->addr_ == "") {  // only put requests should fall into
+                                       // this category
           if (it->type_ == "P") {
-            auto time_diff = chrono::duration_cast<chrono::milliseconds>(now - start_time).count();
+            auto time_diff =
+                chrono::duration_cast<chrono::milliseconds>(now - start_time)
+                    .count();
             auto ts = generate_timestamp(time_diff, wt.get_tid());
 
             process_put(key, ts, it->value_, serializer, key_stat_map);
@@ -116,7 +131,9 @@ void rep_factor_response_handler(unsigned& seed,
             key_access_timestamp[key].insert(std::chrono::system_clock::now());
             total_access += 1;
           } else {
-            auto time_diff = chrono::duration_cast<chrono::milliseconds>(now - start_time).count();
+            auto time_diff =
+                chrono::duration_cast<chrono::milliseconds>(now - start_time)
+                    .count();
             auto ts = generate_timestamp(time_diff, wt.get_tid());
 
             process_put(key, ts, it->value_, serializer, key_stat_map);
@@ -133,18 +150,23 @@ void rep_factor_response_handler(unsigned& seed,
         }
       }
     } else {
-      logger->error("Missing key replication factor in process pending request routine.");
+      logger->error(
+          "Missing key replication factor in process pending request routine.");
     }
 
     pending_request_map.erase(key);
   }
 
   if (pending_gossip_map.find(key) != pending_gossip_map.end()) {
-    auto threads = get_responsible_threads(wt.get_replication_factor_connect_addr(), key, is_metadata(key), global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids, succeed, seed);
+    auto threads = get_responsible_threads(
+        wt.get_replication_factor_connect_addr(), key, is_metadata(key),
+        global_hash_ring_map, local_hash_ring_map, placement, pushers, tier_ids,
+        succeed, seed);
 
     if (succeed) {
       if (threads.find(wt) != threads.end()) {
-        for (auto it = pending_gossip_map[key].second.begin(); it != pending_gossip_map[key].second.end(); ++it) {
+        for (auto it = pending_gossip_map[key].second.begin();
+             it != pending_gossip_map[key].second.end(); ++it) {
           process_put(key, it->ts_, it->value_, serializer, key_stat_map);
         }
       } else {
@@ -154,8 +176,10 @@ void rep_factor_response_handler(unsigned& seed,
         for (auto it = threads.begin(); it != threads.end(); it++) {
           gossip_map[it->get_gossip_connect_addr()].set_type("PUT");
 
-          for (auto iter = pending_gossip_map[key].second.begin(); iter != pending_gossip_map[key].second.end(); iter++) {
-            prepare_put_tuple(gossip_map[it->get_gossip_connect_addr()], key, iter->value_, iter->ts_);
+          for (auto iter = pending_gossip_map[key].second.begin();
+               iter != pending_gossip_map[key].second.end(); iter++) {
+            prepare_put_tuple(gossip_map[it->get_gossip_connect_addr()], key,
+                              iter->value_, iter->ts_);
           }
         }
 
@@ -165,7 +189,8 @@ void rep_factor_response_handler(unsigned& seed,
         }
       }
     } else {
-      logger->error("Missing key replication factor in process pending gossip routine.");
+      logger->error(
+          "Missing key replication factor in process pending gossip routine.");
     }
 
     pending_gossip_map.erase(key);
