@@ -70,8 +70,8 @@ void handle_request(
         ip, thread_id, rid);
 
     if (succeed) {
-      for (auto it = addresses.begin(); it != addresses.end(); it++) {
-        key_address_cache[key].insert(*it);
+      for (const std::string& address : addresses) {
+        key_address_cache[key].insert(address);
       }
       worker_address = addresses[rand_r(&seed) % addresses.size()];
     } else {
@@ -122,13 +122,13 @@ void handle_request(
     if (res.tuple(0).err_number() == 2) {
       trial += 1;
       if (trial > 5) {
-        for (int i = 0; i < res.tuple(0).addresses_size(); i++) {
+        for (const auto& address : res.tuple(0).addresses()) {
           logger->info("Server's return address for key {} is {}.", key,
-                       res.tuple(0).addresses(i));
+                       address);
         }
-        for (auto it = key_address_cache[key].begin();
-             it != key_address_cache[key].end(); it++) {
-          logger->info("My cached address for key {} is {}", key, *it);
+
+        for (const std::string& address : key_address_cache[key]) {
+          logger->info("My cached address for key {} is {}", key, address);
         }
       }
 
@@ -163,19 +163,19 @@ void handle_request(
     std::string signature = tokens[1];
     std::unordered_set<std::string> remove_set;
 
-    for (auto it = key_address_cache.begin(); it != key_address_cache.end();
-         it++) {
-      for (auto iter = it->second.begin(); iter != it->second.end(); iter++) {
+    for (const auto& key_pair : key_address_cache) {
+      for (const std::string& address : key_pair.second) {
         std::vector<std::string> v;
         split(*iter, ':', v);
+
         if (v[1] == signature) {
-          remove_set.insert(it->first);
+          remove_set.insert(key_pair.first);
         }
       }
     }
 
-    for (auto it = remove_set.begin(); it != remove_set.end(); it++) {
-      key_address_cache.erase(*it);
+    for (const std::string& key : remove_set) {
+      key_address_cache.erase(key);
     }
 
     trial += 1;
@@ -210,8 +210,8 @@ void run(unsigned thread_id, std::string filename) {
   YAML::Node routing = conf["routing"];
   std::vector<std::string> routing_address;
 
-  for (YAML::const_iterator it = routing.begin(); it != routing.end(); ++it) {
-    routing_address.push_back(it->as<std::string>());
+  for (const YAML::Node& node : routing) {
+    routing_address.push_back(node.as<std::string>());
   }
 
   int timeout = 10000;

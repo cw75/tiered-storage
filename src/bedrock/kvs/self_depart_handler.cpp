@@ -28,16 +28,17 @@ void self_depart_handler(
   if (thread_id == 0) {
     std::string msg = std::to_string(kSelfTierId) + ":" + ip;
 
-    for (auto it = global_hash_ring_map.begin();
-         it != global_hash_ring_map.end(); it++) {
-      auto hash_ring = &(it->second);
+    for (const auto& global_pair : global_hash_ring_map) {
+      GlobalHashRing hash_ring = global_pair.second;
       std::unordered_set<std::string> observed_ip;
 
-      for (auto iter = hash_ring->begin(); iter != hash_ring->end(); iter++) {
-        if (observed_ip.find(iter->second.get_ip()) == observed_ip.end()) {
+      for (const auto& hash_pair : hash_ring) {
+        std::string this_ip = hash_pair.second.get_ip();
+
+        if (observed_ip.find(this_ip) == observed_ip.end()) {
           zmq_util::send_string(
-              msg, &pushers[(iter->second).get_node_depart_connect_addr()]);
-          observed_ip.insert(iter->second.get_ip());
+              msg, &pushers[hash_pair.second.get_node_depart_connect_addr()]);
+          observed_ip.insert(this_ip);
         }
       }
     }
@@ -45,16 +46,15 @@ void self_depart_handler(
     msg = "depart:" + std::to_string(kSelfTierId) + ":" + ip;
 
     // notify all routing nodes
-    for (auto it = routing_address.begin(); it != routing_address.end(); it++) {
+    for (const std::string& address : routing_address) {
       zmq_util::send_string(
-          msg, &pushers[RoutingThread(*it, 0).get_notify_connect_addr()]);
+          msg, &pushers[RoutingThread(address, 0).get_notify_connect_addr()]);
     }
 
     // notify monitoring nodes
-    for (auto it = monitoring_address.begin(); it != monitoring_address.end();
-         it++) {
+    for (const std::string& address : monitoring_address) {
       zmq_util::send_string(
-          msg, &pushers[MonitoringThread(*it).get_notify_connect_addr()]);
+          msg, &pushers[MonitoringThread(address).get_notify_connect_addr()]);
     }
 
     // tell all worker threads about the self departure
@@ -68,22 +68,21 @@ void self_depart_handler(
   AddressKeysetMap addr_keyset_map;
   bool succeed;
 
-  for (auto it = key_size_map.begin(); it != key_size_map.end(); it++) {
-    std::string key = it->first;
-    auto threads = get_responsible_threads(
+  for (const auto& key_pair : key_size_map) {
+    std::string key = key_pair.first;
+    ServerThreadSet threads = get_responsible_threads(
         wt.get_replication_factor_connect_addr(), key, is_metadata(key),
         global_hash_ring_map, local_hash_ring_map, placement, pushers, kAllTierIds,
         succeed, seed);
 
     if (succeed) {
-      // since we already removed itself from the hash ring, no need to exclude
-      // itself from threads
-      for (auto iter = threads.begin(); iter != threads.end(); iter++) {
-        addr_keyset_map[iter->get_gossip_connect_addr()].insert(key);
+      // since we already removed this node from the hash ring, no need to exclude
+      // it explicitly
+      for (const ServerThread& thread : threads) {
+        addr_keyset_map[thread.get_gossip_connect_addr()].insert(key);
       }
     } else {
-      logger->info(
-          "Error: key missing replication factor in node depart routine");
+      logger->error("Missing key replication factor in node depart routine");
     }
   }
 

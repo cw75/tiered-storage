@@ -23,9 +23,8 @@ void address_handler(
   bool succeed;
 
   int num_servers = 0;
-  for (auto it = global_hash_ring_map.begin(); it != global_hash_ring_map.end();
-       ++it) {
-    num_servers += it->second.size();
+  for (const auto& global_pair : global_hash_ring_map) {
+    num_servers += global_pair.second.size();
   }
 
   if (num_servers == 0) {
@@ -37,10 +36,9 @@ void address_handler(
     zmq_util::send_string(serialized_key_res,
                           &pushers[key_req.respond_address()]);
   } else {  // if there are servers, attempt to return the correct threads
-    for (int i = 0; i < key_req.keys_size(); i++) {
+    for (const std::string& key : key_req.keys()) {
       unsigned tier_id = 1;
-      std::unordered_set<ServerThread, ThreadHash> threads = {};
-      std::string key = key_req.keys(i);
+      ServerThreadSet threads = {};
 
       while (threads.size() == 0 && tier_id < kMaxTier) {
         threads = get_responsible_threads(
@@ -66,8 +64,8 @@ void address_handler(
       communication::Key_Response_Tuple* tp = key_res.add_tuple();
       tp->set_key(key);
 
-      for (auto it = threads.begin(); it != threads.end(); it++) {
-        tp->add_addresses(it->get_request_pulling_connect_addr());
+      for (const ServerThread& thread : threads) {
+        tp->add_addresses(thread.get_request_pulling_connect_addr());
       }
     }
 

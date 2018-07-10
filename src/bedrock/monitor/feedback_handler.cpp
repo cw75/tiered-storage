@@ -19,9 +19,9 @@ void feedback_handler(
     user_throughput[fb.uid()] = fb.throughput();
 
     // collect replication factor adjustment factors
-    for (int i = 0; i < fb.rep_size(); i++) {
-      std::string key = fb.rep(i).key();
-      double factor = fb.rep(i).factor();
+    for (const auto& rep : fb.rep()) {
+      std::string key = rep.key();
+      double factor = rep.factor();
 
       if (rep_factor_map.find(key) == rep_factor_map.end()) {
         rep_factor_map[key].first = factor;

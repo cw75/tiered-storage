@@ -9,6 +9,12 @@ struct ThreadHash {
   }
 };
 
+// TODO: This is here for now because it needs the definition of ThreadHash, but
+// it seems like it should actually be in threads.hpp; that doesn't compile
+// because that file gets compiled before this one (and there is a circular
+// dependency between the two?)... not completely sure how to fix this
+typedef std::unordered_set<ServerThread, ThreadHash> ServerThreadSet;
+
 struct GlobalHasher {
   uint32_t operator()(const ServerThread& th) {
     // prepend a string to make the hash value different than

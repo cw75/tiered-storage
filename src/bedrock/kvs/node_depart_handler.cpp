@@ -34,11 +34,10 @@ void node_depart_handler(
           &pushers[ServerThread(ip, tid).get_node_depart_connect_addr()]);
     }
 
-    for (auto it = global_hash_ring_map.begin();
-         it != global_hash_ring_map.end(); it++) {
+    for (const auto& pair : global_hash_ring_map) {
       logger->info("Hash ring for tier {} size is {}.",
-                   std::to_string(it->first),
-                   std::to_string(it->second.size()));
+                   std::to_string(pair.first),
+                   std::to_string(pair.second.size()));
     }
   }
 }

@@ -24,10 +24,9 @@ void movement_policy(
       VALUE_SIZE;
   bool overflow = false;
 
-  for (auto it = key_access_summary.begin(); it != key_access_summary.end();
-       it++) {
-    std::string key = it->first;
-    unsigned total_access = it->second;
+  for (const auto& key_access_pair : key_access_summary) {
+    std::string key = key_access_pair.first;
+    unsigned total_access = key_access_pair.second;
 
     if (!is_metadata(key) && total_access > PROMOTE_THRESHOLD &&
         placement[key].global_replication_map_[1] == 0) {
@@ -76,10 +75,9 @@ void movement_policy(
          VALUE_SIZE;
   overflow = false;
 
-  for (auto it = key_access_summary.begin(); it != key_access_summary.end();
-       it++) {
-    std::string key = it->first;
-    unsigned total_access = it->second;
+  for (const auto& key_access_pair : key_access_summary) {
+    std::string key = key_access_pair.first;
+    unsigned total_access = key_access_pair.second;
 
     if (!is_metadata(key) && total_access < DEMOTE_THRESHOLD &&
         placement[key].global_replication_map_[1] > 0) {
@@ -115,10 +113,9 @@ void movement_policy(
   total_rep_to_change = 0;
 
   // reduce the replication factor of some keys that are not so hot anymore
-  for (auto it = key_access_summary.begin(); it != key_access_summary.end();
-       it++) {
-    std::string key = it->first;
-    unsigned total_access = it->second;
+  for (const auto& key_access_pair : key_access_summary) {
+    std::string key = key_access_pair.first;
+    unsigned total_access = key_access_pair.second;
 
     if (!is_metadata(key) && total_access <= ss.key_access_mean &&
         placement[key].global_replication_map_[1] > kMinimumReplicaNumber) {

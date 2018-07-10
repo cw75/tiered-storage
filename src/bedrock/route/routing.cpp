@@ -36,17 +36,14 @@ void run(unsigned thread_id) {
     std::vector<std::string> monitoring_address;
     YAML::Node monitoring = conf["monitoring"];
 
-    for (YAML::const_iterator it = monitoring.begin(); it != monitoring.end();
-         ++it) {
-      monitoring_address.push_back(it->as<std::string>());
-    }
+    // parse IPs and notify monitoring nodes
+    for (const YAML::Node& node : monitoring) {
+      std::string address = node.as<std::string>();
+      monitoring_address.push_back(address);
 
-    // notify monitoring nodes
-    for (auto it = monitoring_address.begin(); it != monitoring_address.end();
-         it++) {
       zmq_util::send_string(
           "join:0:" + ip,
-          &pushers[MonitoringThread(*it).get_notify_connect_addr()]);
+          &pushers[MonitoringThread(address).get_notify_connect_addr()]);
     }
   }
 
@@ -61,9 +58,9 @@ void run(unsigned thread_id) {
       pending_key_request_map;
 
   // form local hash rings
-  for (auto it = tier_data_map.begin(); it != tier_data_map.end(); it++) {
-    for (unsigned tid = 0; tid < it->second.thread_number_; tid++) {
-      insert_to_hash_ring<LocalHashRing>(local_hash_ring_map[it->first], ip,
+  for (const auto& tier_pair : tier_data_map) {
+    for (unsigned tid = 0; tid < tier_pair.second.thread_number_; tid++) {
+      insert_to_hash_ring<LocalHashRing>(local_hash_ring_map[tier_pair.first], ip,
                                          tid);
     }
   }

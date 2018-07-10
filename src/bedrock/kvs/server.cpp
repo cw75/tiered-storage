@@ -99,13 +99,12 @@ void run(unsigned thread_id) {
   YAML::Node monitoring = conf["monitoring"];
   YAML::Node routing = conf["routing"];
 
-  for (YAML::const_iterator it = routing.begin(); it != routing.end(); ++it) {
-    routing_address.push_back(it->as<std::string>());
+  for (const YAML::Node& address : routing) {
+    routing_address.push_back(address.as<std::string>());
   }
 
-  for (YAML::const_iterator it = monitoring.begin(); it != monitoring.end();
-       ++it) {
-    monitoring_address.push_back(it->as<std::string>());
+  for (const YAML::Node& address : monitoring) {
+    monitoring_address.push_back(address.as<std::string>());
   }
 
   // request server addresses from the seed node
@@ -124,10 +123,9 @@ void run(unsigned thread_id) {
   std::chrono::system_clock::time_point start_time(dur);
 
   // populate addresses
-  for (int i = 0; i < addresses.tuple_size(); i++) {
+  for (const auto& tuple : addresses.tuple()) {
     insert_to_hash_ring<GlobalHashRing>(
-        global_hash_ring_map[addresses.tuple(i).tier_id()],
-        addresses.tuple(i).ip(), 0);
+        global_hash_ring_map[tuple.tier_id()], tuple.ip(), 0);
   }
 
   // add itself to global hash ring
@@ -135,28 +133,28 @@ void run(unsigned thread_id) {
                                       0);
 
   // form local hash rings
-  for (auto it = tier_data_map.begin(); it != tier_data_map.end(); it++) {
-    for (unsigned tid = 0; tid < it->second.thread_number_; tid++) {
-      insert_to_hash_ring<LocalHashRing>(local_hash_ring_map[it->first], ip,
-                                         tid);
+  for (const auto& tier_pair : tier_data_map) {
+    for (unsigned tid = 0; tid < tier_pair.second.thread_number_; tid++) {
+      insert_to_hash_ring<LocalHashRing>(local_hash_ring_map[tier_pair.first],
+          ip, tid);
     }
   }
 
   // thread 0 notifies other servers that it has joined
   if (thread_id == 0) {
-    for (auto it = global_hash_ring_map.begin();
-         it != global_hash_ring_map.end(); it++) {
-      unsigned tier_id = it->first;
-      auto hash_ring = &(it->second);
+    for (const auto& global_pair : global_hash_ring_map) {
+      unsigned tier_id = global_pair.first;
+      GlobalHashRing hash_ring = global_pair.second;
       std::unordered_set<std::string> observed_ip;
 
-      for (auto iter = hash_ring->begin(); iter != hash_ring->end(); iter++) {
-        if (iter->second.get_ip().compare(ip) != 0 &&
-            observed_ip.find(iter->second.get_ip()) == observed_ip.end()) {
+      for (const auto& hash_pair : hash_ring) {
+        std::string server_ip = hash_pair.second.get_ip();
+        if (server_ip.compare(ip) != 0 &&
+            observed_ip.find(server_ip) == observed_ip.end()) {
           zmq_util::send_string(
               std::to_string(kSelfTierId) + ":" + ip,
-              &pushers[(iter->second).get_node_join_connect_addr()]);
-          observed_ip.insert(iter->second.get_ip());
+              &pushers[hash_pair.second.get_node_join_connect_addr()]);
+          observed_ip.insert(server_ip);
         }
       }
     }
@@ -164,16 +162,15 @@ void run(unsigned thread_id) {
     std::string msg = "join:" + std::to_string(kSelfTierId) + ":" + ip;
 
     // notify proxies that this node has joined
-    for (auto it = routing_address.begin(); it != routing_address.end(); it++) {
+    for (const std::string& address : routing_address) {
       zmq_util::send_string(
-          msg, &pushers[RoutingThread(*it, 0).get_notify_connect_addr()]);
+          msg, &pushers[RoutingThread(address, 0).get_notify_connect_addr()]);
     }
 
     // notify monitoring nodes that this node has joined
-    for (auto it = monitoring_address.begin(); it != monitoring_address.end();
-         it++) {
+    for (const std::string& address : monitoring_address) {
       zmq_util::send_string(
-          msg, &pushers[MonitoringThread(*it).get_notify_connect_addr()]);
+          msg, &pushers[MonitoringThread(address).get_notify_connect_addr()]);
     }
   }
 
@@ -374,24 +371,18 @@ void run(unsigned thread_id) {
         AddressKeysetMap addr_keyset_map;
 
         bool succeed;
-        for (auto it = local_changeset.begin(); it != local_changeset.end();
-             it++) {
-          std::string key = *it;
-          auto threads = get_responsible_threads(
+        for (const auto& key : local_changeset) {
+          ServerThreadSet threads = get_responsible_threads(
               wt.get_replication_factor_connect_addr(), key, is_metadata(key),
               global_hash_ring_map, local_hash_ring_map, placement, pushers,
               kAllTierIds, succeed, seed);
 
           if (succeed) {
-            for (auto iter = threads.begin(); iter != threads.end(); iter++) {
-              if (iter->get_id() != wt.get_id()) {
-                addr_keyset_map[iter->get_gossip_connect_addr()].insert(key);
+            for (const ServerThread& thread : threads) {
+                addr_keyset_map[thread.get_gossip_connect_addr()].insert(key);
               }
-            }
           } else {
-            logger->info(
-                "Error: missing key replication factor in gossip send "
-                "routine.");
+            logger->error("Missing key replication factor in gossip routine.");
           }
         }
 
@@ -422,18 +413,17 @@ void run(unsigned thread_id) {
 
       // compute total storage consumption
       unsigned long long consumption = 0;
-      for (auto it = key_size_map.begin(); it != key_size_map.end(); it++) {
-        consumption += it->second;
+      for (const auto& key_pair : key_size_map) {
+        consumption += key_pair.second;
       }
 
-      for (int i = 0; i < sizeof(working_time_map) / sizeof(unsigned long long);
-           i++) {
+      int index = 0;
+      for (const unsigned long long& time : working_time_map) {
         // cast to microsecond
-        double event_occupancy =
-            (double)working_time_map[i] / ((double)duration * 1000000);
+        double event_occupancy = (double)time / ((double)duration * 1000000);
 
         if (event_occupancy > 0.02) {
-          logger->info("Event {} occupancy is {}.", std::to_string(i),
+          logger->info("Event {} occupancy is {}.", std::to_string(index++),
                        std::to_string(event_occupancy));
         }
       }
@@ -469,18 +459,16 @@ void run(unsigned thread_id) {
       communication::Key_Access access;
       auto current_time = std::chrono::system_clock::now();
 
-      for (auto it = key_access_timestamp.begin();
-           it != key_access_timestamp.end(); it++) {
-        std::string key = it->first;
-        auto mset = &(it->second);
+      for (const auto& key_access_pair : key_access_timestamp) {
+        std::string key = key_access_pair.first;
+        auto access_times = key_access_pair.second;
 
         // garbage collect
-        for (auto set_iter = mset->rbegin(); set_iter != mset->rend();
-             set_iter++) {
+        for (const auto& time : access_times) {
           if (std::chrono::duration_cast<std::chrono::seconds>(current_time -
-                                                               *set_iter)
+                                                               time)
                   .count() >= KEY_MONITORING_THRESHOLD) {
-            mset->erase(mset->begin(), set_iter.base());
+            access_times.erase(time);
             break;
           }
         }
@@ -488,7 +476,7 @@ void run(unsigned thread_id) {
         // update key_access_frequency
         communication::Key_Access_Tuple *tp = access.add_tuple();
         tp->set_key(key);
-        tp->set_access(mset->size());
+        tp->set_access(access_times.size());
       }
 
       // report key access stats
@@ -526,38 +514,42 @@ void run(unsigned thread_id) {
 
       // assemble gossip
       AddressKeysetMap addr_keyset_map;
-      for (auto it = join_addr_keyset_map.begin();
-           it != join_addr_keyset_map.end(); it++) {
-        auto address = it->first;
-        auto key_set = &(it->second);
+      for (const auto& join_pair : join_addr_keyset_map) {
+        std::string address = join_pair.first;
+        std::unordered_set<std::string> key_set = join_pair.second;
         unsigned count = 0;
 
-        while (count < DATA_REDISTRIBUTE_THRESHOLD && key_set->size() > 0) {
-          std::string k = *(key_set->begin());
-          addr_keyset_map[address].insert(k);
+        // track all sent keys because we cannot modify the key_set while
+        // iterating over it
+        std::unordered_set<std::string> sent_keys;
 
-          key_set->erase(k);
-          count += 1;
+        for (const std::string& key : key_set) {
+          addr_keyset_map[address].insert(key);
+          sent_keys.insert(key);
+          count++;
         }
 
-        if (key_set->size() == 0) {
+        // remove the keys we just dealt with
+        for (const std::string& key : sent_keys) {
+          key_set.erase(key);
+        }
+
+        if (key_set.size() == 0) {
           remove_address_set.insert(address);
         }
       }
 
-      for (auto it = remove_address_set.begin(); it != remove_address_set.end();
-           it++) {
-        join_addr_keyset_map.erase(*it);
+      for (const std::string& remove_address : remove_address_set) {
+        join_addr_keyset_map.erase(remove_address);
       }
 
       send_gossip(addr_keyset_map, pushers, serializer);
 
       // remove keys
       if (join_addr_keyset_map.size() == 0) {
-        for (auto it = join_remove_set.begin(); it != join_remove_set.end();
-             it++) {
-          key_size_map.erase(*it);
-          serializer->remove(*it);
+        for (const std::string& key : join_remove_set) {
+          key_size_map.erase(key);
+          serializer->remove(key);
         }
       }
     }

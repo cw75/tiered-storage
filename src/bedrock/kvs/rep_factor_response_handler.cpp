@@ -50,27 +50,27 @@ void rep_factor_response_handler(
     communication::Replication_Factor rep_data;
     rep_data.ParseFromString(response.tuple(0).value());
 
-    for (int i = 0; i < rep_data.global_size(); i++) {
-      placement[key].global_replication_map_[rep_data.global(i).tier_id()] =
-          rep_data.global(i).global_replication();
+    for (const auto& global : rep_data.global()) {
+      placement[key].global_replication_map_[global.tier_id()] =
+          glboal.global_replication();
     }
 
-    for (int i = 0; i < rep_data.local_size(); i++) {
-      placement[key].local_replication_map_[rep_data.local(i).tier_id()] =
-          rep_data.local(i).local_replication();
+    for (const auto& local : rep_data.local()) {
+      placement[key].local_replication_map_[local.tier_id()] =
+          local.local_replication();
     }
   } else {
-    for (unsigned i = kMinTier; i <= kMaxTier; i++) {
-      placement[key].global_replication_map_[i] =
-          tier_data_map[i].default_replication_;
-      placement[key].local_replication_map_[i] = kDefaultLocalReplication;
+    for (const unsigned& tier_id : kAllTierIds) {
+      placement[key].global_replication_map_[tier_id] =
+          tier_data_map[tier_id].default_replication_;
+      placement[key].local_replication_map_[tier_id] = kDefaultLocalReplication;
     }
   }
 
   bool succeed;
 
   if (pending_request_map.find(key) != pending_request_map.end()) {
-    auto threads = get_responsible_threads(
+    ServerThreadSet threads = get_responsible_threads(
         wt.get_replication_factor_connect_addr(), key, is_metadata(key),
         global_hash_ring_map, local_hash_ring_map, placement, pushers, kSelfTierIdVector,
         succeed, seed);
@@ -79,38 +79,37 @@ void rep_factor_response_handler(
       bool responsible = threads.find(wt) != threads.end();
       std::vector<PendingRequest> request_vec = pending_request_map[key].second;
 
-      for (auto it = request_vec.begin(); it != request_vec.end(); ++it) {
+      for (const PendingRequest& request : request_vec) {
         auto now = std::chrono::system_clock::now();
 
-        if (!responsible && it->addr_ != "") {
+        if (!responsible && request.addr_ != "") {
           communication::Response response;
 
-          if (it->respond_id_ != "") {
-            response.set_response_id(it->respond_id_);
+          if (request.respond_id_ != "") {
+            response.set_response_id(request.respond_id_);
           }
 
           communication::Response_Tuple* tp = response.add_tuple();
           tp->set_key(key);
           tp->set_err_number(2);
 
-          for (auto iter = threads.begin(); iter != threads.end(); iter++) {
-            tp->add_addresses(iter->get_request_pulling_connect_addr());
+          for (const ServerThread& thread : threads) {
+            tp->add_addresses(thread.get_request_pulling_connect_addr());
           }
 
           std::string serialized_response;
           response.SerializeToString(&serialized_response);
-          zmq_util::send_string(serialized_response, &pushers[it->addr_]);
-        } else if (responsible &&
-                   it->addr_ == "") {  // only put requests should fall into
-                                       // this category
-          if (it->type_ == "P") {
+          zmq_util::send_string(serialized_response, &pushers[request.addr_]);
+        } else if (responsible && request.addr_ == "") {
+          // only put requests should fall into this category
+          if (request.type_ == "P") {
             auto time_diff =
                 std::chrono::duration_cast<std::chrono::milliseconds>(
                     now - start_time)
                     .count();
             auto ts = generate_timestamp(time_diff, wt.get_tid());
 
-            process_put(key, ts, it->value_, serializer, key_size_map);
+            process_put(key, ts, request.value_, serializer, key_size_map);
             key_access_timestamp[key].insert(now);
 
             total_access += 1;
@@ -118,17 +117,17 @@ void rep_factor_response_handler(
           } else {
             logger->error("Received a GET request with no response address.");
           }
-        } else if (responsible && it->addr_ != "") {
+        } else if (responsible && request.addr_ != "") {
           communication::Response response;
 
-          if (it->respond_id_ != "") {
-            response.set_response_id(it->respond_id_);
+          if (request.respond_id_ != "") {
+            response.set_response_id(request.respond_id_);
           }
 
           communication::Response_Tuple* tp = response.add_tuple();
           tp->set_key(key);
 
-          if (it->type_ == "G") {
+          if (request.type_ == "G") {
             auto res = process_get(key, serializer);
             tp->set_value(res.first.reveal().value);
             tp->set_err_number(res.second);
@@ -142,7 +141,7 @@ void rep_factor_response_handler(
                     .count();
             auto ts = generate_timestamp(time_diff, wt.get_tid());
 
-            process_put(key, ts, it->value_, serializer, key_size_map);
+            process_put(key, ts, request.value_, serializer, key_size_map);
             tp->set_err_number(0);
 
             key_access_timestamp[key].insert(now);
@@ -152,7 +151,7 @@ void rep_factor_response_handler(
 
           std::string serialized_response;
           response.SerializeToString(&serialized_response);
-          zmq_util::send_string(serialized_response, &pushers[it->addr_]);
+          zmq_util::send_string(serialized_response, &pushers[request.addr_]);
         }
       }
     } else {
@@ -171,6 +170,7 @@ void rep_factor_response_handler(
 
     if (succeed) {
       if (threads.find(wt) != threads.end()) {
+        // TODO(vikram): change once Chenggang finishes type refactor
         for (auto it = pending_gossip_map[key].second.begin();
              it != pending_gossip_map[key].second.end(); ++it) {
           process_put(key, it->ts_, it->value_, serializer, key_size_map);

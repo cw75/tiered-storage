@@ -31,9 +31,8 @@ int main(int argc, char* argv[]) {
   YAML::Node conf = YAML::LoadFile("conf/config.yml");
   YAML::Node benchmark = conf["benchmark"];
 
-  for (YAML::const_iterator it = benchmark.begin(); it != benchmark.end();
-       ++it) {
-    ips.push_back(it->as<std::string>());
+  for (const YAML::Node& node : benchmark) {
+    ips.push_back(node.as<std::string>());
   }
 
   zmq::context_t context(1);
@@ -44,11 +43,10 @@ int main(int argc, char* argv[]) {
     std::cout << "command> ";
     getline(std::cin, command);
 
-    for (auto it = benchmark_address.begin(); it != benchmark_address.end();
-         it++) {
+    for (const std::string address : benchmark_address) {
       for (unsigned tid = 0; tid < thread_num; tid++) {
         zmq_util::send_string(
-            command, &pushers["tcp://" + *it + ":" +
+            command, &pushers["tcp://" + address + ":" +
                               std::to_string(tid + kBenchmarkCommandBasePort)]);
       }
     }

@@ -40,10 +40,10 @@ void slo_policy(
     } else {  // hot key replication
       // find hot keys
       logger->info("Classifying hot keys...");
-      for (auto it = key_access_summary.begin(); it != key_access_summary.end();
-           it++) {
-        std::string key = it->first;
-        unsigned total_access = it->second;
+
+      for (const auto& key_access_pair : key_access_summary) {
+        std::string key = key_access_pair.first;
+        unsigned total_access = key_access_pair.second;
 
         if (!is_metadata(key) &&
             total_access > ss.key_access_mean + ss.key_access_std &&
@@ -102,9 +102,8 @@ void slo_policy(
     if (time_elapsed > GRACE_PERIOD) {
       // before sending remove command, first adjust relevant key's replication
       // factor
-      for (auto it = key_access_summary.begin(); it != key_access_summary.end();
-           it++) {
-        std::string key = it->first;
+      for (const auto& key_access_pair : key_access_summary) {
+        std::string key = key_access_pair.first;
 
         if (!is_metadata(key) &&
             placement[key].global_replication_map_[1] ==

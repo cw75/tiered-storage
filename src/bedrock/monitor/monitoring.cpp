@@ -47,9 +47,9 @@ int main(int argc, char *argv[]) {
   std::unordered_map<unsigned, LocalHashRing> local_hash_ring_map;
 
   // form local hash rings
-  for (auto it = tier_data_map.begin(); it != tier_data_map.end(); it++) {
-    for (unsigned tid = 0; tid < it->second.thread_number_; tid++) {
-      insert_to_hash_ring<LocalHashRing>(local_hash_ring_map[it->first], ip,
+  for (const auto& tier_pair : tier_data_map) {
+    for (unsigned tid = 0; tid < tier_pair.second.thread_number_; tid++) {
+      insert_to_hash_ring<LocalHashRing>(local_hash_ring_map[tier_pair.first], ip,
                                          tid);
     }
   }

@@ -58,11 +58,10 @@ void membership_handler(
       logger->error("Invalid tier: {}.", std::to_string(tier));
     }
 
-    for (auto it = global_hash_ring_map.begin();
-         it != global_hash_ring_map.end(); it++) {
+    for (const auto& global_pair : global_hash_ring_map) {
       logger->info("Hash ring for tier {} is size {}.",
-                   std::to_string(it->first),
-                   std::to_string(it->second.size()));
+                   std::to_string(global_pair.first),
+                   std::to_string(global_pair.second.size()));
     }
   } else if (type == "depart") {
     logger->info("Received depart from server {}.", new_server_ip);
@@ -74,10 +73,9 @@ void membership_handler(
       memory_tier_storage.erase(new_server_ip);
       memory_tier_occupancy.erase(new_server_ip);
 
-      for (auto it = key_access_frequency.begin();
-           it != key_access_frequency.end(); it++) {
+      for (const auto& key_access_pair : key_access_frequency) {
         for (unsigned i = 0; i < kMemoryThreadCount; i++) {
-          it->second.erase(new_server_ip + ":" + std::to_string(i));
+          key_access_pair.second.erase(new_server_ip + ":" + std::to_string(i));
         }
       }
     } else if (tier == 2) {
@@ -86,21 +84,20 @@ void membership_handler(
       ebs_tier_storage.erase(new_server_ip);
       ebs_tier_occupancy.erase(new_server_ip);
 
-      for (auto it = key_access_frequency.begin();
-           it != key_access_frequency.end(); it++) {
+
+      for (const auto& key_access_pair : key_access_frequency) {
         for (unsigned i = 0; i < kEbsThreadCount; i++) {
-          it->second.erase(new_server_ip + ":" + std::to_string(i));
+          key_access_pair.second.erase(new_server_ip + ":" + std::to_string(i));
         }
       }
     } else {
       logger->error("Invalid tier: {}.", std::to_string(tier));
     }
 
-    for (auto it = global_hash_ring_map.begin();
-         it != global_hash_ring_map.end(); it++) {
+    for (const auto& global_pair : global_hash_ring_map) {
       logger->info("Hash ring for tier {} is size {}.",
-                   std::to_string(it->first),
-                   std::to_string(it->second.size()));
+                   std::to_string(global_pair.first),
+                   std::to_string(global_pair.second.size()));
     }
   }
 }
