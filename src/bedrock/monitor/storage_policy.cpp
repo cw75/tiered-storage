@@ -16,8 +16,8 @@ void storage_policy(
     auto time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
                             std::chrono::system_clock::now() - grace_start)
                             .count();
-    if (time_elapsed > GRACE_PERIOD) {
-      add_node(logger, "memory", NODE_ADD, adding_memory_node,
+    if (time_elapsed > kGracePeriod) {
+      add_node(logger, "memory", kNodeAdditionBatchSize, adding_memory_node,
                management_address);
     }
   }
@@ -26,20 +26,20 @@ void storage_policy(
     auto time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
                             std::chrono::system_clock::now() - grace_start)
                             .count();
-    if (time_elapsed > GRACE_PERIOD) {
-      add_node(logger, "ebs", NODE_ADD, adding_ebs_node, management_address);
+    if (time_elapsed > kGracePeriod) {
+      add_node(logger, "ebs", kNodeAdditionBatchSize, adding_ebs_node, management_address);
     }
   }
 
-  if (ss.avg_ebs_consumption_percentage < EBS_CAPACITY_MIN &&
+  if (ss.avg_ebs_consumption_percentage < kMinEbsNodeConsumption &&
       !removing_ebs_node &&
       ebs_node_number >
-          std::max(ss.required_ebs_node, (unsigned)MINIMUM_EBS_NODE)) {
+          std::max(ss.required_ebs_node, (unsigned)kMinEbsTierSize)) {
     auto time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
                             std::chrono::system_clock::now() - grace_start)
                             .count();
 
-    if (time_elapsed > GRACE_PERIOD) {
+    if (time_elapsed > kGracePeriod) {
       // pick a random ebs node and send remove node command
       auto node = next(begin(global_hash_ring_map[2]),
                        rand() % global_hash_ring_map[2].size())

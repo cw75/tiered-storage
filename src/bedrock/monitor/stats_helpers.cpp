@@ -248,10 +248,10 @@ void compute_summary_stats(
 
   ss.required_memory_node =
       ceil(ss.total_memory_consumption /
-           (MEM_CAPACITY_MAX * tier_data_map[1].node_capacity_));
+           (kMaxMemoryNodeConsumption * tier_data_map[1].node_capacity_));
   ss.required_ebs_node =
       ceil(ss.total_ebs_consumption /
-           (EBS_CAPACITY_MAX * tier_data_map[2].node_capacity_));
+           (kMaxEbsNodeConsumption * tier_data_map[2].node_capacity_));
 
   logger->info("The system requires {} new memory nodes.",
                ss.required_memory_node);

@@ -177,7 +177,7 @@ int main(int argc, char *argv[]) {
 
     if (std::chrono::duration_cast<std::chrono::seconds>(report_end -
                                                          report_start)
-            .count() >= MONITORING_THRESHOLD) {
+            .count() >= kMonitoringThreshold) {
       server_monitoring_epoch += 1;
 
       memory_node_number = global_hash_ring_map[1].size() / kVirtualThreadNum;

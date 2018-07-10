@@ -32,7 +32,7 @@ void slo_policy(
       auto time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
                               std::chrono::system_clock::now() - grace_start)
                               .count();
-      if (time_elapsed > GRACE_PERIOD) {
+      if (time_elapsed > kGracePeriod) {
         add_node(logger, "memory", node_to_add, adding_memory_node,
                  management_address);
       }
@@ -91,14 +91,14 @@ void slo_policy(
     }
   } else if (ss.min_memory_occupancy < 0.05 && !removing_memory_node &&
              memory_node_number > std::max(ss.required_memory_node,
-                                           (unsigned)MINIMUM_MEMORY_NODE)) {
+                                           (unsigned)kMinMemoryTierSize)) {
     logger->info("Node {} is severely underutilized.",
                  ss.min_occupancy_memory_ip);
     auto time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
                             std::chrono::system_clock::now() - grace_start)
                             .count();
 
-    if (time_elapsed > GRACE_PERIOD) {
+    if (time_elapsed > kGracePeriod) {
       // before sending remove command, first adjust relevant key's replication
       // factor
       for (const auto& key_access_pair : key_access_summary) {

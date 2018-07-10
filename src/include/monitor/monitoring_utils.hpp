@@ -5,30 +5,30 @@
 #include "spdlog/spdlog.h"
 
 // define monitoring threshold (in second)
-const unsigned MONITORING_THRESHOLD = 30;
+const unsigned kMonitoringThreshold = 30;
 
 // define the grace period for triggering elasticity action (in second)
-const unsigned GRACE_PERIOD = 120;
+const unsigned kGracePeriod = 120;
 
 // the default number of nodes to add concurrently for storage
-const unsigned NODE_ADD = 2;
+const unsigned kNodeAdditionBatchSize = 2;
 
 // define capacity for both tiers
-const double MEM_CAPACITY_MAX = 0.6;
-const double MEM_CAPACITY_MIN = 0.3;
-const double EBS_CAPACITY_MAX = 0.75;
-const double EBS_CAPACITY_MIN = 0.5;
+const double kMaxMemoryNodeConsumption = 0.6;
+const double kMinMemoryNodeConsumption = 0.3;
+const double kMaxEbsNodeConsumption = 0.75;
+const double kMinEbsNodeConsumption = 0.5;
 
 // define threshold for promotion/demotion
-const unsigned PROMOTE_THRESHOLD = 0;
-const unsigned DEMOTE_THRESHOLD = 1;
+const unsigned kKeyPromotionThreshold = 0;
+const unsigned kKeyDemotionThreshold = 1;
 
 // define minimum number of nodes for each tier
-const unsigned MINIMUM_MEMORY_NODE = 12;
-const unsigned MINIMUM_EBS_NODE = 0;
+const unsigned kMinMemoryTierSize = 1;
+const unsigned kMinEbsTierSize = 0;
 
 // value size in KB
-const unsigned VALUE_SIZE = 256;
+const unsigned kValueSize = 256;
 
 struct SummaryStats {
   void clear() {
