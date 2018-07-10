@@ -6,6 +6,6 @@
 template <typename T>
 using PendingMap = std::unordered_map<std::string, std::vector<T>>;
 
-using AddressType = std::string;
+using Address = std::string;
 
 #endif
