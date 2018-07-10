@@ -25,17 +25,21 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
+  // read the YAML conf
   YAML::Node conf = YAML::LoadFile("conf/config.yml");
-  std::string ip = conf["monitoring"]["ip"].as<std::string>();
+  YAML::Node monitoring = conf["monitoring"];
+  std::string ip = monitoring["ip"].as<std::string>();
+  std::string management_address = monitoring["mgmt_ip"].as<std::string>();
 
-  kMemoryThreadCount = conf["threads"]["memory"].as<unsigned>();
-  kEbsThreadCount = conf["threads"]["ebs"].as<unsigned>();
+  YAML::Node threads = conf["threads"];
+  kMemoryThreadCount = threads["memory"].as<unsigned>();
+  kEbsThreadCount = threads["ebs"].as<unsigned>();
 
-  kDefaultGlobalMemoryReplication =
-      conf["replication"]["memory"].as<unsigned>();
-  kDefaultGlobalEbsReplication = conf["replication"]["ebs"].as<unsigned>();
-  kDefaultLocalReplication = conf["replication"]["local"].as<unsigned>();
-  kMinimumReplicaNumber = conf["replication"]["minimum"].as<unsigned>();
+  YAML::Node replication = conf["replication"];
+  kDefaultGlobalMemoryReplication = replication["memory"].as<unsigned>();
+  kDefaultGlobalEbsReplication = replication["ebs"].as<unsigned>();
+  kDefaultLocalReplication = replication["local"].as<unsigned>();
+  kMinimumReplicaNumber = replication["minimum"].as<unsigned>();
 
   tier_data_map[1] = TierData(
       kMemoryThreadCount, kDefaultGlobalMemoryReplication, kMemoryNodeCapacity);
@@ -99,9 +103,6 @@ int main(int argc, char *argv[]) {
 
   std::vector<std::string> routing_address;
 
-  // read the YAML conf
-  std::string management_address =
-      conf["monitoring"]["mgmt_ip"].as<std::string>();
   MonitoringThread mt = MonitoringThread(ip);
 
   zmq::context_t context(1);
