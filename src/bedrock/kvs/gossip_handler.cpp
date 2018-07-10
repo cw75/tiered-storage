@@ -12,9 +12,7 @@ void gossip_handler(
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     std::unordered_map<std::string, KeyStat>& key_stat_map,
-    std::unordered_map<
-        std::string, std::pair<std::chrono::system_clock::time_point,
-                               std::vector<PendingGossip>>>& pending_gossip_map,
+    PendingMap<PendingGossip>& pending_gossip_map,
     std::unordered_map<std::string, KeyInfo>& placement, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers) {
   std::string gossip_string = zmq_util::recv_string(gossip_puller);
@@ -22,7 +20,7 @@ void gossip_handler(
   gossip.ParseFromString(gossip_string);
 
   bool succeed;
-  std::unordered_map<std::string, communication::Request> gossip_map;
+  std::unordered_map<Address, communication::Request> gossip_map;
 
   for (int i = 0; i < gossip.tuple_size(); i++) {
     // first check if the thread is responsible for the key
@@ -55,20 +53,12 @@ void gossip_handler(
               wt.get_replication_factor_connect_addr(), key,
               global_hash_ring_map[1], local_hash_ring_map[1], pushers, seed);
 
-          if (pending_gossip_map.find(key) == pending_gossip_map.end()) {
-            pending_gossip_map[key].first = std::chrono::system_clock::now();
-          }
-
-          pending_gossip_map[key].second.push_back(PendingGossip(
+          pending_gossip_map[key].push_back(PendingGossip(
               gossip.tuple(i).value(), gossip.tuple(i).timestamp()));
         }
       }
     } else {
-      if (pending_gossip_map.find(key) == pending_gossip_map.end()) {
-        pending_gossip_map[key].first = std::chrono::system_clock::now();
-      }
-
-      pending_gossip_map[key].second.push_back(
+      pending_gossip_map[key].push_back(
           PendingGossip(gossip.tuple(i).value(), gossip.tuple(i).timestamp()));
     }
   }

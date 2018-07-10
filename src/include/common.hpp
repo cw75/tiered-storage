@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "communication.pb.h"
+#include "types.hpp"
 #include "zmq/socket_cache.hpp"
 #include "zmq/zmq_util.hpp"
 

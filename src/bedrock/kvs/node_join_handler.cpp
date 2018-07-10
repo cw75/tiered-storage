@@ -9,7 +9,7 @@
 #include "zmq/socket_cache.hpp"
 
 void node_join_handler(
-    unsigned int thread_num, unsigned thread_id, unsigned& seed, std::string ip,
+    unsigned int thread_num, unsigned thread_id, unsigned& seed, Address ip,
     std::shared_ptr<spdlog::logger> logger, zmq::socket_t* join_puller,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
@@ -21,7 +21,7 @@ void node_join_handler(
   std::vector<std::string> v;
   split(message, ':', v);
   unsigned tier = stoi(v[0]);
-  std::string new_server_ip = v[1];
+  Address new_server_ip = v[1];
 
   // update global hash ring
   bool inserted = insert_to_hash_ring<GlobalHashRing>(
@@ -44,7 +44,7 @@ void node_join_handler(
       for (auto it = global_hash_ring_map.begin();
            it != global_hash_ring_map.end(); ++it) {
         auto hash_ring = &(it->second);
-        std::unordered_set<std::string> observed_ip;
+        std::unordered_set<Address> observed_ip;
 
         for (auto iter = hash_ring->begin(); iter != hash_ring->end(); iter++) {
           // if the node is not myself and not the newly joined node, send the

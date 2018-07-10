@@ -7,9 +7,9 @@ void storage_policy(
     std::chrono::time_point<std::chrono::system_clock>& grace_start,
     SummaryStats& ss, unsigned& memory_node_number, unsigned& ebs_node_number,
     unsigned& adding_memory_node, unsigned& adding_ebs_node,
-    bool& removing_ebs_node, std::string management_address,
+    bool& removing_ebs_node, Address management_address,
     MonitoringThread& mt, std::unordered_map<unsigned, TierData>& tier_data_map,
-    std::unordered_map<std::string, unsigned>& departing_node_map,
+    std::unordered_map<Address, unsigned>& departing_node_map,
     SocketCache& pushers);
 
 void movement_policy(
@@ -19,12 +19,12 @@ void movement_policy(
     std::chrono::time_point<std::chrono::system_clock>& grace_start,
     SummaryStats& ss, unsigned& memory_node_number, unsigned& ebs_node_number,
     unsigned& adding_memory_node, unsigned& adding_ebs_node,
-    std::string management_address,
+    Address management_address,
     std::unordered_map<std::string, KeyInfo>& placement,
     std::unordered_map<std::string, unsigned>& key_access_summary,
     MonitoringThread& mt, std::unordered_map<unsigned, TierData>& tier_data_map,
     SocketCache& pushers, zmq::socket_t& response_puller,
-    std::vector<std::string>& routing_address, unsigned& rid);
+    std::vector<Address>& routing_address, unsigned& rid);
 
 void slo_policy(
     std::shared_ptr<spdlog::logger> logger,
@@ -33,13 +33,13 @@ void slo_policy(
     std::chrono::time_point<std::chrono::system_clock>& grace_start,
     SummaryStats& ss, unsigned& memory_node_number,
     unsigned& adding_memory_node, bool& removing_memory_node,
-    std::string management_address,
+    Address management_address,
     std::unordered_map<std::string, KeyInfo>& placement,
     std::unordered_map<std::string, unsigned>& key_access_summary,
     MonitoringThread& mt, std::unordered_map<unsigned, TierData>& tier_data_map,
-    std::unordered_map<std::string, unsigned>& departing_node_map,
+    std::unordered_map<Address, unsigned>& departing_node_map,
     SocketCache& pushers, zmq::socket_t& response_puller,
-    std::vector<std::string>& routing_address, unsigned& rid,
+    std::vector<Address>& routing_address, unsigned& rid,
     std::unordered_map<std::string, std::pair<double, unsigned>>&
         rep_factor_map);
 

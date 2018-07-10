@@ -71,12 +71,12 @@ int sample(int n, unsigned& seed, double base,
 
 void handle_request(
     std::string key, std::string value, SocketCache& pushers,
-    std::vector<std::string>& routing_address,
-    std::unordered_map<std::string, std::unordered_set<std::string>>&
+    std::vector<Address>& routing_address,
+    std::unordered_map<std::string, std::unordered_set<Address>>&
         key_address_cache,
     unsigned& seed, std::shared_ptr<spdlog::logger> logger, UserThread& ut,
     zmq::socket_t& response_puller, zmq::socket_t& key_address_puller,
-    std::string& ip, unsigned& thread_id, unsigned& rid, unsigned& trial) {
+    Address& ip, unsigned& thread_id, unsigned& rid, unsigned& trial) {
   if (trial > 5) {
     logger->info("Trial #{} for request for key {}.", trial, key);
     logger->info("Waiting 5 seconds.");
@@ -86,10 +86,10 @@ void handle_request(
   }
 
   // get worker address
-  std::string worker_address;
+  Address worker_address;
   if (key_address_cache.find(key) == key_address_cache.end()) {
     // query the routing and update the cache
-    std::string target_routing_address =
+    Address target_routing_address =
         get_random_routing_thread(routing_address, seed, kRoutingThreadCount)
             .get_key_address_connect_addr();
     bool succeed;
@@ -210,7 +210,7 @@ void run(unsigned thread_id) {
   logger->flush_on(spdlog::level::info);
 
   YAML::Node conf = YAML::LoadFile("conf/config.yml")["user"];
-  std::string ip = conf["ip"].as<std::string>();
+  Address ip = conf["ip"].as<Address>();
 
   std::hash<std::string> hasher;
   unsigned seed = time(NULL);
@@ -219,7 +219,7 @@ void run(unsigned thread_id) {
   logger->info("Random seed is {}.", seed);
 
   // mapping from key to a set of worker addresses
-  std::unordered_map<std::string, std::unordered_set<std::string>>
+  std::unordered_map<std::string, std::unordered_set<Address>>
       key_address_cache;
 
   // rep factor map
@@ -228,7 +228,7 @@ void run(unsigned thread_id) {
   UserThread ut = UserThread(ip, thread_id);
 
   // read the YAML conf
-  std::vector<std::string> routing_address;
+  std::vector<Address> routing_address;
   std::vector<MonitoringThread> mts;
 
   YAML::Node routing = conf["routing"];
@@ -236,11 +236,11 @@ void run(unsigned thread_id) {
 
   for (YAML::const_iterator it = monitoring.begin(); it != monitoring.end();
        ++it) {
-    mts.push_back(MonitoringThread(it->as<std::string>()));
+    mts.push_back(MonitoringThread(it->as<Address>()));
   }
 
   for (YAML::const_iterator it = routing.begin(); it != routing.end(); ++it) {
-    routing_address.push_back(it->as<std::string>());
+    routing_address.push_back(it->as<Address>());
   }
 
   int timeout = 10000;
@@ -292,7 +292,7 @@ void run(unsigned thread_id) {
             logger->info("warming up cache for key {}", key);
           }
 
-          std::string target_routing_address =
+          Address target_routing_address =
               get_random_routing_thread(routing_address, seed,
                                         kRoutingThreadCount)
                   .get_key_address_connect_addr();

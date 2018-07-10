@@ -3,15 +3,15 @@
 
 void depart_done_handler(
     std::shared_ptr<spdlog::logger> logger, zmq::socket_t* depart_done_puller,
-    std::unordered_map<std::string, unsigned>& departing_node_map,
-    std::string management_address, bool& removing_memory_node,
+    std::unordered_map<Address, unsigned>& departing_node_map,
+    Address management_address, bool& removing_memory_node,
     bool& removing_ebs_node,
     std::chrono::time_point<std::chrono::system_clock>& grace_start) {
   std::string msg = zmq_util::recv_string(depart_done_puller);
   std::vector<std::string> tokens;
   split(msg, '_', tokens);
 
-  std::string departed_ip = tokens[0];
+  Address departed_ip = tokens[0];
   unsigned tier_id = stoi(tokens[1]);
 
   if (departing_node_map.find(departed_ip) != departing_node_map.end()) {

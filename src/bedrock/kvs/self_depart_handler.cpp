@@ -9,16 +9,16 @@
 #include "zmq/socket_cache.hpp"
 
 void self_depart_handler(
-    unsigned thread_num, unsigned thread_id, unsigned& seed, std::string ip,
+    unsigned thread_num, unsigned thread_id, unsigned& seed, Address ip,
     std::shared_ptr<spdlog::logger> logger, zmq::socket_t* self_depart_puller,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     std::unordered_map<std::string, KeyStat>& key_stat_map,
     std::unordered_map<std::string, KeyInfo>& placement,
-    std::vector<std::string> routing_address,
-    std::vector<std::string> monitoring_address, ServerThread wt,
+    std::vector<Address>& routing_address,
+    std::vector<Address>& monitoring_address, ServerThread& wt,
     SocketCache& pushers, Serializer* serializer) {
-  std::string ack_addr = zmq_util::recv_string(self_depart_puller);
+  Address ack_addr = zmq_util::recv_string(self_depart_puller);
   logger->info("Node is departing.");
   remove_from_hash_ring<GlobalHashRing>(global_hash_ring_map[kSelfTierId], ip,
                                         0);
@@ -31,7 +31,7 @@ void self_depart_handler(
     for (auto it = global_hash_ring_map.begin();
          it != global_hash_ring_map.end(); it++) {
       auto hash_ring = &(it->second);
-      std::unordered_set<std::string> observed_ip;
+      std::unordered_set<Address> observed_ip;
 
       for (auto iter = hash_ring->begin(); iter != hash_ring->end(); iter++) {
         if (observed_ip.find(iter->second.get_ip()) == observed_ip.end()) {

@@ -26,12 +26,12 @@ unsigned kDefaultLocalReplication;
 
 void handle_request(
     std::string request_line, SocketCache& pushers,
-    std::vector<std::string>& routing_address,
-    std::unordered_map<std::string, std::unordered_set<std::string>>&
+    std::vector<Address>& routing_address,
+    std::unordered_map<std::string, std::unordered_set<Address>>&
         key_address_cache,
     unsigned& seed, std::shared_ptr<spdlog::logger> logger, UserThread& ut,
     zmq::socket_t& response_puller, zmq::socket_t& key_address_puller,
-    std::string& ip, unsigned& thread_id, unsigned& rid, unsigned& trial) {
+    Address& ip, unsigned& thread_id, unsigned& rid, unsigned& trial) {
   std::vector<std::string> v;
   split(request_line, ' ', v);
   std::string key, value;
@@ -58,14 +58,14 @@ void handle_request(
   }
 
   // get worker address
-  std::string worker_address;
+  Address worker_address;
   if (key_address_cache.find(key) == key_address_cache.end()) {
     // query the routing and update the cache
-    std::string target_routing_address =
+    Address target_routing_address =
         get_random_routing_thread(routing_address, seed, kRoutingThreadCount)
             .get_key_address_connect_addr();
     bool succeed;
-    std::vector<std::string> addresses = get_address_from_routing(
+    std::vector<Address> addresses = get_address_from_routing(
         ut, key, pushers[target_routing_address], key_address_puller, succeed,
         ip, thread_id, rid);
 
@@ -193,7 +193,7 @@ void run(unsigned thread_id, std::string filename) {
 
   // read the YAML conf
   YAML::Node conf = YAML::LoadFile("conf/config.yml")["user"];
-  std::string ip = conf["ip"].as<std::string>();
+  Address ip = conf["ip"].as<Address>();
 
   std::hash<std::string> hasher;
   unsigned seed = time(NULL);
@@ -202,16 +202,16 @@ void run(unsigned thread_id, std::string filename) {
   logger->info("Random seed is {}.", seed);
 
   // mapping from key to a set of worker addresses
-  std::unordered_map<std::string, std::unordered_set<std::string>>
+  std::unordered_map<std::string, std::unordered_set<Address>>
       key_address_cache;
 
   UserThread ut = UserThread(ip, thread_id);
 
   YAML::Node routing = conf["routing"];
-  std::vector<std::string> routing_address;
+  std::vector<Address> routing_address;
 
   for (YAML::const_iterator it = routing.begin(); it != routing.end(); ++it) {
-    routing_address.push_back(it->as<std::string>());
+    routing_address.push_back(it->as<Address>());
   }
 
   int timeout = 10000;

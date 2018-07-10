@@ -8,11 +8,7 @@ void replication_response_handler(
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     std::unordered_map<std::string, KeyInfo>& placement,
-    std::unordered_map<
-        std::string,
-        std::pair<std::chrono::system_clock::time_point,
-                  std::vector<std::pair<std::string, std::string>>>>&
-        pending_key_request_map,
+    PendingMap<std::pair<Address, std::string>>& pending_key_request_map,
     unsigned& seed) {
   std::string serialized_response =
       zmq_util::recv_string(replication_factor_puller);
@@ -72,8 +68,8 @@ void replication_response_handler(
         tier_id++;
       }
 
-      for (auto it = pending_key_request_map[key].second.begin();
-           it != pending_key_request_map[key].second.end(); it++) {
+      for (auto it = pending_key_request_map[key].begin();
+           it != pending_key_request_map[key].end(); it++) {
         communication::Key_Response key_res;
         key_res.set_response_id(it->second);
         communication::Key_Response_Tuple* tp = key_res.add_tuple();

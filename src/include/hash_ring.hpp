@@ -7,7 +7,7 @@ typedef ConsistentHashMap<ServerThread, GlobalHasher> GlobalHashRing;
 typedef ConsistentHashMap<ServerThread, LocalHasher> LocalHashRing;
 
 template <typename H>
-bool insert_to_hash_ring(H& hash_ring, std::string ip, unsigned tid) {
+bool insert_to_hash_ring(H& hash_ring, Address ip, unsigned tid) {
   bool succeed;
 
   for (unsigned virtual_num = 0; virtual_num < kVirtualThreadNum;
@@ -19,7 +19,7 @@ bool insert_to_hash_ring(H& hash_ring, std::string ip, unsigned tid) {
 }
 
 template <typename H>
-void remove_from_hash_ring(H& hash_ring, std::string ip, unsigned tid) {
+void remove_from_hash_ring(H& hash_ring, Address ip, unsigned tid) {
   for (unsigned virtual_num = 0; virtual_num < kVirtualThreadNum;
        virtual_num++) {
     hash_ring.erase(ServerThread(ip, tid, virtual_num));
@@ -39,25 +39,25 @@ std::unordered_set<ServerThread, ThreadHash> get_responsible_threads_metadata(
     LocalHashRing& local_memory_hash_ring);
 
 std::unordered_set<ServerThread, ThreadHash> get_responsible_threads(
-    std::string respond_address, const std::string& key, bool metadata,
+    Address respond_address, const std::string& key, bool metadata,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     std::unordered_map<std::string, KeyInfo>& placement, SocketCache& pushers,
     const std::vector<unsigned>& tier_ids, bool& succeed, unsigned& seed);
 
-void issue_replication_factor_request(const std::string& respond_address,
+void issue_replication_factor_request(const Address& respond_address,
                                       const std::string& key,
                                       GlobalHashRing& global_memory_hash_ring,
                                       LocalHashRing& local_memory_hash_ring,
                                       SocketCache& pushers, unsigned& seed);
 
-std::vector<std::string> get_address_from_routing(
+std::vector<Address> get_address_from_routing(
     UserThread& ut, const std::string& key, zmq::socket_t& sending_socket,
-    zmq::socket_t& receiving_socket, bool& succeed, std::string& ip,
+    zmq::socket_t& receiving_socket, bool& succeed, Address& ip,
     unsigned& thread_id, unsigned& rid);
 
 RoutingThread get_random_routing_thread(
-    std::vector<std::string>& routing_address, unsigned& seed,
+    std::vector<Address>& routing_address, unsigned& seed,
     unsigned& kRoutingThreadCount);
 
 inline void warmup_placement_to_defaults(

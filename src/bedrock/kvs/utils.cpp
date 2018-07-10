@@ -8,7 +8,7 @@
 
 void send_gossip(AddressKeysetMap& addr_keyset_map, SocketCache& pushers,
                  Serializer* serializer) {
-  std::unordered_map<std::string, communication::Request> gossip_map;
+  std::unordered_map<Address, communication::Request> gossip_map;
 
   for (auto map_it = addr_keyset_map.begin(); map_it != addr_keyset_map.end();
        map_it++) {

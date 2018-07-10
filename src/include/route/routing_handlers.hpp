@@ -12,7 +12,7 @@ void membership_handler(
     std::shared_ptr<spdlog::logger> logger, zmq::socket_t* notify_puller,
     SocketCache& pushers,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
-    unsigned thread_id, std::string ip);
+    unsigned thread_id, Address ip);
 
 void replication_response_handler(
     std::shared_ptr<spdlog::logger> logger,
@@ -21,18 +21,14 @@ void replication_response_handler(
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     std::unordered_map<std::string, KeyInfo>& placement,
-    std::unordered_map<
-        std::string,
-        std::pair<std::chrono::system_clock::time_point,
-                  std::vector<std::pair<std::string, std::string>>>>&
-        pending_key_request_map,
+    PendingMap<std::pair<Address, std::string>>& pending_key_request_map,
     unsigned& seed);
 
 void replication_change_handler(
     std::shared_ptr<spdlog::logger> logger,
     zmq::socket_t* replication_factor_change_puller, SocketCache& pushers,
     std::unordered_map<std::string, KeyInfo>& placement, unsigned thread_id,
-    std::string ip);
+    Address ip);
 
 void address_handler(
     std::shared_ptr<spdlog::logger> logger, zmq::socket_t* key_address_puller,
@@ -40,11 +36,7 @@ void address_handler(
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     std::unordered_map<std::string, KeyInfo>& placement,
-    std::unordered_map<
-        std::string,
-        std::pair<std::chrono::system_clock::time_point,
-                  std::vector<std::pair<std::string, std::string>>>>&
-        pending_key_request_map,
+    PendingMap<std::pair<Address, std::string>>& pending_key_request_map,
     unsigned& seed);
 
 #endif

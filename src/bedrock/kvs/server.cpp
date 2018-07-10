@@ -57,7 +57,7 @@ void run(unsigned thread_id) {
 
   // TODO(vikram): we can probably just read this once and pass it into run
   YAML::Node conf = YAML::LoadFile("conf/config.yml")["server"];
-  std::string ip = conf["ip"].as<std::string>();
+  Address ip = conf["ip"].as<Address>();
 
   // each thread has a handle to itself
   ServerThread wt = ServerThread(ip, thread_id);
@@ -80,32 +80,26 @@ void run(unsigned thread_id) {
   std::unordered_set<std::string> join_remove_set;
 
   // pending events for asynchrony
-  std::unordered_map<std::string,
-                     std::pair<std::chrono::system_clock::time_point,
-                               std::vector<PendingRequest>>>
-      pending_request_map;
-  std::unordered_map<std::string,
-                     std::pair<std::chrono::system_clock::time_point,
-                               std::vector<PendingGossip>>>
-      pending_gossip_map;
+  PendingMap<PendingRequest> pending_request_map;
+  PendingMap<PendingGossip> pending_gossip_map;
 
   std::unordered_map<std::string, KeyInfo> placement;
-  std::vector<std::string> routing_address;
-  std::vector<std::string> monitoring_address;
+  std::vector<Address> routing_address;
+  std::vector<Address> monitoring_address;
 
   // read the YAML conf
-  std::string seed_ip = conf["seed_ip"].as<std::string>();
+  Address seed_ip = conf["seed_ip"].as<Address>();
 
   YAML::Node monitoring = conf["monitoring"];
   YAML::Node routing = conf["routing"];
 
   for (YAML::const_iterator it = routing.begin(); it != routing.end(); ++it) {
-    routing_address.push_back(it->as<std::string>());
+    routing_address.push_back(it->as<Address>());
   }
 
   for (YAML::const_iterator it = monitoring.begin(); it != monitoring.end();
        ++it) {
-    monitoring_address.push_back(it->as<std::string>());
+    monitoring_address.push_back(it->as<Address>());
   }
 
   // request server addresses from the seed node
@@ -148,7 +142,7 @@ void run(unsigned thread_id) {
          it != global_hash_ring_map.end(); it++) {
       unsigned tier_id = it->first;
       auto hash_ring = &(it->second);
-      std::unordered_set<std::string> observed_ip;
+      std::unordered_set<Address> observed_ip;
 
       for (auto iter = hash_ring->begin(); iter != hash_ring->end(); iter++) {
         if (iter->second.get_ip().compare(ip) != 0 &&
@@ -459,7 +453,7 @@ void run(unsigned thread_id) {
       auto threads = get_responsible_threads_metadata(
           key, global_hash_ring_map[1], local_hash_ring_map[1]);
       if (threads.size() != 0) {
-        std::string target_address =
+        Address target_address =
             next(begin(threads), rand_r(&seed) % threads.size())
                 ->get_request_pulling_connect_addr();
         push_request(req, pushers[target_address]);
@@ -506,7 +500,7 @@ void run(unsigned thread_id) {
                                                  local_hash_ring_map[1]);
 
       if (threads.size() != 0) {
-        std::string target_address =
+        Address target_address =
             next(begin(threads), rand_r(&seed) % threads.size())
                 ->get_request_pulling_connect_addr();
         push_request(req, pushers[target_address]);
@@ -522,7 +516,7 @@ void run(unsigned thread_id) {
 
     // redistribute data after node joins
     if (join_addr_keyset_map.size() != 0) {
-      std::unordered_set<std::string> remove_address_set;
+      std::unordered_set<Address> remove_address_set;
 
       // assemble gossip
       AddressKeysetMap addr_keyset_map;

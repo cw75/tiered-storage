@@ -5,14 +5,14 @@ void membership_handler(
     std::shared_ptr<spdlog::logger> logger, zmq::socket_t* notify_puller,
     SocketCache& pushers,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
-    unsigned thread_id, std::string ip) {
+    unsigned thread_id, Address ip) {
   std::string message = zmq_util::recv_string(notify_puller);
   std::vector<std::string> v;
 
   split(message, ':', v);
   std::string type = v[0];
   unsigned tier = stoi(v[1]);
-  std::string new_server_ip = v[2];
+  Address new_server_ip = v[2];
 
   if (type == "join") {
     logger->info("Received join from server {} in tier {}.", new_server_ip,
@@ -30,7 +30,7 @@ void membership_handler(
              it != global_hash_ring_map.end(); it++) {
           unsigned tier_id = it->first;
           auto hash_ring = &(it->second);
-          std::unordered_set<std::string> observed_ip;
+          std::unordered_set<Address> observed_ip;
 
           for (auto iter = hash_ring->begin(); iter != hash_ring->end();
                iter++) {

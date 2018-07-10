@@ -1,15 +1,15 @@
 #include "hash_ring.hpp"
 #include "spdlog/spdlog.h"
 
-std::string prepare_metadata_request(
+Address prepare_metadata_request(
     const std::string& key, GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring,
-    std::unordered_map<std::string, communication::Request>& addr_request_map,
+    std::unordered_map<Address, communication::Request>& addr_request_map,
     MonitoringThread& mt, unsigned& rid, std::string type) {
   auto threads = get_responsible_threads_metadata(key, global_memory_hash_ring,
                                                   local_memory_hash_ring);
   if (threads.size() != 0) {
-    std::string target_address = next(begin(threads), rand() % threads.size())
+    Address target_address = next(begin(threads), rand() % threads.size())
                                      ->get_request_pulling_connect_addr();
     if (addr_request_map.find(target_address) == addr_request_map.end()) {
       addr_request_map[target_address].set_type(type);
@@ -29,9 +29,9 @@ std::string prepare_metadata_request(
 void prepare_metadata_get_request(
     const std::string& key, GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring,
-    std::unordered_map<std::string, communication::Request>& addr_request_map,
+    std::unordered_map<Address, communication::Request>& addr_request_map,
     MonitoringThread& mt, unsigned& rid) {
-  std::string target_address = prepare_metadata_request(
+  Address target_address = prepare_metadata_request(
       key, global_memory_hash_ring, local_memory_hash_ring, addr_request_map,
       mt, rid, "GET");
 
@@ -44,9 +44,9 @@ void prepare_metadata_put_request(
     const std::string& key, const std::string& value,
     GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring,
-    std::unordered_map<std::string, communication::Request>& addr_request_map,
+    std::unordered_map<Address, communication::Request>& addr_request_map,
     MonitoringThread& mt, unsigned& rid) {
-  std::string target_address = prepare_metadata_request(
+  Address target_address = prepare_metadata_request(
       key, global_memory_hash_ring, local_memory_hash_ring, addr_request_map,
       mt, rid, "PUT");
 

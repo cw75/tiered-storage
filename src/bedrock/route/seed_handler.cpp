@@ -15,7 +15,7 @@ void seed_handler(
        it++) {
     unsigned tier_id = it->first;
     auto hash_ring = &(it->second);
-    std::unordered_set<std::string> observed_ip;
+    std::unordered_set<Address> observed_ip;
 
     for (auto iter = hash_ring->begin(); iter != hash_ring->end(); iter++) {
       if (observed_ip.find(iter->second.get_ip()) == observed_ip.end()) {

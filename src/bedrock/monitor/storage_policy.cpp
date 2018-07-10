@@ -8,9 +8,9 @@ void storage_policy(
     std::chrono::time_point<std::chrono::system_clock>& grace_start,
     SummaryStats& ss, unsigned& memory_node_number, unsigned& ebs_node_number,
     unsigned& adding_memory_node, unsigned& adding_ebs_node,
-    bool& removing_ebs_node, std::string management_address,
+    bool& removing_ebs_node, Address management_address,
     MonitoringThread& mt, std::unordered_map<unsigned, TierData>& tier_data_map,
-    std::unordered_map<std::string, unsigned>& departing_node_map,
+    std::unordered_map<Address, unsigned>& departing_node_map,
     SocketCache& pushers) {
   // check storage consumption and trigger elasticity if necessary
   if (adding_memory_node == 0 && ss.required_memory_node > memory_node_number) {

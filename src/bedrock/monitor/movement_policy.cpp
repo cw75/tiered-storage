@@ -9,12 +9,12 @@ void movement_policy(
     std::chrono::time_point<std::chrono::system_clock>& grace_start,
     SummaryStats& ss, unsigned& memory_node_number, unsigned& ebs_node_number,
     unsigned& adding_memory_node, unsigned& adding_ebs_node,
-    std::string management_address,
+    Address management_address,
     std::unordered_map<std::string, KeyInfo>& placement,
     std::unordered_map<std::string, unsigned>& key_access_summary,
     MonitoringThread& mt, std::unordered_map<unsigned, TierData>& tier_data_map,
     SocketCache& pushers, zmq::socket_t& response_puller,
-    std::vector<std::string>& routing_address, unsigned& rid) {
+    std::vector<Address>& routing_address, unsigned& rid) {
   // promote hot keys to memory tier
   std::unordered_map<std::string, KeyInfo> requests;
   unsigned total_rep_to_change = 0;

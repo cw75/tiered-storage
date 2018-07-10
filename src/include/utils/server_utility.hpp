@@ -22,7 +22,7 @@
 typedef KVStore<std::string, ReadCommittedPairLattice<std::string>> MemoryKVS;
 
 // a map that represents which keys should be sent to which IP-port combinations
-typedef std::unordered_map<std::string, std::unordered_set<std::string>>
+typedef std::unordered_map<Address, std::unordered_set<std::string>>
     AddressKeysetMap;
 
 class Serializer {
@@ -63,7 +63,7 @@ class EBSSerializer : public Serializer {
   EBSSerializer(unsigned& tid) : tid_(tid) {
     YAML::Node conf = YAML::LoadFile("conf/config.yml");
 
-    std::string monitoring_address = conf["ebs"].as<std::string>();
+    ebs_root_ = conf["ebs"].as<std::string>();
 
     if (ebs_root_.back() != '/') {
       ebs_root_ += "/";
@@ -163,7 +163,7 @@ struct KeyStat {
 
 struct PendingRequest {
   PendingRequest() {}
-  PendingRequest(std::string type, const std::string& value, std::string addr,
+  PendingRequest(std::string type, const std::string& value, Address addr,
                  std::string respond_id) :
       type_(type),
       value_(value),
@@ -173,7 +173,7 @@ struct PendingRequest {
   // TODO(vikram): change these type names
   std::string type_;
   std::string value_;
-  std::string addr_;
+  Address addr_;
   std::string respond_id_;
 };
 

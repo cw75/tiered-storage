@@ -12,22 +12,16 @@ void rep_factor_response_handler(
     std::shared_ptr<spdlog::logger> logger,
     zmq::socket_t* rep_factor_response_puller,
     std::chrono::system_clock::time_point& start_time,
-    std::unordered_map<unsigned, TierData> tier_data_map,
+    std::unordered_map<unsigned, TierData>& tier_data_map,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<std::string,
-                       std::pair<std::chrono::system_clock::time_point,
-                                 std::vector<PendingRequest>>>&
-        pending_request_map,
-    std::unordered_map<std::string,
-                       std::pair<std::chrono::system_clock::time_point,
-                                 std::vector<PendingGossip>>>
-        pending_gossip_map,
+    PendingMap<PendingRequest>& pending_request_map,
+    PendingMap<PendingGossip>& pending_gossip_map,
     std::unordered_map<
         std::string,
         std::multiset<std::chrono::time_point<std::chrono::system_clock>>>&
         key_access_timestamp,
-    std::unordered_map<std::string, KeyInfo> placement,
+    std::unordered_map<std::string, KeyInfo>& placement,
     std::unordered_map<std::string, KeyStat>& key_stat_map,
     std::unordered_set<std::string>& local_changeset, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers) {
@@ -77,9 +71,8 @@ void rep_factor_response_handler(
 
     if (succeed) {
       bool responsible = threads.find(wt) != threads.end();
-      std::vector<PendingRequest> request_vec = pending_request_map[key].second;
 
-      for (auto it = request_vec.begin(); it != request_vec.end(); ++it) {
+      for (auto it = pending_request_map[key].begin(); it != pending_request_map[key].end(); ++it) {
         auto now = std::chrono::system_clock::now();
 
         if (!responsible && it->addr_ != "") {
@@ -171,19 +164,19 @@ void rep_factor_response_handler(
 
     if (succeed) {
       if (threads.find(wt) != threads.end()) {
-        for (auto it = pending_gossip_map[key].second.begin();
-             it != pending_gossip_map[key].second.end(); ++it) {
+        for (auto it = pending_gossip_map[key].begin();
+             it != pending_gossip_map[key].end(); ++it) {
           process_put(key, it->ts_, it->value_, serializer, key_stat_map);
         }
       } else {
-        std::unordered_map<std::string, communication::Request> gossip_map;
+        std::unordered_map<Address, communication::Request> gossip_map;
 
         // forward the gossip
         for (auto it = threads.begin(); it != threads.end(); it++) {
           gossip_map[it->get_gossip_connect_addr()].set_type("PUT");
 
-          for (auto iter = pending_gossip_map[key].second.begin();
-               iter != pending_gossip_map[key].second.end(); iter++) {
+          for (auto iter = pending_gossip_map[key].begin();
+               iter != pending_gossip_map[key].end(); iter++) {
             prepare_put_tuple(gossip_map[it->get_gossip_connect_addr()], key,
                               iter->value_, iter->ts_);
           }

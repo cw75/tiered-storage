@@ -13,10 +13,7 @@ void user_request_handler(
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     std::unordered_map<std::string, KeyStat>& key_stat_map,
-    std::unordered_map<std::string,
-                       std::pair<std::chrono::system_clock::time_point,
-                                 std::vector<PendingRequest>>>&
-        pending_request_map,
+    PendingMap<PendingRequest>& pending_request_map,
     std::unordered_map<
         std::string,
         std::multiset<std::chrono::time_point<std::chrono::system_clock>>>&
@@ -62,11 +59,7 @@ void user_request_handler(
                 global_hash_ring_map[1], local_hash_ring_map[1], pushers, seed);
             std::string val = "";
 
-            if (pending_request_map.find(key) == pending_request_map.end()) {
-              pending_request_map[key].first = std::chrono::system_clock::now();
-            }
-
-            pending_request_map[key].second.push_back(
+            pending_request_map[key].push_back(
                 PendingRequest("G", "", req.respond_address(), respond_id));
           }
         } else {  // if we know what threads are responsible, we process the get
@@ -87,11 +80,7 @@ void user_request_handler(
           total_access += 1;
         }
       } else {
-        if (pending_request_map.find(key) == pending_request_map.end()) {
-          pending_request_map[key].first = std::chrono::system_clock::now();
-        }
-
-        pending_request_map[key].second.push_back(
+        pending_request_map[key].push_back(
             PendingRequest("G", "", req.respond_address(), respond_id));
       }
     }
@@ -118,16 +107,12 @@ void user_request_handler(
                 wt.get_replication_factor_connect_addr(), key,
                 global_hash_ring_map[1], local_hash_ring_map[1], pushers, seed);
 
-            if (pending_request_map.find(key) == pending_request_map.end()) {
-              pending_request_map[key].first = std::chrono::system_clock::now();
-            }
-
             if (req.has_respond_address()) {
-              pending_request_map[key].second.push_back(
+              pending_request_map[key].push_back(
                   PendingRequest("P", req.tuple(i).value(),
                                  req.respond_address(), respond_id));
             } else {
-              pending_request_map[key].second.push_back(
+              pending_request_map[key].push_back(
                   PendingRequest("P", req.tuple(i).value(), "", respond_id));
             }
           }
@@ -154,15 +139,11 @@ void user_request_handler(
           local_changeset.insert(key);
         }
       } else {
-        if (pending_request_map.find(key) == pending_request_map.end()) {
-          pending_request_map[key].first = std::chrono::system_clock::now();
-        }
-
         if (req.has_respond_address()) {
-          pending_request_map[key].second.push_back(PendingRequest(
+          pending_request_map[key].push_back(PendingRequest(
               "P", req.tuple(i).value(), req.respond_address(), respond_id));
         } else {
-          pending_request_map[key].second.push_back(
+          pending_request_map[key].push_back(
               PendingRequest("P", req.tuple(i).value(), "", respond_id));
         }
       }

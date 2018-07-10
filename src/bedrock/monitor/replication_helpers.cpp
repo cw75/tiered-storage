@@ -16,9 +16,9 @@ KeyInfo create_new_replication_vector(unsigned gm, unsigned ge, unsigned lm,
 
 void prepare_replication_factor_update(
     const std::string& key,
-    std::unordered_map<std::string, communication::Replication_Factor_Request>&
+    std::unordered_map<Address, communication::Replication_Factor_Request>&
         replication_factor_map,
-    std::string server_address,
+    Address server_address,
     std::unordered_map<std::string, KeyInfo>& placement) {
   communication::Replication_Factor_Request_Tuple* tp =
       replication_factor_map[server_address].add_tuple();
@@ -45,7 +45,7 @@ void change_replication_factor(
     std::unordered_map<std::string, KeyInfo>& requests,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::vector<std::string>& routing_address,
+    std::vector<Address>& routing_address,
     std::unordered_map<std::string, KeyInfo>& placement, SocketCache& pushers,
     MonitoringThread& mt, zmq::socket_t& response_puller,
     std::shared_ptr<spdlog::logger> logger, unsigned& rid) {
@@ -54,10 +54,10 @@ void change_replication_factor(
   std::unordered_map<std::string, KeyInfo> orig_placement_info;
 
   // store the new replication factor synchronously in storage servers
-  std::unordered_map<std::string, communication::Request> addr_request_map;
+  std::unordered_map<Address, communication::Request> addr_request_map;
 
   // form the placement request map
-  std::unordered_map<std::string, communication::Replication_Factor_Request>
+  std::unordered_map<Address, communication::Replication_Factor_Request>
       replication_factor_map;
 
   for (auto it = requests.begin(); it != requests.end(); it++) {

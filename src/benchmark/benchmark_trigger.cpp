@@ -24,16 +24,16 @@ int main(int argc, char* argv[]) {
   unsigned thread_num = atoi(argv[1]);
 
   // read in the benchmark addresses
-  std::vector<std::string> benchmark_address;
+  std::vector<Address> benchmark_address;
 
   // read the YAML conf
-  std::vector<std::string> ips;
+  std::vector<Address> ips;
   YAML::Node conf = YAML::LoadFile("conf/config.yml");
   YAML::Node benchmark = conf["benchmark"];
 
   for (YAML::const_iterator it = benchmark.begin(); it != benchmark.end();
        ++it) {
-    ips.push_back(it->as<std::string>());
+    ips.push_back(it->as<Address>());
   }
 
   zmq::context_t context(1);

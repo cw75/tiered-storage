@@ -16,7 +16,7 @@ void run(unsigned thread_id) {
 
   // TODO(vikram): we can probably just read this once and pass it into run
   YAML::Node conf = YAML::LoadFile("conf/config.yml")["routing"];
-  std::string ip = conf["ip"].as<std::string>();
+  Address ip = conf["ip"].as<Address>();
 
   RoutingThread rt = RoutingThread(ip, thread_id);
 
@@ -33,12 +33,12 @@ void run(unsigned thread_id) {
 
   if (thread_id == 0) {
     // read the YAML conf
-    std::vector<std::string> monitoring_address;
+    std::vector<Address> monitoring_address;
     YAML::Node monitoring = conf["monitoring"];
 
     for (YAML::const_iterator it = monitoring.begin(); it != monitoring.end();
          ++it) {
-      monitoring_address.push_back(it->as<std::string>());
+      monitoring_address.push_back(it->as<Address>());
     }
 
     // notify monitoring nodes
@@ -55,10 +55,7 @@ void run(unsigned thread_id) {
   std::unordered_map<unsigned, LocalHashRing> local_hash_ring_map;
 
   // pending events for asynchrony
-  std::unordered_map<
-      std::string, std::pair<std::chrono::system_clock::time_point,
-                             std::vector<std::pair<std::string, std::string>>>>
-      pending_key_request_map;
+  PendingMap<std::pair<Address, std::string>> pending_key_request_map;
 
   // form local hash rings
   for (auto it = tier_data_map.begin(); it != tier_data_map.end(); it++) {

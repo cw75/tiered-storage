@@ -8,32 +8,32 @@ void collect_internal_stats(
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     SocketCache& pushers, MonitoringThread& mt, zmq::socket_t& response_puller,
     std::shared_ptr<spdlog::logger> logger, unsigned& rid,
-    std::unordered_map<std::string, std::unordered_map<std::string, unsigned>>&
+    std::unordered_map<std::string, std::unordered_map<Address, unsigned>>&
         key_access_frequency,
-    std::unordered_map<std::string,
+    std::unordered_map<Address,
                        std::unordered_map<unsigned, unsigned long long>>&
         memory_tier_storage,
-    std::unordered_map<std::string,
+    std::unordered_map<Address,
                        std::unordered_map<unsigned, unsigned long long>>&
         ebs_tier_storage,
     std::unordered_map<
-        std::string, std::unordered_map<unsigned, std::pair<double, unsigned>>>&
+        Address, std::unordered_map<unsigned, std::pair<double, unsigned>>>&
         memory_tier_occupancy,
     std::unordered_map<
-        std::string, std::unordered_map<unsigned, std::pair<double, unsigned>>>&
+        Address, std::unordered_map<unsigned, std::pair<double, unsigned>>>&
         ebs_tier_occupancy,
-    std::unordered_map<std::string, std::unordered_map<unsigned, unsigned>>&
+    std::unordered_map<Address, std::unordered_map<unsigned, unsigned>>&
         memory_tier_access,
-    std::unordered_map<std::string, std::unordered_map<unsigned, unsigned>>&
+    std::unordered_map<Address, std::unordered_map<unsigned, unsigned>>&
         ebs_tier_access,
     std::unordered_map<unsigned, TierData>& tier_data_map) {
-  std::unordered_map<std::string, communication::Request> addr_request_map;
+  std::unordered_map<Address, communication::Request> addr_request_map;
 
   for (auto it = global_hash_ring_map.begin(); it != global_hash_ring_map.end();
        it++) {
     unsigned tier_id = it->first;
     auto hash_ring = &(it->second);
-    std::unordered_set<std::string> observed_ip;
+    std::unordered_set<Address> observed_ip;
 
     for (auto iter = hash_ring->begin(); iter != hash_ring->end(); iter++) {
       if (observed_ip.find(iter->second.get_ip()) == observed_ip.end()) {
@@ -67,7 +67,7 @@ void collect_internal_stats(
         if (res.tuple(i).err_number() == 0) {
           std::vector<std::string> tokens;
           split(res.tuple(i).key(), '_', tokens);
-          std::string ip = tokens[1];
+          Address ip = tokens[1];
 
           unsigned tid = stoi(tokens[2]);
           unsigned tier_id = stoi(tokens[3]);
@@ -124,23 +124,23 @@ void collect_internal_stats(
 }
 
 void compute_summary_stats(
-    std::unordered_map<std::string, std::unordered_map<std::string, unsigned>>&
+    std::unordered_map<std::string, std::unordered_map<Address, unsigned>>&
         key_access_frequency,
-    std::unordered_map<std::string,
+    std::unordered_map<Address,
                        std::unordered_map<unsigned, unsigned long long>>&
         memory_tier_storage,
-    std::unordered_map<std::string,
+    std::unordered_map<Address,
                        std::unordered_map<unsigned, unsigned long long>>&
         ebs_tier_storage,
     std::unordered_map<
-        std::string, std::unordered_map<unsigned, std::pair<double, unsigned>>>&
+        Address, std::unordered_map<unsigned, std::pair<double, unsigned>>>&
         memory_tier_occupancy,
     std::unordered_map<
-        std::string, std::unordered_map<unsigned, std::pair<double, unsigned>>>&
+        Address, std::unordered_map<unsigned, std::pair<double, unsigned>>>&
         ebs_tier_occupancy,
-    std::unordered_map<std::string, std::unordered_map<unsigned, unsigned>>&
+    std::unordered_map<Address, std::unordered_map<unsigned, unsigned>>&
         memory_tier_access,
-    std::unordered_map<std::string, std::unordered_map<unsigned, unsigned>>&
+    std::unordered_map<Address, std::unordered_map<unsigned, unsigned>>&
         ebs_tier_access,
     std::unordered_map<std::string, unsigned>& key_access_summary,
     SummaryStats& ss, std::shared_ptr<spdlog::logger> logger,

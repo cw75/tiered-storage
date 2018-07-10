@@ -8,12 +8,12 @@
 #include "zmq/socket_cache.hpp"
 
 void rep_factor_change_handler(
-    std::string ip, unsigned thread_id, unsigned thread_num, unsigned& seed,
+    Address ip, unsigned thread_id, unsigned thread_num, unsigned& seed,
     std::shared_ptr<spdlog::logger> logger,
     zmq::socket_t* rep_factor_change_puller,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<std::string, KeyInfo> placement,
+    std::unordered_map<std::string, KeyInfo>& placement,
     std::unordered_map<std::string, KeyStat>& key_stat_map,
     std::unordered_set<std::string>& local_changeset, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers) {

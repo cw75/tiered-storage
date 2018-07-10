@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
   }
 
   YAML::Node conf = YAML::LoadFile("conf/config.yml");
-  std::string ip = conf["monitoring"]["ip"].as<std::string>();
+  Address ip = conf["monitoring"]["ip"].as<Address>();
 
   kMemoryThreadCount = conf["threads"]["memory"].as<unsigned>();
   kEbsThreadCount = conf["threads"]["ebs"].as<unsigned>();
@@ -62,31 +62,31 @@ int main(int argc, char *argv[]) {
   unsigned memory_node_number;
   unsigned ebs_node_number;
   // keep track of the keys' access by worker address
-  std::unordered_map<std::string, std::unordered_map<std::string, unsigned>>
+  std::unordered_map<std::string, std::unordered_map<Address, unsigned>>
       key_access_frequency;
   // keep track of the keys' access summary
   std::unordered_map<std::string, unsigned> key_access_summary;
   // keep track of memory tier storage consumption
-  std::unordered_map<std::string,
+  std::unordered_map<Address,
                      std::unordered_map<unsigned, unsigned long long>>
       memory_tier_storage;
   // keep track of ebs tier storage consumption
-  std::unordered_map<std::string,
+  std::unordered_map<Address,
                      std::unordered_map<unsigned, unsigned long long>>
       ebs_tier_storage;
   // keep track of memory tier thread occupancy
-  std::unordered_map<std::string,
+  std::unordered_map<Address,
                      std::unordered_map<unsigned, std::pair<double, unsigned>>>
       memory_tier_occupancy;
   // keep track of ebs tier thread occupancy
-  std::unordered_map<std::string,
+  std::unordered_map<Address,
                      std::unordered_map<unsigned, std::pair<double, unsigned>>>
       ebs_tier_occupancy;
   // keep track of memory tier hit
-  std::unordered_map<std::string, std::unordered_map<unsigned, unsigned>>
+  std::unordered_map<Address, std::unordered_map<unsigned, unsigned>>
       memory_tier_access;
   // keep track of ebs tier hit
-  std::unordered_map<std::string, std::unordered_map<unsigned, unsigned>>
+  std::unordered_map<Address, std::unordered_map<unsigned, unsigned>>
       ebs_tier_access;
   // keep track of some summary statistics
   SummaryStats ss;
@@ -97,11 +97,11 @@ int main(int argc, char *argv[]) {
   // used for adjusting the replication factors based on feedback from the user
   std::unordered_map<std::string, std::pair<double, unsigned>> rep_factor_map;
 
-  std::vector<std::string> routing_address;
+  std::vector<Address> routing_address;
 
   // read the YAML conf
-  std::string management_address =
-      conf["monitoring"]["mgmt_ip"].as<std::string>();
+  Address management_address =
+      conf["monitoring"]["mgmt_ip"].as<Address>();
   MonitoringThread mt = MonitoringThread(ip);
 
   zmq::context_t context(1);
@@ -116,7 +116,7 @@ int main(int argc, char *argv[]) {
   response_puller.bind(mt.get_request_pulling_bind_addr());
 
   // keep track of departing node status
-  std::unordered_map<std::string, unsigned> departing_node_map;
+  std::unordered_map<Address, unsigned> departing_node_map;
 
   // responsible for both node join and departure
   zmq::socket_t notify_puller(context, ZMQ_PULL);
