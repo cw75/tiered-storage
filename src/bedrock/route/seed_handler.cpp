@@ -13,7 +13,7 @@ void seed_handler(
   for (const auto& global_pair : global_hash_ring_map) {
     unsigned tier_id = global_pair.first;
     auto hash_ring = global_pair.second;
-    std::unordered_set<std::string> observed_ip;
+    std::unordered_set<Address> observed_ip;
 
     for (const auto& hash_pair : hash_ring) {
       std::string thread_ip = hash_pair.second.get_ip();

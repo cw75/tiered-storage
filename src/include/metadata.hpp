@@ -23,7 +23,7 @@ struct TierData {
   unsigned long long node_capacity_;
 };
 
-inline bool is_metadata(std::string key) {
+inline bool is_metadata(Key key) {
   std::vector<std::string> v;
   split(key, '_', v);
 

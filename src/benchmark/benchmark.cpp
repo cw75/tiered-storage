@@ -56,13 +56,13 @@ int sample(int n, unsigned& seed, double base,
 }
 
 void handle_request(
-    std::string key, std::string value, SocketCache& pushers,
-    std::vector<std::string>& routing_addresses,
-    std::unordered_map<std::string, std::unordered_set<std::string>>&
+    Key key, std::string value, SocketCache& pushers,
+    std::vector<Address>& routing_addresses,
+    std::unordered_map<Key, std::unordered_set<Address>>&
         key_address_cache,
     unsigned& seed, std::shared_ptr<spdlog::logger> logger, UserThread& ut,
     zmq::socket_t& response_puller, zmq::socket_t& key_address_puller,
-    std::string& ip, unsigned& thread_id, unsigned& rid, unsigned& trial) {
+    Address& ip, unsigned& thread_id, unsigned& rid, unsigned& trial) {
 
   if (trial > 5) {
     logger->info("Trial #{} for request for key {}.", trial, key);
@@ -73,16 +73,16 @@ void handle_request(
   }
 
   // get worker address
-  std::string worker_address;
+  Address worker_address;
   if (key_address_cache.find(key) == key_address_cache.end()) {
     // query the routing and update the cache
-    std::string target_routing_addresses =
+    Address target_routing_address =
         get_random_routing_thread(routing_addresses, seed, kRoutingThreadCount)
             .get_key_address_connect_addr();
 
     bool succeed;
     std::vector<std::string> addresses = get_address_from_routing(
-        ut, key, pushers[target_routing_addresses], key_address_puller, succeed,
+        ut, key, pushers[target_routing_address], key_address_puller, succeed,
         ip, thread_id, rid);
 
     if (succeed) {
@@ -169,7 +169,7 @@ void handle_request(
     std::vector<std::string> tokens;
     split(worker_address, ':', tokens);
     std::string signature = tokens[1];
-    std::unordered_set<std::string> remove_set;
+    std::unordered_set<Key> remove_set;
 
     for (const auto& key_pair : key_address_cache) {
       for (const std::string& address : key_pair.second) {
@@ -193,12 +193,11 @@ void handle_request(
   }
 }
 
-void run(unsigned thread_id, std::string ip, std::vector<std::string> routing_addresses, std::vector<MonitoringThread> monitoring_threads) {
+void run(unsigned thread_id, std::string ip, std::vector<Address> routing_addresses, std::vector<MonitoringThread> monitoring_threads) {
   std::string log_file = "log_" + std::to_string(thread_id) + ".txt";
   std::string logger_name = "benchmark_log_" + std::to_string(thread_id);
   auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
   logger->flush_on(spdlog::level::info);
-
 
   std::hash<std::string> hasher;
   unsigned seed = time(NULL);
@@ -207,11 +206,11 @@ void run(unsigned thread_id, std::string ip, std::vector<std::string> routing_ad
   logger->info("Random seed is {}.", seed);
 
   // mapping from key to a set of worker addresses
-  std::unordered_map<std::string, std::unordered_set<std::string>>
+  std::unordered_map<Key, std::unordered_set<Address>>
       key_address_cache;
 
   // rep factor map
-  std::unordered_map<std::string, std::pair<double, unsigned>> rep_factor_map;
+  std::unordered_map<Key, std::pair<double, unsigned>> rep_factor_map;
 
   UserThread ut = UserThread(ip, thread_id);
 
@@ -257,20 +256,20 @@ void run(unsigned thread_id, std::string ip, std::vector<std::string> routing_ad
 
         for (unsigned i = 1; i <= num_keys; i++) {
           // key is 8 bytes
-          std::string key = std::string(8 - std::to_string(i).length(), '0') +
+          Key key = std::string(8 - std::to_string(i).length(), '0') +
                             std::to_string(i);
 
           if (i % 50000 == 0) {
             logger->info("warming up cache for key {}", key);
           }
 
-          std::string target_routing_addresses =
+          Address target_routing_address =
               get_random_routing_thread(routing_addresses, seed,
                                         kRoutingThreadCount)
                   .get_key_address_connect_addr();
           bool succeed;
           std::vector<std::string> addresses = get_address_from_routing(
-              ut, key, pushers[target_routing_addresses], key_address_puller,
+              ut, key, pushers[target_routing_address], key_address_puller,
               succeed, ip, thread_id, rid);
 
           if (succeed) {
@@ -322,7 +321,7 @@ void run(unsigned thread_id, std::string ip, std::vector<std::string> routing_ad
         unsigned epoch = 1;
 
         while (true) {
-          std::string key;
+          Key key;
           unsigned k;
 
           if (zipf > 0) {
@@ -457,7 +456,7 @@ void run(unsigned thread_id, std::string ip, std::vector<std::string> routing_ad
         unsigned start = thread_id * range + 1;
         unsigned end = thread_id * range + 1 + range;
 
-        std::string key;
+        Key key;
         logger->info("Warming up data");
         auto warmup_start = std::chrono::system_clock::now();
 
@@ -502,18 +501,18 @@ int main(int argc, char* argv[]) {
   YAML::Node user = conf["user"];
   std::string ip = user["ip"].as<std::string>();
 
-  std::vector<std::string> routing_addresses;
+  std::vector<Address> routing_addresses;
   std::vector<MonitoringThread> monitoring_threads;
 
   YAML::Node routing = user["routing"];
   YAML::Node monitoring = user["monitoring"];
 
   for (const YAML::Node& node : monitoring) {
-    monitoring_threads.push_back(MonitoringThread(node.as<std::string>()));
+    monitoring_threads.push_back(MonitoringThread(node.as<Address>()));
   }
 
   for (const YAML::Node& node : routing) {
-    routing_addresses.push_back(node.as<std::string>());
+    routing_addresses.push_back(node.as<Address>());
   }
 
   YAML::Node threads = conf["threads"];

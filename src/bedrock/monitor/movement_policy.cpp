@@ -8,14 +8,14 @@ void movement_policy(
     std::chrono::time_point<std::chrono::system_clock>& grace_start,
     SummaryStats& ss, unsigned& memory_node_number, unsigned& ebs_node_number,
     unsigned& adding_memory_node, unsigned& adding_ebs_node,
-    std::string management_address,
-    std::unordered_map<std::string, KeyInfo>& placement,
-    std::unordered_map<std::string, unsigned>& key_access_summary,
+    Address management_address,
+    std::unordered_map<Key, KeyInfo>& placement,
+    std::unordered_map<Key, unsigned>& key_access_summary,
     MonitoringThread& mt, std::unordered_map<unsigned, TierData>& tier_data_map,
     SocketCache& pushers, zmq::socket_t& response_puller,
-    std::vector<std::string>& routing_address, unsigned& rid) {
+    std::vector<Address>& routing_address, unsigned& rid) {
   // promote hot keys to memory tier
-  std::unordered_map<std::string, KeyInfo> requests;
+  std::unordered_map<Key, KeyInfo> requests;
   unsigned total_rep_to_change = 0;
   unsigned slot =
       (kMaxMemoryNodeConsumption * tier_data_map[1].node_capacity_ * memory_node_number -
@@ -24,7 +24,7 @@ void movement_policy(
   bool overflow = false;
 
   for (const auto& key_access_pair : key_access_summary) {
-    std::string key = key_access_pair.first;
+    Key key = key_access_pair.first;
     unsigned total_access = key_access_pair.second;
 
     if (!is_metadata(key) && total_access > kKeyPromotionThreshold &&
@@ -75,7 +75,7 @@ void movement_policy(
   overflow = false;
 
   for (const auto& key_access_pair : key_access_summary) {
-    std::string key = key_access_pair.first;
+    Key key = key_access_pair.first;
     unsigned total_access = key_access_pair.second;
 
     if (!is_metadata(key) && total_access < kKeyDemotionThreshold &&
@@ -113,7 +113,7 @@ void movement_policy(
 
   // reduce the replication factor of some keys that are not so hot anymore
   for (const auto& key_access_pair : key_access_summary) {
-    std::string key = key_access_pair.first;
+    Key key = key_access_pair.first;
     unsigned total_access = key_access_pair.second;
 
     if (!is_metadata(key) && total_access <= ss.key_access_mean &&

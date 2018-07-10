@@ -4,7 +4,7 @@ void feedback_handler(
     zmq::socket_t* feedback_puller,
     std::unordered_map<std::string, double>& user_latency,
     std::unordered_map<std::string, double>& user_throughput,
-    std::unordered_map<std::string, std::pair<double, unsigned>>&
+    std::unordered_map<Key, std::pair<double, unsigned>>&
         rep_factor_map) {
   std::string serialized_feedback = zmq_util::recv_string(feedback_puller);
   communication::Feedback fb;
@@ -19,7 +19,7 @@ void feedback_handler(
 
     // collect replication factor adjustment factors
     for (const auto& rep : fb.rep()) {
-      std::string key = rep.key();
+      Key key = rep.key();
       double factor = rep.factor();
 
       if (rep_factor_map.find(key) == rep_factor_map.end()) {

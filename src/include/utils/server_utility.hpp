@@ -20,19 +20,19 @@
 // Define the gossip period (frequency)
 #define PERIOD 10000000
 
-typedef KVStore<std::string, ReadCommittedPairLattice<std::string>> MemoryKVS;
+typedef KVStore<Key, ReadCommittedPairLattice<std::string>> MemoryKVS;
 
 // a map that represents which keys should be sent to which IP-port combinations
-typedef std::unordered_map<std::string, std::unordered_set<std::string>>
+typedef std::unordered_map<Address, std::unordered_set<Key>>
     AddressKeysetMap;
 
 class Serializer {
  public:
-  virtual ReadCommittedPairLattice<std::string> get(const std::string& key,
+  virtual ReadCommittedPairLattice<std::string> get(const Key& key,
                                                     unsigned& err_number) = 0;
-  virtual bool put(const std::string& key, const std::string& value,
+  virtual bool put(const Key& key, const std::string& value,
                    const unsigned& timestamp) = 0;
-  virtual void remove(const std::string& key) = 0;
+  virtual void remove(const Key& key) = 0;
 };
 
 class MemorySerializer : public Serializer {
@@ -41,19 +41,19 @@ class MemorySerializer : public Serializer {
  public:
   MemorySerializer(MemoryKVS* kvs) : kvs_(kvs) {}
 
-  ReadCommittedPairLattice<std::string> get(const std::string& key,
+  ReadCommittedPairLattice<std::string> get(const Key& key,
                                             unsigned& err_number) {
     return kvs_->get(key, err_number);
   }
 
-  bool put(const std::string& key, const std::string& value,
+  bool put(const Key& key, const std::string& value,
            const unsigned& timestamp) {
     TimestampValuePair<std::string> p =
         TimestampValuePair<std::string>(timestamp, value);
     return kvs_->put(key, ReadCommittedPairLattice<std::string>(p));
   }
 
-  void remove(const std::string& key) { kvs_->remove(key); }
+  void remove(const Key& key) { kvs_->remove(key); }
 };
 
 class EBSSerializer : public Serializer {
@@ -64,14 +64,14 @@ class EBSSerializer : public Serializer {
   EBSSerializer(unsigned& tid) : tid_(tid) {
     YAML::Node conf = YAML::LoadFile("conf/config.yml");
 
-    std::string monitoring_address = conf["ebs"].as<std::string>();
+    ebs_root_ = conf["ebs"].as<std::string>();
 
     if (ebs_root_.back() != '/') {
       ebs_root_ += "/";
     }
   }
 
-  ReadCommittedPairLattice<std::string> get(const std::string& key,
+  ReadCommittedPairLattice<std::string> get(const Key& key,
                                             unsigned& err_number) {
     ReadCommittedPairLattice<std::string> res;
     communication::Payload pl;
@@ -92,7 +92,7 @@ class EBSSerializer : public Serializer {
     return res;
   }
 
-  bool put(const std::string& key, const std::string& value,
+  bool put(const Key& key, const std::string& value,
            const unsigned& timestamp) {
     bool replaced = false;
     TimestampValuePair<std::string> p =
@@ -146,7 +146,7 @@ class EBSSerializer : public Serializer {
     return replaced;
   }
 
-  void remove(const std::string& key) {
+  void remove(const Key& key) {
     std::string fname = ebs_root_ + "ebs_" + std::to_string(tid_) + "/" + key;
 
     if (std::remove(fname.c_str()) != 0) {
@@ -157,7 +157,7 @@ class EBSSerializer : public Serializer {
 
 struct PendingRequest {
   PendingRequest() {}
-  PendingRequest(std::string type, const std::string& value, std::string addr,
+  PendingRequest(std::string type, const std::string& value, Address addr,
                  std::string respond_id) :
       type_(type),
       value_(value),
@@ -167,7 +167,7 @@ struct PendingRequest {
   // TODO(vikram): change these type names
   std::string type_;
   std::string value_;
-  std::string addr_;
+  Address addr_;
   std::string respond_id_;
 };
 

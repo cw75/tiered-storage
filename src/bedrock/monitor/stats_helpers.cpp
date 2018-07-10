@@ -6,41 +6,31 @@ void collect_internal_stats(
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     SocketCache& pushers, MonitoringThread& mt, zmq::socket_t& response_puller,
     std::shared_ptr<spdlog::logger> logger, unsigned& rid,
-    std::unordered_map<std::string, std::unordered_map<std::string, unsigned>>&
+    std::unordered_map<Key, std::unordered_map<Address, unsigned>>&
         key_access_frequency,
-    std::unordered_map<std::string,
-                       std::unordered_map<unsigned, unsigned long long>>&
-        memory_tier_storage,
-    std::unordered_map<std::string,
-                       std::unordered_map<unsigned, unsigned long long>>&
-        ebs_tier_storage,
-    std::unordered_map<
-        std::string, std::unordered_map<unsigned, std::pair<double, unsigned>>>&
-        memory_tier_occupancy,
-    std::unordered_map<
-        std::string, std::unordered_map<unsigned, std::pair<double, unsigned>>>&
-        ebs_tier_occupancy,
-    std::unordered_map<std::string, std::unordered_map<unsigned, unsigned>>&
-        memory_tier_access,
-    std::unordered_map<std::string, std::unordered_map<unsigned, unsigned>>&
-        ebs_tier_access,
+    StorageStat& memory_tier_storage,
+    StorageStat& ebs_tier_storage,
+    OccupancyStat& memory_tier_occupancy,
+    OccupancyStat& ebs_tier_occupancy,
+    AccessStat& memory_tier_access,
+    AccessStat& ebs_tier_access,
     std::unordered_map<unsigned, TierData>& tier_data_map) {
-  std::unordered_map<std::string, communication::Request> addr_request_map;
+  std::unordered_map<Address, communication::Request> addr_request_map;
 
   for (const auto& global_pair : global_hash_ring_map) {
     unsigned tier_id = global_pair.first;
     auto hash_ring = global_pair.second;
-    std::unordered_set<std::string> observed_ip;
+    std::unordered_set<Address> observed_ip;
 
     for (const auto hash_pair : hash_ring) {
-      std::string server_ip = hash_pair.second.get_ip();
+      Address server_ip = hash_pair.second.get_ip();
       if (observed_ip.find(server_ip) == observed_ip.end()) {
         for (unsigned i = 0; i < tier_data_map[tier_id].thread_number_; i++) {
-          std::string key = std::string(kMetadataIdentifier) + "_" +
-                            server_ip + "_" + std::to_string(i) +
-                            "_" + std::to_string(tier_id) + "_stat";
+          Key key = std::string(kMetadataIdentifier) + "_" +
+            server_ip + "_" + std::to_string(i) +
+            "_" + std::to_string(tier_id) + "_stat";
           prepare_metadata_get_request(key, global_hash_ring_map[1],
-                                       local_hash_ring_map[1], addr_request_map,
+              local_hash_ring_map[1], addr_request_map,
                                        mt, rid);
 
           key = std::string(kMetadataIdentifier) + "_" + server_ip +
@@ -64,8 +54,9 @@ void collect_internal_stats(
       for (const auto& tuple : res.tuple()) {
         if (tuple.err_number() == 0) {
           std::vector<std::string> tokens;
+
           split(tuple.key(), '_', tokens);
-          std::string ip = tokens[1];
+          Address ip = tokens[1];
 
           unsigned tid = stoi(tokens[2]);
           unsigned tier_id = stoi(tokens[3]);
@@ -93,7 +84,7 @@ void collect_internal_stats(
             access.ParseFromString(tuple.value());
 
             for (const auto& access_tuple : access.tuple()) {
-              std::string key = access_tuple.key();
+              Key key = access_tuple.key();
               key_access_frequency[key][ip + ":" + std::to_string(tid)] =
                   access_tuple.access();
             }
@@ -113,25 +104,15 @@ void collect_internal_stats(
 }
 
 void compute_summary_stats(
-    std::unordered_map<std::string, std::unordered_map<std::string, unsigned>>&
+    std::unordered_map<Key, std::unordered_map<Address, unsigned>>&
         key_access_frequency,
-    std::unordered_map<std::string,
-                       std::unordered_map<unsigned, unsigned long long>>&
-        memory_tier_storage,
-    std::unordered_map<std::string,
-                       std::unordered_map<unsigned, unsigned long long>>&
-        ebs_tier_storage,
-    std::unordered_map<
-        std::string, std::unordered_map<unsigned, std::pair<double, unsigned>>>&
-        memory_tier_occupancy,
-    std::unordered_map<
-        std::string, std::unordered_map<unsigned, std::pair<double, unsigned>>>&
-        ebs_tier_occupancy,
-    std::unordered_map<std::string, std::unordered_map<unsigned, unsigned>>&
-        memory_tier_access,
-    std::unordered_map<std::string, std::unordered_map<unsigned, unsigned>>&
-        ebs_tier_access,
-    std::unordered_map<std::string, unsigned>& key_access_summary,
+    StorageStat& memory_tier_storage,
+    StorageStat& ebs_tier_storage,
+    OccupancyStat& memory_tier_occupancy,
+    OccupancyStat& ebs_tier_occupancy,
+    AccessStat& memory_tier_access,
+    AccessStat& ebs_tier_access,
+    std::unordered_map<Key, unsigned>& key_access_summary,
     SummaryStats& ss, std::shared_ptr<spdlog::logger> logger,
     unsigned& server_monitoring_epoch,
     std::unordered_map<unsigned, TierData>& tier_data_map) {
@@ -141,7 +122,7 @@ void compute_summary_stats(
   double ms = 0;
 
   for (const auto& key_access_pair : key_access_frequency) {
-    std::string key = key_access_pair.first;
+    Key key = key_access_pair.first;
     unsigned total_access = 0;
 
     for (const auto& per_machine_pair : key_access_pair.second) {

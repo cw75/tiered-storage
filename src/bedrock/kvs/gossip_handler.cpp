@@ -6,22 +6,20 @@ void gossip_handler(
     unsigned& seed, zmq::socket_t* gossip_puller,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<std::string, unsigned>& key_size_map,
-    std::unordered_map<
-        std::string, std::pair<std::chrono::system_clock::time_point,
-                               std::vector<PendingGossip>>>& pending_gossip_map,
-    std::unordered_map<std::string, KeyInfo>& placement, ServerThread& wt,
+    std::unordered_map<Key, unsigned>& key_size_map,
+    PendingMap<PendingGossip>& pending_gossip_map,
+    std::unordered_map<Key, KeyInfo>& placement, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers) {
   std::string gossip_string = zmq_util::recv_string(gossip_puller);
   communication::Request gossip;
   gossip.ParseFromString(gossip_string);
 
   bool succeed;
-  std::unordered_map<std::string, communication::Request> gossip_map;
+  std::unordered_map<Address, communication::Request> gossip_map;
 
   for (const auto& tuple : gossip.tuple()) {
     // first check if the thread is responsible for the key
-    std::string key = tuple.key();
+    Key key = tuple.key();
     ServerThreadSet threads = get_responsible_threads(
         wt.get_replication_factor_connect_addr(), key, is_metadata(key),
         global_hash_ring_map, local_hash_ring_map, placement, pushers, kSelfTierIdVector,
@@ -50,20 +48,12 @@ void gossip_handler(
               wt.get_replication_factor_connect_addr(), key,
               global_hash_ring_map[1], local_hash_ring_map[1], pushers, seed);
 
-          if (pending_gossip_map.find(key) == pending_gossip_map.end()) {
-            pending_gossip_map[key].first = std::chrono::system_clock::now();
-          }
-
-          pending_gossip_map[key].second.push_back(PendingGossip(
+          pending_gossip_map[key].push_back(PendingGossip(
               tuple.value(), tuple.timestamp()));
         }
       }
     } else {
-      if (pending_gossip_map.find(key) == pending_gossip_map.end()) {
-        pending_gossip_map[key].first = std::chrono::system_clock::now();
-      }
-
-      pending_gossip_map[key].second.push_back(
+      pending_gossip_map[key].push_back(
           PendingGossip(tuple.value(), tuple.timestamp()));
     }
   }

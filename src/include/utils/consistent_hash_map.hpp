@@ -54,7 +54,7 @@ class ConsistentHashMap {
     return it;
   }
 
-  iterator find(std::string key) { return find(hasher_(key)); }
+  iterator find(Key key) { return find(hasher_(key)); }
 
   iterator begin() { return nodes_.begin(); }
 

@@ -4,6 +4,7 @@
 #include <map>
 #include <string>
 
+#include "types.hpp"
 #include "zmq.hpp"
 
 // A SocketCache is a map from ZeroMQ addresses to PUSH ZeroMQ sockets. The
@@ -27,13 +28,13 @@ class SocketCache {
   explicit SocketCache(zmq::context_t* context, int type) :
       context_(context),
       type_(type) {}
-  zmq::socket_t& At(const std::string& addr);
-  zmq::socket_t& operator[](const std::string& addr);
+  zmq::socket_t& At(const Address& addr);
+  zmq::socket_t& operator[](const Address& addr);
   void clear_cache();
 
  private:
   zmq::context_t* context_;
-  std::map<std::string, zmq::socket_t> cache_;
+  std::map<Address, zmq::socket_t> cache_;
   int type_;
 };
 

@@ -1,16 +1,16 @@
 #include "kvs/kvs_handlers.hpp"
 
 void self_depart_handler(
-    unsigned thread_id, unsigned& seed, std::string ip,
+    unsigned thread_id, unsigned& seed, Address ip,
     std::shared_ptr<spdlog::logger> logger, zmq::socket_t* self_depart_puller,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<std::string, unsigned>& key_size_map,
-    std::unordered_map<std::string, KeyInfo>& placement,
-    std::vector<std::string> routing_address,
-    std::vector<std::string> monitoring_address, ServerThread wt,
+    std::unordered_map<Key, unsigned>& key_size_map,
+    std::unordered_map<Key, KeyInfo>& placement,
+    std::vector<Address>& routing_address,
+    std::vector<Address>& monitoring_address, ServerThread& wt,
     SocketCache& pushers, Serializer* serializer) {
-  std::string ack_addr = zmq_util::recv_string(self_depart_puller);
+  Address ack_addr = zmq_util::recv_string(self_depart_puller);
   logger->info("Node is departing.");
   remove_from_hash_ring<GlobalHashRing>(global_hash_ring_map[kSelfTierId], ip,
                                         0);
@@ -22,7 +22,7 @@ void self_depart_handler(
 
     for (const auto& global_pair : global_hash_ring_map) {
       GlobalHashRing hash_ring = global_pair.second;
-      std::unordered_set<std::string> observed_ip;
+      std::unordered_set<Address> observed_ip;
 
       for (const auto& hash_pair : hash_ring) {
         std::string this_ip = hash_pair.second.get_ip();
@@ -61,7 +61,7 @@ void self_depart_handler(
   bool succeed;
 
   for (const auto& key_pair : key_size_map) {
-    std::string key = key_pair.first;
+    Key key = key_pair.first;
     ServerThreadSet threads = get_responsible_threads(
         wt.get_replication_factor_connect_addr(), key, is_metadata(key),
         global_hash_ring_map, local_hash_ring_map, placement, pushers, kAllTierIds,

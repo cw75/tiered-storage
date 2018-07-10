@@ -1,14 +1,14 @@
 #include "kvs/kvs_handlers.hpp"
 
 void rep_factor_change_handler(
-    std::string ip, unsigned thread_id, unsigned& seed,
+    Address ip, unsigned thread_id, unsigned& seed,
     std::shared_ptr<spdlog::logger> logger,
     zmq::socket_t* rep_factor_change_puller,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<std::string, KeyInfo> placement,
-    std::unordered_map<std::string, unsigned>& key_size_map,
-    std::unordered_set<std::string>& local_changeset, ServerThread& wt,
+    std::unordered_map<Key, KeyInfo>& placement,
+    std::unordered_map<Key, unsigned>& key_size_map,
+    std::unordered_set<Key>& local_changeset, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers) {
   std::string change_string = zmq_util::recv_string(rep_factor_change_puller);
 
@@ -28,14 +28,14 @@ void rep_factor_change_handler(
   req.ParseFromString(change_string);
 
   AddressKeysetMap addr_keyset_map;
-  std::unordered_set<std::string> remove_set;
+  std::unordered_set<Key> remove_set;
 
   // for every key, update the replication factor and check if the node is still
   // responsible for the key
   bool succeed;
 
   for (const auto& curr_tuple : req.tuple()) {
-    std::string key = curr_tuple.key();
+    Key key = curr_tuple.key();
 
     // if this thread was responsible for the key before the change
     if (key_size_map.find(key) != key_size_map.end()) {

@@ -1,7 +1,7 @@
 #include "kvs/kvs_handlers.hpp"
 
 void node_depart_handler(
-    unsigned thread_id, std::string ip,
+    unsigned thread_id, Address ip,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::shared_ptr<spdlog::logger> logger, zmq::socket_t* depart_puller,
     SocketCache& pushers) {
@@ -10,7 +10,7 @@ void node_depart_handler(
   split(message, ':', v);
 
   unsigned tier = stoi(v[0]);
-  std::string departing_server_ip = v[1];
+  Address departing_server_ip = v[1];
   logger->info("Received departure for node {} on tier {}.",
                departing_server_ip, tier);
 

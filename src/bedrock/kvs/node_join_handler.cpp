@@ -1,19 +1,19 @@
 #include "kvs/kvs_handlers.hpp"
 
 void node_join_handler(
-    unsigned thread_id, unsigned& seed, std::string ip,
+    unsigned thread_id, unsigned& seed, Address ip,
     std::shared_ptr<spdlog::logger> logger, zmq::socket_t* join_puller,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<std::string, unsigned>& key_size_map,
-    std::unordered_map<std::string, KeyInfo>& placement,
-    std::unordered_set<std::string>& join_remove_set, SocketCache& pushers,
+    std::unordered_map<Key, unsigned>& key_size_map,
+    std::unordered_map<Key, KeyInfo>& placement,
+    std::unordered_set<Key>& join_remove_set, SocketCache& pushers,
     ServerThread& wt, AddressKeysetMap& join_addr_keyset_map) {
   std::string message = zmq_util::recv_string(join_puller);
   std::vector<std::string> v;
   split(message, ':', v);
   unsigned tier = stoi(v[0]);
-  std::string new_server_ip = v[1];
+  Address new_server_ip = v[1];
 
   // update global hash ring
   bool inserted = insert_to_hash_ring<GlobalHashRing>(
@@ -35,7 +35,7 @@ void node_join_handler(
       // gossip the new node address between server nodes to ensure consistency
       for (const auto& global_pair : global_hash_ring_map) {
         GlobalHashRing hash_ring = global_pair.second;
-        std::unordered_set<std::string> observed_ip;
+        std::unordered_set<Address> observed_ip;
 
         for (const auto& hash_pair : hash_ring) {
           std::string this_ip = hash_pair.second.get_ip();
@@ -67,7 +67,7 @@ void node_join_handler(
       bool succeed;
 
       for (const auto& key_pair : key_size_map) {
-        std::string key = key_pair.first;
+        Key key = key_pair.first;
         ServerThreadSet threads = get_responsible_threads(
             wt.get_replication_factor_connect_addr(), key, is_metadata(key),
             global_hash_ring_map, local_hash_ring_map, placement, pushers,

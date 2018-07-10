@@ -5,7 +5,7 @@ std::unordered_map<unsigned, TierData> kTierDataMap;
 unsigned kDefaultLocalReplication;
 unsigned kRoutingThreadCount;
 
-void run(unsigned thread_id, std::string ip, std::vector<std::string> monitoring_addresses) {
+void run(unsigned thread_id, Address ip, std::vector<Address> monitoring_addresses) {
   std::string log_file = "log_" + std::to_string(thread_id) + ".txt";
   std::string logger_name = "routing_logger_" + std::to_string(thread_id);
   auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
@@ -19,7 +19,7 @@ void run(unsigned thread_id, std::string ip, std::vector<std::string> monitoring
   // prepare the zmq context
   zmq::context_t context(1);
   SocketCache pushers(&context, ZMQ_PUSH);
-  std::unordered_map<std::string, KeyInfo> placement;
+  std::unordered_map<Key, KeyInfo> placement;
 
   // warm up for benchmark
   // warmup_placement_to_defaults(placement);
@@ -38,10 +38,7 @@ void run(unsigned thread_id, std::string ip, std::vector<std::string> monitoring
   std::unordered_map<unsigned, LocalHashRing> local_hash_ring_map;
 
   // pending events for asynchrony
-  std::unordered_map<
-      std::string, std::pair<std::chrono::system_clock::time_point,
-                             std::vector<std::pair<std::string, std::string>>>>
-      pending_key_request_map;
+  PendingMap<std::pair<Address, std::string>> pending_key_request_map;
 
   // form local hash rings
   for (const auto& tier_pair : kTierDataMap) {
@@ -142,11 +139,11 @@ int main(int argc, char *argv[]) {
   kDefaultLocalReplication = replication["local"].as<unsigned>();
 
   YAML::Node routing = conf["routing"];
-  std::string ip = routing["ip"].as<std::string>();
-  std::vector<std::string> monitoring_addresses;
+  Address ip = routing["ip"].as<std::string>();
+  std::vector<Address> monitoring_addresses;
 
   for (const YAML::Node& node : routing["monitoring"]) {
-    std::string address = node.as<std::string>();
+    std::string address = node.as<Address>();
     monitoring_addresses.push_back(address);
   }
 

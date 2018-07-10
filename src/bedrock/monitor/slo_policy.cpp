@@ -8,17 +8,17 @@ void slo_policy(
     std::chrono::time_point<std::chrono::system_clock>& grace_start,
     SummaryStats& ss, unsigned& memory_node_number,
     unsigned& adding_memory_node, bool& removing_memory_node,
-    std::string management_address,
-    std::unordered_map<std::string, KeyInfo>& placement,
-    std::unordered_map<std::string, unsigned>& key_access_summary,
+    Address management_address,
+    std::unordered_map<Key, KeyInfo>& placement,
+    std::unordered_map<Key, unsigned>& key_access_summary,
     MonitoringThread& mt, std::unordered_map<unsigned, TierData>& tier_data_map,
-    std::unordered_map<std::string, unsigned>& departing_node_map,
+    std::unordered_map<Address, unsigned>& departing_node_map,
     SocketCache& pushers, zmq::socket_t& response_puller,
-    std::vector<std::string>& routing_address, unsigned& rid,
-    std::unordered_map<std::string, std::pair<double, unsigned>>&
+    std::vector<Address>& routing_address, unsigned& rid,
+    std::unordered_map<Key, std::pair<double, unsigned>>&
         rep_factor_map) {
   // check latency to trigger elasticity or selective replication
-  std::unordered_map<std::string, KeyInfo> requests;
+  std::unordered_map<Key, KeyInfo> requests;
   if (ss.avg_latency > kSloWorst && adding_memory_node == 0) {
     logger->info("Observed latency ({}) violates SLO({}).", ss.avg_latency,
                  kSloWorst);
@@ -39,9 +39,8 @@ void slo_policy(
     } else {  // hot key replication
       // find hot keys
       logger->info("Classifying hot keys...");
-
       for (const auto& key_access_pair : key_access_summary) {
-        std::string key = key_access_pair.first;
+        Key key = key_access_pair.first;
         unsigned total_access = key_access_pair.second;
 
         if (!is_metadata(key) &&
@@ -102,7 +101,7 @@ void slo_policy(
       // before sending remove command, first adjust relevant key's replication
       // factor
       for (const auto& key_access_pair : key_access_summary) {
-        std::string key = key_access_pair.first;
+        Key key = key_access_pair.first;
 
         if (!is_metadata(key) &&
             placement[key].global_replication_map_[1] ==

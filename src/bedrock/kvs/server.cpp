@@ -23,7 +23,7 @@ unsigned kDefaultLocalReplication;
 
 std::unordered_map<unsigned, TierData> kTierDataMap;
 
-void run(unsigned thread_id, std::string ip, std::string seed_ip, std::vector<std::string> routing_addresses, std::vector<std::string> monitoring_addresses) {
+void run(unsigned thread_id, Address ip, Address seed_ip, std::vector<Address> routing_addresses, std::vector<Address> monitoring_addresses) {
   std::string log_file = "log_" + std::to_string(thread_id) + ".txt";
   std::string logger_name = "server_logger_" + std::to_string(thread_id);
   auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
@@ -47,19 +47,14 @@ void run(unsigned thread_id, std::string ip, std::string seed_ip, std::vector<st
   AddressKeysetMap join_addr_keyset_map;
 
   // keep track of which key should be removed when node joins
-  std::unordered_set<std::string> join_remove_set;
+  std::unordered_set<Key> join_remove_set;
 
   // pending events for asynchrony
-  std::unordered_map<std::string,
-                     std::pair<std::chrono::system_clock::time_point,
-                               std::vector<PendingRequest>>>
-      pending_request_map;
-  std::unordered_map<std::string,
-                     std::pair<std::chrono::system_clock::time_point,
-                               std::vector<PendingGossip>>>
-      pending_gossip_map;
+  PendingMap<PendingRequest> pending_request_map;
+  PendingMap<PendingGossip> pending_gossip_map;
 
-  std::unordered_map<std::string, KeyInfo> placement;
+  std::unordered_map<Key, KeyInfo> placement;
+
 
   // request server addresses from the seed node
   zmq::socket_t addr_requester(context, ZMQ_REQ);
@@ -99,7 +94,7 @@ void run(unsigned thread_id, std::string ip, std::string seed_ip, std::vector<st
     for (const auto& global_pair : global_hash_ring_map) {
       unsigned tier_id = global_pair.first;
       GlobalHashRing hash_ring = global_pair.second;
-      std::unordered_set<std::string> observed_ip;
+      std::unordered_set<Address> observed_ip;
 
       for (const auto& hash_pair : hash_ring) {
         std::string server_ip = hash_pair.second.get_ip();
@@ -141,13 +136,13 @@ void run(unsigned thread_id, std::string ip, std::string seed_ip, std::vector<st
   }
 
   // the set of changes made on this thread since the last round of gossip
-  std::unordered_set<std::string> local_changeset;
+  std::unordered_set<Key> local_changeset;
 
   // keep track of the key stat
-  std::unordered_map<std::string, unsigned> key_size_map;
+  std::unordered_map<Key, unsigned> key_size_map;
   // keep track of key access timestamp
   std::unordered_map<
-      std::string,
+      Key,
       std::multiset<std::chrono::time_point<std::chrono::system_clock>>>
       key_access_timestamp;
   // keep track of total access
@@ -325,7 +320,7 @@ void run(unsigned thread_id, std::string ip, std::string seed_ip, std::vector<st
         AddressKeysetMap addr_keyset_map;
 
         bool succeed;
-        for (const auto& key : local_changeset) {
+        for (const Key& key : local_changeset) {
           ServerThreadSet threads = get_responsible_threads(
               wt.get_replication_factor_connect_addr(), key, is_metadata(key),
               global_hash_ring_map, local_hash_ring_map, placement, pushers,
@@ -361,7 +356,7 @@ void run(unsigned thread_id, std::string ip, std::string seed_ip, std::vector<st
 
     if (duration >= kServerReportThreshold) {
       epoch += 1;
-      std::string key = std::string(kMetadataIdentifier) + "_" + wt.get_ip() +
+      Key key = std::string(kMetadataIdentifier) + "_" + wt.get_ip() +
                         "_" + std::to_string(wt.get_tid()) + "_" +
                         std::to_string(kSelfTierId) + "_stat";
 
@@ -403,7 +398,7 @@ void run(unsigned thread_id, std::string ip, std::string seed_ip, std::vector<st
       auto threads = get_responsible_threads_metadata(
           key, global_hash_ring_map[1], local_hash_ring_map[1]);
       if (threads.size() != 0) {
-        std::string target_address =
+        Address target_address =
             next(begin(threads), rand_r(&seed) % threads.size())
                 ->get_request_pulling_connect_addr();
         push_request(req, pushers[target_address]);
@@ -414,7 +409,7 @@ void run(unsigned thread_id, std::string ip, std::string seed_ip, std::vector<st
       auto current_time = std::chrono::system_clock::now();
 
       for (const auto& key_access_pair : key_access_timestamp) {
-        std::string key = key_access_pair.first;
+        Key key = key_access_pair.first;
         auto access_times = key_access_pair.second;
 
         // garbage collect
@@ -448,7 +443,7 @@ void run(unsigned thread_id, std::string ip, std::string seed_ip, std::vector<st
                                                  local_hash_ring_map[1]);
 
       if (threads.size() != 0) {
-        std::string target_address =
+        Address target_address =
             next(begin(threads), rand_r(&seed) % threads.size())
                 ->get_request_pulling_connect_addr();
         push_request(req, pushers[target_address]);
@@ -464,27 +459,27 @@ void run(unsigned thread_id, std::string ip, std::string seed_ip, std::vector<st
 
     // redistribute data after node joins
     if (join_addr_keyset_map.size() != 0) {
-      std::unordered_set<std::string> remove_address_set;
+      std::unordered_set<Address> remove_address_set;
 
       // assemble gossip
       AddressKeysetMap addr_keyset_map;
       for (const auto& join_pair : join_addr_keyset_map) {
-        std::string address = join_pair.first;
-        std::unordered_set<std::string> key_set = join_pair.second;
+        Address address = join_pair.first;
+        std::unordered_set<Key> key_set = join_pair.second;
         unsigned count = 0;
 
         // track all sent keys because we cannot modify the key_set while
         // iterating over it
-        std::unordered_set<std::string> sent_keys;
+        std::unordered_set<Key> sent_keys;
 
-        for (const std::string& key : key_set) {
+        for (const Key& key : key_set) {
           addr_keyset_map[address].insert(key);
           sent_keys.insert(key);
           count++;
         }
 
         // remove the keys we just dealt with
-        for (const std::string& key : sent_keys) {
+        for (const Key& key : sent_keys) {
           key_set.erase(key);
         }
 
@@ -493,7 +488,7 @@ void run(unsigned thread_id, std::string ip, std::string seed_ip, std::vector<st
         }
       }
 
-      for (const std::string& remove_address : remove_address_set) {
+      for (const Address& remove_address : remove_address_set) {
         join_addr_keyset_map.erase(remove_address);
       }
 
@@ -542,21 +537,21 @@ int main(int argc, char *argv[]) {
   kDefaultLocalReplication = replication["local"].as<unsigned>();
 
   YAML::Node server = conf["server"];
-  std::string ip = server["ip"].as<std::string>();
+  Address ip = server["ip"].as<std::string>();
 
-  std::vector<std::string> routing_addresses;
-  std::vector<std::string> monitoring_addresses;
+  std::vector<Address> routing_addresses;
+  std::vector<Address> monitoring_addresses;
 
-  std::string seed_ip = server["seed_ip"].as<std::string>();
+  Address seed_ip = server["seed_ip"].as<std::string>();
   YAML::Node monitoring = server["monitoring"];
   YAML::Node routing = server["routing"];
 
   for (const YAML::Node& address : routing) {
-    routing_addresses.push_back(address.as<std::string>());
+    routing_addresses.push_back(address.as<Address>());
   }
 
   for (const YAML::Node& address : monitoring) {
-    monitoring_addresses.push_back(address.as<std::string>());
+    monitoring_addresses.push_back(address.as<Address>());
   }
 
   kTierDataMap[1] = TierData(

@@ -7,17 +7,14 @@ void user_request_handler(
     std::chrono::system_clock::time_point& start_time,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<std::string, unsigned>& key_size_map,
-    std::unordered_map<std::string,
-                       std::pair<std::chrono::system_clock::time_point,
-                                 std::vector<PendingRequest>>>&
-        pending_request_map,
+    std::unordered_map<Key, unsigned>& key_size_map,
+    PendingMap<PendingRequest>& pending_request_map,
     std::unordered_map<
-        std::string,
+        Key,
         std::multiset<std::chrono::time_point<std::chrono::system_clock>>>&
         key_access_timestamp,
-    std::unordered_map<std::string, KeyInfo>& placement,
-    std::unordered_set<std::string>& local_changeset, ServerThread& wt,
+    std::unordered_map<Key, KeyInfo>& placement,
+    std::unordered_set<Key>& local_changeset, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers) {
 
   std::string req_string = zmq_util::recv_string(request_puller);
@@ -38,7 +35,7 @@ void user_request_handler(
   if (req.type() == "GET") {
     for (const auto& tuple : req.tuple()) {
       // first check if the thread is responsible for the key
-      std::string key = tuple.key();
+      Key key = tuple.key();
       ServerThreadSet threads = get_responsible_threads(
           wt.get_replication_factor_connect_addr(), key, is_metadata(key),
           global_hash_ring_map, local_hash_ring_map, placement, pushers,
@@ -59,11 +56,7 @@ void user_request_handler(
                 global_hash_ring_map[1], local_hash_ring_map[1], pushers, seed);
             std::string val = "";
 
-            if (pending_request_map.find(key) == pending_request_map.end()) {
-              pending_request_map[key].first = std::chrono::system_clock::now();
-            }
-
-            pending_request_map[key].second.push_back(
+            pending_request_map[key].push_back(
                 PendingRequest("G", "", req.respond_address(), respond_id));
           }
         } else {  // if we know the responsible threads, we process the request
@@ -83,18 +76,14 @@ void user_request_handler(
           total_access += 1;
         }
       } else {
-        if (pending_request_map.find(key) == pending_request_map.end()) {
-          pending_request_map[key].first = std::chrono::system_clock::now();
-        }
-
-        pending_request_map[key].second.push_back(
+        pending_request_map[key].push_back(
             PendingRequest("G", "", req.respond_address(), respond_id));
       }
     }
   } else if (req.type() == "PUT") {
     for (const auto& tuple : req.tuple()) {
       // first check if the thread is responsible for the key
-      std::string key = tuple.key();
+      Key key = tuple.key();
       ServerThreadSet threads = get_responsible_threads(
           wt.get_replication_factor_connect_addr(), key, is_metadata(key),
           global_hash_ring_map, local_hash_ring_map, placement, pushers,
@@ -114,16 +103,12 @@ void user_request_handler(
                 wt.get_replication_factor_connect_addr(), key,
                 global_hash_ring_map[1], local_hash_ring_map[1], pushers, seed);
 
-            if (pending_request_map.find(key) == pending_request_map.end()) {
-              pending_request_map[key].first = std::chrono::system_clock::now();
-            }
-
             if (req.has_respond_address()) {
-              pending_request_map[key].second.push_back(
+              pending_request_map[key].push_back(
                   PendingRequest("P", tuple.value(),
                                  req.respond_address(), respond_id));
             } else {
-              pending_request_map[key].second.push_back(
+              pending_request_map[key].push_back(
                   PendingRequest("P", tuple.value(), "", respond_id));
             }
           }
@@ -150,15 +135,11 @@ void user_request_handler(
           local_changeset.insert(key);
         }
       } else {
-        if (pending_request_map.find(key) == pending_request_map.end()) {
-          pending_request_map[key].first = std::chrono::system_clock::now();
-        }
-
         if (req.has_respond_address()) {
-          pending_request_map[key].second.push_back(PendingRequest(
+          pending_request_map[key].push_back(PendingRequest(
               "P", tuple.value(), req.respond_address(), respond_id));
         } else {
-          pending_request_map[key].second.push_back(
+          pending_request_map[key].push_back(
               PendingRequest("P", tuple.value(), "", respond_id));
         }
       }

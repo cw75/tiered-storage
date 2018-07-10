@@ -13,15 +13,15 @@ unsigned kDefaultLocalReplication;
 
 void handle_request(
     std::string request_line, SocketCache& pushers,
-    std::vector<std::string>& routing_addresses,
-    std::unordered_map<std::string, std::unordered_set<std::string>>&
-        key_address_cache,
+    std::vector<Address>& routing_addresses,
+    std::unordered_map<Key, std::unordered_set<Address>>& key_address_cache,
     unsigned& seed, std::shared_ptr<spdlog::logger> logger, UserThread& ut,
     zmq::socket_t& response_puller, zmq::socket_t& key_address_puller,
-    std::string& ip, unsigned& thread_id, unsigned& rid, unsigned& trial) {
+    Address& ip, unsigned& thread_id, unsigned& rid, unsigned& trial) {
   std::vector<std::string> v;
   split(request_line, ' ', v);
-  std::string key, value;
+  Key key;
+  std::string value;
 
   if (!((v.size() == 2 && v[0] == "GET") || (v.size() == 3 && v[0] == "PUT"))) {
     std::cerr << "Usage: GET <key> | PUT <key> <value>" << std::endl;
@@ -45,15 +45,15 @@ void handle_request(
   }
 
   // get worker address
-  std::string worker_address;
+  Address worker_address;
   if (key_address_cache.find(key) == key_address_cache.end()) {
     // query the routing and update the cache
-    std::string target_routing_addresses =
+    Address target_routing_address =
         get_random_routing_thread(routing_addresses, seed, kRoutingThreadCount)
             .get_key_address_connect_addr();
     bool succeed;
-    std::vector<std::string> addresses = get_address_from_routing(
-        ut, key, pushers[target_routing_addresses], key_address_puller, succeed,
+    std::vector<Address> addresses = get_address_from_routing(
+        ut, key, pushers[target_routing_address], key_address_puller, succeed,
         ip, thread_id, rid);
 
     if (succeed) {
@@ -148,7 +148,7 @@ void handle_request(
     std::vector<std::string> tokens;
     split(worker_address, ':', tokens);
     std::string signature = tokens[1];
-    std::unordered_set<std::string> remove_set;
+    std::unordered_set<Key> remove_set;
 
     for (const auto& key_pair : key_address_cache) {
       for (const std::string& address : key_pair.second) {
@@ -172,7 +172,7 @@ void handle_request(
   }
 }
 
-void run(unsigned thread_id, std::string filename, std::string ip, std::vector<std::string> routing_addresses) {
+void run(unsigned thread_id, std::string filename, Address ip, std::vector<Address> routing_addresses) {
   std::string log_file = "log_user.txt";
   std::string logger_name = "user_log";
   auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
@@ -185,11 +185,10 @@ void run(unsigned thread_id, std::string filename, std::string ip, std::vector<s
   logger->info("Random seed is {}.", seed);
 
   // mapping from key to a set of worker addresses
-  std::unordered_map<std::string, std::unordered_set<std::string>>
+  std::unordered_map<Key, std::unordered_set<Address>>
       key_address_cache;
 
   UserThread ut = UserThread(ip, thread_id);
-
 
   int timeout = 10000;
   zmq::context_t context(1);
@@ -244,12 +243,12 @@ int main(int argc, char* argv[]) {
   kDefaultLocalReplication = conf["replication"]["local"].as<unsigned>();
 
   YAML::Node user = conf["user"];
-  std::string ip = user["ip"].as<std::string>();
+  Address ip = user["ip"].as<Address>();
   YAML::Node routing = user["routing"];
-  std::vector<std::string> routing_addresses;
+  std::vector<Address> routing_addresses;
 
   for (const YAML::Node& node : routing) {
-    routing_addresses.push_back(node.as<std::string>());
+    routing_addresses.push_back(node.as<Address>());
   }
   if (argc == 1) {
     run(0, "", ip, routing_addresses);

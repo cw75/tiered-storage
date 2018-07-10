@@ -2,7 +2,7 @@
 
 void add_node(std::shared_ptr<spdlog::logger> logger, std::string tier,
               unsigned number, unsigned& adding,
-              const std::string& management_address) {
+              const Address& management_address) {
   logger->info("Adding {} {} node.", std::to_string(number), tier);
   std::string shell_command = "curl -X POST http://" + management_address +
                               "/add/" + tier + "/" + std::to_string(number) +
@@ -13,7 +13,7 @@ void add_node(std::shared_ptr<spdlog::logger> logger, std::string tier,
 
 void remove_node(std::shared_ptr<spdlog::logger> logger, ServerThread& node,
                  std::string tier, bool& removing_flag, SocketCache& pushers,
-                 std::unordered_map<std::string, unsigned>& departing_node_map,
+                 std::unordered_map<Address, unsigned>& departing_node_map,
                  MonitoringThread& mt,
                  std::unordered_map<unsigned, TierData>& tier_data_map) {
   auto connection_addr = node.get_self_depart_connect_addr();

@@ -9,21 +9,15 @@ void rep_factor_response_handler(
     std::chrono::system_clock::time_point& start_time,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<std::string,
-                       std::pair<std::chrono::system_clock::time_point,
-                                 std::vector<PendingRequest>>>&
-        pending_request_map,
-    std::unordered_map<std::string,
-                       std::pair<std::chrono::system_clock::time_point,
-                                 std::vector<PendingGossip>>>
-        pending_gossip_map,
+    PendingMap<PendingRequest>& pending_request_map,
+    PendingMap<PendingGossip>& pending_gossip_map,
     std::unordered_map<
-        std::string,
+        Key,
         std::multiset<std::chrono::time_point<std::chrono::system_clock>>>&
         key_access_timestamp,
-    std::unordered_map<std::string, KeyInfo> placement,
-    std::unordered_map<std::string, unsigned>& key_size_map,
-    std::unordered_set<std::string>& local_changeset, ServerThread& wt,
+    std::unordered_map<Key, KeyInfo>& placement,
+    std::unordered_map<Key, unsigned>& key_size_map,
+    std::unordered_set<Key>& local_changeset, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers) {
   std::string response_string =
       zmq_util::recv_string(rep_factor_response_puller);
@@ -32,7 +26,7 @@ void rep_factor_response_handler(
 
   std::vector<std::string> tokens;
   split(response.tuple(0).key(), '_', tokens);
-  std::string key = tokens[1];
+  Key key = tokens[1];
 
   if (response.tuple(0).err_number() == 2) {
     auto respond_address = wt.get_replication_factor_connect_addr();
@@ -71,9 +65,8 @@ void rep_factor_response_handler(
 
     if (succeed) {
       bool responsible = threads.find(wt) != threads.end();
-      std::vector<PendingRequest> request_vec = pending_request_map[key].second;
 
-      for (const PendingRequest& request : request_vec) {
+      for (const PendingRequest& request : pending_request_map[key]) {
         auto now = std::chrono::system_clock::now();
 
         if (!responsible && request.addr_ != "") {
@@ -157,35 +150,33 @@ void rep_factor_response_handler(
   }
 
   if (pending_gossip_map.find(key) != pending_gossip_map.end()) {
-    auto threads = get_responsible_threads(
+    ServerThreadSet threads = get_responsible_threads(
         wt.get_replication_factor_connect_addr(), key, is_metadata(key),
         global_hash_ring_map, local_hash_ring_map, placement, pushers, kSelfTierIdVector,
         succeed, seed);
 
     if (succeed) {
       if (threads.find(wt) != threads.end()) {
-        // TODO(vikram): change once Chenggang finishes type refactor
-        for (auto it = pending_gossip_map[key].second.begin();
-             it != pending_gossip_map[key].second.end(); ++it) {
-          process_put(key, it->ts_, it->value_, serializer, key_size_map);
+        for (const PendingGossip& gossip : pending_gossip_map[key]) {
+          process_put(key, gossip.ts_, gossip.value_, serializer, key_size_map);
         }
       } else {
-        std::unordered_map<std::string, communication::Request> gossip_map;
+        std::unordered_map<Address, communication::Request> gossip_map;
 
         // forward the gossip
-        for (auto it = threads.begin(); it != threads.end(); it++) {
-          gossip_map[it->get_gossip_connect_addr()].set_type("PUT");
+        for (const ServerThread& thread : threads) {
+          gossip_map[thread.get_gossip_connect_addr()].set_type("PUT");
 
-          for (auto iter = pending_gossip_map[key].second.begin();
-               iter != pending_gossip_map[key].second.end(); iter++) {
-            prepare_put_tuple(gossip_map[it->get_gossip_connect_addr()], key,
-                              iter->value_, iter->ts_);
+
+          for (const PendingGossip& gossip : pending_gossip_map[key]) {
+            prepare_put_tuple(gossip_map[thread.get_gossip_connect_addr()], key,
+                              gossip.value_, gossip.ts_);
           }
         }
 
         // redirect gossip
-        for (auto it = gossip_map.begin(); it != gossip_map.end(); it++) {
-          push_request(it->second, pushers[it->first]);
+        for (const auto& gossip_pair : gossip_map) {
+          push_request(gossip_pair.second, pushers[gossip_pair.first]);
         }
       }
     } else {

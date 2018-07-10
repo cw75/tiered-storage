@@ -5,12 +5,8 @@ void address_handler(
     SocketCache& pushers, RoutingThread& rt,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<std::string, KeyInfo>& placement,
-    std::unordered_map<
-        std::string,
-        std::pair<std::chrono::system_clock::time_point,
-                  std::vector<std::pair<std::string, std::string>>>>&
-        pending_key_request_map,
+    std::unordered_map<Key, KeyInfo>& placement,
+    PendingMap<std::pair<Address, std::string>>& pending_key_request_map,
     unsigned& seed) {
   logger->info("Received key address request.");
   std::string serialized_key_req = zmq_util::recv_string(key_address_puller);
@@ -35,7 +31,7 @@ void address_handler(
     zmq_util::send_string(serialized_key_res,
                           &pushers[key_req.respond_address()]);
   } else {  // if there are servers, attempt to return the correct threads
-    for (const std::string& key : key_req.keys()) {
+    for (const Key& key : key_req.keys()) {
       unsigned tier_id = 1;
       ServerThreadSet threads = {};
 
@@ -46,13 +42,8 @@ void address_handler(
             { tier_id }, succeed, seed);
 
         if (!succeed) { // this means we don't have the replication factor for the key
-          if (pending_key_request_map.find(key) ==
-              pending_key_request_map.end()) {
-            pending_key_request_map[key].first = std::chrono::system_clock::now();
-          }
-
-          pending_key_request_map[key].second.push_back(
-              std::pair<std::string, std::string>(key_req.respond_address(),
+          pending_key_request_map[key].push_back(
+              std::pair<Address, std::string>(key_req.respond_address(),
                 key_req.request_id()));
           return;
         }

@@ -2,7 +2,7 @@
 
 #include <utility>
 
-zmq::socket_t& SocketCache::At(const std::string& addr) {
+zmq::socket_t& SocketCache::At(const Address& addr) {
   auto iter = cache_.find(addr);
   if (iter != cache_.end()) {
     return iter->second;
@@ -15,7 +15,7 @@ zmq::socket_t& SocketCache::At(const std::string& addr) {
   return p.first->second;
 }
 
-zmq::socket_t& SocketCache::operator[](const std::string& addr) {
+zmq::socket_t& SocketCache::operator[](const Address& addr) {
   return At(addr);
 }
 

@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "communication.pb.h"
+#include "types.hpp"
 #include "zmq/socket_cache.hpp"
 #include "zmq/zmq_util.hpp"
 
@@ -86,12 +87,12 @@ inline unsigned long long generate_timestamp(unsigned long long time,
   return time * pow + tid;
 }
 
-inline void prepare_get_tuple(communication::Request& req, std::string key) {
+inline void prepare_get_tuple(communication::Request& req, Key key) {
   communication::Request_Tuple* tp = req.add_tuple();
   tp->set_key(key);
 }
 
-inline void prepare_put_tuple(communication::Request& req, std::string key,
+inline void prepare_put_tuple(communication::Request& req, Key key,
                               std::string value, unsigned long long timestamp) {
   communication::Request_Tuple* tp = req.add_tuple();
   tp->set_key(key);

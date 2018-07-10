@@ -6,12 +6,8 @@ void replication_response_handler(
     RoutingThread& rt,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<std::string, KeyInfo>& placement,
-    std::unordered_map<
-        std::string,
-        std::pair<std::chrono::system_clock::time_point,
-                  std::vector<std::pair<std::string, std::string>>>>&
-        pending_key_request_map,
+    std::unordered_map<Key, KeyInfo>& placement,
+    PendingMap<std::pair<Address, std::string>>& pending_key_request_map,
     unsigned& seed) {
   std::string serialized_response =
       zmq_util::recv_string(replication_factor_puller);
@@ -20,7 +16,7 @@ void replication_response_handler(
 
   std::vector<std::string> tokens;
   split(response.tuple(0).key(), '_', tokens);
-  std::string key = tokens[1];
+  Key key = tokens[1];
 
   if (response.tuple(0).err_number() == 0) {
     communication::Replication_Factor rep_data;
@@ -71,7 +67,7 @@ void replication_response_handler(
         tier_id++;
       }
 
-      for (const auto& pending_key_req : pending_key_request_map[key].second) {
+      for (const auto& pending_key_req : pending_key_request_map[key]) {
         communication::Key_Response key_res;
         key_res.set_response_id(pending_key_req.second);
         communication::Key_Response_Tuple* tp = key_res.add_tuple();
