@@ -3,8 +3,7 @@
 #include "spdlog/spdlog.h"
 #include "yaml-cpp/yaml.h"
 
-// read-only per-tier metadata
-std::unordered_map<unsigned, TierData> tier_data_map;
+std::unordered_map<unsigned, TierData> kTierDataMap;
 unsigned kDefaultLocalReplication;
 unsigned kRoutingThreadCount;
 
@@ -58,7 +57,7 @@ void run(unsigned thread_id) {
       pending_key_request_map;
 
   // form local hash rings
-  for (const auto& tier_pair : tier_data_map) {
+  for (const auto& tier_pair : kTierDataMap) {
     for (unsigned tid = 0; tid < tier_pair.second.thread_number_; tid++) {
       insert_to_hash_ring<LocalHashRing>(local_hash_ring_map[tier_pair.first], ip,
                                          tid);
@@ -119,7 +118,7 @@ void run(unsigned thread_id) {
     // received replication factor response
     if (pollitems[2].revents & ZMQ_POLLIN) {
       replication_response_handler(logger, &replication_factor_puller, pushers,
-                                   rt, tier_data_map, global_hash_ring_map,
+                                   rt, global_hash_ring_map,
                                    local_hash_ring_map, placement,
                                    pending_key_request_map, seed);
     }
@@ -154,9 +153,9 @@ int main(int argc, char *argv[]) {
       conf["replication"]["ebs"].as<unsigned>();
   kDefaultLocalReplication = conf["replication"]["local"].as<unsigned>();
 
-  tier_data_map[1] = TierData(
+  kTierDataMap[1] = TierData(
       kMemoryThreadCount, kDefaultGlobalMemoryReplication, kMemoryNodeCapacity);
-  tier_data_map[2] = TierData(kEbsThreadCount, kDefaultGlobalEbsReplication,
+  kTierDataMap[2] = TierData(kEbsThreadCount, kDefaultGlobalEbsReplication,
                               kEbsNodeCapacity);
 
   std::vector<std::thread> routing_worker_threads;

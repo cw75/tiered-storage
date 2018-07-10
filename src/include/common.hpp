@@ -58,6 +58,8 @@ const unsigned kBenchmarkCommandBasePort = 6900;
 extern unsigned kSelfTierId;
 extern std::vector<unsigned> kSelfTierIdVector;
 
+// the number of threads running in this executable
+extern unsigned kThreadNum; 
 extern unsigned kMemoryThreadCount;
 extern unsigned kEbsThreadCount;
 extern unsigned kRoutingThreadCount;

@@ -20,7 +20,7 @@
 #include "zmq/socket_cache.hpp"
 #include "zmq/zmq_util.hpp"
 
-unsigned BENCHMARK_THREAD_NUM;
+unsigned kBenchmarkThreadNum;
 unsigned kRoutingThreadCount;
 unsigned kDefaultLocalReplication;
 
@@ -530,11 +530,11 @@ int main(int argc, char* argv[]) {
 
   YAML::Node conf = YAML::LoadFile("conf/config_benchmark.yml")["thread"];
   kRoutingThreadCount = conf["routing"].as<int>();
-  BENCHMARK_THREAD_NUM = conf["benchmark"].as<int>();
+  kBenchmarkThreadNum = conf["benchmark"].as<int>();
   kDefaultLocalReplication = conf["replication"]["local"].as<unsigned>();
 
   std::vector<std::thread> benchmark_threads;
-  for (unsigned thread_id = 1; thread_id < BENCHMARK_THREAD_NUM; thread_id++) {
+  for (unsigned thread_id = 1; thread_id < kBenchmarkThreadNum; thread_id++) {
     benchmark_threads.push_back(std::thread(run, thread_id));
   }
 

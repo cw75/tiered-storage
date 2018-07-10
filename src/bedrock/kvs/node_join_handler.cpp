@@ -9,7 +9,7 @@
 #include "zmq/socket_cache.hpp"
 
 void node_join_handler(
-    unsigned int thread_num, unsigned thread_id, unsigned& seed, std::string ip,
+    unsigned thread_id, unsigned& seed, std::string ip,
     std::shared_ptr<spdlog::logger> logger, zmq::socket_t* join_puller,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
@@ -64,7 +64,7 @@ void node_join_handler(
       }
 
       // tell all worker threads about the new node join
-      for (unsigned tid = 1; tid < thread_num; tid++) {
+      for (unsigned tid = 1; tid < kThreadNum; tid++) {
         zmq_util::send_string(
             message,
             &pushers[ServerThread(ip, tid).get_node_join_connect_addr()]);

@@ -9,7 +9,7 @@
 #include "zmq/socket_cache.hpp"
 
 void node_depart_handler(
-    unsigned int thread_num, unsigned thread_id, std::string ip,
+    unsigned thread_id, std::string ip,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::shared_ptr<spdlog::logger> logger, zmq::socket_t* depart_puller,
     SocketCache& pushers) {
@@ -28,7 +28,7 @@ void node_depart_handler(
 
   if (thread_id == 0) {
     // tell all worker threads about the node departure
-    for (unsigned tid = 1; tid < thread_num; tid++) {
+    for (unsigned tid = 1; tid < kThreadNum; tid++) {
       zmq_util::send_string(
           message,
           &pushers[ServerThread(ip, tid).get_node_depart_connect_addr()]);

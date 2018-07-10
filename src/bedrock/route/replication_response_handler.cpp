@@ -4,7 +4,7 @@
 void replication_response_handler(
     std::shared_ptr<spdlog::logger> logger,
     zmq::socket_t* replication_factor_puller, SocketCache& pushers,
-    RoutingThread& rt, std::unordered_map<unsigned, TierData>& tier_data_map,
+    RoutingThread& rt,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     std::unordered_map<std::string, KeyInfo>& placement,
@@ -46,7 +46,7 @@ void replication_response_handler(
   } else {
     for (const unsigned& tier_id : kAllTierIds) {
       placement[key].global_replication_map_[tier_id] =
-          tier_data_map[tier_id].default_replication_;
+          kTierDataMap[tier_id].default_replication_;
       placement[key].local_replication_map_[tier_id] = kDefaultLocalReplication;
     }
   }

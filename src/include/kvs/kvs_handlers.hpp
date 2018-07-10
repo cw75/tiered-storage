@@ -5,7 +5,7 @@
 #include "utils/server_utility.hpp"
 
 void node_join_handler(
-    unsigned int thread_num, unsigned thread_id, unsigned& seed, std::string ip,
+    unsigned thread_id, unsigned& seed, std::string ip,
     std::shared_ptr<spdlog::logger> logger, zmq::socket_t* join_puller,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
@@ -15,13 +15,13 @@ void node_join_handler(
     ServerThread& wt, AddressKeysetMap& join_addr_keyset_map);
 
 void node_depart_handler(
-    unsigned int thread_num, unsigned thread_id, std::string ip,
+    unsigned thread_id, std::string ip,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::shared_ptr<spdlog::logger> logger, zmq::socket_t* depart_puller,
     SocketCache& pushers);
 
 void self_depart_handler(
-    unsigned thread_num, unsigned thread_id, unsigned& seed, std::string ip,
+    unsigned thread_id, unsigned& seed, std::string ip,
     std::shared_ptr<spdlog::logger> logger, zmq::socket_t* self_depart_puller,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
@@ -65,7 +65,6 @@ void rep_factor_response_handler(
     std::shared_ptr<spdlog::logger> logger,
     zmq::socket_t* rep_factor_response_puller,
     std::chrono::system_clock::time_point& start_time,
-    std::unordered_map<unsigned, TierData> tier_data_map,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     std::unordered_map<std::string,
@@ -86,7 +85,7 @@ void rep_factor_response_handler(
     Serializer* serializer, SocketCache& pushers);
 
 void rep_factor_change_handler(
-    std::string ip, unsigned thread_id, unsigned thread_num, unsigned& seed,
+    std::string ip, unsigned thread_id, unsigned& seed,
     std::shared_ptr<spdlog::logger> logger,
     zmq::socket_t* rep_factor_change_puller,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,

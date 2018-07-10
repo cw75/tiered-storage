@@ -8,7 +8,7 @@
 #include "zmq/socket_cache.hpp"
 
 void rep_factor_change_handler(
-    std::string ip, unsigned thread_id, unsigned thread_num, unsigned& seed,
+    std::string ip, unsigned thread_id, unsigned& seed,
     std::shared_ptr<spdlog::logger> logger,
     zmq::socket_t* rep_factor_change_puller,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
@@ -23,7 +23,7 @@ void rep_factor_change_handler(
   logger->info("Received replication factor change.");
   if (thread_id == 0) {
     // tell all worker threads about the replication factor change
-    for (unsigned tid = 1; tid < thread_num; tid++) {
+    for (unsigned tid = 1; tid < kThreadNum; tid++) {
       zmq_util::send_string(
           change_string,
           &pushers[ServerThread(ip, tid)

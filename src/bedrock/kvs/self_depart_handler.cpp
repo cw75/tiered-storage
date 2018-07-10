@@ -9,7 +9,7 @@
 #include "zmq/socket_cache.hpp"
 
 void self_depart_handler(
-    unsigned thread_num, unsigned thread_id, unsigned& seed, std::string ip,
+    unsigned thread_id, unsigned& seed, std::string ip,
     std::shared_ptr<spdlog::logger> logger, zmq::socket_t* self_depart_puller,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
@@ -58,7 +58,7 @@ void self_depart_handler(
     }
 
     // tell all worker threads about the self departure
-    for (unsigned tid = 1; tid < thread_num; tid++) {
+    for (unsigned tid = 1; tid < kThreadNum; tid++) {
       zmq_util::send_string(
           ack_addr,
           &pushers[ServerThread(ip, tid).get_self_depart_connect_addr()]);

@@ -26,14 +26,12 @@
 #include "zmq/zmq_util.hpp"
 
 // define server report threshold (in second)
-const unsigned SERVER_REPORT_THRESHOLD = 15;
+const unsigned kServerReportThreshold = 15;
 
 // define server's key monitoring threshold (in second)
-const unsigned KEY_MONITORING_THRESHOLD = 60;
-// define the threshold for retry rep factor query for gossip handling (in
-// second)
-const unsigned RETRY_THRESHOLD = 10;
-unsigned THREAD_NUM;
+const unsigned kKeyMonitoringThreshold = 60;
+
+unsigned kThreadNum;
 
 unsigned kSelfTierId;
 std::vector<unsigned> kSelfTierIdVector;
@@ -46,7 +44,7 @@ unsigned kDefaultGlobalEbsReplication;
 unsigned kDefaultLocalReplication;
 
 // read-only per-tier metadata
-std::unordered_map<unsigned, TierData> tier_data_map;
+std::unordered_map<unsigned, TierData> kTierDataMap;
 
 // thread entry point
 void run(unsigned thread_id) {
@@ -133,7 +131,7 @@ void run(unsigned thread_id) {
                                       0);
 
   // form local hash rings
-  for (const auto& tier_pair : tier_data_map) {
+  for (const auto& tier_pair : kTierDataMap) {
     for (unsigned tid = 0; tid < tier_pair.second.thread_number_; tid++) {
       insert_to_hash_ring<LocalHashRing>(local_hash_ring_map[tier_pair.first],
           ip, tid);
@@ -255,7 +253,7 @@ void run(unsigned thread_id) {
     if (pollitems[0].revents & ZMQ_POLLIN) {
       auto work_start = std::chrono::system_clock::now();
 
-      node_join_handler(THREAD_NUM, thread_id, seed, ip, logger, &join_puller,
+      node_join_handler(thread_id, seed, ip, logger, &join_puller,
                         global_hash_ring_map, local_hash_ring_map, key_size_map,
                         placement, join_remove_set, pushers, wt,
                         join_addr_keyset_map);
@@ -270,7 +268,7 @@ void run(unsigned thread_id) {
     if (pollitems[1].revents & ZMQ_POLLIN) {
       auto work_start = std::chrono::system_clock::now();
 
-      node_depart_handler(THREAD_NUM, thread_id, ip, global_hash_ring_map,
+      node_depart_handler(thread_id, ip, global_hash_ring_map,
                           logger, &depart_puller, pushers);
 
       auto time_elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
@@ -284,7 +282,7 @@ void run(unsigned thread_id) {
       auto work_start = std::chrono::system_clock::now();
 
       self_depart_handler(
-          THREAD_NUM, thread_id, seed, ip, logger, &self_depart_puller,
+          thread_id, seed, ip, logger, &self_depart_puller,
           global_hash_ring_map, local_hash_ring_map, key_size_map, placement,
           routing_address, monitoring_address, wt, pushers, serializer);
 
@@ -332,7 +330,7 @@ void run(unsigned thread_id) {
 
       rep_factor_response_handler(
           seed, total_access, logger, &replication_factor_puller, start_time,
-          tier_data_map, global_hash_ring_map, local_hash_ring_map,
+          global_hash_ring_map, local_hash_ring_map,
           pending_request_map, pending_gossip_map, key_access_timestamp,
           placement, key_size_map, local_changeset, wt, serializer, pushers);
 
@@ -347,7 +345,7 @@ void run(unsigned thread_id) {
     if (pollitems[6].revents & ZMQ_POLLIN) {
       auto work_start = std::chrono::system_clock::now();
 
-      rep_factor_change_handler(ip, thread_id, THREAD_NUM, seed, logger,
+      rep_factor_change_handler(ip, thread_id, seed, logger,
                                 &replication_factor_change_puller,
                                 global_hash_ring_map, local_hash_ring_map,
                                 placement, key_size_map, local_changeset, wt,
@@ -405,7 +403,7 @@ void run(unsigned thread_id) {
                         report_end - report_start)
                         .count();
 
-    if (duration >= SERVER_REPORT_THRESHOLD) {
+    if (duration >= kServerReportThreshold) {
       epoch += 1;
       std::string key = std::string(kMetadataIdentifier) + "_" + wt.get_ip() +
                         "_" + std::to_string(wt.get_tid()) + "_" +
@@ -467,7 +465,7 @@ void run(unsigned thread_id) {
         for (const auto& time : access_times) {
           if (std::chrono::duration_cast<std::chrono::seconds>(current_time -
                                                                time)
-                  .count() >= KEY_MONITORING_THRESHOLD) {
+                  .count() >= kKeyMonitoringThreshold) {
             access_times.erase(time);
             break;
           }
@@ -585,16 +583,16 @@ int main(int argc, char *argv[]) {
   kDefaultGlobalEbsReplication = conf["replication"]["ebs"].as<unsigned>();
   kDefaultLocalReplication = conf["replication"]["local"].as<unsigned>();
 
-  tier_data_map[1] = TierData(
+  kTierDataMap[1] = TierData(
       kMemoryThreadCount, kDefaultGlobalMemoryReplication, kMemoryNodeCapacity);
-  tier_data_map[2] = TierData(kEbsThreadCount, kDefaultGlobalEbsReplication,
+  kTierDataMap[2] = TierData(kEbsThreadCount, kDefaultGlobalEbsReplication,
                               kEbsNodeCapacity);
 
-  THREAD_NUM = tier_data_map[kSelfTierId].thread_number_;
+  kThreadNum = kTierDataMap[kSelfTierId].thread_number_;
 
-  // start the initial threads based on THREAD_NUM
+  // start the initial threads based on kThreadNum
   std::vector<std::thread> worker_threads;
-  for (unsigned thread_id = 1; thread_id < THREAD_NUM; thread_id++) {
+  for (unsigned thread_id = 1; thread_id < kThreadNum; thread_id++) {
     worker_threads.push_back(std::thread(run, thread_id));
   }
 
