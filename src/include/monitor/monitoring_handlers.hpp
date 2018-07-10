@@ -2,6 +2,7 @@
 #define __MONITORING_HANDLERS_H__
 
 #include "spdlog/spdlog.h"
+#include "hash_ring.hpp"
 
 void membership_handler(
     std::shared_ptr<spdlog::logger> logger, zmq::socket_t* notify_puller,

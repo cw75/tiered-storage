@@ -1,22 +1,15 @@
-#include "hash_ring.hpp"
 #include "route/routing_handlers.hpp"
-#include "spdlog/spdlog.h"
 #include "yaml-cpp/yaml.h"
 
-// read-only per-tier metadata
-std::unordered_map<unsigned, TierData> tier_data_map;
+std::unordered_map<unsigned, TierData> kTierDataMap;
 unsigned kDefaultLocalReplication;
 unsigned kRoutingThreadCount;
 
-void run(unsigned thread_id) {
+void run(unsigned thread_id, Address ip, std::vector<Address> monitoring_addresses) {
   std::string log_file = "log_" + std::to_string(thread_id) + ".txt";
   std::string logger_name = "routing_logger_" + std::to_string(thread_id);
   auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
   logger->flush_on(spdlog::level::info);
-
-  // TODO(vikram): we can probably just read this once and pass it into run
-  YAML::Node conf = YAML::LoadFile("conf/config.yml")["routing"];
-  Address ip = conf["ip"].as<Address>();
 
   RoutingThread rt = RoutingThread(ip, thread_id);
 
@@ -32,21 +25,11 @@ void run(unsigned thread_id) {
   // warmup_placement_to_defaults(placement);
 
   if (thread_id == 0) {
-    // read the YAML conf
-    std::vector<Address> monitoring_address;
-    YAML::Node monitoring = conf["monitoring"];
-
-    for (YAML::const_iterator it = monitoring.begin(); it != monitoring.end();
-         ++it) {
-      monitoring_address.push_back(it->as<Address>());
-    }
-
     // notify monitoring nodes
-    for (auto it = monitoring_address.begin(); it != monitoring_address.end();
-         it++) {
+    for (const std::string& address : monitoring_addresses) {
       zmq_util::send_string(
           "join:0:" + ip,
-          &pushers[MonitoringThread(*it).get_notify_connect_addr()]);
+          &pushers[MonitoringThread(address).get_notify_connect_addr()]);
     }
   }
 
@@ -58,9 +41,9 @@ void run(unsigned thread_id) {
   PendingMap<std::pair<Address, std::string>> pending_key_request_map;
 
   // form local hash rings
-  for (auto it = tier_data_map.begin(); it != tier_data_map.end(); it++) {
-    for (unsigned tid = 0; tid < it->second.thread_number_; tid++) {
-      insert_to_hash_ring<LocalHashRing>(local_hash_ring_map[it->first], ip,
+  for (const auto& tier_pair : kTierDataMap) {
+    for (unsigned tid = 0; tid < tier_pair.second.thread_number_; tid++) {
+      insert_to_hash_ring<LocalHashRing>(local_hash_ring_map[tier_pair.first], ip,
                                          tid);
     }
   }
@@ -119,7 +102,7 @@ void run(unsigned thread_id) {
     // received replication factor response
     if (pollitems[2].revents & ZMQ_POLLIN) {
       replication_response_handler(logger, &replication_factor_puller, pushers,
-                                   rt, tier_data_map, global_hash_ring_map,
+                                   rt, global_hash_ring_map,
                                    local_hash_ring_map, placement,
                                    pending_key_request_map, seed);
     }
@@ -144,26 +127,36 @@ int main(int argc, char *argv[]) {
   }
 
   YAML::Node conf = YAML::LoadFile("conf/config.yml");
-  unsigned kMemoryThreadCount = conf["threads"]["memory"].as<unsigned>();
-  unsigned kEbsThreadCount = conf["threads"]["ebs"].as<unsigned>();
-  kRoutingThreadCount = conf["threads"]["routing"].as<unsigned>();
+  YAML::Node threads = conf["threads"];
+  unsigned kMemoryThreadCount = threads["memory"].as<unsigned>();
+  unsigned kEbsThreadCount = threads["ebs"].as<unsigned>();
+  kRoutingThreadCount = threads["routing"].as<unsigned>();
 
+  YAML::Node replication = conf["replication"];
   unsigned kDefaultGlobalMemoryReplication =
-      conf["replication"]["memory"].as<unsigned>();
-  unsigned kDefaultGlobalEbsReplication =
-      conf["replication"]["ebs"].as<unsigned>();
-  kDefaultLocalReplication = conf["replication"]["local"].as<unsigned>();
+      replication["memory"].as<unsigned>();
+  unsigned kDefaultGlobalEbsReplication = replication["ebs"].as<unsigned>();
+  kDefaultLocalReplication = replication["local"].as<unsigned>();
 
-  tier_data_map[1] = TierData(
+  YAML::Node routing = conf["routing"];
+  Address ip = routing["ip"].as<std::string>();
+  std::vector<Address> monitoring_addresses;
+
+  for (const YAML::Node& node : routing["monitoring"]) {
+    std::string address = node.as<Address>();
+    monitoring_addresses.push_back(address);
+  }
+
+  kTierDataMap[1] = TierData(
       kMemoryThreadCount, kDefaultGlobalMemoryReplication, kMemoryNodeCapacity);
-  tier_data_map[2] = TierData(kEbsThreadCount, kDefaultGlobalEbsReplication,
+  kTierDataMap[2] = TierData(kEbsThreadCount, kDefaultGlobalEbsReplication,
                               kEbsNodeCapacity);
 
   std::vector<std::thread> routing_worker_threads;
 
   for (unsigned thread_id = 1; thread_id < kRoutingThreadCount; thread_id++) {
-    routing_worker_threads.push_back(std::thread(run, thread_id));
+    routing_worker_threads.push_back(std::thread(run, thread_id, ip, monitoring_addresses));
   }
 
-  run(0);
+  run(0, ip, monitoring_addresses);
 }

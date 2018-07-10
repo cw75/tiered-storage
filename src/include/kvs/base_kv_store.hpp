@@ -1,12 +1,6 @@
 #ifndef __BASE_KV_STORE_H__
 #define __BASE_KV_STORE_H__
 
-#include <stdio.h>
-#include <stdlib.h>
-
-#include <memory>
-#include <mutex>
-
 #include "../lattices/core_lattices.hpp"
 
 template <typename K, typename V>
@@ -20,7 +14,7 @@ class KVStore {
   KVStore<K, V>(MapLattice<K, V>& other) { db = other; }
 
   V get(const K& k, unsigned& err_number) {
-    if (!db.contain(k).reveal()) {
+    if (!db.contains(k).reveal()) {
       err_number = 1;
     }
     return db.at(k);

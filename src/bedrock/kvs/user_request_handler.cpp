@@ -1,18 +1,13 @@
 #include <chrono>
-#include <fstream>
 
-#include "common.hpp"
-#include "hash_ring.hpp"
 #include "kvs/kvs_handlers.hpp"
-#include "kvs/rc_pair_lattice.hpp"
-#include "zmq/socket_cache.hpp"
 
 void user_request_handler(
     unsigned& total_access, unsigned& seed, zmq::socket_t* request_puller,
     std::chrono::system_clock::time_point& start_time,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<Key, KeyStat>& key_stat_map,
+    std::unordered_map<Key, unsigned>& key_size_map,
     PendingMap<PendingRequest>& pending_request_map,
     std::unordered_map<
         Key,
@@ -21,6 +16,7 @@ void user_request_handler(
     std::unordered_map<Key, KeyInfo>& placement,
     std::unordered_set<Key>& local_changeset, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers) {
+
   std::string req_string = zmq_util::recv_string(request_puller);
   communication::Request req;
   req.ParseFromString(req_string);
@@ -35,11 +31,12 @@ void user_request_handler(
 
   bool succeed;
 
+  // TODO(vikram): this can be refactored / cleaned up
   if (req.type() == "GET") {
-    for (int i = 0; i < req.tuple_size(); i++) {
+    for (const auto& tuple : req.tuple()) {
       // first check if the thread is responsible for the key
-      Key key = req.tuple(i).key();
-      auto threads = get_responsible_threads(
+      Key key = tuple.key();
+      ServerThreadSet threads = get_responsible_threads(
           wt.get_replication_factor_connect_addr(), key, is_metadata(key),
           global_hash_ring_map, local_hash_ring_map, placement, pushers,
           kSelfTierIdVector, succeed, seed);
@@ -62,8 +59,7 @@ void user_request_handler(
             pending_request_map[key].push_back(
                 PendingRequest("G", "", req.respond_address(), respond_id));
           }
-        } else {  // if we know what threads are responsible, we process the get
-                  // and return
+        } else {  // if we know the responsible threads, we process the request
           communication::Response_Tuple* tp = response.add_tuple();
           tp->set_key(key);
 
@@ -71,8 +67,8 @@ void user_request_handler(
           tp->set_value(res.first.reveal().value);
           tp->set_err_number(res.second);
 
-          if (req.tuple(i).has_num_address() &&
-              req.tuple(i).num_address() != threads.size()) {
+          if (tuple.has_num_address() &&
+              tuple.num_address() != threads.size()) {
             tp->set_invalidate(true);
           }
 
@@ -85,10 +81,10 @@ void user_request_handler(
       }
     }
   } else if (req.type() == "PUT") {
-    for (int i = 0; i < req.tuple_size(); i++) {
+    for (const auto& tuple : req.tuple()) {
       // first check if the thread is responsible for the key
-      Key key = req.tuple(i).key();
-      auto threads = get_responsible_threads(
+      Key key = tuple.key();
+      ServerThreadSet threads = get_responsible_threads(
           wt.get_replication_factor_connect_addr(), key, is_metadata(key),
           global_hash_ring_map, local_hash_ring_map, placement, pushers,
           kSelfTierIdVector, succeed, seed);
@@ -109,11 +105,11 @@ void user_request_handler(
 
             if (req.has_respond_address()) {
               pending_request_map[key].push_back(
-                  PendingRequest("P", req.tuple(i).value(),
+                  PendingRequest("P", tuple.value(),
                                  req.respond_address(), respond_id));
             } else {
               pending_request_map[key].push_back(
-                  PendingRequest("P", req.tuple(i).value(), "", respond_id));
+                  PendingRequest("P", tuple.value(), "", respond_id));
             }
           }
         } else {  // if we are the responsible party, insert this key
@@ -126,11 +122,11 @@ void user_request_handler(
                   .count();
           auto ts = generate_timestamp(time_diff, wt.get_tid());
 
-          process_put(key, ts, req.tuple(i).value(), serializer, key_stat_map);
+          process_put(key, ts, tuple.value(), serializer, key_size_map);
           tp->set_err_number(0);
 
-          if (req.tuple(i).has_num_address() &&
-              req.tuple(i).num_address() != threads.size()) {
+          if (tuple.has_num_address() &&
+              tuple.num_address() != threads.size()) {
             tp->set_invalidate(true);
           }
 
@@ -141,10 +137,10 @@ void user_request_handler(
       } else {
         if (req.has_respond_address()) {
           pending_request_map[key].push_back(PendingRequest(
-              "P", req.tuple(i).value(), req.respond_address(), respond_id));
+              "P", tuple.value(), req.respond_address(), respond_id));
         } else {
           pending_request_map[key].push_back(
-              PendingRequest("P", req.tuple(i).value(), "", respond_id));
+              PendingRequest("P", tuple.value(), "", respond_id));
         }
       }
     }

@@ -1,5 +1,4 @@
-#include "common.hpp"
-#include "spdlog/spdlog.h"
+#include "monitor/monitoring_handlers.hpp"
 
 void depart_done_handler(
     std::shared_ptr<spdlog::logger> logger, zmq::socket_t* depart_done_puller,

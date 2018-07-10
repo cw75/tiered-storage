@@ -1,6 +1,7 @@
 #ifndef __ROUTING_HANDLERS_H__
 #define __ROUTING_HANDLERS_H__
 
+#include "hash_ring.hpp"
 #include "spdlog/spdlog.h"
 
 void seed_handler(
@@ -17,7 +18,7 @@ void membership_handler(
 void replication_response_handler(
     std::shared_ptr<spdlog::logger> logger,
     zmq::socket_t* replication_factor_puller, SocketCache& pushers,
-    RoutingThread& rt, std::unordered_map<unsigned, TierData>& tier_data_map,
+    RoutingThread& rt,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     std::unordered_map<Key, KeyInfo>& placement,

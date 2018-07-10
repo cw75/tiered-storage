@@ -2,6 +2,7 @@
 #define __HASH_RING_H__
 
 #include "hashers.hpp"
+#include "utils/consistent_hash_map.hpp"
 
 typedef ConsistentHashMap<ServerThread, GlobalHasher> GlobalHashRing;
 typedef ConsistentHashMap<ServerThread, LocalHasher> LocalHashRing;
@@ -26,7 +27,7 @@ void remove_from_hash_ring(H& hash_ring, Address ip, unsigned tid) {
   }
 }
 
-std::unordered_set<ServerThread, ThreadHash> responsible_global(
+ServerThreadSet responsible_global(
     const Key& key, unsigned global_rep,
     GlobalHashRing& global_hash_ring);
 
@@ -34,11 +35,11 @@ std::unordered_set<unsigned> responsible_local(const Key& key,
                                                unsigned local_rep,
                                                LocalHashRing& local_hash_ring);
 
-std::unordered_set<ServerThread, ThreadHash> get_responsible_threads_metadata(
+ServerThreadSet get_responsible_threads_metadata(
     const Key& key, GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring);
 
-std::unordered_set<ServerThread, ThreadHash> get_responsible_threads(
+ServerThreadSet get_responsible_threads(
     Address respond_address, const Key& key, bool metadata,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
@@ -76,4 +77,5 @@ inline void warmup_placement_to_defaults(
     placement[key].local_replication_map_[2] = kDefaultLocalReplication;
   }
 }
+
 #endif

@@ -2,6 +2,7 @@
 #define __SERVER_UTILITY_H__
 
 #include <string>
+#include <fstream>
 
 #include "../kvs/base_kv_store.hpp"
 #include "../kvs/rc_pair_lattice.hpp"
@@ -152,13 +153,6 @@ class EBSSerializer : public Serializer {
       std::cerr << "Error deleting file" << std::endl;
     }
   }
-};
-
-// TODO(vikram): change this to key size?
-struct KeyStat {
-  KeyStat() : size_(0) {}
-  KeyStat(unsigned size) : size_(size) {}
-  unsigned size_;
 };
 
 struct PendingRequest {

@@ -1,5 +1,4 @@
-#include "spdlog/spdlog.h"
-#include "threads.hpp"
+#include "route/routing_handlers.hpp"
 
 void replication_change_handler(
     std::shared_ptr<spdlog::logger> logger,
@@ -23,18 +22,18 @@ void replication_change_handler(
   communication::Replication_Factor_Request req;
   req.ParseFromString(serialized_req);
 
-  for (int i = 0; i < req.tuple_size(); i++) {
-    Key key = req.tuple(i).key();
+  for (const auto& tuple : req.tuple()) {
+    Key key = tuple.key();
     // update the replication factor
 
-    for (int j = 0; j < req.tuple(i).global_size(); j++) {
-      placement[key].global_replication_map_[req.tuple(i).global(j).tier_id()] =
-          req.tuple(i).global(j).global_replication();
+    for (const auto& global : tuple.global()) {
+      placement[key].global_replication_map_[global.tier_id()] =
+          global.global_replication();
     }
 
-    for (int j = 0; j < req.tuple(i).local_size(); j++) {
-      placement[key].local_replication_map_[req.tuple(i).local(j).tier_id()] =
-          req.tuple(i).local(j).local_replication();
+    for (const auto& local: tuple.local()) {
+      placement[key].local_replication_map_[local.tier_id()] =
+          local.local_replication();
     }
   }
 }

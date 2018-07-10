@@ -1,7 +1,6 @@
 #ifndef __COMMON_H__
 #define __COMMON_H__
 
-#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -13,7 +12,7 @@
 
 const std::string kMetadataIdentifier = "BEDROCKMETADATA";
 
-const unsigned kMetadataReplicationFactor = 2;
+const unsigned kMetadataReplicationFactor = 1;
 const unsigned kMetadataLocalReplicationFactor = 1;
 
 const unsigned kVirtualThreadNum = 3000;
@@ -59,6 +58,8 @@ const unsigned kBenchmarkCommandBasePort = 6900;
 extern unsigned kSelfTierId;
 extern std::vector<unsigned> kSelfTierIdVector;
 
+// the number of threads running in this executable
+extern unsigned kThreadNum; 
 extern unsigned kMemoryThreadCount;
 extern unsigned kEbsThreadCount;
 extern unsigned kRoutingThreadCount;
@@ -99,7 +100,7 @@ inline void prepare_put_tuple(communication::Request& req, Key key,
   tp->set_timestamp(timestamp);
 }
 
-inline void push_request(communication::Request& req, zmq::socket_t& socket) {
+inline void push_request(const communication::Request& req, zmq::socket_t& socket) {
   std::string serialized_req;
   req.SerializeToString(&serialized_req);
   zmq_util::send_string(serialized_req, &socket);

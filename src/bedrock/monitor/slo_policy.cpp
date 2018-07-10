@@ -1,6 +1,5 @@
-#include "hash_ring.hpp"
 #include "monitor/monitoring_utils.hpp"
-#include "spdlog/spdlog.h"
+#include "monitor/policies.hpp"
 
 void slo_policy(
     std::shared_ptr<spdlog::logger> logger,
@@ -33,17 +32,16 @@ void slo_policy(
       auto time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
                               std::chrono::system_clock::now() - grace_start)
                               .count();
-      if (time_elapsed > GRACE_PERIOD) {
+      if (time_elapsed > kGracePeriod) {
         add_node(logger, "memory", node_to_add, adding_memory_node,
                  management_address);
       }
     } else {  // hot key replication
       // find hot keys
       logger->info("Classifying hot keys...");
-      for (auto it = key_access_summary.begin(); it != key_access_summary.end();
-           it++) {
-        Key key = it->first;
-        unsigned total_access = it->second;
+      for (const auto& key_access_pair : key_access_summary) {
+        Key key = key_access_pair.first;
+        unsigned total_access = key_access_pair.second;
 
         if (!is_metadata(key) &&
             total_access > ss.key_access_mean + ss.key_access_std &&
@@ -92,19 +90,18 @@ void slo_policy(
     }
   } else if (ss.min_memory_occupancy < 0.05 && !removing_memory_node &&
              memory_node_number > std::max(ss.required_memory_node,
-                                           (unsigned)MINIMUM_MEMORY_NODE)) {
+                                           (unsigned)kMinMemoryTierSize)) {
     logger->info("Node {} is severely underutilized.",
                  ss.min_occupancy_memory_ip);
     auto time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
                             std::chrono::system_clock::now() - grace_start)
                             .count();
 
-    if (time_elapsed > GRACE_PERIOD) {
+    if (time_elapsed > kGracePeriod) {
       // before sending remove command, first adjust relevant key's replication
       // factor
-      for (auto it = key_access_summary.begin(); it != key_access_summary.end();
-           it++) {
-        Key key = it->first;
+      for (const auto& key_access_pair : key_access_summary) {
+        Key key = key_access_pair.first;
 
         if (!is_metadata(key) &&
             placement[key].global_replication_map_[1] ==

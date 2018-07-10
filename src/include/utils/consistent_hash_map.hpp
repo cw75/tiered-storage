@@ -1,11 +1,8 @@
-#include <algorithm>
-#include <functional>
-#include <list>
-#include <map>
-#include <string>
-
 #ifndef __CONSISTENT_HASH_H__
 #define __CONSISTENT_HASH_H__
+
+#include <map>
+#include <string>
 
 template <typename T, typename Hash,
           typename Alloc =

@@ -1,8 +1,6 @@
-#include "hash_ring.hpp"
 #include "monitor/monitoring_handlers.hpp"
 #include "monitor/monitoring_utils.hpp"
 #include "monitor/policies.hpp"
-#include "spdlog/spdlog.h"
 #include "yaml-cpp/yaml.h"
 
 unsigned kMemoryThreadCount;
@@ -25,17 +23,21 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
+  // read the YAML conf
   YAML::Node conf = YAML::LoadFile("conf/config.yml");
-  Address ip = conf["monitoring"]["ip"].as<Address>();
+  YAML::Node monitoring = conf["monitoring"];
+  Address ip = monitoring["ip"].as<Address>();
+  Address management_address = monitoring["mgmt_ip"].as<Address>();
 
-  kMemoryThreadCount = conf["threads"]["memory"].as<unsigned>();
-  kEbsThreadCount = conf["threads"]["ebs"].as<unsigned>();
+  YAML::Node threads = conf["threads"];
+  kMemoryThreadCount = threads["memory"].as<unsigned>();
+  kEbsThreadCount = threads["ebs"].as<unsigned>();
 
-  kDefaultGlobalMemoryReplication =
-      conf["replication"]["memory"].as<unsigned>();
-  kDefaultGlobalEbsReplication = conf["replication"]["ebs"].as<unsigned>();
-  kDefaultLocalReplication = conf["replication"]["local"].as<unsigned>();
-  kMinimumReplicaNumber = conf["replication"]["minimum"].as<unsigned>();
+  YAML::Node replication = conf["replication"];
+  kDefaultGlobalMemoryReplication = replication["memory"].as<unsigned>();
+  kDefaultGlobalEbsReplication = replication["ebs"].as<unsigned>();
+  kDefaultLocalReplication = replication["local"].as<unsigned>();
+  kMinimumReplicaNumber = replication["minimum"].as<unsigned>();
 
   tier_data_map[1] = TierData(
       kMemoryThreadCount, kDefaultGlobalMemoryReplication, kMemoryNodeCapacity);
@@ -47,9 +49,9 @@ int main(int argc, char *argv[]) {
   std::unordered_map<unsigned, LocalHashRing> local_hash_ring_map;
 
   // form local hash rings
-  for (auto it = tier_data_map.begin(); it != tier_data_map.end(); it++) {
-    for (unsigned tid = 0; tid < it->second.thread_number_; tid++) {
-      insert_to_hash_ring<LocalHashRing>(local_hash_ring_map[it->first], ip,
+  for (const auto& tier_pair : tier_data_map) {
+    for (unsigned tid = 0; tid < tier_pair.second.thread_number_; tid++) {
+      insert_to_hash_ring<LocalHashRing>(local_hash_ring_map[tier_pair.first], ip,
                                          tid);
     }
   }
@@ -89,9 +91,6 @@ int main(int argc, char *argv[]) {
 
   std::vector<Address> routing_address;
 
-  // read the YAML conf
-  Address management_address =
-      conf["monitoring"]["mgmt_ip"].as<Address>();
   MonitoringThread mt = MonitoringThread(ip);
 
   zmq::context_t context(1);
@@ -168,7 +167,7 @@ int main(int argc, char *argv[]) {
 
     if (std::chrono::duration_cast<std::chrono::seconds>(report_end -
                                                          report_start)
-            .count() >= MONITORING_THRESHOLD) {
+            .count() >= kMonitoringThreshold) {
       server_monitoring_epoch += 1;
 
       memory_node_number = global_hash_ring_map[1].size() / kVirtualThreadNum;

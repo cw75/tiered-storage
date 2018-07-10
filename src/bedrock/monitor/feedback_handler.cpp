@@ -1,5 +1,4 @@
-#include "common.hpp"
-#include "spdlog/spdlog.h"
+#include "monitor/monitoring_handlers.hpp"
 
 void feedback_handler(
     zmq::socket_t* feedback_puller,
@@ -19,9 +18,9 @@ void feedback_handler(
     user_throughput[fb.uid()] = fb.throughput();
 
     // collect replication factor adjustment factors
-    for (int i = 0; i < fb.rep_size(); i++) {
-      Key key = fb.rep(i).key();
-      double factor = fb.rep(i).factor();
+    for (const auto& rep : fb.rep()) {
+      Key key = rep.key();
+      double factor = rep.factor();
 
       if (rep_factor_map.find(key) == rep_factor_map.end()) {
         rep_factor_map[key].first = factor;

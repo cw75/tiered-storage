@@ -1,6 +1,5 @@
-#include "hash_ring.hpp"
 #include "monitor/monitoring_utils.hpp"
-#include "spdlog/spdlog.h"
+#include "monitor/policies.hpp"
 
 void movement_policy(
     std::shared_ptr<spdlog::logger> logger,
@@ -19,17 +18,16 @@ void movement_policy(
   std::unordered_map<Key, KeyInfo> requests;
   unsigned total_rep_to_change = 0;
   unsigned slot =
-      (MEM_CAPACITY_MAX * tier_data_map[1].node_capacity_ * memory_node_number -
+      (kMaxMemoryNodeConsumption * tier_data_map[1].node_capacity_ * memory_node_number -
        ss.total_memory_consumption) /
-      VALUE_SIZE;
+      kValueSize;
   bool overflow = false;
 
-  for (auto it = key_access_summary.begin(); it != key_access_summary.end();
-       it++) {
-    Key key = it->first;
-    unsigned total_access = it->second;
+  for (const auto& key_access_pair : key_access_summary) {
+    Key key = key_access_pair.first;
+    unsigned total_access = key_access_pair.second;
 
-    if (!is_metadata(key) && total_access > PROMOTE_THRESHOLD &&
+    if (!is_metadata(key) && total_access > kKeyPromotionThreshold &&
         placement[key].global_replication_map_[1] == 0) {
       total_rep_to_change += 1;
 
@@ -54,11 +52,11 @@ void movement_policy(
                           std::chrono::system_clock::now() - grace_start)
                           .count();
 
-  if (overflow && adding_memory_node == 0 && time_elapsed > GRACE_PERIOD) {
-    unsigned long long promote_data_size = total_rep_to_change * VALUE_SIZE;
+  if (overflow && adding_memory_node == 0 && time_elapsed > kGracePeriod) {
+    unsigned long long promote_data_size = total_rep_to_change * kValueSize;
     unsigned total_memory_node_needed =
         ceil((ss.total_memory_consumption + promote_data_size) /
-             (MEM_CAPACITY_MAX * tier_data_map[1].node_capacity_));
+             (kMaxMemoryNodeConsumption * tier_data_map[1].node_capacity_));
 
     if (total_memory_node_needed > memory_node_number) {
       unsigned node_to_add = (total_memory_node_needed - memory_node_number);
@@ -71,17 +69,16 @@ void movement_policy(
   total_rep_to_change = 0;
 
   // demote cold keys to ebs tier
-  slot = (EBS_CAPACITY_MAX * tier_data_map[2].node_capacity_ * ebs_node_number -
+  slot = (kMaxEbsNodeConsumption * tier_data_map[2].node_capacity_ * ebs_node_number -
           ss.total_ebs_consumption) /
-         VALUE_SIZE;
+         kValueSize;
   overflow = false;
 
-  for (auto it = key_access_summary.begin(); it != key_access_summary.end();
-       it++) {
-    Key key = it->first;
-    unsigned total_access = it->second;
+  for (const auto& key_access_pair : key_access_summary) {
+    Key key = key_access_pair.first;
+    unsigned total_access = key_access_pair.second;
 
-    if (!is_metadata(key) && total_access < DEMOTE_THRESHOLD &&
+    if (!is_metadata(key) && total_access < kKeyDemotionThreshold &&
         placement[key].global_replication_map_[1] > 0) {
       total_rep_to_change += 1;
 
@@ -99,11 +96,11 @@ void movement_policy(
                             response_puller, logger, rid);
   logger->info("Demoting {} keys into {} EBS slots.", total_rep_to_change,
                slot);
-  if (overflow && adding_ebs_node == 0 && time_elapsed > GRACE_PERIOD) {
-    unsigned long long demote_data_size = total_rep_to_change * VALUE_SIZE;
+  if (overflow && adding_ebs_node == 0 && time_elapsed > kGracePeriod) {
+    unsigned long long demote_data_size = total_rep_to_change * kValueSize;
     unsigned total_ebs_node_needed =
         ceil((ss.total_ebs_consumption + demote_data_size) /
-             (EBS_CAPACITY_MAX * tier_data_map[2].node_capacity_));
+             (kMaxEbsNodeConsumption * tier_data_map[2].node_capacity_));
 
     if (total_ebs_node_needed > ebs_node_number) {
       unsigned node_to_add = (total_ebs_node_needed - ebs_node_number);
@@ -115,10 +112,9 @@ void movement_policy(
   total_rep_to_change = 0;
 
   // reduce the replication factor of some keys that are not so hot anymore
-  for (auto it = key_access_summary.begin(); it != key_access_summary.end();
-       it++) {
-    Key key = it->first;
-    unsigned total_access = it->second;
+  for (const auto& key_access_pair : key_access_summary) {
+    Key key = key_access_pair.first;
+    unsigned total_access = key_access_pair.second;
 
     if (!is_metadata(key) && total_access <= ss.key_access_mean &&
         placement[key].global_replication_map_[1] > kMinimumReplicaNumber) {

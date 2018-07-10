@@ -1,10 +1,9 @@
-#include "hash_ring.hpp"
-#include "spdlog/spdlog.h"
+#include "route/routing_handlers.hpp"
 
 void replication_response_handler(
     std::shared_ptr<spdlog::logger> logger,
     zmq::socket_t* replication_factor_puller, SocketCache& pushers,
-    RoutingThread& rt, std::unordered_map<unsigned, TierData>& tier_data_map,
+    RoutingThread& rt,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     std::unordered_map<Key, KeyInfo>& placement,
@@ -23,14 +22,14 @@ void replication_response_handler(
     communication::Replication_Factor rep_data;
     rep_data.ParseFromString(response.tuple(0).value());
 
-    for (int i = 0; i < rep_data.global_size(); i++) {
-      placement[key].global_replication_map_[rep_data.global(i).tier_id()] =
-          rep_data.global(i).global_replication();
+    for (const auto& global : rep_data.global()) {
+      placement[key].global_replication_map_[global.tier_id()] =
+          global.global_replication();
     }
 
-    for (int i = 0; i < rep_data.local_size(); i++) {
-      placement[key].local_replication_map_[rep_data.local(i).tier_id()] =
-          rep_data.local(i).local_replication();
+    for (const auto& local : rep_data.local()) {
+      placement[key].local_replication_map_[local.tier_id()] =
+          local.local_replication();
     }
   } else if (response.tuple(0).err_number() == 2) {
     logger->info("Retrying rep factor query for key {}.", key);
@@ -40,10 +39,10 @@ void replication_response_handler(
                                      global_hash_ring_map[1],
                                      local_hash_ring_map[1], pushers, seed);
   } else {
-    for (unsigned i = kMinTier; i <= kMaxTier; i++) {
-      placement[key].global_replication_map_[i] =
-          tier_data_map[i].default_replication_;
-      placement[key].local_replication_map_[i] = kDefaultLocalReplication;
+    for (const unsigned& tier_id : kAllTierIds) {
+      placement[key].global_replication_map_[tier_id] =
+          kTierDataMap[tier_id].default_replication_;
+      placement[key].local_replication_map_[tier_id] = kDefaultLocalReplication;
     }
   }
 
@@ -52,7 +51,7 @@ void replication_response_handler(
     if (pending_key_request_map.find(key) != pending_key_request_map.end()) {
       bool succeed;
       unsigned tier_id = 1;
-      std::unordered_set<ServerThread, ThreadHash> threads = {};
+      ServerThreadSet threads = {};
 
       while (threads.size() == 0 && tier_id < kMaxTier) {
         threads = get_responsible_threads(
@@ -68,24 +67,24 @@ void replication_response_handler(
         tier_id++;
       }
 
-      for (auto it = pending_key_request_map[key].begin();
-           it != pending_key_request_map[key].end(); it++) {
+      for (const auto& pending_key_req : pending_key_request_map[key]) {
         communication::Key_Response key_res;
-        key_res.set_response_id(it->second);
+        key_res.set_response_id(pending_key_req.second);
         communication::Key_Response_Tuple* tp = key_res.add_tuple();
         tp->set_key(key);
 
-        for (auto iter = threads.begin(); iter != threads.end(); iter++) {
-          tp->add_addresses(iter->get_request_pulling_connect_addr());
+        for (const ServerThread& thread : threads) {
+          tp->add_addresses(thread.get_request_pulling_connect_addr());
         }
 
         // send the key address response
         key_res.set_err_number(0);
         std::string serialized_key_res;
         key_res.SerializeToString(&serialized_key_res);
-        zmq_util::send_string(serialized_key_res, &pushers[it->first]);
+        zmq_util::send_string(serialized_key_res, &pushers[pending_key_req.first]);
       }
-    pending_key_request_map.erase(key);
+
+      pending_key_request_map.erase(key);
     }
   }
 }
