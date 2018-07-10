@@ -1,29 +1,7 @@
-#include <pthread.h>
-#include <unistd.h>
-
-#include <atomic>
 #include <chrono>
-#include <cstdio>
-#include <ctime>
-#include <fstream>
-#include <iostream>
-#include <memory>
-#include <sstream>
-#include <string>
-#include <thread>
-#include <vector>
-#include <zmq.hpp>
 
-#include "common.hpp"
-#include "communication.pb.h"
-#include "hash_ring.hpp"
 #include "kvs/kvs_handlers.hpp"
-#include "kvs/rc_pair_lattice.hpp"
-#include "spdlog/spdlog.h"
-#include "yaml-cpp/node/node.h"
 #include "yaml-cpp/yaml.h"
-#include "zmq/socket_cache.hpp"
-#include "zmq/zmq_util.hpp"
 
 // define server report threshold (in second)
 const unsigned kServerReportThreshold = 15;

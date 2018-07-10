@@ -1,6 +1,7 @@
 #ifndef __ROUTING_HANDLERS_H__
 #define __ROUTING_HANDLERS_H__
 
+#include "hash_ring.hpp"
 #include "spdlog/spdlog.h"
 
 void seed_handler(

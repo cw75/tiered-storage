@@ -3,7 +3,6 @@
 
 #include "common.hpp"
 #include "metadata.hpp"
-#include "utils/consistent_hash_map.hpp"
 
 // server thread
 class ServerThread {

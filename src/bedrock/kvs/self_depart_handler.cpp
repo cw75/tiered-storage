@@ -1,12 +1,4 @@
-#include <fstream>
-#include <string>
-
-#include "common.hpp"
-#include "hash_ring.hpp"
 #include "kvs/kvs_handlers.hpp"
-#include "kvs/rc_pair_lattice.hpp"
-#include "spdlog/spdlog.h"
-#include "zmq/socket_cache.hpp"
 
 void self_depart_handler(
     unsigned thread_id, unsigned& seed, std::string ip,

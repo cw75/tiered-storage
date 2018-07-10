@@ -1,6 +1,5 @@
-#include "hash_ring.hpp"
 #include "monitor/monitoring_utils.hpp"
-#include "spdlog/spdlog.h"
+#include "monitor/policies.hpp"
 
 void slo_policy(
     std::shared_ptr<spdlog::logger> logger,

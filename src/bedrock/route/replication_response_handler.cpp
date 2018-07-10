@@ -1,5 +1,4 @@
-#include "hash_ring.hpp"
-#include "spdlog/spdlog.h"
+#include "route/routing_handlers.hpp"
 
 void replication_response_handler(
     std::shared_ptr<spdlog::logger> logger,

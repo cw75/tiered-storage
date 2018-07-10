@@ -1,9 +1,6 @@
 #ifndef BASE_LATTICES_H
 #define BASE_LATTICES_H
 
-#include <atomic>
-#include <thread>
-
 template <typename T>
 class Lattice {
  protected:

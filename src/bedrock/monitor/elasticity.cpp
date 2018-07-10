@@ -1,6 +1,4 @@
-#include "hash_ring.hpp"
 #include "monitor/monitoring_utils.hpp"
-#include "spdlog/spdlog.h"
 
 void add_node(std::shared_ptr<spdlog::logger> logger, std::string tier,
               unsigned number, unsigned& adding,

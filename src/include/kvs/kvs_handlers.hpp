@@ -1,6 +1,7 @@
 #ifndef __KVS_HANDLERS_H__
 #define __KVS_HANDLERS_H__
 
+#include "hash_ring.hpp"
 #include "spdlog/spdlog.h"
 #include "utils/server_utility.hpp"
 

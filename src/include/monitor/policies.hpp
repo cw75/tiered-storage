@@ -1,6 +1,9 @@
 #ifndef __POLICIES_H__
 #define __POLICIES_H__
 
+#include "hash_ring.hpp"
+#include "spdlog/spdlog.h"
+
 void storage_policy(
     std::shared_ptr<spdlog::logger> logger,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,

@@ -1,6 +1,7 @@
 #ifndef __MONITORING_UTILS_H__
 #define __MONITORING_UTILS_H__
 
+#include "hash_ring.hpp"
 #include "spdlog/spdlog.h"
 
 // define monitoring threshold (in second)

@@ -2,18 +2,8 @@
 
 #include <unistd.h>
 
-#include <atomic>
-#include <functional>
-#include <string>
-
-#include "common.hpp"
-#include "communication.pb.h"
 #include "requests.hpp"
-#include "spdlog/spdlog.h"
 #include "threads.hpp"
-#include "yaml-cpp/yaml.h"
-#include "zmq/socket_cache.hpp"
-#include "zmq/zmq_util.hpp"
 
 // assuming the replication factor will never be greater than the number of
 // nodes in a tier return a set of ServerThreads that are responsible for a key

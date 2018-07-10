@@ -1,7 +1,5 @@
-#include "hash_ring.hpp"
 #include "monitor/monitoring_utils.hpp"
 #include "requests.hpp"
-#include "spdlog/spdlog.h"
 
 KeyInfo create_new_replication_vector(unsigned gm, unsigned ge, unsigned lm,
                                       unsigned le) {

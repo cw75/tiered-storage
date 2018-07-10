@@ -1,24 +1,10 @@
 #include <stdlib.h>
-#include <unistd.h>
 
-#include <fstream>
-#include <iostream>
-#include <memory>
-#include <sstream>
-#include <string>
-#include <unordered_set>
-#include <vector>
-#include <zmq.hpp>
-
-#include "common.hpp"
-#include "communication.pb.h"
 #include "hash_ring.hpp"
 #include "requests.hpp"
 #include "spdlog/spdlog.h"
 #include "threads.hpp"
 #include "yaml-cpp/yaml.h"
-#include "zmq/socket_cache.hpp"
-#include "zmq/zmq_util.hpp"
 
 unsigned kBenchmarkThreadNum;
 unsigned kRoutingThreadCount;

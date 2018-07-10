@@ -1,12 +1,6 @@
 #ifndef __BASE_KV_STORE_H__
 #define __BASE_KV_STORE_H__
 
-#include <stdio.h>
-#include <stdlib.h>
-
-#include <memory>
-#include <mutex>
-
 #include "../lattices/core_lattices.hpp"
 
 template <typename K, typename V>

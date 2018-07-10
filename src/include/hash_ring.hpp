@@ -2,6 +2,7 @@
 #define __HASH_RING_H__
 
 #include "hashers.hpp"
+#include "utils/consistent_hash_map.hpp"
 
 typedef ConsistentHashMap<ServerThread, GlobalHasher> GlobalHashRing;
 typedef ConsistentHashMap<ServerThread, LocalHasher> LocalHashRing;

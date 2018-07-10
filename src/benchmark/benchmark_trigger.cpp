@@ -1,19 +1,7 @@
 #include <stdlib.h>
-#include <unistd.h>
-
-#include <fstream>
-#include <iostream>
-#include <memory>
-#include <sstream>
-#include <string>
-#include <unordered_set>
-#include <vector>
-#include <zmq.hpp>
 
 #include "common.hpp"
 #include "yaml-cpp/yaml.h"
-#include "zmq/socket_cache.hpp"
-#include "zmq/zmq_util.hpp"
 
 int main(int argc, char* argv[]) {
   if (argc != 2) {

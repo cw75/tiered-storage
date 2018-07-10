@@ -1,11 +1,6 @@
 #include <chrono>
-#include <fstream>
 
-#include "common.hpp"
-#include "hash_ring.hpp"
 #include "kvs/kvs_handlers.hpp"
-#include "kvs/rc_pair_lattice.hpp"
-#include "zmq/socket_cache.hpp"
 
 void rep_factor_response_handler(
     unsigned& seed, unsigned& total_access,

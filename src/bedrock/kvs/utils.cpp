@@ -1,10 +1,4 @@
-#include <fstream>
-
-#include "common.hpp"
-#include "hash_ring.hpp"
 #include "kvs/kvs_handlers.hpp"
-#include "kvs/rc_pair_lattice.hpp"
-#include "zmq/socket_cache.hpp"
 
 void send_gossip(AddressKeysetMap& addr_keyset_map, SocketCache& pushers,
                  Serializer* serializer) {

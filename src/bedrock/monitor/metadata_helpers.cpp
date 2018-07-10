@@ -1,5 +1,4 @@
-#include "hash_ring.hpp"
-#include "spdlog/spdlog.h"
+#include "monitor/monitoring_utils.hpp"
 
 std::string prepare_metadata_request(
     const std::string& key, GlobalHashRing& global_memory_hash_ring,

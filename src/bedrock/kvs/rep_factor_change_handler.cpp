@@ -1,11 +1,4 @@
-#include <chrono>
-#include <fstream>
-
-#include "common.hpp"
-#include "hash_ring.hpp"
 #include "kvs/kvs_handlers.hpp"
-#include "kvs/rc_pair_lattice.hpp"
-#include "zmq/socket_cache.hpp"
 
 void rep_factor_change_handler(
     std::string ip, unsigned thread_id, unsigned& seed,

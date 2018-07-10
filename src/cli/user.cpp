@@ -1,32 +1,19 @@
-#include <stdlib.h>
-#include <unistd.h>
-
 #include <fstream>
-#include <iostream>
-#include <memory>
-#include <sstream>
-#include <string>
 #include <unordered_set>
-#include <vector>
-#include <zmq.hpp>
 
-#include "common.hpp"
 #include "communication.pb.h"
 #include "hash_ring.hpp"
-#include "hashers.hpp"
 #include "requests.hpp"
 #include "spdlog/spdlog.h"
 #include "threads.hpp"
 #include "yaml-cpp/yaml.h"
-#include "zmq/socket_cache.hpp"
-#include "zmq/zmq_util.hpp"
 
 unsigned kRoutingThreadCount;
 unsigned kDefaultLocalReplication;
 
 void handle_request(
     std::string request_line, SocketCache& pushers,
-    std::vector<std::string>& routing_address,
+    std::vector<std::string>& routing_addresses,
     std::unordered_map<std::string, std::unordered_set<std::string>>&
         key_address_cache,
     unsigned& seed, std::shared_ptr<spdlog::logger> logger, UserThread& ut,
@@ -61,12 +48,12 @@ void handle_request(
   std::string worker_address;
   if (key_address_cache.find(key) == key_address_cache.end()) {
     // query the routing and update the cache
-    std::string target_routing_address =
-        get_random_routing_thread(routing_address, seed, kRoutingThreadCount)
+    std::string target_routing_addresses =
+        get_random_routing_thread(routing_addresses, seed, kRoutingThreadCount)
             .get_key_address_connect_addr();
     bool succeed;
     std::vector<std::string> addresses = get_address_from_routing(
-        ut, key, pushers[target_routing_address], key_address_puller, succeed,
+        ut, key, pushers[target_routing_addresses], key_address_puller, succeed,
         ip, thread_id, rid);
 
     if (succeed) {
@@ -134,7 +121,7 @@ void handle_request(
 
       // update cache and retry
       key_address_cache.erase(key);
-      handle_request(request_line, pushers, routing_address, key_address_cache,
+      handle_request(request_line, pushers, routing_addresses, key_address_cache,
                      seed, logger, ut, response_puller, key_address_puller, ip,
                      thread_id, rid, trial);
     } else {
@@ -179,21 +166,17 @@ void handle_request(
     }
 
     trial += 1;
-    handle_request(request_line, pushers, routing_address, key_address_cache,
+    handle_request(request_line, pushers, routing_addresses, key_address_cache,
                    seed, logger, ut, response_puller, key_address_puller, ip,
                    thread_id, rid, trial);
   }
 }
 
-void run(unsigned thread_id, std::string filename) {
+void run(unsigned thread_id, std::string filename, std::string ip, std::vector<std::string> routing_addresses) {
   std::string log_file = "log_user.txt";
   std::string logger_name = "user_log";
   auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
   logger->flush_on(spdlog::level::info);
-
-  // read the YAML conf
-  YAML::Node conf = YAML::LoadFile("conf/config.yml")["user"];
-  std::string ip = conf["ip"].as<std::string>();
 
   std::hash<std::string> hasher;
   unsigned seed = time(NULL);
@@ -207,12 +190,6 @@ void run(unsigned thread_id, std::string filename) {
 
   UserThread ut = UserThread(ip, thread_id);
 
-  YAML::Node routing = conf["routing"];
-  std::vector<std::string> routing_address;
-
-  for (const YAML::Node& node : routing) {
-    routing_address.push_back(node.as<std::string>());
-  }
 
   int timeout = 10000;
   zmq::context_t context(1);
@@ -237,7 +214,7 @@ void run(unsigned thread_id, std::string filename) {
       std::cout << "kvs> ";
 
       getline(std::cin, input);
-      handle_request(input, pushers, routing_address, key_address_cache, seed,
+      handle_request(input, pushers, routing_addresses, key_address_cache, seed,
                      logger, ut, response_puller, key_address_puller, ip,
                      thread_id, rid, trial);
     }
@@ -245,7 +222,7 @@ void run(unsigned thread_id, std::string filename) {
     std::ifstream infile(filename);
 
     while (getline(infile, input)) {
-      handle_request(input, pushers, routing_address, key_address_cache, seed,
+      handle_request(input, pushers, routing_addresses, key_address_cache, seed,
                      logger, ut, response_puller, key_address_puller, ip,
                      thread_id, rid, trial);
     }
@@ -261,13 +238,22 @@ int main(int argc, char* argv[]) {
     return 1;
   }
 
+  // read the YAML conf
   YAML::Node conf = YAML::LoadFile("conf/config.yml");
   kRoutingThreadCount = conf["threads"]["routing"].as<unsigned>();
   kDefaultLocalReplication = conf["replication"]["local"].as<unsigned>();
 
+  YAML::Node user = conf["user"];
+  std::string ip = user["ip"].as<std::string>();
+  YAML::Node routing = user["routing"];
+  std::vector<std::string> routing_addresses;
+
+  for (const YAML::Node& node : routing) {
+    routing_addresses.push_back(node.as<std::string>());
+  }
   if (argc == 1) {
-    run(0, "");
+    run(0, "", ip, routing_addresses);
   } else {
-    run(0, argv[1]);
+    run(0, argv[1], ip, routing_addresses);
   }
 }

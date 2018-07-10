@@ -1,6 +1,4 @@
-#include "hash_ring.hpp"
 #include "route/routing_handlers.hpp"
-#include "spdlog/spdlog.h"
 #include "yaml-cpp/yaml.h"
 
 std::unordered_map<unsigned, TierData> kTierDataMap;

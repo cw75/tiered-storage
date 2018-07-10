@@ -2,6 +2,7 @@
 #define __SERVER_UTILITY_H__
 
 #include <string>
+#include <fstream>
 
 #include "../kvs/base_kv_store.hpp"
 #include "../kvs/rc_pair_lattice.hpp"

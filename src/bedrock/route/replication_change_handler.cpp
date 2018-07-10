@@ -1,5 +1,4 @@
-#include "spdlog/spdlog.h"
-#include "threads.hpp"
+#include "route/routing_handlers.hpp"
 
 void replication_change_handler(
     std::shared_ptr<spdlog::logger> logger,

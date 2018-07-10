@@ -1,11 +1,6 @@
 #include <chrono>
-#include <fstream>
 
-#include "common.hpp"
-#include "hash_ring.hpp"
 #include "kvs/kvs_handlers.hpp"
-#include "kvs/rc_pair_lattice.hpp"
-#include "zmq/socket_cache.hpp"
 
 void gossip_handler(
     unsigned& seed, zmq::socket_t* gossip_puller,

@@ -1,7 +1,5 @@
-#include "hash_ring.hpp"
 #include "monitor/monitoring_utils.hpp"
 #include "requests.hpp"
-#include "spdlog/spdlog.h"
 
 void collect_internal_stats(
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,

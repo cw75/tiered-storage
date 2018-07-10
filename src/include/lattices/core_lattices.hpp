@@ -1,15 +1,8 @@
 #ifndef CORE_LATTICES_H
 #define CORE_LATTICES_H
 
-#include <stdio.h>
-#include <stdlib.h>
-
-#include <cassert>
-#include <iostream>
-#include <limits>
 #include <unordered_map>
 #include <unordered_set>
-#include <vector>
 
 #include "base_lattices.hpp"
 
