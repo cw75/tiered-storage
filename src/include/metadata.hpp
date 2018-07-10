@@ -3,16 +3,18 @@
 
 // represents the replication state for each key
 struct KeyInfo {
-  unordered_map<unsigned, unsigned> global_replication_map_;
-  unordered_map<unsigned, unsigned> local_replication_map_;
+  std::unordered_map<unsigned, unsigned> global_replication_map_;
+  std::unordered_map<unsigned, unsigned> local_replication_map_;
 };
 
 // per-tier metadata
 struct TierData {
   TierData() : thread_number_(1), default_replication_(1), node_capacity_(0) {}
 
-  TierData(unsigned t_num, unsigned rep, unsigned long long node_capacity)
-    : thread_number_(t_num), default_replication_(rep), node_capacity_(node_capacity) {}
+  TierData(unsigned t_num, unsigned rep, unsigned long long node_capacity) :
+      thread_number_(t_num),
+      default_replication_(rep),
+      node_capacity_(node_capacity) {}
 
   unsigned thread_number_;
 
@@ -21,9 +23,8 @@ struct TierData {
   unsigned long long node_capacity_;
 };
 
-
-inline bool is_metadata(string key) {
-  vector<string> v;
+inline bool is_metadata(Key key) {
+  std::vector<std::string> v;
   split(key, '_', v);
 
   if (v[0] == "BEDROCKMETADATA") {
@@ -32,5 +33,8 @@ inline bool is_metadata(string key) {
     return false;
   }
 }
+
+// NOTE: This needs to be here because it needs the definition of TierData
+extern std::unordered_map<unsigned, TierData> kTierDataMap;
 
 #endif

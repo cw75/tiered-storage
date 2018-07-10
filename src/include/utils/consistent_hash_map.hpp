@@ -1,21 +1,16 @@
-#include <map>
-#include <string>
-#include <list>
-#include <functional> 
-#include <algorithm>
-
-using namespace::std;
-
 #ifndef __CONSISTENT_HASH_H__
 #define __CONSISTENT_HASH_H__
 
-template <typename T,
-        typename Hash,
-        typename Alloc = std::allocator<std::pair<const typename Hash::result_type,T>>>
+#include <map>
+#include <string>
+
+template <typename T, typename Hash,
+          typename Alloc =
+              std::allocator<std::pair<const typename Hash::ResultType, T>>>
 class ConsistentHashMap {
-public:
-  typedef typename Hash::result_type size_type;
-  typedef std::map<size_type,T,std::less<size_type>,Alloc> map_type;
+ public:
+  typedef typename Hash::ResultType size_type;
+  typedef std::map<size_type, T, std::less<size_type>, Alloc> map_type;
   typedef typename map_type::value_type value_type;
   typedef value_type& reference;
   typedef const value_type& const_reference;
@@ -23,28 +18,22 @@ public:
   typedef typename map_type::reverse_iterator reverse_iterator;
   typedef Alloc allocator_type;
 
-public:
+ public:
   ConsistentHashMap() {}
 
   ~ConsistentHashMap() {}
 
-public:
-  std::size_t size() const {
-    return nodes_.size();
-  }
+ public:
+  std::size_t size() const { return nodes_.size(); }
 
-  bool empty() const {
-    return nodes_.empty();
-  }
+  bool empty() const { return nodes_.empty(); }
 
-  std::pair<iterator,bool> insert(const T& node) {
+  std::pair<iterator, bool> insert(const T& node) {
     size_type hash = hasher_(node);
-    return nodes_.insert(value_type(hash,node));
+    return nodes_.insert(value_type(hash, node));
   }
 
-  void erase(iterator it) {
-    nodes_.erase(it);
-  }
+  void erase(iterator it) { nodes_.erase(it); }
 
   std::size_t erase(const T& node) {
     size_type hash = hasher_(node);
@@ -52,7 +41,7 @@ public:
   }
 
   iterator find(size_type hash) {
-    if(nodes_.empty()) {
+    if (nodes_.empty()) {
       return nodes_.end();
     }
 
@@ -65,27 +54,17 @@ public:
     return it;
   }
 
-  iterator find(string key) {
-    return find(hasher_(key));
-  }
+  iterator find(Key key) { return find(hasher_(key)); }
 
-  iterator begin() { 
-    return nodes_.begin(); 
-  }
+  iterator begin() { return nodes_.begin(); }
 
-  iterator end() { 
-    return nodes_.end(); 
-  }
+  iterator end() { return nodes_.end(); }
 
-  reverse_iterator rbegin() { 
-    return nodes_.rbegin(); 
-  }
+  reverse_iterator rbegin() { return nodes_.rbegin(); }
 
-  reverse_iterator rend() { 
-    return nodes_.rend(); 
-  }
+  reverse_iterator rend() { return nodes_.rend(); }
 
-private:
+ private:
   Hash hasher_;
   map_type nodes_;
 };

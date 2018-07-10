@@ -1,15 +1,11 @@
-#include "spdlog/spdlog.h"
-#include "common.hpp"
+#include "monitor/monitoring_handlers.hpp"
 
-using namespace std;
-
-void
-feedback_handler(zmq::socket_t *feedback_puller,
-                 unordered_map<string, double>& user_latency,
-                 unordered_map<string, double>& user_throughput,
-                 unordered_map<string, pair<double, unsigned>>& rep_factor_map
-                 ) {
-  string serialized_feedback = zmq_util::recv_string(feedback_puller);
+void feedback_handler(
+    zmq::socket_t* feedback_puller,
+    std::unordered_map<std::string, double>& user_latency,
+    std::unordered_map<std::string, double>& user_throughput,
+    std::unordered_map<Key, std::pair<double, unsigned>>& rep_factor_map) {
+  std::string serialized_feedback = zmq_util::recv_string(feedback_puller);
   communication::Feedback fb;
   fb.ParseFromString(serialized_feedback);
 
@@ -21,15 +17,17 @@ feedback_handler(zmq::socket_t *feedback_puller,
     user_throughput[fb.uid()] = fb.throughput();
 
     // collect replication factor adjustment factors
-    for (int i = 0; i < fb.rep_size(); i++) {
-      string key = fb.rep(i).key();
-      double factor = fb.rep(i).factor();
+    for (const auto& rep : fb.rep()) {
+      Key key = rep.key();
+      double factor = rep.factor();
 
       if (rep_factor_map.find(key) == rep_factor_map.end()) {
         rep_factor_map[key].first = factor;
         rep_factor_map[key].second = 1;
       } else {
-        rep_factor_map[key].first = (rep_factor_map[key].first * rep_factor_map[key].second + factor) / (rep_factor_map[key].second + 1);
+        rep_factor_map[key].first =
+            (rep_factor_map[key].first * rep_factor_map[key].second + factor) /
+            (rep_factor_map[key].second + 1);
         rep_factor_map[key].second += 1;
       }
     }
