@@ -3,7 +3,7 @@
 
 template <typename REQ, typename RES>
 bool recursive_receive(zmq::socket_t& receiving_socket, zmq::message_t& message,
-                       REQ& req, RES& response, bool& succeed) {
+                       const REQ& req, RES& response, bool& succeed) {
   bool rc = receiving_socket.recv(&message);
 
   if (rc) {
@@ -29,7 +29,7 @@ bool recursive_receive(zmq::socket_t& receiving_socket, zmq::message_t& message,
 }
 
 template <typename REQ, typename RES>
-RES send_request(REQ& req, zmq::socket_t& sending_socket,
+RES send_request(const REQ& req, zmq::socket_t& sending_socket,
                  zmq::socket_t& receiving_socket, bool& succeed) {
   std::string serialized_req;
   req.SerializeToString(&serialized_req);

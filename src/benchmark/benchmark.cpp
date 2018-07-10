@@ -95,7 +95,7 @@ void handle_request(
             .get_key_address_connect_addr();
 
     bool succeed;
-    std::unordered_set<std::string> addresses = get_address_from_routing(
+    std::vector<std::string> addresses = get_address_from_routing(
         ut, key, pushers[target_routing_address], key_address_puller, succeed,
         ip, thread_id, rid);
 
@@ -152,7 +152,7 @@ void handle_request(
     if (res.tuple(0).err_number() == 2) {
       trial += 1;
       if (trial > 5) {
-        for (const auto& address : res.tuple(0).addresses) {
+        for (const auto& address : res.tuple(0).addresses()) {
           logger->info("Server's return address for key {} is {}.", key,
                        address);
         }
@@ -300,7 +300,7 @@ void run(unsigned thread_id) {
                                         kRoutingThreadCount)
                   .get_key_address_connect_addr();
           bool succeed;
-          std::unordered_set<std::string> addresses = get_address_from_routing(
+          std::vector<std::string> addresses = get_address_from_routing(
               ut, key, pushers[target_routing_address], key_address_puller,
               succeed, ip, thread_id, rid);
 
@@ -431,10 +431,10 @@ void run(unsigned thread_id) {
             l.set_throughput(throughput);
 
             for (const auto& rep_factor_pair : rep_factor_map) {
-              if (it->second.first > 1) {
+              if (rep_factor_pair.second.first > 1) {
                 communication::Feedback_Rep* r = l.add_rep();
-                r->set_key(it->first);
-                r->set_factor(it->second.first);
+                r->set_key(rep_factor_pair.first);
+                r->set_factor(rep_factor_pair.second.first);
               }
             }
 
@@ -444,7 +444,7 @@ void run(unsigned thread_id) {
             for (const MonitoringThread& thread : mts) {
               zmq_util::send_string(
                   serialized_latency,
-                  &pushers[thread..get_latency_report_connect_addr()]);
+                  &pushers[thread.get_latency_report_connect_addr()]);
             }
 
             count = 0;

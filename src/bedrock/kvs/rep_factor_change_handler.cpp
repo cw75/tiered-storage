@@ -61,8 +61,8 @@ void rep_factor_change_handler(
             decrement = true;
           }
 
-          placement[key].global_replication_map_[curr_global.tier_id()] =
-              curr_global.global_replication();
+          placement[key].global_replication_map_[global.tier_id()] =
+              global.global_replication();
         }
 
         for (const auto& local : curr_tuple.local()) {
@@ -71,8 +71,8 @@ void rep_factor_change_handler(
             decrement = true;
           }
 
-          placement[key].local_replication_map_[curr_local.tier_id()] =
-              curr_local.local_replication();
+          placement[key].local_replication_map_[local.tier_id()] =
+              local.local_replication();
         }
 
         ServerThreadSet threads = get_responsible_threads(

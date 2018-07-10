@@ -166,7 +166,7 @@ void handle_request(
     for (const auto& key_pair : key_address_cache) {
       for (const std::string& address : key_pair.second) {
         std::vector<std::string> v;
-        split(*iter, ':', v);
+        split(address, ':', v);
 
         if (v[1] == signature) {
           remove_set.insert(key_pair.first);

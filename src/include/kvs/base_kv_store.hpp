@@ -20,7 +20,7 @@ class KVStore {
   KVStore<K, V>(MapLattice<K, V>& other) { db = other; }
 
   V get(const K& k, unsigned& err_number) {
-    if (!db.contain(k).reveal()) {
+    if (!db.contains(k).reveal()) {
       err_number = 1;
     }
     return db.at(k);

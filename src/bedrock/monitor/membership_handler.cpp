@@ -73,7 +73,8 @@ void membership_handler(
       memory_tier_storage.erase(new_server_ip);
       memory_tier_occupancy.erase(new_server_ip);
 
-      for (const auto& key_access_pair : key_access_frequency) {
+      // NOTE: No const here because we are calling erase
+      for (auto& key_access_pair : key_access_frequency) {
         for (unsigned i = 0; i < kMemoryThreadCount; i++) {
           key_access_pair.second.erase(new_server_ip + ":" + std::to_string(i));
         }
@@ -85,7 +86,8 @@ void membership_handler(
       ebs_tier_occupancy.erase(new_server_ip);
 
 
-      for (const auto& key_access_pair : key_access_frequency) {
+      // NOTE: No const here because we are calling erase
+      for (auto& key_access_pair : key_access_frequency) {
         for (unsigned i = 0; i < kEbsThreadCount; i++) {
           key_access_pair.second.erase(new_server_ip + ":" + std::to_string(i));
         }

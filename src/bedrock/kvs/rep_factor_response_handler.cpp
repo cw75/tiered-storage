@@ -52,7 +52,7 @@ void rep_factor_response_handler(
 
     for (const auto& global : rep_data.global()) {
       placement[key].global_replication_map_[global.tier_id()] =
-          glboal.global_replication();
+          global.global_replication();
     }
 
     for (const auto& local : rep_data.local()) {
