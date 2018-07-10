@@ -13,8 +13,8 @@ void self_depart_handler(
     std::shared_ptr<spdlog::logger> logger, zmq::socket_t* self_depart_puller,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<std::string, KeyStat>& key_stat_map,
-    std::unordered_map<std::string, KeyInfo>& placement,
+    std::unordered_map<Key, KeyStat>& key_stat_map,
+    std::unordered_map<Key, KeyInfo>& placement,
     std::vector<Address>& routing_address,
     std::vector<Address>& monitoring_address, ServerThread& wt,
     SocketCache& pushers, Serializer* serializer) {
@@ -69,7 +69,7 @@ void self_depart_handler(
   bool succeed;
 
   for (auto it = key_stat_map.begin(); it != key_stat_map.end(); it++) {
-    std::string key = it->first;
+    Key key = it->first;
     auto threads = get_responsible_threads(
         wt.get_replication_factor_connect_addr(), key, is_metadata(key),
         global_hash_ring_map, local_hash_ring_map, placement, pushers, kAllTierIds,

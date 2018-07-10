@@ -4,7 +4,7 @@
 void replication_change_handler(
     std::shared_ptr<spdlog::logger> logger,
     zmq::socket_t* replication_factor_change_puller, SocketCache& pushers,
-    std::unordered_map<std::string, KeyInfo>& placement, unsigned thread_id,
+    std::unordered_map<Key, KeyInfo>& placement, unsigned thread_id,
     Address ip) {
   logger->info("Received a replication factor change.");
   std::string serialized_req =
@@ -24,7 +24,7 @@ void replication_change_handler(
   req.ParseFromString(serialized_req);
 
   for (int i = 0; i < req.tuple_size(); i++) {
-    std::string key = req.tuple(i).key();
+    Key key = req.tuple(i).key();
     // update the replication factor
 
     for (int j = 0; j < req.tuple(i).global_size(); j++) {

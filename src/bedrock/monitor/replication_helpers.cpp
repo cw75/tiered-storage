@@ -15,11 +15,11 @@ KeyInfo create_new_replication_vector(unsigned gm, unsigned ge, unsigned lm,
 }
 
 void prepare_replication_factor_update(
-    const std::string& key,
+    const Key& key,
     std::unordered_map<Address, communication::Replication_Factor_Request>&
         replication_factor_map,
     Address server_address,
-    std::unordered_map<std::string, KeyInfo>& placement) {
+    std::unordered_map<Key, KeyInfo>& placement) {
   communication::Replication_Factor_Request_Tuple* tp =
       replication_factor_map[server_address].add_tuple();
   tp->set_key(key);
@@ -42,16 +42,16 @@ void prepare_replication_factor_update(
 // assume the caller has the replication factor for the keys and the requests
 // are valid (rep factor <= total number of nodes in a tier)
 void change_replication_factor(
-    std::unordered_map<std::string, KeyInfo>& requests,
+    std::unordered_map<Key, KeyInfo>& requests,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     std::vector<Address>& routing_address,
-    std::unordered_map<std::string, KeyInfo>& placement, SocketCache& pushers,
+    std::unordered_map<Key, KeyInfo>& placement, SocketCache& pushers,
     MonitoringThread& mt, zmq::socket_t& response_puller,
     std::shared_ptr<spdlog::logger> logger, unsigned& rid) {
   // used to keep track of the original replication factors for the requested
   // keys
-  std::unordered_map<std::string, KeyInfo> orig_placement_info;
+  std::unordered_map<Key, KeyInfo> orig_placement_info;
 
   // store the new replication factor synchronously in storage servers
   std::unordered_map<Address, communication::Request> addr_request_map;
@@ -61,7 +61,7 @@ void change_replication_factor(
       replication_factor_map;
 
   for (auto it = requests.begin(); it != requests.end(); it++) {
-    std::string key = it->first;
+    Key key = it->first;
     orig_placement_info[key] = placement[key];
 
     // update the placement map
@@ -91,7 +91,7 @@ void change_replication_factor(
       l->set_local_replication(iter->second);
     }
 
-    std::string rep_key =
+    Key rep_key =
         std::string(kMetadataIdentifier) + "_" + key + "_replication";
 
     std::string serialized_rep_data;
@@ -102,7 +102,7 @@ void change_replication_factor(
   }
 
   // send updates to storage nodes
-  std::unordered_set<std::string> failed_keys;
+  std::unordered_set<Key> failed_keys;
   for (auto it = addr_request_map.begin(); it != addr_request_map.end(); it++) {
     bool succeed;
     auto res = send_request<communication::Request, communication::Response>(
@@ -133,7 +133,7 @@ void change_replication_factor(
   }
 
   for (auto it = requests.begin(); it != requests.end(); it++) {
-    std::string key = it->first;
+    Key key = it->first;
 
     if (failed_keys.find(key) == failed_keys.end()) {
       for (unsigned tier = kMinTier; tier <= kMaxTier; tier++) {

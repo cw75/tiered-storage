@@ -70,9 +70,9 @@ int sample(int n, unsigned& seed, double base,
 }
 
 void handle_request(
-    std::string key, std::string value, SocketCache& pushers,
+    Key key, std::string value, SocketCache& pushers,
     std::vector<Address>& routing_address,
-    std::unordered_map<std::string, std::unordered_set<Address>>&
+    std::unordered_map<Key, std::unordered_set<Address>>&
         key_address_cache,
     unsigned& seed, std::shared_ptr<spdlog::logger> logger, UserThread& ut,
     zmq::socket_t& response_puller, zmq::socket_t& key_address_puller,
@@ -179,7 +179,7 @@ void handle_request(
     std::vector<std::string> tokens;
     split(worker_address, ':', tokens);
     std::string signature = tokens[1];
-    std::unordered_set<std::string> remove_set;
+    std::unordered_set<Key> remove_set;
 
     for (auto it = key_address_cache.begin(); it != key_address_cache.end();
          it++) {
@@ -219,11 +219,11 @@ void run(unsigned thread_id) {
   logger->info("Random seed is {}.", seed);
 
   // mapping from key to a set of worker addresses
-  std::unordered_map<std::string, std::unordered_set<Address>>
+  std::unordered_map<Key, std::unordered_set<Address>>
       key_address_cache;
 
   // rep factor map
-  std::unordered_map<std::string, std::pair<double, unsigned>> rep_factor_map;
+  std::unordered_map<Key, std::pair<double, unsigned>> rep_factor_map;
 
   UserThread ut = UserThread(ip, thread_id);
 
@@ -285,7 +285,7 @@ void run(unsigned thread_id) {
 
         for (unsigned i = 1; i <= num_keys; i++) {
           // key is 8 bytes
-          std::string key = std::string(8 - std::to_string(i).length(), '0') +
+          Key key = std::string(8 - std::to_string(i).length(), '0') +
                             std::to_string(i);
 
           if (i % 50000 == 0) {
@@ -350,7 +350,7 @@ void run(unsigned thread_id) {
         unsigned epoch = 1;
 
         while (true) {
-          std::string key;
+          Key key;
           unsigned k;
 
           if (zipf > 0) {
@@ -488,7 +488,7 @@ void run(unsigned thread_id) {
         unsigned start = thread_id * range + 1;
         unsigned end = thread_id * range + 1 + range;
 
-        std::string key;
+        Key key;
         logger->info("Warming up data");
         auto warmup_start = std::chrono::system_clock::now();
 

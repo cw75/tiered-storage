@@ -27,14 +27,15 @@ unsigned kDefaultLocalReplication;
 void handle_request(
     std::string request_line, SocketCache& pushers,
     std::vector<Address>& routing_address,
-    std::unordered_map<std::string, std::unordered_set<Address>>&
+    std::unordered_map<Key, std::unordered_set<Address>>&
         key_address_cache,
     unsigned& seed, std::shared_ptr<spdlog::logger> logger, UserThread& ut,
     zmq::socket_t& response_puller, zmq::socket_t& key_address_puller,
     Address& ip, unsigned& thread_id, unsigned& rid, unsigned& trial) {
   std::vector<std::string> v;
   split(request_line, ' ', v);
-  std::string key, value;
+  Key key;
+  std::string value;
 
   if (!((v.size() == 2 && v[0] == "GET") || (v.size() == 3 && v[0] == "PUT"))) {
     std::cerr << "Usage: GET <key> | PUT <key> <value>" << std::endl;
@@ -161,7 +162,7 @@ void handle_request(
     std::vector<std::string> tokens;
     split(worker_address, ':', tokens);
     std::string signature = tokens[1];
-    std::unordered_set<std::string> remove_set;
+    std::unordered_set<Key> remove_set;
 
     for (auto it = key_address_cache.begin(); it != key_address_cache.end();
          it++) {
@@ -202,7 +203,7 @@ void run(unsigned thread_id, std::string filename) {
   logger->info("Random seed is {}.", seed);
 
   // mapping from key to a set of worker addresses
-  std::unordered_map<std::string, std::unordered_set<Address>>
+  std::unordered_map<Key, std::unordered_set<Address>>
       key_address_cache;
 
   UserThread ut = UserThread(ip, thread_id);

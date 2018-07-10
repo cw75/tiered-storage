@@ -27,32 +27,32 @@ void remove_from_hash_ring(H& hash_ring, Address ip, unsigned tid) {
 }
 
 std::unordered_set<ServerThread, ThreadHash> responsible_global(
-    const std::string& key, unsigned global_rep,
+    const Key& key, unsigned global_rep,
     GlobalHashRing& global_hash_ring);
 
-std::unordered_set<unsigned> responsible_local(const std::string& key,
+std::unordered_set<unsigned> responsible_local(const Key& key,
                                                unsigned local_rep,
                                                LocalHashRing& local_hash_ring);
 
 std::unordered_set<ServerThread, ThreadHash> get_responsible_threads_metadata(
-    const std::string& key, GlobalHashRing& global_memory_hash_ring,
+    const Key& key, GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring);
 
 std::unordered_set<ServerThread, ThreadHash> get_responsible_threads(
-    Address respond_address, const std::string& key, bool metadata,
+    Address respond_address, const Key& key, bool metadata,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<std::string, KeyInfo>& placement, SocketCache& pushers,
+    std::unordered_map<Key, KeyInfo>& placement, SocketCache& pushers,
     const std::vector<unsigned>& tier_ids, bool& succeed, unsigned& seed);
 
 void issue_replication_factor_request(const Address& respond_address,
-                                      const std::string& key,
+                                      const Key& key,
                                       GlobalHashRing& global_memory_hash_ring,
                                       LocalHashRing& local_memory_hash_ring,
                                       SocketCache& pushers, unsigned& seed);
 
 std::vector<Address> get_address_from_routing(
-    UserThread& ut, const std::string& key, zmq::socket_t& sending_socket,
+    UserThread& ut, const Key& key, zmq::socket_t& sending_socket,
     zmq::socket_t& receiving_socket, bool& succeed, Address& ip,
     unsigned& thread_id, unsigned& rid);
 
@@ -61,13 +61,13 @@ RoutingThread get_random_routing_thread(
     unsigned& kRoutingThreadCount);
 
 inline void warmup_placement_to_defaults(
-    std::unordered_map<std::string, KeyInfo>& placement,
+    std::unordered_map<Key, KeyInfo>& placement,
     unsigned& kDefaultGlobalMemoryReplication,
     unsigned& kDefaultGlobalEbsReplication,
     unsigned& kDefaultLocalReplication) {
   for (unsigned i = 1; i <= 1000000; i++) {
     // key is 8 bytes
-    std::string key =
+    Key key =
         std::string(8 - std::to_string(i).length(), '0') + std::to_string(i);
     placement[key].global_replication_map_[1] =
         kDefaultGlobalMemoryReplication;

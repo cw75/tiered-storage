@@ -20,14 +20,14 @@ void replication_response_handler(
     RoutingThread& rt, std::unordered_map<unsigned, TierData>& tier_data_map,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<std::string, KeyInfo>& placement,
+    std::unordered_map<Key, KeyInfo>& placement,
     PendingMap<std::pair<Address, std::string>>& pending_key_request_map,
     unsigned& seed);
 
 void replication_change_handler(
     std::shared_ptr<spdlog::logger> logger,
     zmq::socket_t* replication_factor_change_puller, SocketCache& pushers,
-    std::unordered_map<std::string, KeyInfo>& placement, unsigned thread_id,
+    std::unordered_map<Key, KeyInfo>& placement, unsigned thread_id,
     Address ip);
 
 void address_handler(
@@ -35,7 +35,7 @@ void address_handler(
     SocketCache& pushers, RoutingThread& rt,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<std::string, KeyInfo>& placement,
+    std::unordered_map<Key, KeyInfo>& placement,
     PendingMap<std::pair<Address, std::string>>& pending_key_request_map,
     unsigned& seed);
 

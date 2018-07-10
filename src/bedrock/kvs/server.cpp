@@ -77,13 +77,13 @@ void run(unsigned thread_id) {
   AddressKeysetMap join_addr_keyset_map;
 
   // keep track of which key should be removed when node joins
-  std::unordered_set<std::string> join_remove_set;
+  std::unordered_set<Key> join_remove_set;
 
   // pending events for asynchrony
   PendingMap<PendingRequest> pending_request_map;
   PendingMap<PendingGossip> pending_gossip_map;
 
-  std::unordered_map<std::string, KeyInfo> placement;
+  std::unordered_map<Key, KeyInfo> placement;
   std::vector<Address> routing_address;
   std::vector<Address> monitoring_address;
 
@@ -184,13 +184,13 @@ void run(unsigned thread_id) {
   }
 
   // the set of changes made on this thread since the last round of gossip
-  std::unordered_set<std::string> local_changeset;
+  std::unordered_set<Key> local_changeset;
 
   // keep track of the key stat
-  std::unordered_map<std::string, KeyStat> key_stat_map;
+  std::unordered_map<Key, KeyStat> key_stat_map;
   // keep track of key access timestamp
   std::unordered_map<
-      std::string,
+      Key,
       std::multiset<std::chrono::time_point<std::chrono::system_clock>>>
       key_access_timestamp;
   // keep track of total access
@@ -370,7 +370,7 @@ void run(unsigned thread_id) {
         bool succeed;
         for (auto it = local_changeset.begin(); it != local_changeset.end();
              it++) {
-          std::string key = *it;
+          Key key = *it;
           auto threads = get_responsible_threads(
               wt.get_replication_factor_connect_addr(), key, is_metadata(key),
               global_hash_ring_map, local_hash_ring_map, placement, pushers,
@@ -410,7 +410,7 @@ void run(unsigned thread_id) {
 
     if (duration >= SERVER_REPORT_THRESHOLD) {
       epoch += 1;
-      std::string key = std::string(kMetadataIdentifier) + "_" + wt.get_ip() +
+      Key key = std::string(kMetadataIdentifier) + "_" + wt.get_ip() +
                         "_" + std::to_string(wt.get_tid()) + "_" +
                         std::to_string(kSelfTierId) + "_stat";
 
@@ -465,7 +465,7 @@ void run(unsigned thread_id) {
 
       for (auto it = key_access_timestamp.begin();
            it != key_access_timestamp.end(); it++) {
-        std::string key = it->first;
+        Key key = it->first;
         auto mset = &(it->second);
 
         // garbage collect
@@ -527,7 +527,7 @@ void run(unsigned thread_id) {
         unsigned count = 0;
 
         while (count < DATA_REDISTRIBUTE_THRESHOLD && key_set->size() > 0) {
-          std::string k = *(key_set->begin());
+          Key k = *(key_set->begin());
           addr_keyset_map[address].insert(k);
 
           key_set->erase(k);

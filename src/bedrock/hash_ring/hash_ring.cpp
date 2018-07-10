@@ -18,7 +18,7 @@
 // assuming the replication factor will never be greater than the number of
 // nodes in a tier return a set of ServerThread that are responsible for a key
 std::unordered_set<ServerThread, ThreadHash> responsible_global(
-    const std::string& key, unsigned global_rep,
+    const Key& key, unsigned global_rep,
     GlobalHashRing& global_hash_ring) {
   std::unordered_set<ServerThread, ThreadHash> threads;
   auto pos = global_hash_ring.find(key);
@@ -45,7 +45,7 @@ std::unordered_set<ServerThread, ThreadHash> responsible_global(
 
 // assuming the replication factor will never be greater than the number of
 // worker threads return a set of tids that are responsible for a key
-std::unordered_set<unsigned> responsible_local(const std::string& key,
+std::unordered_set<unsigned> responsible_local(const Key& key,
                                                unsigned local_rep,
                                                LocalHashRing& local_hash_ring) {
   std::unordered_set<unsigned> tids;
@@ -71,7 +71,7 @@ std::unordered_set<unsigned> responsible_local(const std::string& key,
 }
 
 std::unordered_set<ServerThread, ThreadHash> get_responsible_threads_metadata(
-    const std::string& key, GlobalHashRing& global_memory_hash_ring,
+    const Key& key, GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring) {
   std::unordered_set<ServerThread, ThreadHash> threads;
   auto mts = responsible_global(key, kMetadataReplicationFactor,
@@ -91,11 +91,11 @@ std::unordered_set<ServerThread, ThreadHash> get_responsible_threads_metadata(
 }
 
 void issue_replication_factor_request(const Address& respond_address,
-                                      const std::string& key,
+                                      const Key& key,
                                       GlobalHashRing& global_memory_hash_ring,
                                       LocalHashRing& local_memory_hash_ring,
                                       SocketCache& pushers, unsigned& seed) {
-  std::string key_rep =
+  Key key_rep =
       std::string(kMetadataIdentifier) + "_" + key + "_replication";
   auto threads = get_responsible_threads_metadata(
       key_rep, global_memory_hash_ring, local_memory_hash_ring);
@@ -116,10 +116,10 @@ void issue_replication_factor_request(const Address& respond_address,
 // get all threads responsible for a key from the "node_type" tier
 // metadata flag = 0 means the key is  metadata; otherwise, it is  regular data
 std::unordered_set<ServerThread, ThreadHash> get_responsible_threads(
-    Address respond_address, const std::string& key, bool metadata,
+    Address respond_address, const Key& key, bool metadata,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<std::string, KeyInfo>& placement, SocketCache& pushers,
+    std::unordered_map<Key, KeyInfo>& placement, SocketCache& pushers,
     const std::vector<unsigned>& tier_ids, bool& succeed, unsigned& seed) {
   if (metadata) {
     succeed = true;
@@ -160,7 +160,7 @@ std::unordered_set<ServerThread, ThreadHash> get_responsible_threads(
 
 // query the routing for a key and return all address
 std::vector<Address> get_address_from_routing(
-    UserThread& ut, const std::string& key, zmq::socket_t& sending_socket,
+    UserThread& ut, const Key& key, zmq::socket_t& sending_socket,
     zmq::socket_t& receiving_socket, bool& succeed, Address& ip,
     unsigned& thread_id, unsigned& rid) {
   int count = 0;

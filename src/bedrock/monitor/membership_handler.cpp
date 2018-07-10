@@ -7,19 +7,11 @@ void membership_handler(
     unsigned& adding_memory_node, unsigned& adding_ebs_node,
     std::chrono::time_point<std::chrono::system_clock>& grace_start,
     std::vector<Address>& routing_address,
-    std::unordered_map<Address,
-                       std::unordered_map<unsigned, unsigned long long>>&
-        memory_tier_storage,
-    std::unordered_map<Address,
-                       std::unordered_map<unsigned, unsigned long long>>&
-        ebs_tier_storage,
-    std::unordered_map<
-        Address, std::unordered_map<unsigned, std::pair<double, unsigned>>>&
-        memory_tier_occupancy,
-    std::unordered_map<
-        Address, std::unordered_map<unsigned, std::pair<double, unsigned>>>&
-        ebs_tier_occupancy,
-    std::unordered_map<std::string, std::unordered_map<Address, unsigned>>&
+    StorageStat& memory_tier_storage,
+    StorageStat& ebs_tier_storage,
+    OccupancyStat& memory_tier_occupancy,
+    OccupancyStat& ebs_tier_occupancy,
+    std::unordered_map<Key, std::unordered_map<Address, unsigned>>&
         key_access_frequency) {
   std::string message = zmq_util::recv_string(notify_puller);
   std::vector<std::string> v;

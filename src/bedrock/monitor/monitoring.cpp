@@ -55,39 +55,29 @@ int main(int argc, char *argv[]) {
   }
 
   // keep track of the keys' replication info
-  std::unordered_map<std::string, KeyInfo> placement;
+  std::unordered_map<Key, KeyInfo> placement;
   // warm up for benchmark
   // warmup_placement_to_defaults(placement);
 
   unsigned memory_node_number;
   unsigned ebs_node_number;
   // keep track of the keys' access by worker address
-  std::unordered_map<std::string, std::unordered_map<Address, unsigned>>
+  std::unordered_map<Key, std::unordered_map<Address, unsigned>>
       key_access_frequency;
   // keep track of the keys' access summary
-  std::unordered_map<std::string, unsigned> key_access_summary;
+  std::unordered_map<Key, unsigned> key_access_summary;
   // keep track of memory tier storage consumption
-  std::unordered_map<Address,
-                     std::unordered_map<unsigned, unsigned long long>>
-      memory_tier_storage;
+  StorageStat memory_tier_storage;
   // keep track of ebs tier storage consumption
-  std::unordered_map<Address,
-                     std::unordered_map<unsigned, unsigned long long>>
-      ebs_tier_storage;
+  StorageStat ebs_tier_storage;
   // keep track of memory tier thread occupancy
-  std::unordered_map<Address,
-                     std::unordered_map<unsigned, std::pair<double, unsigned>>>
-      memory_tier_occupancy;
+  OccupancyStat memory_tier_occupancy;
   // keep track of ebs tier thread occupancy
-  std::unordered_map<Address,
-                     std::unordered_map<unsigned, std::pair<double, unsigned>>>
-      ebs_tier_occupancy;
+  OccupancyStat ebs_tier_occupancy;
   // keep track of memory tier hit
-  std::unordered_map<Address, std::unordered_map<unsigned, unsigned>>
-      memory_tier_access;
+  AccessStat memory_tier_access;
   // keep track of ebs tier hit
-  std::unordered_map<Address, std::unordered_map<unsigned, unsigned>>
-      ebs_tier_access;
+  AccessStat ebs_tier_access;
   // keep track of some summary statistics
   SummaryStats ss;
   // keep track of user latency info
@@ -95,7 +85,7 @@ int main(int argc, char *argv[]) {
   // keep track of user throughput info
   std::unordered_map<std::string, double> user_throughput;
   // used for adjusting the replication factors based on feedback from the user
-  std::unordered_map<std::string, std::pair<double, unsigned>> rep_factor_map;
+  std::unordered_map<Key, std::pair<double, unsigned>> rep_factor_map;
 
   std::vector<Address> routing_address;
 

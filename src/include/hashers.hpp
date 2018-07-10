@@ -16,7 +16,7 @@ struct GlobalHasher {
     return std::hash<std::string>{}("GLOBAL" + th.get_virtual_id());
   }
 
-  uint32_t operator()(const std::string& key) {
+  uint32_t operator()(const Key& key) {
     // prepend a string to make the hash value different than
     // what it would be on the naked input
     return std::hash<std::string>{}("GLOBAL" + key);
@@ -33,7 +33,7 @@ struct LocalHasher {
                                     std::to_string(th.get_virtual_num()));
   }
 
-  ResultType operator()(const std::string& key) {
+  ResultType operator()(const Key& key) {
     return std::hash<std::string>{}(key);
   }
 };

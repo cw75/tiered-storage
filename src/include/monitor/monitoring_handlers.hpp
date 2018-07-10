@@ -9,19 +9,11 @@ void membership_handler(
     unsigned& adding_memory_node, unsigned& adding_ebs_node,
     std::chrono::time_point<std::chrono::system_clock>& grace_start,
     std::vector<Address>& routing_address,
-    std::unordered_map<Address,
-                       std::unordered_map<unsigned, unsigned long long>>&
-        memory_tier_storage,
-    std::unordered_map<Address,
-                       std::unordered_map<unsigned, unsigned long long>>&
-        ebs_tier_storage,
-    std::unordered_map<
-        Address, std::unordered_map<unsigned, std::pair<double, unsigned>>>&
-        memory_tier_occupancy,
-    std::unordered_map<
-        Address, std::unordered_map<unsigned, std::pair<double, unsigned>>>&
-        ebs_tier_occupancy,
-    std::unordered_map<std::string, std::unordered_map<Address, unsigned>>&
+    StorageStat& memory_tier_storage,
+    StorageStat& ebs_tier_storage,
+    OccupancyStat& memory_tier_occupancy,
+    OccupancyStat& ebs_tier_occupancy,
+    std::unordered_map<Key, std::unordered_map<Address, unsigned>>&
         key_access_frequency);
 
 void depart_done_handler(
@@ -35,7 +27,7 @@ void feedback_handler(
     zmq::socket_t* feedback_puller,
     std::unordered_map<std::string, double>& user_latency,
     std::unordered_map<std::string, double>& user_throughput,
-    std::unordered_map<std::string, std::pair<double, unsigned>>&
+    std::unordered_map<Key, std::pair<double, unsigned>>&
         rep_factor_map);
 
 #endif

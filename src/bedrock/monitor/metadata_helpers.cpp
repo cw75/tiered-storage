@@ -2,7 +2,7 @@
 #include "spdlog/spdlog.h"
 
 Address prepare_metadata_request(
-    const std::string& key, GlobalHashRing& global_memory_hash_ring,
+    const Key& key, GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring,
     std::unordered_map<Address, communication::Request>& addr_request_map,
     MonitoringThread& mt, unsigned& rid, std::string type) {
@@ -27,7 +27,7 @@ Address prepare_metadata_request(
 }
 
 void prepare_metadata_get_request(
-    const std::string& key, GlobalHashRing& global_memory_hash_ring,
+    const Key& key, GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring,
     std::unordered_map<Address, communication::Request>& addr_request_map,
     MonitoringThread& mt, unsigned& rid) {
@@ -41,7 +41,7 @@ void prepare_metadata_get_request(
 }
 
 void prepare_metadata_put_request(
-    const std::string& key, const std::string& value,
+    const Key& key, const std::string& value,
     GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring,
     std::unordered_map<Address, communication::Request>& addr_request_map,

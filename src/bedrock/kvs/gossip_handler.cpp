@@ -11,9 +11,9 @@ void gossip_handler(
     unsigned& seed, zmq::socket_t* gossip_puller,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<std::string, KeyStat>& key_stat_map,
+    std::unordered_map<Key, KeyStat>& key_stat_map,
     PendingMap<PendingGossip>& pending_gossip_map,
-    std::unordered_map<std::string, KeyInfo>& placement, ServerThread& wt,
+    std::unordered_map<Key, KeyInfo>& placement, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers) {
   std::string gossip_string = zmq_util::recv_string(gossip_puller);
   communication::Request gossip;
@@ -24,7 +24,7 @@ void gossip_handler(
 
   for (int i = 0; i < gossip.tuple_size(); i++) {
     // first check if the thread is responsible for the key
-    std::string key = gossip.tuple(i).key();
+    Key key = gossip.tuple(i).key();
     auto threads = get_responsible_threads(
         wt.get_replication_factor_connect_addr(), key, is_metadata(key),
         global_hash_ring_map, local_hash_ring_map, placement, pushers, kSelfTierIdVector,

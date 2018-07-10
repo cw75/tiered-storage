@@ -26,7 +26,7 @@ void run(unsigned thread_id) {
   // prepare the zmq context
   zmq::context_t context(1);
   SocketCache pushers(&context, ZMQ_PUSH);
-  std::unordered_map<std::string, KeyInfo> placement;
+  std::unordered_map<Key, KeyInfo> placement;
 
   // warm up for benchmark
   // warmup_placement_to_defaults(placement);

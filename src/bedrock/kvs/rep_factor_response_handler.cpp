@@ -18,12 +18,12 @@ void rep_factor_response_handler(
     PendingMap<PendingRequest>& pending_request_map,
     PendingMap<PendingGossip>& pending_gossip_map,
     std::unordered_map<
-        std::string,
+        Key,
         std::multiset<std::chrono::time_point<std::chrono::system_clock>>>&
         key_access_timestamp,
-    std::unordered_map<std::string, KeyInfo>& placement,
-    std::unordered_map<std::string, KeyStat>& key_stat_map,
-    std::unordered_set<std::string>& local_changeset, ServerThread& wt,
+    std::unordered_map<Key, KeyInfo>& placement,
+    std::unordered_map<Key, KeyStat>& key_stat_map,
+    std::unordered_set<Key>& local_changeset, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers) {
   std::string response_string =
       zmq_util::recv_string(rep_factor_response_puller);
@@ -32,7 +32,7 @@ void rep_factor_response_handler(
 
   std::vector<std::string> tokens;
   split(response.tuple(0).key(), '_', tokens);
-  std::string key = tokens[1];
+  Key key = tokens[1];
 
   if (response.tuple(0).err_number() == 2) {
     auto respond_address = wt.get_replication_factor_connect_addr();

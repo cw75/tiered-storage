@@ -10,16 +10,16 @@ void slo_policy(
     SummaryStats& ss, unsigned& memory_node_number,
     unsigned& adding_memory_node, bool& removing_memory_node,
     Address management_address,
-    std::unordered_map<std::string, KeyInfo>& placement,
-    std::unordered_map<std::string, unsigned>& key_access_summary,
+    std::unordered_map<Key, KeyInfo>& placement,
+    std::unordered_map<Key, unsigned>& key_access_summary,
     MonitoringThread& mt, std::unordered_map<unsigned, TierData>& tier_data_map,
     std::unordered_map<Address, unsigned>& departing_node_map,
     SocketCache& pushers, zmq::socket_t& response_puller,
     std::vector<Address>& routing_address, unsigned& rid,
-    std::unordered_map<std::string, std::pair<double, unsigned>>&
+    std::unordered_map<Key, std::pair<double, unsigned>>&
         rep_factor_map) {
   // check latency to trigger elasticity or selective replication
-  std::unordered_map<std::string, KeyInfo> requests;
+  std::unordered_map<Key, KeyInfo> requests;
   if (ss.avg_latency > kSloWorst && adding_memory_node == 0) {
     logger->info("Observed latency ({}) violates SLO({}).", ss.avg_latency,
                  kSloWorst);
@@ -42,7 +42,7 @@ void slo_policy(
       logger->info("Classifying hot keys...");
       for (auto it = key_access_summary.begin(); it != key_access_summary.end();
            it++) {
-        std::string key = it->first;
+        Key key = it->first;
         unsigned total_access = it->second;
 
         if (!is_metadata(key) &&
@@ -104,7 +104,7 @@ void slo_policy(
       // factor
       for (auto it = key_access_summary.begin(); it != key_access_summary.end();
            it++) {
-        std::string key = it->first;
+        Key key = it->first;
 
         if (!is_metadata(key) &&
             placement[key].global_replication_map_[1] ==

@@ -78,19 +78,19 @@ struct SummaryStats {
 };
 
 Address prepare_metadata_request(
-    const std::string& key, GlobalHashRing& global_memory_hash_ring,
+    const Key& key, GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring,
     std::unordered_map<Address, communication::Request>& addr_request_map,
     MonitoringThread& mt, unsigned& rid, std::string type);
 
 void prepare_metadata_get_request(
-    const std::string& key, GlobalHashRing& global_memory_hash_ring,
+    const Key& key, GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring,
     std::unordered_map<Address, communication::Request>& addr_request_map,
     MonitoringThread& mt, unsigned& rid);
 
 void prepare_metadata_put_request(
-    const std::string& key, const std::string& value,
+    const Key& key, const std::string& value,
     GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring,
     std::unordered_map<Address, communication::Request>& addr_request_map,
@@ -101,46 +101,26 @@ void collect_internal_stats(
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     SocketCache& pushers, MonitoringThread& mt, zmq::socket_t& response_puller,
     std::shared_ptr<spdlog::logger> logger, unsigned& rid,
-    std::unordered_map<std::string, std::unordered_map<Address, unsigned>>&
+    std::unordered_map<Key, std::unordered_map<Address, unsigned>>&
         key_access_frequency,
-    std::unordered_map<Address,
-                       std::unordered_map<unsigned, unsigned long long>>&
-        memory_tier_storage,
-    std::unordered_map<Address,
-                       std::unordered_map<unsigned, unsigned long long>>&
-        ebs_tier_storage,
-    std::unordered_map<
-        Address, std::unordered_map<unsigned, std::pair<double, unsigned>>>&
-        memory_tier_occupancy,
-    std::unordered_map<
-        Address, std::unordered_map<unsigned, std::pair<double, unsigned>>>&
-        ebs_tier_occupancy,
-    std::unordered_map<Address, std::unordered_map<unsigned, unsigned>>&
-        memory_tier_access,
-    std::unordered_map<Address, std::unordered_map<unsigned, unsigned>>&
-        ebs_tier_access,
+    StorageStat& memory_tier_storage,
+    StorageStat& ebs_tier_storage,
+    OccupancyStat& memory_tier_occupancy,
+    OccupancyStat& ebs_tier_occupancy,
+    AccessStat& memory_tier_access,
+    AccessStat& ebs_tier_access,
     std::unordered_map<unsigned, TierData>& tier_data_map);
 
 void compute_summary_stats(
-    std::unordered_map<std::string, std::unordered_map<Address, unsigned>>&
+    std::unordered_map<Key, std::unordered_map<Address, unsigned>>&
         key_access_frequency,
-    std::unordered_map<Address,
-                       std::unordered_map<unsigned, unsigned long long>>&
-        memory_tier_storage,
-    std::unordered_map<Address,
-                       std::unordered_map<unsigned, unsigned long long>>&
-        ebs_tier_storage,
-    std::unordered_map<
-        Address, std::unordered_map<unsigned, std::pair<double, unsigned>>>&
-        memory_tier_occupancy,
-    std::unordered_map<
-        Address, std::unordered_map<unsigned, std::pair<double, unsigned>>>&
-        ebs_tier_occupancy,
-    std::unordered_map<Address, std::unordered_map<unsigned, unsigned>>&
-        memory_tier_access,
-    std::unordered_map<Address, std::unordered_map<unsigned, unsigned>>&
-        ebs_tier_access,
-    std::unordered_map<std::string, unsigned>& key_access_summary,
+    StorageStat& memory_tier_storage,
+    StorageStat& ebs_tier_storage,
+    OccupancyStat& memory_tier_occupancy,
+    OccupancyStat& ebs_tier_occupancy,
+    AccessStat& memory_tier_access,
+    AccessStat& ebs_tier_access,
+    std::unordered_map<Key, unsigned>& key_access_summary,
     SummaryStats& ss, std::shared_ptr<spdlog::logger> logger,
     unsigned& server_monitoring_epoch,
     std::unordered_map<unsigned, TierData>& tier_data_map);
@@ -154,18 +134,18 @@ KeyInfo create_new_replication_vector(unsigned gm, unsigned ge, unsigned lm,
                                       unsigned le);
 
 void prepare_replication_factor_update(
-    const std::string& key,
+    const Key& key,
     std::unordered_map<Address, communication::Replication_Factor_Request>&
         replication_factor_map,
     Address server_address,
-    std::unordered_map<std::string, KeyInfo>& placement);
+    std::unordered_map<Key, KeyInfo>& placement);
 
 void change_replication_factor(
-    std::unordered_map<std::string, KeyInfo>& requests,
+    std::unordered_map<Key, KeyInfo>& requests,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     std::vector<Address>& routing_address,
-    std::unordered_map<std::string, KeyInfo>& placement, SocketCache& pushers,
+    std::unordered_map<Key, KeyInfo>& placement, SocketCache& pushers,
     MonitoringThread& mt, zmq::socket_t& response_puller,
     std::shared_ptr<spdlog::logger> logger, unsigned& rid);
 

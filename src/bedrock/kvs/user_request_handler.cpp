@@ -12,14 +12,14 @@ void user_request_handler(
     std::chrono::system_clock::time_point& start_time,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<std::string, KeyStat>& key_stat_map,
+    std::unordered_map<Key, KeyStat>& key_stat_map,
     PendingMap<PendingRequest>& pending_request_map,
     std::unordered_map<
-        std::string,
+        Key,
         std::multiset<std::chrono::time_point<std::chrono::system_clock>>>&
         key_access_timestamp,
-    std::unordered_map<std::string, KeyInfo>& placement,
-    std::unordered_set<std::string>& local_changeset, ServerThread& wt,
+    std::unordered_map<Key, KeyInfo>& placement,
+    std::unordered_set<Key>& local_changeset, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers) {
   std::string req_string = zmq_util::recv_string(request_puller);
   communication::Request req;
@@ -38,7 +38,7 @@ void user_request_handler(
   if (req.type() == "GET") {
     for (int i = 0; i < req.tuple_size(); i++) {
       // first check if the thread is responsible for the key
-      std::string key = req.tuple(i).key();
+      Key key = req.tuple(i).key();
       auto threads = get_responsible_threads(
           wt.get_replication_factor_connect_addr(), key, is_metadata(key),
           global_hash_ring_map, local_hash_ring_map, placement, pushers,
@@ -87,7 +87,7 @@ void user_request_handler(
   } else if (req.type() == "PUT") {
     for (int i = 0; i < req.tuple_size(); i++) {
       // first check if the thread is responsible for the key
-      std::string key = req.tuple(i).key();
+      Key key = req.tuple(i).key();
       auto threads = get_responsible_threads(
           wt.get_replication_factor_connect_addr(), key, is_metadata(key),
           global_hash_ring_map, local_hash_ring_map, placement, pushers,

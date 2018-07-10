@@ -6,7 +6,7 @@ void address_handler(
     SocketCache& pushers, RoutingThread& rt,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<std::string, KeyInfo>& placement,
+    std::unordered_map<Key, KeyInfo>& placement,
     PendingMap<std::pair<Address, std::string>>& pending_key_request_map,
     unsigned& seed) {
   logger->info("Received key address request.");
@@ -36,7 +36,7 @@ void address_handler(
     for (int i = 0; i < key_req.keys_size(); i++) {
       unsigned tier_id = 1;
       std::unordered_set<ServerThread, ThreadHash> threads = {};
-      std::string key = key_req.keys(i);
+      Key key = key_req.keys(i);
 
       while (threads.size() == 0 && tier_id < kMaxTier) {
         threads = get_responsible_threads(

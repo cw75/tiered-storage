@@ -7,7 +7,7 @@ void replication_response_handler(
     RoutingThread& rt, std::unordered_map<unsigned, TierData>& tier_data_map,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<std::string, KeyInfo>& placement,
+    std::unordered_map<Key, KeyInfo>& placement,
     PendingMap<std::pair<Address, std::string>>& pending_key_request_map,
     unsigned& seed) {
   std::string serialized_response =
@@ -17,7 +17,7 @@ void replication_response_handler(
 
   std::vector<std::string> tokens;
   split(response.tuple(0).key(), '_', tokens);
-  std::string key = tokens[1];
+  Key key = tokens[1];
 
   if (response.tuple(0).err_number() == 0) {
     communication::Replication_Factor rep_data;

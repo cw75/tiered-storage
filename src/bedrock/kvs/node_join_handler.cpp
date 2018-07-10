@@ -13,9 +13,9 @@ void node_join_handler(
     std::shared_ptr<spdlog::logger> logger, zmq::socket_t* join_puller,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<std::string, KeyStat>& key_stat_map,
-    std::unordered_map<std::string, KeyInfo>& placement,
-    std::unordered_set<std::string>& join_remove_set, SocketCache& pushers,
+    std::unordered_map<Key, KeyStat>& key_stat_map,
+    std::unordered_map<Key, KeyInfo>& placement,
+    std::unordered_set<Key>& join_remove_set, SocketCache& pushers,
     ServerThread& wt, AddressKeysetMap& join_addr_keyset_map) {
   std::string message = zmq_util::recv_string(join_puller);
   std::vector<std::string> v;
@@ -75,7 +75,7 @@ void node_join_handler(
       bool succeed;
 
       for (auto it = key_stat_map.begin(); it != key_stat_map.end(); it++) {
-        std::string key = it->first;
+        Key key = it->first;
         auto threads = get_responsible_threads(
             wt.get_replication_factor_connect_addr(), key, is_metadata(key),
             global_hash_ring_map, local_hash_ring_map, placement, pushers,
