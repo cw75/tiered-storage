@@ -39,12 +39,13 @@ void address_handler(
         threads = get_responsible_threads(
             rt.get_replication_factor_connect_addr(), key, false,
             global_hash_ring_map, local_hash_ring_map, placement, pushers,
-            { tier_id }, succeed, seed);
+            {tier_id}, succeed, seed);
 
-        if (!succeed) { // this means we don't have the replication factor for the key
+        if (!succeed) {  // this means we don't have the replication factor for
+                         // the key
           pending_key_request_map[key].push_back(
               std::pair<Address, std::string>(key_req.respond_address(),
-                key_req.request_id()));
+                                              key_req.request_id()));
           return;
         }
 

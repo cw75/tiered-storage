@@ -8,19 +8,18 @@ void movement_policy(
     std::chrono::time_point<std::chrono::system_clock>& grace_start,
     SummaryStats& ss, unsigned& memory_node_number, unsigned& ebs_node_number,
     unsigned& adding_memory_node, unsigned& adding_ebs_node,
-    Address management_address,
-    std::unordered_map<Key, KeyInfo>& placement,
-    std::unordered_map<Key, unsigned>& key_access_summary,
-    MonitoringThread& mt, std::unordered_map<unsigned, TierData>& tier_data_map,
-    SocketCache& pushers, zmq::socket_t& response_puller,
-    std::vector<Address>& routing_address, unsigned& rid) {
+    Address management_address, std::unordered_map<Key, KeyInfo>& placement,
+    std::unordered_map<Key, unsigned>& key_access_summary, MonitoringThread& mt,
+    std::unordered_map<unsigned, TierData>& tier_data_map, SocketCache& pushers,
+    zmq::socket_t& response_puller, std::vector<Address>& routing_address,
+    unsigned& rid) {
   // promote hot keys to memory tier
   std::unordered_map<Key, KeyInfo> requests;
   unsigned total_rep_to_change = 0;
-  unsigned slot =
-      (kMaxMemoryNodeConsumption * tier_data_map[1].node_capacity_ * memory_node_number -
-       ss.total_memory_consumption) /
-      kValueSize;
+  unsigned slot = (kMaxMemoryNodeConsumption * tier_data_map[1].node_capacity_ *
+                       memory_node_number -
+                   ss.total_memory_consumption) /
+                  kValueSize;
   bool overflow = false;
 
   for (const auto& key_access_pair : key_access_summary) {
@@ -69,7 +68,8 @@ void movement_policy(
   total_rep_to_change = 0;
 
   // demote cold keys to ebs tier
-  slot = (kMaxEbsNodeConsumption * tier_data_map[2].node_capacity_ * ebs_node_number -
+  slot = (kMaxEbsNodeConsumption * tier_data_map[2].node_capacity_ *
+              ebs_node_number -
           ss.total_ebs_consumption) /
          kValueSize;
   overflow = false;

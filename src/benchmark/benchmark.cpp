@@ -58,12 +58,10 @@ int sample(int n, unsigned& seed, double base,
 void handle_request(
     Key key, std::string value, SocketCache& pushers,
     std::vector<Address>& routing_addresses,
-    std::unordered_map<Key, std::unordered_set<Address>>&
-        key_address_cache,
+    std::unordered_map<Key, std::unordered_set<Address>>& key_address_cache,
     unsigned& seed, std::shared_ptr<spdlog::logger> logger, UserThread& ut,
     zmq::socket_t& response_puller, zmq::socket_t& key_address_puller,
     Address& ip, unsigned& thread_id, unsigned& rid, unsigned& trial) {
-
   if (trial > 5) {
     logger->info("Trial #{} for request for key {}.", trial, key);
     logger->info("Waiting 5 seconds.");
@@ -193,7 +191,9 @@ void handle_request(
   }
 }
 
-void run(unsigned thread_id, std::string ip, std::vector<Address> routing_addresses, std::vector<MonitoringThread> monitoring_threads) {
+void run(unsigned thread_id, std::string ip,
+         std::vector<Address> routing_addresses,
+         std::vector<MonitoringThread> monitoring_threads) {
   std::string log_file = "log_" + std::to_string(thread_id) + ".txt";
   std::string logger_name = "benchmark_log_" + std::to_string(thread_id);
   auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
@@ -206,8 +206,7 @@ void run(unsigned thread_id, std::string ip, std::vector<Address> routing_addres
   logger->info("Random seed is {}.", seed);
 
   // mapping from key to a set of worker addresses
-  std::unordered_map<Key, std::unordered_set<Address>>
-      key_address_cache;
+  std::unordered_map<Key, std::unordered_set<Address>> key_address_cache;
 
   // rep factor map
   std::unordered_map<Key, std::pair<double, unsigned>> rep_factor_map;
@@ -257,7 +256,7 @@ void run(unsigned thread_id, std::string ip, std::vector<Address> routing_addres
         for (unsigned i = 1; i <= num_keys; i++) {
           // key is 8 bytes
           Key key = std::string(8 - std::to_string(i).length(), '0') +
-                            std::to_string(i);
+                    std::to_string(i);
 
           if (i % 50000 == 0) {
             logger->info("warming up cache for key {}", key);
@@ -335,26 +334,26 @@ void run(unsigned thread_id, std::string ip, std::vector<Address> routing_addres
           unsigned trial = 1;
 
           if (type == "G") {
-            handle_request(key, "", pushers, routing_addresses, key_address_cache,
-                           seed, logger, ut, response_puller,
+            handle_request(key, "", pushers, routing_addresses,
+                           key_address_cache, seed, logger, ut, response_puller,
                            key_address_puller, ip, thread_id, rid, trial);
             count += 1;
           } else if (type == "P") {
             handle_request(key, std::string(length, 'a'), pushers,
-                           routing_addresses, key_address_cache, seed, logger, ut,
-                           response_puller, key_address_puller, ip, thread_id,
-                           rid, trial);
+                           routing_addresses, key_address_cache, seed, logger,
+                           ut, response_puller, key_address_puller, ip,
+                           thread_id, rid, trial);
             count += 1;
           } else if (type == "M") {
             auto req_start = std::chrono::system_clock::now();
             handle_request(key, std::string(length, 'a'), pushers,
-                           routing_addresses, key_address_cache, seed, logger, ut,
-                           response_puller, key_address_puller, ip, thread_id,
-                           rid, trial);
+                           routing_addresses, key_address_cache, seed, logger,
+                           ut, response_puller, key_address_puller, ip,
+                           thread_id, rid, trial);
             trial = 1;
 
-            handle_request(key, "", pushers, routing_addresses, key_address_cache,
-                           seed, logger, ut, response_puller,
+            handle_request(key, "", pushers, routing_addresses,
+                           key_address_cache, seed, logger, ut, response_puller,
                            key_address_puller, ip, thread_id, rid, trial);
             count += 2;
             auto req_end = std::chrono::system_clock::now();
@@ -522,7 +521,8 @@ int main(int argc, char* argv[]) {
 
   std::vector<std::thread> benchmark_threads;
   for (unsigned thread_id = 1; thread_id < kBenchmarkThreadNum; thread_id++) {
-    benchmark_threads.push_back(std::thread(run, thread_id, ip, routing_addresses, monitoring_threads));
+    benchmark_threads.push_back(
+        std::thread(run, thread_id, ip, routing_addresses, monitoring_threads));
   }
 
   run(0, ip, routing_addresses, monitoring_threads);

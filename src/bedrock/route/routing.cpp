@@ -5,7 +5,8 @@ std::unordered_map<unsigned, TierData> kTierDataMap;
 unsigned kDefaultLocalReplication;
 unsigned kRoutingThreadCount;
 
-void run(unsigned thread_id, Address ip, std::vector<Address> monitoring_addresses) {
+void run(unsigned thread_id, Address ip,
+         std::vector<Address> monitoring_addresses) {
   std::string log_file = "log_" + std::to_string(thread_id) + ".txt";
   std::string logger_name = "routing_logger_" + std::to_string(thread_id);
   auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
@@ -26,7 +27,7 @@ void run(unsigned thread_id, Address ip, std::vector<Address> monitoring_address
 
   if (thread_id == 0) {
     // notify monitoring nodes
-    for (const std::string& address : monitoring_addresses) {
+    for (const std::string &address : monitoring_addresses) {
       zmq_util::send_string(
           "join:0:" + ip,
           &pushers[MonitoringThread(address).get_notify_connect_addr()]);
@@ -41,10 +42,10 @@ void run(unsigned thread_id, Address ip, std::vector<Address> monitoring_address
   PendingMap<std::pair<Address, std::string>> pending_key_request_map;
 
   // form local hash rings
-  for (const auto& tier_pair : kTierDataMap) {
+  for (const auto &tier_pair : kTierDataMap) {
     for (unsigned tid = 0; tid < tier_pair.second.thread_number_; tid++) {
-      insert_to_hash_ring<LocalHashRing>(local_hash_ring_map[tier_pair.first], ip,
-                                         tid);
+      insert_to_hash_ring<LocalHashRing>(local_hash_ring_map[tier_pair.first],
+                                         ip, tid);
     }
   }
 
@@ -101,10 +102,9 @@ void run(unsigned thread_id, Address ip, std::vector<Address> monitoring_address
 
     // received replication factor response
     if (pollitems[2].revents & ZMQ_POLLIN) {
-      replication_response_handler(logger, &replication_factor_puller, pushers,
-                                   rt, global_hash_ring_map,
-                                   local_hash_ring_map, placement,
-                                   pending_key_request_map, seed);
+      replication_response_handler(
+          logger, &replication_factor_puller, pushers, rt, global_hash_ring_map,
+          local_hash_ring_map, placement, pending_key_request_map, seed);
     }
 
     if (pollitems[3].revents & ZMQ_POLLIN) {
@@ -142,20 +142,21 @@ int main(int argc, char *argv[]) {
   Address ip = routing["ip"].as<std::string>();
   std::vector<Address> monitoring_addresses;
 
-  for (const YAML::Node& node : routing["monitoring"]) {
+  for (const YAML::Node &node : routing["monitoring"]) {
     std::string address = node.as<Address>();
     monitoring_addresses.push_back(address);
   }
 
   kTierDataMap[1] = TierData(
       kMemoryThreadCount, kDefaultGlobalMemoryReplication, kMemoryNodeCapacity);
-  kTierDataMap[2] = TierData(kEbsThreadCount, kDefaultGlobalEbsReplication,
-                              kEbsNodeCapacity);
+  kTierDataMap[2] =
+      TierData(kEbsThreadCount, kDefaultGlobalEbsReplication, kEbsNodeCapacity);
 
   std::vector<std::thread> routing_worker_threads;
 
   for (unsigned thread_id = 1; thread_id < kRoutingThreadCount; thread_id++) {
-    routing_worker_threads.push_back(std::thread(run, thread_id, ip, monitoring_addresses));
+    routing_worker_threads.push_back(
+        std::thread(run, thread_id, ip, monitoring_addresses));
   }
 
   run(0, ip, monitoring_addresses);

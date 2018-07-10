@@ -19,7 +19,7 @@ const unsigned kVirtualThreadNum = 3000;
 
 const unsigned kMinTier = 1;
 const unsigned kMaxTier = 2;
-const std::vector<unsigned> kAllTierIds = { 1, 2 };
+const std::vector<unsigned> kAllTierIds = {1, 2};
 
 const unsigned kSloWorst = 3000;
 const unsigned SLO_BEST = 1500;
@@ -59,7 +59,7 @@ extern unsigned kSelfTierId;
 extern std::vector<unsigned> kSelfTierIdVector;
 
 // the number of threads running in this executable
-extern unsigned kThreadNum; 
+extern unsigned kThreadNum;
 extern unsigned kMemoryThreadCount;
 extern unsigned kEbsThreadCount;
 extern unsigned kRoutingThreadCount;
@@ -100,7 +100,8 @@ inline void prepare_put_tuple(communication::Request& req, Key key,
   tp->set_timestamp(timestamp);
 }
 
-inline void push_request(const communication::Request& req, zmq::socket_t& socket) {
+inline void push_request(const communication::Request& req,
+                         zmq::socket_t& socket) {
   std::string serialized_req;
   req.SerializeToString(&serialized_req);
   zmq_util::send_string(serialized_req, &socket);

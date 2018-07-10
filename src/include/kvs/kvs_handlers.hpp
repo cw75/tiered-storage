@@ -40,9 +40,8 @@ void user_request_handler(
     std::unordered_map<std::string, unsigned>& key_size_map,
     PendingMap<PendingRequest>& pending_request_map,
     std::unordered_map<
-    Key,
-    std::multiset<std::chrono::time_point<std::chrono::system_clock>>>&
-    key_access_timestamp,
+        Key, std::multiset<std::chrono::time_point<std::chrono::system_clock>>>&
+        key_access_timestamp,
     std::unordered_map<Key, KeyInfo>& placement,
     std::unordered_set<Key>& local_changeset, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers);
@@ -66,9 +65,8 @@ void rep_factor_response_handler(
     PendingMap<PendingRequest>& pending_request_map,
     PendingMap<PendingGossip>& pending_gossip_map,
     std::unordered_map<
-    Key,
-    std::multiset<std::chrono::time_point<std::chrono::system_clock>>>&
-    key_access_timestamp,
+        Key, std::multiset<std::chrono::time_point<std::chrono::system_clock>>>&
+        key_access_timestamp,
     std::unordered_map<Key, KeyInfo>& placement,
     std::unordered_map<Key, unsigned>& key_size_map,
     std::unordered_set<Key>& local_changeset, ServerThread& wt,
@@ -86,12 +84,12 @@ void rep_factor_change_handler(
     Serializer* serializer, SocketCache& pushers);
 
 void send_gossip(AddressKeysetMap& addr_keyset_map, SocketCache& pushers,
-    Serializer* serializer);
+                 Serializer* serializer);
 
 std::pair<ReadCommittedPairLattice<std::string>, unsigned> process_get(
     const Key& key, Serializer* serializer);
 
 void process_put(const Key& key, const unsigned long long& timestamp,
-    const std::string& value, Serializer* serializer,
-    std::unordered_map<std::string, unsigned>& key_size_map);
+                 const std::string& value, Serializer* serializer,
+                 std::unordered_map<std::string, unsigned>& key_size_map);
 #endif

@@ -121,9 +121,9 @@ void handle_request(
 
       // update cache and retry
       key_address_cache.erase(key);
-      handle_request(request_line, pushers, routing_addresses, key_address_cache,
-                     seed, logger, ut, response_puller, key_address_puller, ip,
-                     thread_id, rid, trial);
+      handle_request(request_line, pushers, routing_addresses,
+                     key_address_cache, seed, logger, ut, response_puller,
+                     key_address_puller, ip, thread_id, rid, trial);
     } else {
       // succeeded
       if (res.tuple(0).has_invalidate() && res.tuple(0).invalidate()) {
@@ -172,7 +172,8 @@ void handle_request(
   }
 }
 
-void run(unsigned thread_id, std::string filename, Address ip, std::vector<Address> routing_addresses) {
+void run(unsigned thread_id, std::string filename, Address ip,
+         std::vector<Address> routing_addresses) {
   std::string log_file = "log_user.txt";
   std::string logger_name = "user_log";
   auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
@@ -185,8 +186,7 @@ void run(unsigned thread_id, std::string filename, Address ip, std::vector<Addre
   logger->info("Random seed is {}.", seed);
 
   // mapping from key to a set of worker addresses
-  std::unordered_map<Key, std::unordered_set<Address>>
-      key_address_cache;
+  std::unordered_map<Key, std::unordered_set<Address>> key_address_cache;
 
   UserThread ut = UserThread(ip, thread_id);
 

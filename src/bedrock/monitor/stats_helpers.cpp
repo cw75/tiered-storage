@@ -8,12 +8,9 @@ void collect_internal_stats(
     std::shared_ptr<spdlog::logger> logger, unsigned& rid,
     std::unordered_map<Key, std::unordered_map<Address, unsigned>>&
         key_access_frequency,
-    StorageStat& memory_tier_storage,
-    StorageStat& ebs_tier_storage,
-    OccupancyStat& memory_tier_occupancy,
-    OccupancyStat& ebs_tier_occupancy,
-    AccessStat& memory_tier_access,
-    AccessStat& ebs_tier_access,
+    StorageStat& memory_tier_storage, StorageStat& ebs_tier_storage,
+    OccupancyStat& memory_tier_occupancy, OccupancyStat& ebs_tier_occupancy,
+    AccessStat& memory_tier_access, AccessStat& ebs_tier_access,
     std::unordered_map<unsigned, TierData>& tier_data_map) {
   std::unordered_map<Address, communication::Request> addr_request_map;
 
@@ -26,16 +23,14 @@ void collect_internal_stats(
       Address server_ip = hash_pair.second.get_ip();
       if (observed_ip.find(server_ip) == observed_ip.end()) {
         for (unsigned i = 0; i < tier_data_map[tier_id].thread_number_; i++) {
-          Key key = std::string(kMetadataIdentifier) + "_" +
-            server_ip + "_" + std::to_string(i) +
-            "_" + std::to_string(tier_id) + "_stat";
+          Key key = std::string(kMetadataIdentifier) + "_" + server_ip + "_" +
+                    std::to_string(i) + "_" + std::to_string(tier_id) + "_stat";
           prepare_metadata_get_request(key, global_hash_ring_map[1],
-              local_hash_ring_map[1], addr_request_map,
+                                       local_hash_ring_map[1], addr_request_map,
                                        mt, rid);
 
-          key = std::string(kMetadataIdentifier) + "_" + server_ip +
-                "_" + std::to_string(i) + "_" + std::to_string(tier_id) +
-                "_access";
+          key = std::string(kMetadataIdentifier) + "_" + server_ip + "_" +
+                std::to_string(i) + "_" + std::to_string(tier_id) + "_access";
           prepare_metadata_get_request(key, global_hash_ring_map[1],
                                        local_hash_ring_map[1], addr_request_map,
                                        mt, rid);
@@ -48,7 +43,8 @@ void collect_internal_stats(
   for (const auto& addr_request_pair : addr_request_map) {
     bool succeed;
     auto res = send_request<communication::Request, communication::Response>(
-        addr_request_pair.second, pushers[addr_request_pair.first], response_puller, succeed);
+        addr_request_pair.second, pushers[addr_request_pair.first],
+        response_puller, succeed);
 
     if (succeed) {
       for (const auto& tuple : res.tuple()) {
@@ -106,15 +102,11 @@ void collect_internal_stats(
 void compute_summary_stats(
     std::unordered_map<Key, std::unordered_map<Address, unsigned>>&
         key_access_frequency,
-    StorageStat& memory_tier_storage,
-    StorageStat& ebs_tier_storage,
-    OccupancyStat& memory_tier_occupancy,
-    OccupancyStat& ebs_tier_occupancy,
-    AccessStat& memory_tier_access,
-    AccessStat& ebs_tier_access,
-    std::unordered_map<Key, unsigned>& key_access_summary,
-    SummaryStats& ss, std::shared_ptr<spdlog::logger> logger,
-    unsigned& server_monitoring_epoch,
+    StorageStat& memory_tier_storage, StorageStat& ebs_tier_storage,
+    OccupancyStat& memory_tier_occupancy, OccupancyStat& ebs_tier_occupancy,
+    AccessStat& memory_tier_access, AccessStat& ebs_tier_access,
+    std::unordered_map<Key, unsigned>& key_access_summary, SummaryStats& ss,
+    std::shared_ptr<spdlog::logger> logger, unsigned& server_monitoring_epoch,
     std::unordered_map<unsigned, TierData>& tier_data_map) {
   // compute key access summary
   unsigned cnt = 0;
@@ -178,8 +170,8 @@ void compute_summary_stats(
 
     double percentage = (double)total_thread_consumption /
                         (double)tier_data_map[1].node_capacity_;
-    logger->info("Memory node {} storage consumption is {}.", memory_storage.first,
-                 percentage);
+    logger->info("Memory node {} storage consumption is {}.",
+                 memory_storage.first, percentage);
 
     if (percentage > ss.max_memory_consumption_percentage) {
       ss.max_memory_consumption_percentage = percentage;
@@ -251,8 +243,8 @@ void compute_summary_stats(
       logger->info(
           "Memory node {} thread {} occupancy is {} at epoch {} (monitoring "
           "epoch {}).",
-          memory_occ.first, thread_occ.first, thread_occ.second.first, thread_occ.second.second,
-          server_monitoring_epoch);
+          memory_occ.first, thread_occ.first, thread_occ.second.first,
+          thread_occ.second.second, server_monitoring_epoch);
 
       sum_thread_occupancy += thread_occ.second.first;
       thread_count += 1;
@@ -293,8 +285,8 @@ void compute_summary_stats(
       logger->info(
           "EBS node {} thread {} occupancy is {} at epoch {} (monitoring epoch "
           "{}).",
-          ebs_occ.first, thread_occ.first, thread_occ.second.first, thread_occ.second.second,
-          server_monitoring_epoch);
+          ebs_occ.first, thread_occ.first, thread_occ.second.first,
+          thread_occ.second.second, server_monitoring_epoch);
 
       sum_thread_occupancy += thread_occ.second.first;
       thread_count += 1;

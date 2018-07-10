@@ -5,10 +5,8 @@ void membership_handler(
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     unsigned& adding_memory_node, unsigned& adding_ebs_node,
     std::chrono::time_point<std::chrono::system_clock>& grace_start,
-    std::vector<Address>& routing_address,
-    StorageStat& memory_tier_storage,
-    StorageStat& ebs_tier_storage,
-    OccupancyStat& memory_tier_occupancy,
+    std::vector<Address>& routing_address, StorageStat& memory_tier_storage,
+    StorageStat& ebs_tier_storage, OccupancyStat& memory_tier_occupancy,
     OccupancyStat& ebs_tier_occupancy,
     std::unordered_map<Key, std::unordered_map<Address, unsigned>>&
         key_access_frequency) {
@@ -75,7 +73,6 @@ void membership_handler(
                                             new_server_ip, 0);
       ebs_tier_storage.erase(new_server_ip);
       ebs_tier_occupancy.erase(new_server_ip);
-
 
       // NOTE: No const here because we are calling erase
       for (auto& key_access_pair : key_access_frequency) {

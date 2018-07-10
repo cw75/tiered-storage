@@ -40,7 +40,7 @@ template <typename T>
 class SetLattice : public Lattice<std::unordered_set<T>> {
  protected:
   void do_merge(const std::unordered_set<T> &e) {
-    for (const T& elem : e) {
+    for (const T &elem : e) {
       this->element.insert(elem);
     }
   }
@@ -58,8 +58,8 @@ class SetLattice : public Lattice<std::unordered_set<T>> {
   SetLattice<T> intersect(std::unordered_set<T> s) const {
     std::unordered_set<T> res;
 
-    for (const T& that_elem : s) {
-      for (const T& this_elem : this->element) {
+    for (const T &that_elem : s) {
+      for (const T &this_elem : this->element) {
         if (this_elem == that_elem) res.insert(this_elem);
       }
     }
@@ -70,7 +70,7 @@ class SetLattice : public Lattice<std::unordered_set<T>> {
   SetLattice<T> project(bool (*f)(T)) const {
     std::unordered_set<T> res;
 
-    for (const T& elem : this->element) {
+    for (const T &elem : this->element) {
       if (f(elem)) res.insert(elem);
     }
 
@@ -93,7 +93,7 @@ class MapLattice : public Lattice<std::unordered_map<K, V>> {
   }
 
   void do_merge(const std::unordered_map<K, V> &m) {
-    for (const auto& pair : m) {
+    for (const auto &pair : m) {
       this->insert_pair(pair.first, pair.second);
     }
   }
@@ -108,7 +108,7 @@ class MapLattice : public Lattice<std::unordered_map<K, V>> {
     MapLattice<K, V> res;
     std::unordered_map<K, V> m = other.reveal();
 
-    for (const auto& pair : m) {
+    for (const auto &pair : m) {
       if (this->contains(pair.first).reveal()) {
         res.insert_pair(pair.first, this->at(pair.first));
         res.insert_pair(pair.first, pair.second);
@@ -120,7 +120,7 @@ class MapLattice : public Lattice<std::unordered_map<K, V>> {
 
   MapLattice<K, V> project(bool (*f)(V)) const {
     std::unordered_map<K, V> res;
-    for (const auto& pair : this->element) {
+    for (const auto &pair : this->element) {
       if (f(pair.second)) res.emplace(pair.first, pair.second);
     }
     return MapLattice<K, V>(res);
@@ -136,7 +136,7 @@ class MapLattice : public Lattice<std::unordered_map<K, V>> {
 
   SetLattice<K> key_set() const {
     std::unordered_set<K> res;
-    for (const auto& pair : this->element) {
+    for (const auto &pair : this->element) {
       res.insert(pair.first);
     }
     return SetLattice<K>(res);

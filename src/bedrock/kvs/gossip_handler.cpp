@@ -22,15 +22,15 @@ void gossip_handler(
     Key key = tuple.key();
     ServerThreadSet threads = get_responsible_threads(
         wt.get_replication_factor_connect_addr(), key, is_metadata(key),
-        global_hash_ring_map, local_hash_ring_map, placement, pushers, kSelfTierIdVector,
-        succeed, seed);
+        global_hash_ring_map, local_hash_ring_map, placement, pushers,
+        kSelfTierIdVector, succeed, seed);
 
     if (succeed) {
       if (threads.find(wt) !=
           threads.end()) {  // this means this worker thread is one of the
                             // responsible threads
-        process_put(tuple.key(), tuple.timestamp(),
-                    tuple.value(), serializer, key_size_map);
+        process_put(tuple.key(), tuple.timestamp(), tuple.value(), serializer,
+                    key_size_map);
       } else {
         if (is_metadata(key)) {  // forward the gossip
           for (const ServerThread& thread : threads) {
@@ -40,16 +40,15 @@ void gossip_handler(
             }
 
             prepare_put_tuple(gossip_map[thread.get_gossip_connect_addr()], key,
-                              tuple.value(),
-                              tuple.timestamp());
+                              tuple.value(), tuple.timestamp());
           }
         } else {
           issue_replication_factor_request(
               wt.get_replication_factor_connect_addr(), key,
               global_hash_ring_map[1], local_hash_ring_map[1], pushers, seed);
 
-          pending_gossip_map[key].push_back(PendingGossip(
-              tuple.value(), tuple.timestamp()));
+          pending_gossip_map[key].push_back(
+              PendingGossip(tuple.value(), tuple.timestamp()));
         }
       }
     } else {

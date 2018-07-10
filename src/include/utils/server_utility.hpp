@@ -1,8 +1,8 @@
 #ifndef __SERVER_UTILITY_H__
 #define __SERVER_UTILITY_H__
 
-#include <string>
 #include <fstream>
+#include <string>
 
 #include "../kvs/base_kv_store.hpp"
 #include "../kvs/rc_pair_lattice.hpp"
@@ -23,8 +23,7 @@
 typedef KVStore<Key, ReadCommittedPairLattice<std::string>> MemoryKVS;
 
 // a map that represents which keys should be sent to which IP-port combinations
-typedef std::unordered_map<Address, std::unordered_set<Key>>
-    AddressKeysetMap;
+typedef std::unordered_map<Address, std::unordered_set<Key>> AddressKeysetMap;
 
 class Serializer {
  public:

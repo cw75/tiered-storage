@@ -1,10 +1,10 @@
 #include "route/routing_handlers.hpp"
 
-void replication_change_handler(
-    std::shared_ptr<spdlog::logger> logger,
-    zmq::socket_t* replication_factor_change_puller, SocketCache& pushers,
-    std::unordered_map<Key, KeyInfo>& placement, unsigned thread_id,
-    Address ip) {
+void replication_change_handler(std::shared_ptr<spdlog::logger> logger,
+                                zmq::socket_t* replication_factor_change_puller,
+                                SocketCache& pushers,
+                                std::unordered_map<Key, KeyInfo>& placement,
+                                unsigned thread_id, Address ip) {
   logger->info("Received a replication factor change.");
   std::string serialized_req =
       zmq_util::recv_string(replication_factor_change_puller);
@@ -31,7 +31,7 @@ void replication_change_handler(
           global.global_replication();
     }
 
-    for (const auto& local: tuple.local()) {
+    for (const auto& local : tuple.local()) {
       placement[key].local_replication_map_[local.tier_id()] =
           local.local_replication();
     }

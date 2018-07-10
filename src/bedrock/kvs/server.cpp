@@ -23,7 +23,9 @@ unsigned kDefaultLocalReplication;
 
 std::unordered_map<unsigned, TierData> kTierDataMap;
 
-void run(unsigned thread_id, Address ip, Address seed_ip, std::vector<Address> routing_addresses, std::vector<Address> monitoring_addresses) {
+void run(unsigned thread_id, Address ip, Address seed_ip,
+         std::vector<Address> routing_addresses,
+         std::vector<Address> monitoring_addresses) {
   std::string log_file = "log_" + std::to_string(thread_id) + ".txt";
   std::string logger_name = "server_logger_" + std::to_string(thread_id);
   auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
@@ -55,7 +57,6 @@ void run(unsigned thread_id, Address ip, Address seed_ip, std::vector<Address> r
 
   std::unordered_map<Key, KeyInfo> placement;
 
-
   // request server addresses from the seed node
   zmq::socket_t addr_requester(context, ZMQ_REQ);
   addr_requester.connect(RoutingThread(seed_ip, 0).get_seed_connect_addr());
@@ -73,19 +74,18 @@ void run(unsigned thread_id, Address ip, Address seed_ip, std::vector<Address> r
 
   // populate addresses
   for (const auto& tuple : addresses.tuple()) {
-    insert_to_hash_ring<GlobalHashRing>(
-        global_hash_ring_map[tuple.tier_id()], tuple.ip(), 0);
+    insert_to_hash_ring<GlobalHashRing>(global_hash_ring_map[tuple.tier_id()],
+                                        tuple.ip(), 0);
   }
 
   // add itself to global hash ring
-  insert_to_hash_ring<GlobalHashRing>(global_hash_ring_map[kSelfTierId], ip,
-                                      0);
+  insert_to_hash_ring<GlobalHashRing>(global_hash_ring_map[kSelfTierId], ip, 0);
 
   // form local hash rings
   for (const auto& tier_pair : kTierDataMap) {
     for (unsigned tid = 0; tid < tier_pair.second.thread_number_; tid++) {
       insert_to_hash_ring<LocalHashRing>(local_hash_ring_map[tier_pair.first],
-          ip, tid);
+                                         ip, tid);
     }
   }
 
@@ -123,10 +123,10 @@ void run(unsigned thread_id, Address ip, Address seed_ip, std::vector<Address> r
     }
   }
 
-  Serializer *serializer;
+  Serializer* serializer;
 
   if (kSelfTierId == 1) {
-    MemoryKVS *kvs = new MemoryKVS();
+    MemoryKVS* kvs = new MemoryKVS();
     serializer = new MemorySerializer(kvs);
   } else if (kSelfTierId == 2) {
     serializer = new EBSSerializer(thread_id);
@@ -142,8 +142,7 @@ void run(unsigned thread_id, Address ip, Address seed_ip, std::vector<Address> r
   std::unordered_map<Key, unsigned> key_size_map;
   // keep track of key access timestamp
   std::unordered_map<
-      Key,
-      std::multiset<std::chrono::time_point<std::chrono::system_clock>>>
+      Key, std::multiset<std::chrono::time_point<std::chrono::system_clock>>>
       key_access_timestamp;
   // keep track of total access
   unsigned total_access;
@@ -179,14 +178,13 @@ void run(unsigned thread_id, Address ip, Address seed_ip, std::vector<Address> r
 
   //  Initialize poll set
   std::vector<zmq::pollitem_t> pollitems = {
-      {static_cast<void *>(join_puller), 0, ZMQ_POLLIN, 0},
-      {static_cast<void *>(depart_puller), 0, ZMQ_POLLIN, 0},
-      {static_cast<void *>(self_depart_puller), 0, ZMQ_POLLIN, 0},
-      {static_cast<void *>(request_puller), 0, ZMQ_POLLIN, 0},
-      {static_cast<void *>(gossip_puller), 0, ZMQ_POLLIN, 0},
-      {static_cast<void *>(replication_factor_puller), 0, ZMQ_POLLIN, 0},
-      {static_cast<void *>(replication_factor_change_puller), 0, ZMQ_POLLIN,
-       0}};
+      {static_cast<void*>(join_puller), 0, ZMQ_POLLIN, 0},
+      {static_cast<void*>(depart_puller), 0, ZMQ_POLLIN, 0},
+      {static_cast<void*>(self_depart_puller), 0, ZMQ_POLLIN, 0},
+      {static_cast<void*>(request_puller), 0, ZMQ_POLLIN, 0},
+      {static_cast<void*>(gossip_puller), 0, ZMQ_POLLIN, 0},
+      {static_cast<void*>(replication_factor_puller), 0, ZMQ_POLLIN, 0},
+      {static_cast<void*>(replication_factor_change_puller), 0, ZMQ_POLLIN, 0}};
 
   auto gossip_start = std::chrono::system_clock::now();
   auto gossip_end = std::chrono::system_clock::now();
@@ -219,8 +217,8 @@ void run(unsigned thread_id, Address ip, Address seed_ip, std::vector<Address> r
     if (pollitems[1].revents & ZMQ_POLLIN) {
       auto work_start = std::chrono::system_clock::now();
 
-      node_depart_handler(thread_id, ip, global_hash_ring_map,
-                          logger, &depart_puller, pushers);
+      node_depart_handler(thread_id, ip, global_hash_ring_map, logger,
+                          &depart_puller, pushers);
 
       auto time_elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
                               std::chrono::system_clock::now() - work_start)
@@ -232,10 +230,10 @@ void run(unsigned thread_id, Address ip, Address seed_ip, std::vector<Address> r
     if (pollitems[2].revents & ZMQ_POLLIN) {
       auto work_start = std::chrono::system_clock::now();
 
-      self_depart_handler(
-          thread_id, seed, ip, logger, &self_depart_puller,
-          global_hash_ring_map, local_hash_ring_map, key_size_map, placement,
-          routing_addresses, monitoring_addresses, wt, pushers, serializer);
+      self_depart_handler(thread_id, seed, ip, logger, &self_depart_puller,
+                          global_hash_ring_map, local_hash_ring_map,
+                          key_size_map, placement, routing_addresses,
+                          monitoring_addresses, wt, pushers, serializer);
 
       auto time_elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
                               std::chrono::system_clock::now() - work_start)
@@ -281,9 +279,9 @@ void run(unsigned thread_id, Address ip, Address seed_ip, std::vector<Address> r
 
       rep_factor_response_handler(
           seed, total_access, logger, &replication_factor_puller, start_time,
-          global_hash_ring_map, local_hash_ring_map,
-          pending_request_map, pending_gossip_map, key_access_timestamp,
-          placement, key_size_map, local_changeset, wt, serializer, pushers);
+          global_hash_ring_map, local_hash_ring_map, pending_request_map,
+          pending_gossip_map, key_access_timestamp, placement, key_size_map,
+          local_changeset, wt, serializer, pushers);
 
       auto time_elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
                               std::chrono::system_clock::now() - work_start)
@@ -296,11 +294,10 @@ void run(unsigned thread_id, Address ip, Address seed_ip, std::vector<Address> r
     if (pollitems[6].revents & ZMQ_POLLIN) {
       auto work_start = std::chrono::system_clock::now();
 
-      rep_factor_change_handler(ip, thread_id, seed, logger,
-                                &replication_factor_change_puller,
-                                global_hash_ring_map, local_hash_ring_map,
-                                placement, key_size_map, local_changeset, wt,
-                                serializer, pushers);
+      rep_factor_change_handler(
+          ip, thread_id, seed, logger, &replication_factor_change_puller,
+          global_hash_ring_map, local_hash_ring_map, placement, key_size_map,
+          local_changeset, wt, serializer, pushers);
 
       auto time_elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
                               std::chrono::system_clock::now() - work_start)
@@ -328,8 +325,8 @@ void run(unsigned thread_id, Address ip, Address seed_ip, std::vector<Address> r
 
           if (succeed) {
             for (const ServerThread& thread : threads) {
-                addr_keyset_map[thread.get_gossip_connect_addr()].insert(key);
-              }
+              addr_keyset_map[thread.get_gossip_connect_addr()].insert(key);
+            }
           } else {
             logger->error("Missing key replication factor in gossip routine.");
           }
@@ -356,9 +353,9 @@ void run(unsigned thread_id, Address ip, Address seed_ip, std::vector<Address> r
 
     if (duration >= kServerReportThreshold) {
       epoch += 1;
-      Key key = std::string(kMetadataIdentifier) + "_" + wt.get_ip() +
-                        "_" + std::to_string(wt.get_tid()) + "_" +
-                        std::to_string(kSelfTierId) + "_stat";
+      Key key = std::string(kMetadataIdentifier) + "_" + wt.get_ip() + "_" +
+                std::to_string(wt.get_tid()) + "_" +
+                std::to_string(kSelfTierId) + "_stat";
 
       // compute total storage consumption
       unsigned long long consumption = 0;
@@ -423,7 +420,7 @@ void run(unsigned thread_id, Address ip, Address seed_ip, std::vector<Address> r
         }
 
         // update key_access_frequency
-        communication::Key_Access_Tuple *tp = access.add_tuple();
+        communication::Key_Access_Tuple* tp = access.add_tuple();
         tp->set_key(key);
         tp->set_access(access_times.size());
       }
@@ -505,14 +502,14 @@ void run(unsigned thread_id, Address ip, Address seed_ip, std::vector<Address> r
   }
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   if (argc != 1) {
     std::cerr << "Usage: " << argv[0] << std::endl;
     return 1;
   }
 
   // populate metadata
-  char *stype = getenv("SERVER_TYPE");
+  char* stype = getenv("SERVER_TYPE");
   if (stype != NULL) {
     kSelfTierId = atoi(stype);
   } else {
@@ -523,7 +520,7 @@ int main(int argc, char *argv[]) {
     kSelfTierId = 1;
   }
 
-  kSelfTierIdVector = { kSelfTierId };
+  kSelfTierIdVector = {kSelfTierId};
 
   // read the YAML conf
   YAML::Node conf = YAML::LoadFile("conf/config.yml");
@@ -556,15 +553,16 @@ int main(int argc, char *argv[]) {
 
   kTierDataMap[1] = TierData(
       kMemoryThreadCount, kDefaultGlobalMemoryReplication, kMemoryNodeCapacity);
-  kTierDataMap[2] = TierData(kEbsThreadCount, kDefaultGlobalEbsReplication,
-                              kEbsNodeCapacity);
+  kTierDataMap[2] =
+      TierData(kEbsThreadCount, kDefaultGlobalEbsReplication, kEbsNodeCapacity);
 
   kThreadNum = kTierDataMap[kSelfTierId].thread_number_;
 
   // start the initial threads based on kThreadNum
   std::vector<std::thread> worker_threads;
   for (unsigned thread_id = 1; thread_id < kThreadNum; thread_id++) {
-    worker_threads.push_back(std::thread(run, thread_id, ip, seed_ip, routing_addresses, monitoring_addresses));
+    worker_threads.push_back(std::thread(
+        run, thread_id, ip, seed_ip, routing_addresses, monitoring_addresses));
   }
 
   run(0, ip, seed_ip, routing_addresses, monitoring_addresses);

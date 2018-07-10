@@ -41,18 +41,18 @@ int main(int argc, char *argv[]) {
 
   tier_data_map[1] = TierData(
       kMemoryThreadCount, kDefaultGlobalMemoryReplication, kMemoryNodeCapacity);
-  tier_data_map[2] = TierData(kEbsThreadCount, kDefaultGlobalEbsReplication,
-                              kEbsNodeCapacity);
+  tier_data_map[2] =
+      TierData(kEbsThreadCount, kDefaultGlobalEbsReplication, kEbsNodeCapacity);
 
   // initialize hash ring maps
   std::unordered_map<unsigned, GlobalHashRing> global_hash_ring_map;
   std::unordered_map<unsigned, LocalHashRing> local_hash_ring_map;
 
   // form local hash rings
-  for (const auto& tier_pair : tier_data_map) {
+  for (const auto &tier_pair : tier_data_map) {
     for (unsigned tid = 0; tid < tier_pair.second.thread_number_; tid++) {
-      insert_to_hash_ring<LocalHashRing>(local_hash_ring_map[tier_pair.first], ip,
-                                         tid);
+      insert_to_hash_ring<LocalHashRing>(local_hash_ring_map[tier_pair.first],
+                                         ip, tid);
     }
   }
 

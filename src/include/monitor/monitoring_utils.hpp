@@ -104,26 +104,19 @@ void collect_internal_stats(
     std::shared_ptr<spdlog::logger> logger, unsigned& rid,
     std::unordered_map<Key, std::unordered_map<Address, unsigned>>&
         key_access_frequency,
-    StorageStat& memory_tier_storage,
-    StorageStat& ebs_tier_storage,
-    OccupancyStat& memory_tier_occupancy,
-    OccupancyStat& ebs_tier_occupancy,
-    AccessStat& memory_tier_access,
-    AccessStat& ebs_tier_access,
+    StorageStat& memory_tier_storage, StorageStat& ebs_tier_storage,
+    OccupancyStat& memory_tier_occupancy, OccupancyStat& ebs_tier_occupancy,
+    AccessStat& memory_tier_access, AccessStat& ebs_tier_access,
     std::unordered_map<unsigned, TierData>& tier_data_map);
 
 void compute_summary_stats(
     std::unordered_map<Key, std::unordered_map<Address, unsigned>>&
         key_access_frequency,
-    StorageStat& memory_tier_storage,
-    StorageStat& ebs_tier_storage,
-    OccupancyStat& memory_tier_occupancy,
-    OccupancyStat& ebs_tier_occupancy,
-    AccessStat& memory_tier_access,
-    AccessStat& ebs_tier_access,
-    std::unordered_map<Key, unsigned>& key_access_summary,
-    SummaryStats& ss, std::shared_ptr<spdlog::logger> logger,
-    unsigned& server_monitoring_epoch,
+    StorageStat& memory_tier_storage, StorageStat& ebs_tier_storage,
+    OccupancyStat& memory_tier_occupancy, OccupancyStat& ebs_tier_occupancy,
+    AccessStat& memory_tier_access, AccessStat& ebs_tier_access,
+    std::unordered_map<Key, unsigned>& key_access_summary, SummaryStats& ss,
+    std::shared_ptr<spdlog::logger> logger, unsigned& server_monitoring_epoch,
     std::unordered_map<unsigned, TierData>& tier_data_map);
 
 void collect_external_stats(
@@ -138,8 +131,7 @@ void prepare_replication_factor_update(
     const Key& key,
     std::unordered_map<Address, communication::Replication_Factor_Request>&
         replication_factor_map,
-    Address server_address,
-    std::unordered_map<Key, KeyInfo>& placement);
+    Address server_address, std::unordered_map<Key, KeyInfo>& placement);
 
 void change_replication_factor(
     std::unordered_map<Key, KeyInfo>& requests,

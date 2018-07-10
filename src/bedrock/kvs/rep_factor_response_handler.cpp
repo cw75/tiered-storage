@@ -12,8 +12,7 @@ void rep_factor_response_handler(
     PendingMap<PendingRequest>& pending_request_map,
     PendingMap<PendingGossip>& pending_gossip_map,
     std::unordered_map<
-        Key,
-        std::multiset<std::chrono::time_point<std::chrono::system_clock>>>&
+        Key, std::multiset<std::chrono::time_point<std::chrono::system_clock>>>&
         key_access_timestamp,
     std::unordered_map<Key, KeyInfo>& placement,
     std::unordered_map<Key, unsigned>& key_size_map,
@@ -60,8 +59,8 @@ void rep_factor_response_handler(
   if (pending_request_map.find(key) != pending_request_map.end()) {
     ServerThreadSet threads = get_responsible_threads(
         wt.get_replication_factor_connect_addr(), key, is_metadata(key),
-        global_hash_ring_map, local_hash_ring_map, placement, pushers, kSelfTierIdVector,
-        succeed, seed);
+        global_hash_ring_map, local_hash_ring_map, placement, pushers,
+        kSelfTierIdVector, succeed, seed);
 
     if (succeed) {
       bool responsible = threads.find(wt) != threads.end();
@@ -152,8 +151,8 @@ void rep_factor_response_handler(
   if (pending_gossip_map.find(key) != pending_gossip_map.end()) {
     ServerThreadSet threads = get_responsible_threads(
         wt.get_replication_factor_connect_addr(), key, is_metadata(key),
-        global_hash_ring_map, local_hash_ring_map, placement, pushers, kSelfTierIdVector,
-        succeed, seed);
+        global_hash_ring_map, local_hash_ring_map, placement, pushers,
+        kSelfTierIdVector, succeed, seed);
 
     if (succeed) {
       if (threads.find(wt) != threads.end()) {
@@ -166,7 +165,6 @@ void rep_factor_response_handler(
         // forward the gossip
         for (const ServerThread& thread : threads) {
           gossip_map[thread.get_gossip_connect_addr()].set_type("PUT");
-
 
           for (const PendingGossip& gossip : pending_gossip_map[key]) {
             prepare_put_tuple(gossip_map[thread.get_gossip_connect_addr()], key,

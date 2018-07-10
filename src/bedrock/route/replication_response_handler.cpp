@@ -57,7 +57,7 @@ void replication_response_handler(
         threads = get_responsible_threads(
             rt.get_replication_factor_connect_addr(), key, false,
             global_hash_ring_map, local_hash_ring_map, placement, pushers,
-            { tier_id }, succeed, seed);
+            {tier_id}, succeed, seed);
 
         if (!succeed) {
           logger->error("Missing replication factor for key {}.", key);
@@ -81,7 +81,8 @@ void replication_response_handler(
         key_res.set_err_number(0);
         std::string serialized_key_res;
         key_res.SerializeToString(&serialized_key_res);
-        zmq_util::send_string(serialized_key_res, &pushers[pending_key_req.first]);
+        zmq_util::send_string(serialized_key_res,
+                              &pushers[pending_key_req.first]);
       }
 
       pending_key_request_map.erase(key);

@@ -97,7 +97,6 @@ void rep_factor_change_handler(
               }
             }
 
-
             for (const ServerThread& thread : new_threads) {
               addr_keyset_map[thread.get_gossip_connect_addr()].insert(key);
             }
@@ -112,8 +111,7 @@ void rep_factor_change_handler(
 
         // just update the replication factor
         for (const auto& global : curr_tuple.global()) {
-          placement[key]
-              .global_replication_map_[global.tier_id()] =
+          placement[key].global_replication_map_[global.tier_id()] =
               global.global_replication();
         }
 

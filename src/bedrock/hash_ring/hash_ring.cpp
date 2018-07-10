@@ -7,10 +7,8 @@
 
 // assuming the replication factor will never be greater than the number of
 // nodes in a tier return a set of ServerThreads that are responsible for a key
-ServerThreadSet responsible_global(
-    const Key& key, unsigned global_rep,
-    GlobalHashRing& global_hash_ring) {
-
+ServerThreadSet responsible_global(const Key& key, unsigned global_rep,
+                                   GlobalHashRing& global_hash_ring) {
   ServerThreadSet threads;
   auto pos = global_hash_ring.find(key);
 
@@ -63,14 +61,13 @@ std::unordered_set<unsigned> responsible_local(const Key& key,
 ServerThreadSet get_responsible_threads_metadata(
     const Key& key, GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring) {
-
   ServerThreadSet threads = responsible_global(key, kMetadataReplicationFactor,
-      global_memory_hash_ring);
+                                               global_memory_hash_ring);
 
   for (const ServerThread& thread : threads) {
     Address ip = thread.get_ip();
-    std::unordered_set<unsigned> tids = responsible_local(key, kDefaultLocalReplication,
-        local_memory_hash_ring);
+    std::unordered_set<unsigned> tids = responsible_local(
+        key, kDefaultLocalReplication, local_memory_hash_ring);
 
     for (const unsigned& tid : tids) {
       threads.insert(ServerThread(ip, tid));
@@ -85,14 +82,12 @@ void issue_replication_factor_request(const Address& respond_address,
                                       GlobalHashRing& global_memory_hash_ring,
                                       LocalHashRing& local_memory_hash_ring,
                                       SocketCache& pushers, unsigned& seed) {
-  Key key_rep =
-      std::string(kMetadataIdentifier) + "_" + key + "_replication";
+  Key key_rep = std::string(kMetadataIdentifier) + "_" + key + "_replication";
   auto threads = get_responsible_threads_metadata(
       key_rep, global_memory_hash_ring, local_memory_hash_ring);
 
-  Address target_address =
-      next(begin(threads), rand_r(&seed) % threads.size())
-          ->get_request_pulling_connect_addr();
+  Address target_address = next(begin(threads), rand_r(&seed) % threads.size())
+                               ->get_request_pulling_connect_addr();
 
   communication::Request req;
   req.set_type("GET");
@@ -125,8 +120,8 @@ ServerThreadSet get_responsible_threads(
       succeed = false;
     } else {
       for (const unsigned& tier_id : tier_ids) {
-        ServerThreadSet threads = responsible_global(key, kMetadataReplicationFactor,
-            global_hash_ring_map[tier_id]);
+        ServerThreadSet threads = responsible_global(
+            key, kMetadataReplicationFactor, global_hash_ring_map[tier_id]);
 
         for (const ServerThread& thread : threads) {
           Address ip = thread.get_ip();
@@ -148,10 +143,12 @@ ServerThreadSet get_responsible_threads(
 }
 
 // query the routing for a key and return all address
-std::vector<Address> get_address_from_routing(
-    UserThread& ut, const Key& key, zmq::socket_t& sending_socket,
-    zmq::socket_t& receiving_socket, bool& succeed, Address& ip,
-    unsigned& thread_id, unsigned& rid) {
+std::vector<Address> get_address_from_routing(UserThread& ut, const Key& key,
+                                              zmq::socket_t& sending_socket,
+                                              zmq::socket_t& receiving_socket,
+                                              bool& succeed, Address& ip,
+                                              unsigned& thread_id,
+                                              unsigned& rid) {
   int count = 0;
 
   communication::Key_Request key_req;
@@ -202,11 +199,10 @@ std::vector<Address> get_address_from_routing(
   return result;
 }
 
-RoutingThread get_random_routing_thread(
-    std::vector<Address>& routing_address, unsigned& seed,
-    unsigned& kRoutingThreadCount) {
-  Address routing_ip =
-      routing_address[rand_r(&seed) % routing_address.size()];
+RoutingThread get_random_routing_thread(std::vector<Address>& routing_address,
+                                        unsigned& seed,
+                                        unsigned& kRoutingThreadCount) {
+  Address routing_ip = routing_address[rand_r(&seed) % routing_address.size()];
   unsigned tid = rand_r(&seed) % kRoutingThreadCount;
   return RoutingThread(routing_ip, tid);
 }

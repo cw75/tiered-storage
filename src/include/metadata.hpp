@@ -35,6 +35,6 @@ inline bool is_metadata(Key key) {
 }
 
 // NOTE: This needs to be here because it needs the definition of TierData
-extern std::unordered_map <unsigned, TierData> kTierDataMap;
+extern std::unordered_map<unsigned, TierData> kTierDataMap;
 
 #endif

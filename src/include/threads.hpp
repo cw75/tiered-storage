@@ -21,9 +21,7 @@ class ServerThread {
   Address get_ip() const { return ip_; }
   unsigned get_tid() const { return tid_; }
   unsigned get_virtual_num() const { return virtual_num_; }
-  std::string get_id() const {
-    return ip_ + ":" + std::to_string(tid_);
-  }
+  std::string get_id() const { return ip_ + ":" + std::to_string(tid_); }
   std::string get_virtual_id() const {
     return ip_ + ":" + std::to_string(tid_) + "_" +
            std::to_string(virtual_num_);
@@ -58,8 +56,7 @@ class ServerThread {
            std::to_string(tid_ + kServerReplicationFactorBasePort);
   }
   Address get_replication_factor_bind_addr() const {
-    return "tcp://*:" +
-           std::to_string(tid_ + kServerReplicationFactorBasePort);
+    return "tcp://*:" + std::to_string(tid_ + kServerReplicationFactorBasePort);
   }
   Address get_gossip_connect_addr() const {
     return "tcp://" + ip_ + ":" + std::to_string(tid_ + kGossipBasePort);
@@ -107,8 +104,7 @@ class RoutingThread {
   }
 
   Address get_notify_connect_addr() const {
-    return "tcp://" + ip_ + ":" +
-           std::to_string(tid_ + kRoutingNotifyBasePort);
+    return "tcp://" + ip_ + ":" + std::to_string(tid_ + kRoutingNotifyBasePort);
   }
 
   Address get_notify_bind_addr() const {
@@ -164,7 +160,8 @@ class MonitoringThread {
   }
 
   Address get_request_pulling_connect_addr() const {
-    return "tcp://" + ip_ + ":" + std::to_string(kMonitoringRequestPullingBasePort);
+    return "tcp://" + ip_ + ":" +
+           std::to_string(kMonitoringRequestPullingBasePort);
   }
 
   Address get_request_pulling_bind_addr() const {
@@ -201,8 +198,7 @@ class UserThread {
   unsigned get_tid() const { return tid_; }
 
   Address get_request_pulling_connect_addr() const {
-    return "tcp://" + ip_ + ":" +
-           std::to_string(tid_ + kUserRequestBasePort);
+    return "tcp://" + ip_ + ":" + std::to_string(tid_ + kUserRequestBasePort);
   }
 
   Address get_request_pulling_bind_addr() const {

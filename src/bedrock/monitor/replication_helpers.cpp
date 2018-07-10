@@ -16,8 +16,7 @@ void prepare_replication_factor_update(
     const Key& key,
     std::unordered_map<Address, communication::Replication_Factor_Request>&
         replication_factor_map,
-    Address server_address,
-    std::unordered_map<Key, KeyInfo>& placement) {
+    Address server_address, std::unordered_map<Key, KeyInfo>& placement) {
   communication::Replication_Factor_Request_Tuple* tp =
       replication_factor_map[server_address].add_tuple();
   tp->set_key(key);
@@ -83,8 +82,7 @@ void change_replication_factor(
       l->set_local_replication(rep_pair.second);
     }
 
-    Key rep_key =
-        std::string(kMetadataIdentifier) + "_" + key + "_replication";
+    Key rep_key = std::string(kMetadataIdentifier) + "_" + key + "_replication";
 
     std::string serialized_rep_data;
     rep_data.SerializeToString(&serialized_rep_data);
@@ -135,13 +133,13 @@ void change_replication_factor(
         unsigned rep =
             std::max(placement[key].global_replication_map_[tier],
                      orig_placement_info[key].global_replication_map_[tier]);
-        ServerThreadSet threads = responsible_global(key, rep, global_hash_ring_map[tier]);
+        ServerThreadSet threads =
+            responsible_global(key, rep, global_hash_ring_map[tier]);
 
         for (const ServerThread& thread : threads) {
           prepare_replication_factor_update(
               key, replication_factor_map,
-              thread.get_replication_factor_change_connect_addr(),
-              placement);
+              thread.get_replication_factor_change_connect_addr(), placement);
         }
       }
 

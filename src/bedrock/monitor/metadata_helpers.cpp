@@ -9,7 +9,7 @@ Address prepare_metadata_request(
                                                   local_memory_hash_ring);
   if (threads.size() != 0) {
     Address target_address = next(begin(threads), rand() % threads.size())
-                                     ->get_request_pulling_connect_addr();
+                                 ->get_request_pulling_connect_addr();
     if (addr_request_map.find(target_address) == addr_request_map.end()) {
       addr_request_map[target_address].set_type(type);
       addr_request_map[target_address].set_respond_address(

@@ -25,11 +25,11 @@ void replication_response_handler(
     PendingMap<std::pair<Address, std::string>>& pending_key_request_map,
     unsigned& seed);
 
-void replication_change_handler(
-    std::shared_ptr<spdlog::logger> logger,
-    zmq::socket_t* replication_factor_change_puller, SocketCache& pushers,
-    std::unordered_map<Key, KeyInfo>& placement, unsigned thread_id,
-    Address ip);
+void replication_change_handler(std::shared_ptr<spdlog::logger> logger,
+                                zmq::socket_t* replication_factor_change_puller,
+                                SocketCache& pushers,
+                                std::unordered_map<Key, KeyInfo>& placement,
+                                unsigned thread_id, Address ip);
 
 void address_handler(
     std::shared_ptr<spdlog::logger> logger, zmq::socket_t* key_address_puller,

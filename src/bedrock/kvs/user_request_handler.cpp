@@ -10,13 +10,11 @@ void user_request_handler(
     std::unordered_map<Key, unsigned>& key_size_map,
     PendingMap<PendingRequest>& pending_request_map,
     std::unordered_map<
-        Key,
-        std::multiset<std::chrono::time_point<std::chrono::system_clock>>>&
+        Key, std::multiset<std::chrono::time_point<std::chrono::system_clock>>>&
         key_access_timestamp,
     std::unordered_map<Key, KeyInfo>& placement,
     std::unordered_set<Key>& local_changeset, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers) {
-
   std::string req_string = zmq_util::recv_string(request_puller);
   communication::Request req;
   req.ParseFromString(req_string);
@@ -104,9 +102,8 @@ void user_request_handler(
                 global_hash_ring_map[1], local_hash_ring_map[1], pushers, seed);
 
             if (req.has_respond_address()) {
-              pending_request_map[key].push_back(
-                  PendingRequest("P", tuple.value(),
-                                 req.respond_address(), respond_id));
+              pending_request_map[key].push_back(PendingRequest(
+                  "P", tuple.value(), req.respond_address(), respond_id));
             } else {
               pending_request_map[key].push_back(
                   PendingRequest("P", tuple.value(), "", respond_id));

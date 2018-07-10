@@ -15,8 +15,6 @@ zmq::socket_t& SocketCache::At(const Address& addr) {
   return p.first->second;
 }
 
-zmq::socket_t& SocketCache::operator[](const Address& addr) {
-  return At(addr);
-}
+zmq::socket_t& SocketCache::operator[](const Address& addr) { return At(addr); }
 
 void SocketCache::clear_cache() { cache_.clear(); }

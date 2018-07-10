@@ -12,8 +12,7 @@ void send_gossip(AddressKeysetMap& addr_keyset_map, SocketCache& pushers,
       auto res = process_get(address, serializer);
 
       if (res.second == 0) {
-        prepare_put_tuple(gossip_map[key], address,
-                          res.first.reveal().value,
+        prepare_put_tuple(gossip_map[key], address, res.first.reveal().value,
                           res.first.reveal().timestamp);
       }
     }
@@ -42,7 +41,6 @@ std::pair<ReadCommittedPairLattice<std::string>, unsigned> process_get(
 void process_put(const Key& key, const unsigned long long& timestamp,
                  const std::string& value, Serializer* serializer,
                  std::unordered_map<Key, unsigned>& key_size_map) {
-
   if (serializer->put(key, value, timestamp)) {
     // update value size if the value is replaced
     key_size_map[key] = value.size();

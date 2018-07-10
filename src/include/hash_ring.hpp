@@ -27,9 +27,8 @@ void remove_from_hash_ring(H& hash_ring, Address ip, unsigned tid) {
   }
 }
 
-ServerThreadSet responsible_global(
-    const Key& key, unsigned global_rep,
-    GlobalHashRing& global_hash_ring);
+ServerThreadSet responsible_global(const Key& key, unsigned global_rep,
+                                   GlobalHashRing& global_hash_ring);
 
 std::unordered_set<unsigned> responsible_local(const Key& key,
                                                unsigned local_rep,
@@ -52,14 +51,16 @@ void issue_replication_factor_request(const Address& respond_address,
                                       LocalHashRing& local_memory_hash_ring,
                                       SocketCache& pushers, unsigned& seed);
 
-std::vector<Address> get_address_from_routing(
-    UserThread& ut, const Key& key, zmq::socket_t& sending_socket,
-    zmq::socket_t& receiving_socket, bool& succeed, Address& ip,
-    unsigned& thread_id, unsigned& rid);
+std::vector<Address> get_address_from_routing(UserThread& ut, const Key& key,
+                                              zmq::socket_t& sending_socket,
+                                              zmq::socket_t& receiving_socket,
+                                              bool& succeed, Address& ip,
+                                              unsigned& thread_id,
+                                              unsigned& rid);
 
-RoutingThread get_random_routing_thread(
-    std::vector<Address>& routing_address, unsigned& seed,
-    unsigned& kRoutingThreadCount);
+RoutingThread get_random_routing_thread(std::vector<Address>& routing_address,
+                                        unsigned& seed,
+                                        unsigned& kRoutingThreadCount);
 
 inline void warmup_placement_to_defaults(
     std::unordered_map<Key, KeyInfo>& placement,
@@ -70,8 +71,7 @@ inline void warmup_placement_to_defaults(
     // key is 8 bytes
     Key key =
         std::string(8 - std::to_string(i).length(), '0') + std::to_string(i);
-    placement[key].global_replication_map_[1] =
-        kDefaultGlobalMemoryReplication;
+    placement[key].global_replication_map_[1] = kDefaultGlobalMemoryReplication;
     placement[key].global_replication_map_[2] = kDefaultGlobalEbsReplication;
     placement[key].local_replication_map_[1] = kDefaultLocalReplication;
     placement[key].local_replication_map_[2] = kDefaultLocalReplication;

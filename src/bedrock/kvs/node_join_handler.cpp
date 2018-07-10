@@ -43,9 +43,9 @@ void node_join_handler(
           // ip of the newly joined node in case of a race condition
           if (this_ip.compare(ip) != 0 && this_ip.compare(new_server_ip) != 0 &&
               observed_ip.find(this_ip) == observed_ip.end()) {
-
             zmq_util::send_string(
-                message, &pushers[hash_pair.second.get_node_join_connect_addr()]);
+                message,
+                &pushers[hash_pair.second.get_node_join_connect_addr()]);
             observed_ip.insert(this_ip);
           }
         }
@@ -78,7 +78,8 @@ void node_join_handler(
             join_remove_set.insert(key);
 
             for (const ServerThread& thread : threads) {
-              join_addr_keyset_map[thread.get_gossip_connect_addr()].insert(key);
+              join_addr_keyset_map[thread.get_gossip_connect_addr()].insert(
+                  key);
             }
           }
         } else {
