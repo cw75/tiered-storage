@@ -29,7 +29,7 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
   std::string log_file = "log_" + std::to_string(thread_id) + ".txt";
   std::string logger_name = "server_logger_" + std::to_string(thread_id);
   auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
-  logger->flush_on(spdlog::level::info);
+  logger->flush_on(spdlog::level::err);
 
   // each thread has a handle to itself
   ServerThread wt = ServerThread(ip, thread_id);

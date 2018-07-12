@@ -176,7 +176,7 @@ void run(unsigned thread_id, std::string filename, Address ip,
   std::string log_file = "log_user.txt";
   std::string logger_name = "user_log";
   auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
-  logger->flush_on(spdlog::level::info);
+  logger->flush_on(spdlog::level::err);
 
   std::hash<std::string> hasher;
   unsigned seed = time(NULL);

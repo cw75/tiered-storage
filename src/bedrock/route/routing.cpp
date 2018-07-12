@@ -10,7 +10,7 @@ void run(unsigned thread_id, Address ip,
   std::string log_file = "log_" + std::to_string(thread_id) + ".txt";
   std::string logger_name = "routing_logger_" + std::to_string(thread_id);
   auto logger = spdlog::basic_logger_mt(logger_name, log_file, true);
-  logger->flush_on(spdlog::level::info);
+  logger->flush_on(spdlog::level::err);
 
   RoutingThread rt = RoutingThread(ip, thread_id);
 
