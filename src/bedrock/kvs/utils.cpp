@@ -53,9 +53,18 @@ bool is_primary_replica(const Key& key, std::unordered_map<Key, KeyInfo>& placem
                         ServerThread& st) {
   if (placement[key].global_replication_map_[kSelfTierId] == 0) {
     return false;
-  } else if (kSelfTierId == 2 && placement[key].global_replication_map_[1] > 0) {
-    return false;
   } else {
+    if (kSelfTierId > 1) {
+      bool has_upper_tier_replica = false;
+      for (const unsigned& tier_id : kAllTierIds) {
+        if (tier_id < kSelfTierId && placement[key].global_replication_map_[tier_id] > 0) {
+          has_upper_tier_replica = true;
+        }
+      }
+      if (has_upper_tier_replica) {
+        return false;
+      }
+    }
     auto global_pos = global_hash_ring_map[kSelfTierId].find(key);
     if (global_pos != global_hash_ring_map[kSelfTierId].end() &&
         st.get_ip().compare(global_pos->second.get_ip()) == 0) {
@@ -65,6 +74,6 @@ bool is_primary_replica(const Key& key, std::unordered_map<Key, KeyInfo>& placem
         return true;
       }
     }
+    return false;
   }
-  return false;
 }

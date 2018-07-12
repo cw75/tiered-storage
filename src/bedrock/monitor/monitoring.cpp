@@ -89,7 +89,7 @@ int main(int argc, char *argv[]) {
   // keep track of user throughput info
   std::unordered_map<std::string, double> user_throughput;
   // used for adjusting the replication factors based on feedback from the user
-  std::unordered_map<Key, std::pair<double, unsigned>> bump_factor_map;
+  std::unordered_map<Key, std::pair<double, unsigned>> latency_miss_ratio_map;
 
   std::vector<Address> routing_address;
 
@@ -162,7 +162,7 @@ int main(int argc, char *argv[]) {
 
     if (pollitems[2].revents & ZMQ_POLLIN) {
       feedback_handler(&feedback_puller, user_latency, user_throughput,
-                       bump_factor_map);
+                       latency_miss_ratio_map);
     }
 
     report_end = std::chrono::system_clock::now();
@@ -188,7 +188,7 @@ int main(int argc, char *argv[]) {
 
       user_latency.clear();
       user_throughput.clear();
-      bump_factor_map.clear();
+      latency_miss_ratio_map.clear();
 
       // collect internal statistics
       collect_internal_stats(global_hash_ring_map, local_hash_ring_map, pushers,
@@ -233,7 +233,7 @@ int main(int argc, char *argv[]) {
                  removing_memory_node, management_address, placement,
                  key_access_summary, mt, departing_node_map,
                  pushers, response_puller, routing_address, rid,
-                 bump_factor_map);
+                 latency_miss_ratio_map);
 
       report_start = std::chrono::system_clock::now();
     }

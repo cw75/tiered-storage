@@ -13,7 +13,7 @@ void slo_policy(
     std::unordered_map<Address, unsigned>& departing_node_map,
     SocketCache& pushers, zmq::socket_t& response_puller,
     std::vector<Address>& routing_address, unsigned& rid,
-    std::unordered_map<Key, std::pair<double, unsigned>>& bump_factor_map) {
+    std::unordered_map<Key, std::pair<double, unsigned>>& latency_miss_ratio_map) {
   // check latency to trigger elasticity or selective replication
   std::unordered_map<Key, KeyInfo> requests;
   if (ss.avg_latency > kSloWorst && adding_memory_node == 0) {
@@ -42,12 +42,12 @@ void slo_policy(
 
         if (!is_metadata(key) &&
             total_access > ss.key_access_mean + ss.key_access_std &&
-            bump_factor_map.find(key) != bump_factor_map.end()) {
+            latency_miss_ratio_map.find(key) != latency_miss_ratio_map.end()) {
           logger->info("Key {} accessed {} times (threshold is {}).", key,
                        total_access, ss.key_access_mean + ss.key_access_std);
           unsigned target_rep_factor =
               placement[key].global_replication_map_[1] *
-              bump_factor_map[key].first;
+              latency_miss_ratio_map[key].first;
 
           if (target_rep_factor == placement[key].global_replication_map_[1]) {
             target_rep_factor += 1;

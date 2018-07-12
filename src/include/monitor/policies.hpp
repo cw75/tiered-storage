@@ -40,6 +40,6 @@ void slo_policy(
     std::unordered_map<Address, unsigned>& departing_node_map,
     SocketCache& pushers, zmq::socket_t& response_puller,
     std::vector<Address>& routing_address, unsigned& rid,
-    std::unordered_map<Key, std::pair<double, unsigned>>& bump_factor_map);
+    std::unordered_map<Key, std::pair<double, unsigned>>& latency_miss_ratio_map);
 
 #endif
