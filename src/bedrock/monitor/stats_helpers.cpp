@@ -8,12 +8,12 @@ void collect_internal_stats(
     std::shared_ptr<spdlog::logger> logger, unsigned& rid,
     std::unordered_map<Key, std::unordered_map<Address, unsigned>>&
         key_access_frequency,
+    std::unordered_map<Key, unsigned>& key_size,
     StorageStat& memory_tier_storage, StorageStat& ebs_tier_storage,
     OccupancyStat& memory_tier_occupancy, OccupancyStat& ebs_tier_occupancy,
-    AccessStat& memory_tier_access, AccessStat& ebs_tier_access,
-    std::unordered_map<unsigned, TierData>& tier_data_map) {
+    AccessStat& memory_tier_access, AccessStat& ebs_tier_access) {
   std::unordered_map<Address, KeyRequest> addr_request_map;
-
+  
   for (const auto& global_pair : global_hash_ring_map) {
     unsigned tier_id = global_pair.first;
     auto hash_ring = global_pair.second;
@@ -22,7 +22,7 @@ void collect_internal_stats(
     for (const auto hash_pair : hash_ring) {
       Address server_ip = hash_pair.second.get_ip();
       if (observed_ip.find(server_ip) == observed_ip.end()) {
-        for (unsigned i = 0; i < tier_data_map[tier_id].thread_number_; i++) {
+        for (unsigned i = 0; i < kTierDataMap[tier_id].thread_number_; i++) {
           Key key = std::string(kMetadataIdentifier) + "_" + server_ip + "_" +
                     std::to_string(i) + "_" + std::to_string(tier_id) + "_stat";
           prepare_metadata_get_request(key, global_hash_ring_map[1],
@@ -31,6 +31,11 @@ void collect_internal_stats(
 
           key = std::string(kMetadataIdentifier) + "_" + server_ip + "_" +
                 std::to_string(i) + "_" + std::to_string(tier_id) + "_access";
+          prepare_metadata_get_request(key, global_hash_ring_map[1],
+                                       local_hash_ring_map[1], addr_request_map,
+                                       mt, rid);
+          key = std::string(kMetadataIdentifier) + "_" + server_ip + "_" +
+                std::to_string(i) + "_" + std::to_string(tier_id) + "_size";
           prepare_metadata_get_request(key, global_hash_ring_map[1],
                                        local_hash_ring_map[1], addr_request_map,
                                        mt, rid);
@@ -84,6 +89,14 @@ void collect_internal_stats(
               key_access_frequency[key][ip + ":" + std::to_string(tid)] =
                   key_count.access_count();
             }
+          } else if (metadata_type == "size") {
+            // deserialized the size
+            KeySizeData key_size_msg;
+            key_size_msg.ParseFromString(tuple.value());
+
+            for (const auto& key_size_tuple : key_size_msg.key_sizes()) {
+              key_size[key_size_tuple.key()] = key_size_tuple.size();
+            }
           }
         } else if (tuple.error() == 1) {
           logger->error("Key {} doesn't exist.", tuple.key());
@@ -106,8 +119,7 @@ void compute_summary_stats(
     OccupancyStat& memory_tier_occupancy, OccupancyStat& ebs_tier_occupancy,
     AccessStat& memory_tier_access, AccessStat& ebs_tier_access,
     std::unordered_map<Key, unsigned>& key_access_summary, SummaryStats& ss,
-    std::shared_ptr<spdlog::logger> logger, unsigned& server_monitoring_epoch,
-    std::unordered_map<unsigned, TierData>& tier_data_map) {
+    std::shared_ptr<spdlog::logger> logger, unsigned& server_monitoring_epoch) {
   // compute key access summary
   unsigned cnt = 0;
   double mean = 0;
@@ -169,7 +181,7 @@ void compute_summary_stats(
     }
 
     double percentage = (double)total_thread_consumption /
-                        (double)tier_data_map[1].node_capacity_;
+                        (double)kTierDataMap[1].node_capacity_;
     logger->info("Memory node {} storage consumption is {}.",
                  memory_storage.first, percentage);
 
@@ -189,7 +201,7 @@ void compute_summary_stats(
     }
 
     double percentage = (double)total_thread_consumption /
-                        (double)tier_data_map[2].node_capacity_;
+                        (double)kTierDataMap[2].node_capacity_;
     logger->info("EBS node {} storage consumption is {}.", ebs_storage.first,
                  percentage);
 
@@ -202,7 +214,7 @@ void compute_summary_stats(
   if (m_count != 0) {
     ss.avg_memory_consumption_percentage =
         (double)ss.total_memory_consumption /
-        ((double)m_count * tier_data_map[1].node_capacity_);
+        ((double)m_count * kTierDataMap[1].node_capacity_);
     logger->info("Average memory node consumption is {}.",
                  ss.avg_memory_consumption_percentage);
     logger->info("Max memory node consumption is {}.",
@@ -212,7 +224,7 @@ void compute_summary_stats(
   if (e_count != 0) {
     ss.avg_ebs_consumption_percentage =
         (double)ss.total_ebs_consumption /
-        ((double)e_count * tier_data_map[2].node_capacity_);
+        ((double)e_count * kTierDataMap[2].node_capacity_);
     logger->info("Average EBS node consumption is {}.",
                  ss.avg_ebs_consumption_percentage);
     logger->info("Max EBS node consumption is {}.",
@@ -221,10 +233,10 @@ void compute_summary_stats(
 
   ss.required_memory_node =
       ceil(ss.total_memory_consumption /
-           (kMaxMemoryNodeConsumption * tier_data_map[1].node_capacity_));
+           (kMaxMemoryNodeConsumption * kTierDataMap[1].node_capacity_));
   ss.required_ebs_node =
       ceil(ss.total_ebs_consumption /
-           (kMaxEbsNodeConsumption * tier_data_map[2].node_capacity_));
+           (kMaxEbsNodeConsumption * kTierDataMap[2].node_capacity_));
 
   logger->info("The system requires {} new memory nodes.",
                ss.required_memory_node);

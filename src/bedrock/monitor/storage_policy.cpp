@@ -8,7 +8,6 @@ void storage_policy(
     SummaryStats& ss, unsigned& memory_node_number, unsigned& ebs_node_number,
     unsigned& adding_memory_node, unsigned& adding_ebs_node,
     bool& removing_ebs_node, Address management_address, MonitoringThread& mt,
-    std::unordered_map<unsigned, TierData>& tier_data_map,
     std::unordered_map<Address, unsigned>& departing_node_map,
     SocketCache& pushers) {
   // check storage consumption and trigger elasticity if necessary
@@ -46,7 +45,7 @@ void storage_policy(
                        rand() % global_hash_ring_map[2].size())
                       ->second;
       remove_node(logger, node, "ebs", removing_ebs_node, pushers,
-                  departing_node_map, mt, tier_data_map);
+                  departing_node_map, mt);
     }
   }
 }

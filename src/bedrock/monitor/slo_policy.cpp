@@ -10,11 +10,10 @@ void slo_policy(
     unsigned& adding_memory_node, bool& removing_memory_node,
     Address management_address, std::unordered_map<Key, KeyInfo>& placement,
     std::unordered_map<Key, unsigned>& key_access_summary, MonitoringThread& mt,
-    std::unordered_map<unsigned, TierData>& tier_data_map,
     std::unordered_map<Address, unsigned>& departing_node_map,
     SocketCache& pushers, zmq::socket_t& response_puller,
     std::vector<Address>& routing_address, unsigned& rid,
-    std::unordered_map<Key, std::pair<double, unsigned>>& rep_factor_map) {
+    std::unordered_map<Key, std::pair<double, unsigned>>& latency_miss_ratio_map) {
   // check latency to trigger elasticity or selective replication
   std::unordered_map<Key, KeyInfo> requests;
   if (ss.avg_latency > kSloWorst && adding_memory_node == 0) {
@@ -43,12 +42,12 @@ void slo_policy(
 
         if (!is_metadata(key) &&
             total_access > ss.key_access_mean + ss.key_access_std &&
-            rep_factor_map.find(key) != rep_factor_map.end()) {
+            latency_miss_ratio_map.find(key) != latency_miss_ratio_map.end()) {
           logger->info("Key {} accessed {} times (threshold is {}).", key,
                        total_access, ss.key_access_mean + ss.key_access_std);
           unsigned target_rep_factor =
               placement[key].global_replication_map_[1] *
-              rep_factor_map[key].first;
+              latency_miss_ratio_map[key].first;
 
           if (target_rep_factor == placement[key].global_replication_map_[1]) {
             target_rep_factor += 1;
@@ -125,7 +124,7 @@ void slo_policy(
 
       ServerThread node = ServerThread(ss.min_occupancy_memory_ip, 0);
       remove_node(logger, node, "memory", removing_memory_node, pushers,
-                  departing_node_map, mt, tier_data_map);
+                  departing_node_map, mt);
     }
   }
 }

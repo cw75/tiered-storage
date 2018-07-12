@@ -104,10 +104,10 @@ void collect_internal_stats(
     std::shared_ptr<spdlog::logger> logger, unsigned& rid,
     std::unordered_map<Key, std::unordered_map<Address, unsigned>>&
         key_access_frequency,
+    std::unordered_map<Key, unsigned>& key_size,
     StorageStat& memory_tier_storage, StorageStat& ebs_tier_storage,
     OccupancyStat& memory_tier_occupancy, OccupancyStat& ebs_tier_occupancy,
-    AccessStat& memory_tier_access, AccessStat& ebs_tier_access,
-    std::unordered_map<unsigned, TierData>& tier_data_map);
+    AccessStat& memory_tier_access, AccessStat& ebs_tier_access);
 
 void compute_summary_stats(
     std::unordered_map<Key, std::unordered_map<Address, unsigned>>&
@@ -116,8 +116,7 @@ void compute_summary_stats(
     OccupancyStat& memory_tier_occupancy, OccupancyStat& ebs_tier_occupancy,
     AccessStat& memory_tier_access, AccessStat& ebs_tier_access,
     std::unordered_map<Key, unsigned>& key_access_summary, SummaryStats& ss,
-    std::shared_ptr<spdlog::logger> logger, unsigned& server_monitoring_epoch,
-    std::unordered_map<unsigned, TierData>& tier_data_map);
+    std::shared_ptr<spdlog::logger> logger, unsigned& server_monitoring_epoch);
 
 void collect_external_stats(
     std::unordered_map<std::string, double>& user_latency,
@@ -149,7 +148,6 @@ void add_node(std::shared_ptr<spdlog::logger> logger, std::string tier,
 void remove_node(std::shared_ptr<spdlog::logger> logger, ServerThread& node,
                  std::string tier, bool& removing_flag, SocketCache& pushers,
                  std::unordered_map<Address, unsigned>& departing_node_map,
-                 MonitoringThread& mt,
-                 std::unordered_map<unsigned, TierData>& tier_data_map);
+                 MonitoringThread& mt);
 
 #endif

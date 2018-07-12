@@ -1,7 +1,6 @@
 #include <fstream>
 #include <unordered_set>
 
-#include "communication.pb.h"
 #include "hash_ring.hpp"
 #include "requests.hpp"
 #include "spdlog/spdlog.h"

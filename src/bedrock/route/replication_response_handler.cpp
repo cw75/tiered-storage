@@ -40,11 +40,7 @@ void replication_response_handler(
   } else if (error == 1) {
     // error 1 means that the receiving thread was responsible for the metadata
     // but didn't have any values stored -- we use the default rep factor
-    for (const unsigned& tid : kAllTierIds) {
-      placement[key].global_replication_map_[tid] =
-          kTierDataMap[tid].default_replication_;
-      placement[key].local_replication_map_[tid] = kDefaultLocalReplication;
-    }
+    init_replication(placement, key);
   } else if (error == 2) {
     // error 2 means that the node that received the rep factor request was not
     // responsible for that metadata

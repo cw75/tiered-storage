@@ -32,9 +32,9 @@ message TierMembership {
 }
 
 message UserFeedback {
-  message Rep {
+  message KeyLatency {
     required string key = 1;
-    required double factor = 2;
+    required double latency = 2;
   }
 
   required string uid = 1;
@@ -42,5 +42,13 @@ message UserFeedback {
   optional bool finish = 3;
   optional double throughput = 4;
   optional bool warmup = 5;
-  repeated Rep rep = 6;
+  repeated KeyLatency key_latency = 6;
+}
+
+message KeySizeData {
+  message KeySize {
+    required string key = 1;
+    required uint32 size = 2;
+  }
+  repeated KeySize key_sizes = 1;
 }

@@ -6,9 +6,6 @@
 
 #include "../kvs/base_kv_store.hpp"
 #include "../kvs/rc_pair_lattice.hpp"
-#include "../zmq/socket_cache.hpp"
-#include "../zmq/zmq_util.hpp"
-#include "communication.pb.h"
 #include "yaml-cpp/yaml.h"
 
 // Define the garbage collect threshold
