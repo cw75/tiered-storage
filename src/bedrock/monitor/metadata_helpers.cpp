@@ -3,7 +3,7 @@
 Address prepare_metadata_request(
     const Key& key, GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring,
-    std::unordered_map<Address, communication::Request>& addr_request_map,
+    std::unordered_map<Address, KeyRequest>& addr_request_map,
     MonitoringThread& mt, unsigned& rid, std::string type) {
   auto threads = get_responsible_threads_metadata(key, global_memory_hash_ring,
                                                   local_memory_hash_ring);
@@ -11,8 +11,8 @@ Address prepare_metadata_request(
     Address target_address = next(begin(threads), rand() % threads.size())
                                  ->get_request_pulling_connect_addr();
     if (addr_request_map.find(target_address) == addr_request_map.end()) {
-      addr_request_map[target_address].set_type(type);
-      addr_request_map[target_address].set_respond_address(
+      addr_request_map[target_address].set_type(get_request_type(type));
+      addr_request_map[target_address].set_response_address(
           mt.get_request_pulling_connect_addr());
       std::string req_id = mt.get_ip() + ":" + std::to_string(rid);
       addr_request_map[target_address].set_request_id(req_id);
@@ -28,7 +28,7 @@ Address prepare_metadata_request(
 void prepare_metadata_get_request(
     const Key& key, GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring,
-    std::unordered_map<Address, communication::Request>& addr_request_map,
+    std::unordered_map<Address, KeyRequest>& addr_request_map,
     MonitoringThread& mt, unsigned& rid) {
   Address target_address = prepare_metadata_request(
       key, global_memory_hash_ring, local_memory_hash_ring, addr_request_map,
@@ -43,7 +43,7 @@ void prepare_metadata_put_request(
     const Key& key, const std::string& value,
     GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring,
-    std::unordered_map<Address, communication::Request>& addr_request_map,
+    std::unordered_map<Address, KeyRequest>& addr_request_map,
     MonitoringThread& mt, unsigned& rid) {
   Address target_address = prepare_metadata_request(
       key, global_memory_hash_ring, local_memory_hash_ring, addr_request_map,

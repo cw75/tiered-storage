@@ -14,23 +14,23 @@ KeyInfo create_new_replication_vector(unsigned gm, unsigned ge, unsigned lm,
 
 void prepare_replication_factor_update(
     const Key& key,
-    std::unordered_map<Address, communication::Replication_Factor_Request>&
+    std::unordered_map<Address, ReplicationFactorUpdate>&
         replication_factor_map,
     Address server_address, std::unordered_map<Key, KeyInfo>& placement) {
-  communication::Replication_Factor_Request_Tuple* tp =
-      replication_factor_map[server_address].add_tuple();
-  tp->set_key(key);
+
+  ReplicationFactor* rf = replication_factor_map[server_address].add_key_reps();
+  rf->set_key(key);
 
   for (const auto& rep_pair : placement[key].global_replication_map_) {
-    communication::Replication_Factor_Request_Global* g = tp->add_global();
-    g->set_tier_id(rep_pair.first);
-    g->set_global_replication(rep_pair.second);
+    Replication* global = rf->add_global();
+    global->set_tier_id(rep_pair.first);
+    global->set_replication_factor(rep_pair.second);
   }
 
   for (const auto& rep_pair : placement[key].local_replication_map_) {
-    communication::Replication_Factor_Request_Local* l = tp->add_local();
-    l->set_tier_id(rep_pair.first);
-    l->set_local_replication(rep_pair.second);
+    Replication* local = rf->add_local();
+    local->set_tier_id(rep_pair.first);
+    local->set_replication_factor(rep_pair.second);
   }
 }
 
@@ -49,11 +49,10 @@ void change_replication_factor(
   std::unordered_map<Key, KeyInfo> orig_placement_info;
 
   // store the new replication factor synchronously in storage servers
-  std::unordered_map<Address, communication::Request> addr_request_map;
+  std::unordered_map<Address, KeyRequest> addr_request_map;
 
   // form the placement request map
-  std::unordered_map<Address, communication::Replication_Factor_Request>
-      replication_factor_map;
+  std::unordered_map<Address, ReplicationFactorUpdate> replication_factor_map;
 
   for (const auto& request_pair : requests) {
     Key key = request_pair.first;
@@ -69,17 +68,18 @@ void change_replication_factor(
     }
 
     // prepare data to be stored in the storage tier
-    communication::Replication_Factor rep_data;
+    ReplicationFactor rep_data;
+    rep_data.set_key(key);
     for (const auto& rep_pair : placement[key].global_replication_map_) {
-      communication::Replication_Factor_Global* g = rep_data.add_global();
-      g->set_tier_id(rep_pair.first);
-      g->set_global_replication(rep_pair.second);
+      Replication* global = rep_data.add_global();
+      global->set_tier_id(rep_pair.first);
+      global->set_replication_factor(rep_pair.second);
     }
 
     for (const auto& rep_pair : placement[key].local_replication_map_) {
-      communication::Replication_Factor_Local* l = rep_data.add_local();
-      l->set_tier_id(rep_pair.first);
-      l->set_local_replication(rep_pair.second);
+      Replication* local = rep_data.add_local();
+      local->set_tier_id(rep_pair.first);
+      local->set_replication_factor(rep_pair.second);
     }
 
     Key rep_key = std::string(kMetadataIdentifier) + "_" + key + "_replication";
@@ -95,22 +95,22 @@ void change_replication_factor(
   std::unordered_set<Key> failed_keys;
   for (const auto& request_pair : addr_request_map) {
     bool succeed;
-    auto res = send_request<communication::Request, communication::Response>(
+    auto res = send_request<KeyRequest, KeyResponse>(
         request_pair.second, pushers[request_pair.first], response_puller,
         succeed);
 
     if (!succeed) {
       logger->error("Replication factor put timed out!");
 
-      for (const auto& tuple : request_pair.second.tuple()) {
+      for (const auto& tuple : request_pair.second.tuples()) {
         std::vector<std::string> tokens;
         split(tuple.key(), '_', tokens);
 
         failed_keys.insert(tokens[1]);
       }
     } else {
-      for (const auto& tuple : res.tuple()) {
-        if (tuple.err_number() == 2) {
+      for (const auto& tuple : res.tuples()) {
+        if (tuple.error() == 2) {
           logger->error(
               "Replication factor put for key {} rejected due to incorrect "
               "address.",

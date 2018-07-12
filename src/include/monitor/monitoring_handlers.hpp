@@ -26,6 +26,6 @@ void feedback_handler(
     zmq::socket_t* feedback_puller,
     std::unordered_map<std::string, double>& user_latency,
     std::unordered_map<std::string, double>& user_throughput,
-    std::unordered_map<Key, std::pair<double, unsigned>>& rep_factor_map);
+    std::unordered_map<Key, std::pair<double, unsigned>>& latency_miss_ratio_map);
 
 #endif // SRC_INCLUDE_MONITOR_MONITORING_HANDLERS_HPP_

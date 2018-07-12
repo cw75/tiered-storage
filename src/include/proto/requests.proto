@@ -1,0 +1,45 @@
+syntax = "proto2";
+  
+enum RequestType {
+  GET = 0;
+  PUT = 1;
+}
+
+message KeyTuple {
+  required string key = 1;
+  optional uint32 error = 2;
+  optional bytes value = 3;
+  optional uint64 timestamp = 4;
+  optional uint32 address_cache_size = 5;
+  optional bool invalidate = 6;
+  repeated string addresses = 7;
+}
+
+message KeyRequest {
+  required RequestType type = 1;
+  repeated KeyTuple tuples = 2;
+  optional string response_address = 3;
+  optional string request_id = 4;
+}
+
+message KeyResponse {
+  repeated KeyTuple tuples = 1;
+  optional string response_id = 2;
+}
+
+message KeyAddressRequest {
+  required string response_address = 1;
+  repeated string keys = 2;
+  optional string request_id = 3;
+}
+
+message KeyAddressResponse {
+  message KeyAddress {
+    required string key = 1;
+    repeated string ips = 2;
+  }
+    
+  repeated KeyAddress addresses = 1;
+  required uint32 error = 2;
+  optional string response_id = 3;
+}

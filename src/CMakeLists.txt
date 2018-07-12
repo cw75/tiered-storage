@@ -5,7 +5,9 @@ INCLUDE_DIRECTORIES(include)
 INCLUDE(FindProtobuf)
 FIND_PACKAGE(Protobuf REQUIRED)
 INCLUDE_DIRECTORIES(${PROTOBUF_INCLUDE_DIR})
-PROTOBUF_GENERATE_CPP(PROTO_SRC PROTO_HEADER ./include/communication.proto)
+PROTOBUF_GENERATE_CPP(PROTO_SRC PROTO_HEADER ./include/proto/misc.proto
+  ./include/proto/replication.proto
+  ./include/proto/requests.proto)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR})
 
 # need to build a target at this level or subdirs won't have the 

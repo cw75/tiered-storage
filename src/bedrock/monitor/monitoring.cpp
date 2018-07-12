@@ -12,7 +12,7 @@ unsigned kDefaultLocalReplication;
 unsigned kMinimumReplicaNumber;
 
 // read-only per-tier metadata
-std::unordered_map<unsigned, TierData> tier_data_map;
+std::unordered_map<unsigned, TierData> kTierDataMap;
 
 int main(int argc, char *argv[]) {
   auto logger = spdlog::basic_logger_mt("monitoring_logger", "log.txt", true);
@@ -39,9 +39,9 @@ int main(int argc, char *argv[]) {
   kDefaultLocalReplication = replication["local"].as<unsigned>();
   kMinimumReplicaNumber = replication["minimum"].as<unsigned>();
 
-  tier_data_map[1] = TierData(
+  kTierDataMap[1] = TierData(
       kMemoryThreadCount, kDefaultGlobalMemoryReplication, kMemoryNodeCapacity);
-  tier_data_map[2] =
+  kTierDataMap[2] =
       TierData(kEbsThreadCount, kDefaultGlobalEbsReplication, kEbsNodeCapacity);
 
   // initialize hash ring maps
@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
   std::unordered_map<unsigned, LocalHashRing> local_hash_ring_map;
 
   // form local hash rings
-  for (const auto &tier_pair : tier_data_map) {
+  for (const auto &tier_pair : kTierDataMap) {
     for (unsigned tid = 0; tid < tier_pair.second.thread_number_; tid++) {
       insert_to_hash_ring<LocalHashRing>(local_hash_ring_map[tier_pair.first],
                                          ip, tid);
@@ -68,6 +68,8 @@ int main(int argc, char *argv[]) {
       key_access_frequency;
   // keep track of the keys' access summary
   std::unordered_map<Key, unsigned> key_access_summary;
+  // keep track of the size of each key-value pair
+  std::unordered_map<Key, unsigned> key_size;
   // keep track of memory tier storage consumption
   StorageStat memory_tier_storage;
   // keep track of ebs tier storage consumption
@@ -87,7 +89,7 @@ int main(int argc, char *argv[]) {
   // keep track of user throughput info
   std::unordered_map<std::string, double> user_throughput;
   // used for adjusting the replication factors based on feedback from the user
-  std::unordered_map<Key, std::pair<double, unsigned>> rep_factor_map;
+  std::unordered_map<Key, std::pair<double, unsigned>> latency_miss_ratio_map;
 
   std::vector<Address> routing_address;
 
@@ -160,7 +162,7 @@ int main(int argc, char *argv[]) {
 
     if (pollitems[2].revents & ZMQ_POLLIN) {
       feedback_handler(&feedback_puller, user_latency, user_throughput,
-                       rep_factor_map);
+                       latency_miss_ratio_map);
     }
 
     report_end = std::chrono::system_clock::now();
@@ -186,44 +188,52 @@ int main(int argc, char *argv[]) {
 
       user_latency.clear();
       user_throughput.clear();
-      rep_factor_map.clear();
+      latency_miss_ratio_map.clear();
 
       // collect internal statistics
       collect_internal_stats(global_hash_ring_map, local_hash_ring_map, pushers,
                              mt, response_puller, logger, rid,
-                             key_access_frequency, memory_tier_storage,
+                             key_access_frequency, key_size, memory_tier_storage,
                              ebs_tier_storage, memory_tier_occupancy,
                              ebs_tier_occupancy, memory_tier_access,
-                             ebs_tier_access, tier_data_map);
+                             ebs_tier_access);
 
       // compute summary statistics
       compute_summary_stats(key_access_frequency, memory_tier_storage,
                             ebs_tier_storage, memory_tier_occupancy,
                             ebs_tier_occupancy, memory_tier_access,
                             ebs_tier_access, key_access_summary, ss, logger,
-                            server_monitoring_epoch, tier_data_map);
+                            server_monitoring_epoch);
 
       // collect external statistics
       collect_external_stats(user_latency, user_throughput, ss, logger);
+
+      // initialize replication factor for new keys
+      for (const auto& key_access_pair : key_access_summary) {
+        Key key = key_access_pair.first;
+        if (!is_metadata(key) && placement.find(key) == placement.end()) {
+          init_replication(placement, key);
+        }
+      }
 
       // execute policies
       storage_policy(logger, global_hash_ring_map, grace_start, ss,
                      memory_node_number, ebs_node_number, adding_memory_node,
                      adding_ebs_node, removing_ebs_node, management_address, mt,
-                     tier_data_map, departing_node_map, pushers);
+                     departing_node_map, pushers);
 
       movement_policy(logger, global_hash_ring_map, local_hash_ring_map,
                       grace_start, ss, memory_node_number, ebs_node_number,
                       adding_memory_node, adding_ebs_node, management_address,
-                      placement, key_access_summary, mt, tier_data_map, pushers,
+                      placement, key_access_summary, key_size, mt, pushers,
                       response_puller, routing_address, rid);
 
       slo_policy(logger, global_hash_ring_map, local_hash_ring_map, grace_start,
                  ss, memory_node_number, adding_memory_node,
                  removing_memory_node, management_address, placement,
-                 key_access_summary, mt, tier_data_map, departing_node_map,
+                 key_access_summary, mt, departing_node_map,
                  pushers, response_puller, routing_address, rid,
-                 rep_factor_map);
+                 latency_miss_ratio_map);
 
       report_start = std::chrono::system_clock::now();
     }
