@@ -1,5 +1,5 @@
-#ifndef __ROUTING_HANDLERS_H__
-#define __ROUTING_HANDLERS_H__
+#ifndef SRC_INCLUDE_ROUTE_ROUTING_HANDLERS_HPP_
+#define SRC_INCLUDE_ROUTE_ROUTING_HANDLERS_HPP_
 
 #include "hash_ring.hpp"
 #include "spdlog/spdlog.h"
@@ -40,4 +40,4 @@ void address_handler(
     PendingMap<std::pair<Address, std::string>>& pending_key_request_map,
     unsigned& seed);
 
-#endif
+#endif // SRC_INCLUDE_ROUTE_ROUTING_HANDLERS_HPP_

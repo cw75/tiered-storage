@@ -1,5 +1,5 @@
-#ifndef __COMMON_H__
-#define __COMMON_H__
+#ifndef SRC_INCLUDE_COMMON_HPP_
+#define SRC_INCLUDE_COMMON_HPP_
 
 #include <string>
 #include <unordered_map>
@@ -117,4 +117,4 @@ inline RequestType get_request_type(const std::string& type_str) {
   return type;
 }
 
-#endif
+#endif // SRC_INCLUDE_COMMON_HPP_

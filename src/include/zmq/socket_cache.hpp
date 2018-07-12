@@ -1,5 +1,5 @@
-#ifndef SOCKET_CACHE_H_
-#define SOCKET_CACHE_H_
+#ifndef SRC_INCLUDE_ZMQ_SOCKET_CACHE_HPP_
+#define SRC_INCLUDE_ZMQ_SOCKET_CACHE_HPP_
 
 #include <map>
 #include <string>
@@ -38,4 +38,4 @@ class SocketCache {
   int type_;
 };
 
-#endif  // SOCKET_CACHE_H_
+#endif  // SRC_INCLUDE_ZMQ_SOCKET_CACHE_HPP_

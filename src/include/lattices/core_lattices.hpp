@@ -1,5 +1,5 @@
-#ifndef CORE_LATTICES_H
-#define CORE_LATTICES_H
+#ifndef SRC_INCLUDE_LATTICES_CORE_LATTICES_HPP_
+#define SRC_INCLUDE_LATTICES_CORE_LATTICES_HPP_
 
 #include <unordered_map>
 #include <unordered_set>
@@ -150,4 +150,4 @@ class MapLattice : public Lattice<std::unordered_map<K, V>> {
   }
 };
 
-#endif
+#endif // SRC_INCLUDE_LATTICES_CORE_LATTICES_HPP_

@@ -1,5 +1,5 @@
-#ifndef __REQUESTS_H__
-#define __REQUESTS_H__
+#ifndef SRC_INCLUDE_REQUESTS_HPP_
+#define SRC_INCLUDE_REQUESTS_HPP_
 
 template <typename REQ, typename RES>
 bool recursive_receive(zmq::socket_t& receiving_socket, zmq::message_t& message,
@@ -51,4 +51,4 @@ RES send_request(const REQ& req, zmq::socket_t& sending_socket,
   return response;
 }
 
-#endif
+#endif // SRC_INCLUDE_REQUESTS_HPP_

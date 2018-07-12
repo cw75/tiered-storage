@@ -1,5 +1,5 @@
-#ifndef __SERVER_UTILITY_H__
-#define __SERVER_UTILITY_H__
+#ifndef SRC_INCLUDE_UTILS_SERVER_UTILS_HPP_
+#define SRC_INCLUDE_UTILS_SERVER_UTILS_HPP_
 
 #include <fstream>
 #include <string>
@@ -176,4 +176,4 @@ struct PendingGossip {
   unsigned long long ts_;
 };
 
-#endif
+#endif // SRC_INCLUDE_UTILS_SERVER_UTILS_HPP_

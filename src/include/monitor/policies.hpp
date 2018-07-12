@@ -1,5 +1,5 @@
-#ifndef __POLICIES_H__
-#define __POLICIES_H__
+#ifndef SRC_INCLUDE_MONITOR_POLICIES_HPP_
+#define SRC_INCLUDE_MONITOR_POLICIES_HPP_
 
 #include "hash_ring.hpp"
 #include "spdlog/spdlog.h"
@@ -42,4 +42,4 @@ void slo_policy(
     std::vector<Address>& routing_address, unsigned& rid,
     std::unordered_map<Key, std::pair<double, unsigned>>& latency_miss_ratio_map);
 
-#endif
+#endif // SRC_INCLUDE_MONITOR_POLICIES_HPP_

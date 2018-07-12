@@ -1,5 +1,5 @@
-#ifndef BASE_LATTICES_H
-#define BASE_LATTICES_H
+#ifndef SRC_INCLUDE_LATTICES_BASE_LATTICES_HPP_
+#define SRC_INCLUDE_LATTICES_BASE_LATTICES_HPP_
 
 template <typename T>
 class Lattice {
@@ -38,4 +38,4 @@ class Lattice {
   void assign(const Lattice<T> &e) { element = e.reveal(); }
 };
 
-#endif
+#endif // SRC_INCLUDE_LATTICES_BASE_LATTICES_HPP_
