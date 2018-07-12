@@ -2,6 +2,7 @@
 
 void feedback_handler(
     zmq::socket_t* feedback_puller,
+    std::shared_ptr<spdlog::logger> logger,
     std::unordered_map<std::string, double>& user_latency,
     std::unordered_map<std::string, double>& user_throughput,
     std::unordered_map<Key, std::pair<double, unsigned>>& latency_miss_ratio_map) {

@@ -161,7 +161,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (pollitems[2].revents & ZMQ_POLLIN) {
-      feedback_handler(&feedback_puller, user_latency, user_throughput,
+      feedback_handler(&feedback_puller, logger, user_latency, user_throughput,
                        latency_miss_ratio_map);
     }
 
