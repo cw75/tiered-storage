@@ -105,14 +105,22 @@ message Address {
 }
 
 message Feedback {
-  message Rep {
+  message Key_Latency {
     required string key = 1;
-    required double factor = 2;
+    required double latency = 2;
   }
   required string uid = 1;
   optional double latency = 2;
   optional bool finish = 3;
   optional double throughput = 4;
   optional bool warmup = 5;
-  repeated Rep rep = 6;
+  repeated Key_Latency key_latency = 6;
+}
+
+message Key_Size {
+  message Tuple {
+    required string key = 1;
+    required uint32 size = 2;
+  }
+  repeated Tuple tuple = 1;
 }

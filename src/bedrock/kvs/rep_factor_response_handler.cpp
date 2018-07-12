@@ -47,11 +47,7 @@ void rep_factor_response_handler(
           local.local_replication();
     }
   } else {
-    for (const unsigned& tier_id : kAllTierIds) {
-      placement[key].global_replication_map_[tier_id] =
-          kTierDataMap[tier_id].default_replication_;
-      placement[key].local_replication_map_[tier_id] = kDefaultLocalReplication;
-    }
+    init_replication(placement, key);
   }
 
   bool succeed;

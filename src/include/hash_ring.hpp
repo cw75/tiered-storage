@@ -78,4 +78,12 @@ inline void warmup_placement_to_defaults(
   }
 }
 
+inline void init_replication(std::unordered_map<Key, KeyInfo>& placement, const Key& key) {
+  for (const unsigned& tier_id : kAllTierIds) {
+    placement[key].global_replication_map_[tier_id] =
+        kTierDataMap[tier_id].default_replication_;
+    placement[key].local_replication_map_[tier_id] = kDefaultLocalReplication;
+  }
+}
+
 #endif

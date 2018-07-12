@@ -208,8 +208,8 @@ void run(unsigned thread_id, std::string ip,
   // mapping from key to a set of worker addresses
   std::unordered_map<Key, std::unordered_set<Address>> key_address_cache;
 
-  // rep factor map
-  std::unordered_map<Key, std::pair<double, unsigned>> rep_factor_map;
+  // observed per-key avg latency
+  std::unordered_map<Key, std::pair<double, unsigned>> observed_latency;
 
   UserThread ut = UserThread(ip, thread_id);
 
@@ -358,21 +358,20 @@ void run(unsigned thread_id, std::string ip,
             count += 2;
             auto req_end = std::chrono::system_clock::now();
 
-            double factor =
+            double key_latency =
                 (double)std::chrono::duration_cast<std::chrono::microseconds>(
                     req_end - req_start)
-                    .count() /
-                2 / kSloWorst;
+                    .count() / 2;
 
-            if (rep_factor_map.find(key) == rep_factor_map.end()) {
-              rep_factor_map[key].first = factor;
-              rep_factor_map[key].second = 1;
+            if (observed_latency.find(key) == observed_latency.end()) {
+              observed_latency[key].first = key_latency;
+              observed_latency[key].second = 1;
             } else {
-              rep_factor_map[key].first =
-                  (rep_factor_map[key].first * rep_factor_map[key].second +
-                   factor) /
-                  (rep_factor_map[key].second + 1);
-              rep_factor_map[key].second += 1;
+              observed_latency[key].first =
+                  (observed_latency[key].first * observed_latency[key].second +
+                   key_latency) /
+                  (observed_latency[key].second + 1);
+              observed_latency[key].second += 1;
             }
           } else {
             logger->info("{} is an invalid request type.", type);
@@ -397,11 +396,11 @@ void run(unsigned thread_id, std::string ip,
             l.set_latency(latency);
             l.set_throughput(throughput);
 
-            for (const auto& rep_factor_pair : rep_factor_map) {
-              if (rep_factor_pair.second.first > 1) {
-                communication::Feedback_Rep* r = l.add_rep();
-                r->set_key(rep_factor_pair.first);
-                r->set_factor(rep_factor_pair.second.first);
+            for (const auto& key_latency_pair : observed_latency) {
+              if (key_latency_pair.second.first > 1) {
+                communication::Feedback_Key_Latency* r = l.add_key_latency();
+                r->set_key(key_latency_pair.first);
+                r->set_latency(key_latency_pair.second.first);
               }
             }
 
@@ -415,7 +414,7 @@ void run(unsigned thread_id, std::string ip,
             }
 
             count = 0;
-            rep_factor_map.clear();
+            observed_latency.clear();
             epoch_start = std::chrono::system_clock::now();
           }
 
