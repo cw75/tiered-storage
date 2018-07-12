@@ -1,11 +1,13 @@
-#ifndef __COMMON_H__
-#define __COMMON_H__
+#ifndef SRC_INCLUDE_COMMON_HPP_
+#define SRC_INCLUDE_COMMON_HPP_
 
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-#include "communication.pb.h"
+#include "misc.pb.h"
+#include "replication.pb.h"
+#include "requests.pb.h"
 #include "types.hpp"
 #include "zmq/socket_cache.hpp"
 #include "zmq/zmq_util.hpp"
@@ -87,24 +89,32 @@ inline unsigned long long generate_timestamp(unsigned long long time,
   return time * pow + tid;
 }
 
-inline void prepare_get_tuple(communication::Request& req, Key key) {
-  communication::Request_Tuple* tp = req.add_tuple();
-  tp->set_key(key);
+inline void prepare_get_tuple(KeyRequest& req, Key key) {
+  KeyTuple* tuple = req.add_tuples();
+  tuple->set_key(key);
 }
 
-inline void prepare_put_tuple(communication::Request& req, Key key,
+inline void prepare_put_tuple(KeyRequest& req, Key key,
                               std::string value, unsigned long long timestamp) {
-  communication::Request_Tuple* tp = req.add_tuple();
+  KeyTuple* tp = req.add_tuples();
   tp->set_key(key);
   tp->set_value(value);
   tp->set_timestamp(timestamp);
 }
 
-inline void push_request(const communication::Request& req,
+inline void push_request(const KeyRequest& req,
                          zmq::socket_t& socket) {
   std::string serialized_req;
   req.SerializeToString(&serialized_req);
   zmq_util::send_string(serialized_req, &socket);
 }
 
-#endif
+// TODO(vikram): what's the right way to check if this succeeded or not?
+inline RequestType get_request_type(const std::string& type_str) {
+  RequestType type;
+  RequestType_Parse(type_str, &type);
+
+  return type;
+}
+
+#endif // SRC_INCLUDE_COMMON_HPP_

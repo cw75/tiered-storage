@@ -10,10 +10,11 @@ void rep_factor_change_handler(
     std::unordered_map<Key, unsigned>& key_size_map,
     std::unordered_set<Key>& local_changeset, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers) {
+
   std::string change_string = zmq_util::recv_string(rep_factor_change_puller);
 
   // TODO(vikram): make logging in all handlers consistent
-  logger->info("Received replication factor change.");
+  logger->info("Received a replication factor change.");
   if (thread_id == 0) {
     // tell all worker threads about the replication factor change
     for (unsigned tid = 1; tid < kThreadNum; tid++) {
@@ -24,8 +25,8 @@ void rep_factor_change_handler(
     }
   }
 
-  communication::Replication_Factor_Request req;
-  req.ParseFromString(change_string);
+  ReplicationFactorUpdate rep_change;
+  rep_change.ParseFromString(change_string);
 
   AddressKeysetMap addr_keyset_map;
   std::unordered_set<Key> remove_set;
@@ -34,8 +35,8 @@ void rep_factor_change_handler(
   // responsible for the key
   bool succeed;
 
-  for (const auto& curr_tuple : req.tuple()) {
-    Key key = curr_tuple.key();
+  for (const ReplicationFactor& key_rep : rep_change.key_reps()) {
+    Key key = key_rep.key();
 
     // if this thread was responsible for the key before the change
     if (key_size_map.find(key) != key_size_map.end()) {
@@ -48,24 +49,24 @@ void rep_factor_change_handler(
         // update the replication factor
         bool decrement = false;
 
-        for (const auto& global : curr_tuple.global()) {
-          if (global.global_replication() <
+        for (const auto& global : key_rep.global()) {
+          if (global.replication_factor() <
               placement[key].global_replication_map_[global.tier_id()]) {
             decrement = true;
           }
 
           placement[key].global_replication_map_[global.tier_id()] =
-              global.global_replication();
+              global.replication_factor();
         }
 
-        for (const auto& local : curr_tuple.local()) {
-          if (local.local_replication() <
+        for (const auto& local : key_rep.local()) {
+          if (local.replication_factor() <
               placement[key].local_replication_map_[local.tier_id()]) {
             decrement = true;
           }
 
           placement[key].local_replication_map_[local.tier_id()] =
-              local.local_replication();
+              local.replication_factor();
         }
 
         ServerThreadSet threads = get_responsible_threads(
@@ -110,26 +111,26 @@ void rep_factor_change_handler(
             "Missing key replication factor in rep factor change routine.");
 
         // just update the replication factor
-        for (const auto& global : curr_tuple.global()) {
+        for (const auto& global : key_rep.global()) {
           placement[key].global_replication_map_[global.tier_id()] =
-              global.global_replication();
+              global.replication_factor();
         }
 
-        for (const auto& local : curr_tuple.local()) {
+        for (const auto& local : key_rep.local()) {
           placement[key].local_replication_map_[local.tier_id()] =
-              local.local_replication();
+              local.replication_factor();
         }
       }
     } else {
       // just update the replication factor
-      for (const auto& global : curr_tuple.global()) {
+      for (const auto& global : key_rep.global()) {
         placement[key].global_replication_map_[global.tier_id()] =
-            global.global_replication();
+            global.replication_factor();
       }
 
-      for (const auto& local : curr_tuple.local()) {
+      for (const auto& local : key_rep.local()) {
         placement[key].local_replication_map_[local.tier_id()] =
-            local.local_replication();
+            local.replication_factor();
       }
     }
   }

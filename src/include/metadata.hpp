@@ -1,5 +1,5 @@
-#ifndef __METADATA_H__
-#define __METADATA_H__
+#ifndef SRC_INCLUDE_METADATA_HPP_
+#define SRC_INCLUDE_METADATA_HPP_
 
 // represents the replication state for each key
 struct KeyInfo {
@@ -37,4 +37,4 @@ inline bool is_metadata(Key key) {
 // NOTE: This needs to be here because it needs the definition of TierData
 extern std::unordered_map<unsigned, TierData> kTierDataMap;
 
-#endif
+#endif // SRC_INCLUDE_METADATA_HPP_

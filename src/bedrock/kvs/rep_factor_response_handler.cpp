@@ -18,36 +18,50 @@ void rep_factor_response_handler(
     std::unordered_map<Key, unsigned>& key_size_map,
     std::unordered_set<Key>& local_changeset, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers) {
-  std::string response_string =
-      zmq_util::recv_string(rep_factor_response_puller);
-  communication::Response response;
-  response.ParseFromString(response_string);
+
+  std::string change_string = zmq_util::recv_string(rep_factor_response_puller);
+  KeyResponse response;
+  response.ParseFromString(change_string);
+
+  // we assume tuple 0 because there should only be one tuple responding to a
+  // replication factor request
+  KeyTuple tuple = response.tuples(0);
 
   std::vector<std::string> tokens;
-  split(response.tuple(0).key(), '_', tokens);
+  split(tuple.key(), '_', tokens);
   Key key = tokens[1];
 
-  if (response.tuple(0).err_number() == 2) {
+  unsigned error = tuple.error();
+
+
+  if (error == 0) {
+    ReplicationFactor rep_data;
+    rep_data.ParseFromString(tuple.value());
+
+    for (const auto& global : rep_data.global()) {
+      placement[key].global_replication_map_[global.tier_id()] =
+          global.replication_factor();
+    }
+
+    for (const auto& local : rep_data.local()) {
+      placement[key].local_replication_map_[local.tier_id()] =
+          local.replication_factor();
+    }
+  } else if (error == 1) {
+    // error 1 means that the receiving thread was responsible for the metadata
+    // but didn't have any values stored -- we use the default rep factor
+    init_replication(placement, key);
+  } else if (error == 2) {
+    // error 2 means that the node that received the rep factor request was not
+    // responsible for that metadata
     auto respond_address = wt.get_replication_factor_connect_addr();
     issue_replication_factor_request(respond_address, key,
                                      global_hash_ring_map[1],
                                      local_hash_ring_map[1], pushers, seed);
     return;
-  } else if (response.tuple(0).err_number() == 0) {
-    communication::Replication_Factor rep_data;
-    rep_data.ParseFromString(response.tuple(0).value());
-
-    for (const auto& global : rep_data.global()) {
-      placement[key].global_replication_map_[global.tier_id()] =
-          global.global_replication();
-    }
-
-    for (const auto& local : rep_data.local()) {
-      placement[key].local_replication_map_[local.tier_id()] =
-          local.local_replication();
-    }
   } else {
-    init_replication(placement, key);
+    logger->error("Unexpected error type {} in replication factor response.", error);
+    return;
   }
 
   bool succeed;
@@ -65,15 +79,15 @@ void rep_factor_response_handler(
         auto now = std::chrono::system_clock::now();
 
         if (!responsible && request.addr_ != "") {
-          communication::Response response;
+          KeyResponse response;
 
           if (request.respond_id_ != "") {
             response.set_response_id(request.respond_id_);
           }
 
-          communication::Response_Tuple* tp = response.add_tuple();
+          KeyTuple* tp = response.add_tuples();
           tp->set_key(key);
-          tp->set_err_number(2);
+          tp->set_error(2);
 
           for (const ServerThread& thread : threads) {
             tp->add_addresses(thread.get_request_pulling_connect_addr());
@@ -100,19 +114,19 @@ void rep_factor_response_handler(
             logger->error("Received a GET request with no response address.");
           }
         } else if (responsible && request.addr_ != "") {
-          communication::Response response;
+          KeyResponse response;
 
           if (request.respond_id_ != "") {
             response.set_response_id(request.respond_id_);
           }
 
-          communication::Response_Tuple* tp = response.add_tuple();
+          KeyTuple* tp = response.add_tuples();
           tp->set_key(key);
 
           if (request.type_ == "G") {
             auto res = process_get(key, serializer);
             tp->set_value(res.first.reveal().value);
-            tp->set_err_number(res.second);
+            tp->set_error(res.second);
 
             key_access_timestamp[key].insert(std::chrono::system_clock::now());
             total_access += 1;
@@ -124,7 +138,7 @@ void rep_factor_response_handler(
             auto ts = generate_timestamp(time_diff, wt.get_tid());
 
             process_put(key, ts, request.value_, serializer, key_size_map);
-            tp->set_err_number(0);
+            tp->set_error(0);
 
             key_access_timestamp[key].insert(now);
             total_access += 1;
@@ -156,11 +170,11 @@ void rep_factor_response_handler(
           process_put(key, gossip.ts_, gossip.value_, serializer, key_size_map);
         }
       } else {
-        std::unordered_map<Address, communication::Request> gossip_map;
+        std::unordered_map<Address, KeyRequest> gossip_map;
 
         // forward the gossip
         for (const ServerThread& thread : threads) {
-          gossip_map[thread.get_gossip_connect_addr()].set_type("PUT");
+          gossip_map[thread.get_gossip_connect_addr()].set_type(get_request_type("PUT"));
 
           for (const PendingGossip& gossip : pending_gossip_map[key]) {
             prepare_put_tuple(gossip_map[thread.get_gossip_connect_addr()], key,

@@ -6,34 +6,34 @@ void replication_change_handler(std::shared_ptr<spdlog::logger> logger,
                                 std::unordered_map<Key, KeyInfo>& placement,
                                 unsigned thread_id, Address ip) {
   logger->info("Received a replication factor change.");
-  std::string serialized_req =
+  std::string update_str =
       zmq_util::recv_string(replication_factor_change_puller);
 
   if (thread_id == 0) {
     // tell all worker threads about the replication factor change
     for (unsigned tid = 1; tid < kRoutingThreadCount; tid++) {
       zmq_util::send_string(
-          serialized_req,
+          update_str,
           &pushers[RoutingThread(ip, tid)
                        .get_replication_factor_change_connect_addr()]);
     }
   }
 
-  communication::Replication_Factor_Request req;
-  req.ParseFromString(serialized_req);
+  ReplicationFactorUpdate update;
+  update.ParseFromString(update_str);
 
-  for (const auto& tuple : req.tuple()) {
-    Key key = tuple.key();
+  for (const auto& key_rep : update.key_reps()) {
+    Key key = key_rep.key();
     // update the replication factor
 
-    for (const auto& global : tuple.global()) {
+    for (const Replication& global : key_rep.global()) {
       placement[key].global_replication_map_[global.tier_id()] =
-          global.global_replication();
+          global.replication_factor();
     }
 
-    for (const auto& local : tuple.local()) {
+    for (const Replication& local : key_rep.local()) {
       placement[key].local_replication_map_[local.tier_id()] =
-          local.local_replication();
+          local.replication_factor();
     }
   }
 }

@@ -9,79 +9,89 @@ void replication_response_handler(
     std::unordered_map<Key, KeyInfo>& placement,
     PendingMap<std::pair<Address, std::string>>& pending_key_request_map,
     unsigned& seed) {
-  std::string serialized_response =
-      zmq_util::recv_string(replication_factor_puller);
-  communication::Response response;
-  response.ParseFromString(serialized_response);
+
+  std::string change_string = zmq_util::recv_string(replication_factor_puller);
+  KeyResponse response;
+  response.ParseFromString(change_string);
+
+  // we assume tuple 0 because there should only be one tuple responding to a
+  // replication factor request
+  KeyTuple tuple = response.tuples(0);
 
   std::vector<std::string> tokens;
-  split(response.tuple(0).key(), '_', tokens);
+  split(tuple.key(), '_', tokens);
   Key key = tokens[1];
 
-  if (response.tuple(0).err_number() == 0) {
-    communication::Replication_Factor rep_data;
-    rep_data.ParseFromString(response.tuple(0).value());
+  unsigned error = tuple.error();
+
+  if (error == 0) {
+    ReplicationFactor rep_data;
+    rep_data.ParseFromString(tuple.value());
 
     for (const auto& global : rep_data.global()) {
       placement[key].global_replication_map_[global.tier_id()] =
-          global.global_replication();
+          global.replication_factor();
     }
 
     for (const auto& local : rep_data.local()) {
       placement[key].local_replication_map_[local.tier_id()] =
-          local.local_replication();
+          local.replication_factor();
     }
-  } else if (response.tuple(0).err_number() == 2) {
-    logger->info("Retrying rep factor query for key {}.", key);
-
+  } else if (error == 1) {
+    // error 1 means that the receiving thread was responsible for the metadata
+    // but didn't have any values stored -- we use the default rep factor
+    init_replication(placement, key);
+  } else if (error == 2) {
+    // error 2 means that the node that received the rep factor request was not
+    // responsible for that metadata
     auto respond_address = rt.get_replication_factor_connect_addr();
     issue_replication_factor_request(respond_address, key,
                                      global_hash_ring_map[1],
                                      local_hash_ring_map[1], pushers, seed);
+    return;
   } else {
-    init_replication(placement, key);
+    logger->error("Unexpected error type {} in replication factor response.", error);
+    return;
   }
 
-  if (response.tuple(0).err_number() != 2) {
-    // process pending key address requests
-    if (pending_key_request_map.find(key) != pending_key_request_map.end()) {
-      bool succeed;
-      unsigned tier_id = 1;
-      ServerThreadSet threads = {};
+  // process pending key address requests
+  if (pending_key_request_map.find(key) != pending_key_request_map.end()) {
+    bool succeed;
+    unsigned tier_id = 1;
+    ServerThreadSet threads = {};
 
-      while (threads.size() == 0 && tier_id < kMaxTier) {
-        threads = get_responsible_threads(
-            rt.get_replication_factor_connect_addr(), key, false,
-            global_hash_ring_map, local_hash_ring_map, placement, pushers,
-            {tier_id}, succeed, seed);
+    while (threads.size() == 0 && tier_id < kMaxTier) {
+      threads = get_responsible_threads(
+          rt.get_replication_factor_connect_addr(), key, false,
+          global_hash_ring_map, local_hash_ring_map, placement, pushers,
+          {tier_id}, succeed, seed);
 
-        if (!succeed) {
-          logger->error("Missing replication factor for key {}.", key);
-          return;
-        }
-
-        tier_id++;
+      if (!succeed) {
+        logger->error("Missing replication factor for key {}.", key);
+        return;
       }
 
-      for (const auto& pending_key_req : pending_key_request_map[key]) {
-        communication::Key_Response key_res;
-        key_res.set_response_id(pending_key_req.second);
-        communication::Key_Response_Tuple* tp = key_res.add_tuple();
-        tp->set_key(key);
-
-        for (const ServerThread& thread : threads) {
-          tp->add_addresses(thread.get_request_pulling_connect_addr());
-        }
-
-        // send the key address response
-        key_res.set_err_number(0);
-        std::string serialized_key_res;
-        key_res.SerializeToString(&serialized_key_res);
-        zmq_util::send_string(serialized_key_res,
-                              &pushers[pending_key_req.first]);
-      }
-
-      pending_key_request_map.erase(key);
+      tier_id++;
     }
+
+    for (const auto& pending_key_req : pending_key_request_map[key]) {
+      KeyAddressResponse key_res;
+      key_res.set_response_id(pending_key_req.second);
+      auto* tp = key_res.add_addresses();
+      tp->set_key(key);
+
+      for (const ServerThread& thread : threads) {
+        tp->add_ips(thread.get_request_pulling_connect_addr());
+      }
+
+      // send the key address response
+      key_res.set_error(0);
+
+      std::string serialized;
+      key_res.SerializeToString(&serialized);
+      zmq_util::send_string(serialized, &pushers[pending_key_req.first]);
+    }
+
+    pending_key_request_map.erase(key);
   }
 }

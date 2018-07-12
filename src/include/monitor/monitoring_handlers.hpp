@@ -1,5 +1,5 @@
-#ifndef __MONITORING_HANDLERS_H__
-#define __MONITORING_HANDLERS_H__
+#ifndef SRC_INCLUDE_MONITOR_MONITORING_HANDLERS_HPP_
+#define SRC_INCLUDE_MONITOR_MONITORING_HANDLERS_HPP_
 
 #include "hash_ring.hpp"
 #include "spdlog/spdlog.h"
@@ -28,4 +28,4 @@ void feedback_handler(
     std::unordered_map<std::string, double>& user_throughput,
     std::unordered_map<Key, std::pair<double, unsigned>>& latency_miss_ratio_map);
 
-#endif
+#endif // SRC_INCLUDE_MONITOR_MONITORING_HANDLERS_HPP_

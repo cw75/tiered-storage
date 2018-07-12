@@ -1,5 +1,5 @@
-#ifndef ZMQ_UTIL_H_
-#define ZMQ_UTIL_H_
+#ifndef SRC_INCLUDE_ZMQ_ZMQ_UTIL_HPP_
+#define SRC_INCLUDE_ZMQ_ZMQ_UTIL_HPP_
 
 #include <cstring>
 #include <ostream>
@@ -41,4 +41,4 @@ int poll(long timeout, std::vector<zmq::pollitem_t>* items);
 
 }  // namespace zmq_util
 
-#endif  // ZMQ_UTIL_H_
+#endif  // SRC_INCLUDE_ZMQ_ZMQ_UTIL_HPP_

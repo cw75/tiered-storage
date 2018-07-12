@@ -1,5 +1,5 @@
-#ifndef __CONSISTENT_HASH_H__
-#define __CONSISTENT_HASH_H__
+#ifndef SRC_INCLUDE_UTILS_CONSISTENT_HASH_MAP_HPP_
+#define SRC_INCLUDE_UTILS_CONSISTENT_HASH_MAP_HPP_
 
 #include <map>
 #include <string>
@@ -69,4 +69,4 @@ class ConsistentHashMap {
   map_type nodes_;
 };
 
-#endif
+#endif // SRC_INCLUDE_UTILS_CONSISTENT_HASH_MAP_HPP_

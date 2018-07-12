@@ -1,5 +1,5 @@
-#ifndef __THREADS_H__
-#define __THREADS_H__
+#ifndef SRC_INCLUDE_THREADS_HPP_
+#define SRC_INCLUDE_THREADS_HPP_
 
 #include "common.hpp"
 #include "metadata.hpp"
@@ -215,4 +215,4 @@ class UserThread {
   }
 };
 
-#endif
+#endif // SRC_INCLUDE_THREADS_HPP_
