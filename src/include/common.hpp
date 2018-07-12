@@ -1,5 +1,5 @@
-#ifndef __COMMON_H__
-#define __COMMON_H__
+#ifndef SRC_INCLUDE_COMMON_HPP_
+#define SRC_INCLUDE_COMMON_HPP_
 
 #include <string>
 #include <unordered_map>
@@ -107,4 +107,4 @@ inline void push_request(const communication::Request& req,
   zmq_util::send_string(serialized_req, &socket);
 }
 
-#endif
+#endif // SRC_INCLUDE_COMMON_HPP_

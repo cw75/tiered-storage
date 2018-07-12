@@ -1,5 +1,5 @@
-#ifndef __RC_PAIR_LATTICE_H__
-#define __RC_PAIR_LATTICE_H__
+#ifndef SRC_INCLUDE_KVS_RC_PAIR_LATTICE_HPP_
+#define SRC_INCLUDE_KVS_RC_PAIR_LATTICE_HPP_
 
 template <typename T>
 struct TimestampValuePair {
@@ -55,4 +55,4 @@ class ReadCommittedPairLattice : public Lattice<TimestampValuePair<T>> {
   }
 };
 
-#endif
+#endif // SRC_INCLUDE_KVS_RC_PAIR_LATTICE_HPP_

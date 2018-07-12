@@ -1,5 +1,5 @@
-#ifndef __HASHERS_H__
-#define __HASHERS_H__
+#ifndef SRC_INCLUDE_HASHERS_HPP_
+#define SRC_INCLUDE_HASHERS_HPP_
 
 #include "threads.hpp"
 
@@ -44,4 +44,4 @@ struct LocalHasher {
   }
 };
 
-#endif
+#endif // SRC_INCLUDE_HASHERS_HPP_

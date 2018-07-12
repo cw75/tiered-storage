@@ -1,9 +1,9 @@
-#ifndef __KVS_HANDLERS_H__
-#define __KVS_HANDLERS_H__
+#ifndef SRC_INCLUDE_KVS_KVS_HANDLERS_HPP_
+#define SRC_INCLUDE_KVS_KVS_HANDLERS_HPP_
 
 #include "hash_ring.hpp"
 #include "spdlog/spdlog.h"
-#include "utils/server_utility.hpp"
+#include "utils/server_utils.hpp"
 
 void node_join_handler(
     unsigned thread_id, unsigned& seed, Address ip,
@@ -92,4 +92,5 @@ std::pair<ReadCommittedPairLattice<std::string>, unsigned> process_get(
 void process_put(const Key& key, const unsigned long long& timestamp,
                  const std::string& value, Serializer* serializer,
                  std::unordered_map<std::string, unsigned>& key_size_map);
-#endif
+
+#endif // SRC_INCLUDE_KVS_KVS_HANDLERS_HPP_

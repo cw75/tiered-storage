@@ -1,5 +1,5 @@
-#ifndef __TYPES_H__
-#define __TYPES_H__
+#ifndef SRC_INCLUDE_TYPES_HPP_
+#define SRC_INCLUDE_TYPES_HPP_
 
 #include <unordered_map>
 
@@ -20,4 +20,4 @@ using OccupancyStat = std::unordered_map<
 using AccessStat =
     std::unordered_map<Address, std::unordered_map<unsigned, unsigned>>;
 
-#endif
+#endif // SRC_INCLUDE_TYPES_HPP_

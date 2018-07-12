@@ -1,5 +1,5 @@
-#ifndef __MONITORING_UTILS_H__
-#define __MONITORING_UTILS_H__
+#ifndef SRC_INCLUDE_MONITOR_MONITORING_UTILS_HPP_
+#define SRC_INCLUDE_MONITOR_MONITORING_UTILS_HPP_
 
 #include "hash_ring.hpp"
 #include "spdlog/spdlog.h"
@@ -152,4 +152,4 @@ void remove_node(std::shared_ptr<spdlog::logger> logger, ServerThread& node,
                  MonitoringThread& mt,
                  std::unordered_map<unsigned, TierData>& tier_data_map);
 
-#endif
+#endif // SRC_INCLUDE_MONITOR_MONITORING_UTILS_HPP_
