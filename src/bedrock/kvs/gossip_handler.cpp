@@ -4,6 +4,7 @@
 
 void gossip_handler(
     unsigned& seed, zmq::socket_t* gossip_puller,
+    std::shared_ptr<spdlog::logger> logger,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     std::unordered_map<Key, unsigned>& key_size_map,

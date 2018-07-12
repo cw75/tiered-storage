@@ -245,7 +245,7 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
     if (pollitems[3].revents & ZMQ_POLLIN) {
       auto work_start = std::chrono::system_clock::now();
 
-      user_request_handler(total_access, seed, &request_puller, start_time,
+      user_request_handler(total_access, seed, &request_puller, logger, start_time,
                            global_hash_ring_map, local_hash_ring_map,
                            key_size_map, pending_request_map,
                            key_access_timestamp, placement, local_changeset, wt,
@@ -262,7 +262,7 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
     if (pollitems[4].revents & ZMQ_POLLIN) {
       auto work_start = std::chrono::system_clock::now();
 
-      gossip_handler(seed, &gossip_puller, global_hash_ring_map,
+      gossip_handler(seed, &gossip_puller, logger, global_hash_ring_map,
                      local_hash_ring_map, key_size_map, pending_gossip_map,
                      placement, wt, serializer, pushers);
 
