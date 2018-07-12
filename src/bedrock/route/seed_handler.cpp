@@ -7,8 +7,8 @@ void seed_handler(
   logger->info("Received an address request.");
   zmq_util::recv_string(addr_responder);
 
-  communication::Address address;
-  address.set_start_time(duration);
+  TierMembership membership;
+  membership.set_start_time(duration);
 
   for (const auto& global_pair : global_hash_ring_map) {
     unsigned tier_id = global_pair.first;
@@ -19,16 +19,16 @@ void seed_handler(
       std::string thread_ip = hash_pair.second.get_ip();
 
       if (observed_ip.find(thread_ip) == observed_ip.end()) {
-        communication::Address_Tuple* tp = address.add_tuple();
-        tp->set_tier_id(tier_id);
-        tp->set_ip(thread_ip);
+        TierMembership_Tier* tier = membership.add_tiers();
+        tier->set_tier_id(tier_id);
+        tier->add_ips(thread_ip);
 
         observed_ip.insert(thread_ip);
       }
     }
   }
 
-  std::string serialized_address;
-  address.SerializeToString(&serialized_address);
-  zmq_util::send_string(serialized_address, addr_responder);
+  std::string serialized;
+  membership.SerializeToString(&serialized);
+  zmq_util::send_string(serialized, addr_responder);
 }

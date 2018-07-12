@@ -103,40 +103,38 @@ void handle_request(
                             rand_r(&seed) % key_address_cache[key].size()));
   }
 
-  communication::Request req;
-  req.set_respond_address(ut.get_request_pulling_connect_addr());
+  KeyRequest req;
+  req.set_response_address(ut.get_request_pulling_connect_addr());
 
   std::string req_id =
       ip + ":" + std::to_string(thread_id) + "_" + std::to_string(rid);
   req.set_request_id(req_id);
   rid += 1;
+  KeyTuple* tp = req.add_tuples();
+  tp->set_key(key);
+  tp->set_address_cache_size(key_address_cache[key].size());
 
   if (value == "") {
     // get request
-    req.set_type("GET");
-    communication::Request_Tuple* tp = req.add_tuple();
-    tp->set_key(key);
-    tp->set_num_address(key_address_cache[key].size());
+    req.set_type(get_request_type("GET"));
   } else {
     // put request
-    req.set_type("PUT");
-    communication::Request_Tuple* tp = req.add_tuple();
-    tp->set_key(key);
+    req.set_type(get_request_type("PUT"));
     tp->set_value(value);
     tp->set_timestamp(0);
-    tp->set_num_address(key_address_cache[key].size());
   }
 
   bool succeed;
-  auto res = send_request<communication::Request, communication::Response>(
+  auto res = send_request<KeyRequest, KeyResponse>(
       req, pushers[worker_address], response_puller, succeed);
 
   if (succeed) {
-    // initialize the respond string
-    if (res.tuple(0).err_number() == 2) {
+    KeyTuple tuple = res.tuples(0);
+
+    if (tuple.error() == 2) {
       trial += 1;
       if (trial > 5) {
-        for (const auto& address : res.tuple(0).addresses()) {
+        for (const auto& address : tuple.addresses()) {
           logger->info("Server's return address for key {} is {}.", key,
                        address);
         }
@@ -153,7 +151,7 @@ void handle_request(
                      thread_id, rid, trial);
     } else {
       // succeeded
-      if (res.tuple(0).has_invalidate() && res.tuple(0).invalidate()) {
+      if (tuple.has_invalidate() && tuple.invalidate()) {
         // update cache
         key_address_cache.erase(key);
       }
@@ -391,22 +389,22 @@ void run(unsigned thread_id, std::string ip,
             epoch += 1;
 
             auto latency = (double)1000000 / throughput;
-            communication::Feedback l;
+            UserFeedback feedback;
 
-            l.set_uid(ip + ":" + std::to_string(thread_id));
-            l.set_latency(latency);
-            l.set_throughput(throughput);
+            feedback.set_uid(ip + ":" + std::to_string(thread_id));
+            feedback.set_latency(latency);
+            feedback.set_throughput(throughput);
 
             for (const auto& rep_factor_pair : rep_factor_map) {
               if (rep_factor_pair.second.first > 1) {
-                communication::Feedback_Rep* r = l.add_rep();
+                UserFeedback_Rep* r = feedback.add_rep();
                 r->set_key(rep_factor_pair.first);
                 r->set_factor(rep_factor_pair.second.first);
               }
             }
 
             std::string serialized_latency;
-            l.SerializeToString(&serialized_latency);
+            feedback.SerializeToString(&serialized_latency);
 
             for (const MonitoringThread& thread : monitoring_threads) {
               zmq_util::send_string(
@@ -434,13 +432,13 @@ void run(unsigned thread_id, std::string ip,
         }
 
         logger->info("Finished");
-        communication::Feedback l;
+        UserFeedback feedback;
 
-        l.set_uid(ip + ":" + std::to_string(thread_id));
-        l.set_finish(true);
+        feedback.set_uid(ip + ":" + std::to_string(thread_id));
+        feedback.set_finish(true);
 
         std::string serialized_latency;
-        l.SerializeToString(&serialized_latency);
+        feedback.SerializeToString(&serialized_latency);
 
         for (const MonitoringThread& thread : monitoring_threads) {
           zmq_util::send_string(

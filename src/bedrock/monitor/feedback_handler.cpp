@@ -6,7 +6,7 @@ void feedback_handler(
     std::unordered_map<std::string, double>& user_throughput,
     std::unordered_map<Key, std::pair<double, unsigned>>& rep_factor_map) {
   std::string serialized_feedback = zmq_util::recv_string(feedback_puller);
-  communication::Feedback fb;
+  UserFeedback fb;
   fb.ParseFromString(serialized_feedback);
 
   if (fb.has_finish() && fb.finish()) {

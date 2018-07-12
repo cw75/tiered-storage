@@ -64,18 +64,20 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
 
   // receive and add all the addresses that seed node sent
   std::string serialized_addresses = zmq_util::recv_string(&addr_requester);
-  communication::Address addresses;
-  addresses.ParseFromString(serialized_addresses);
+  TierMembership membership;
+  membership.ParseFromString(serialized_addresses);
 
   // populate start time
-  unsigned long long duration = addresses.start_time();
+  unsigned long long duration = membership.start_time();
   std::chrono::milliseconds dur(duration);
   std::chrono::system_clock::time_point start_time(dur);
 
   // populate addresses
-  for (const auto& tuple : addresses.tuple()) {
-    insert_to_hash_ring<GlobalHashRing>(global_hash_ring_map[tuple.tier_id()],
-                                        tuple.ip(), 0);
+  for (const auto& tier : membership.tiers()) {
+    for (const std::string& ip : tier.ips()) {
+      insert_to_hash_ring<GlobalHashRing>(global_hash_ring_map[tier.tier_id()],
+                                          ip, 0);
+    }
   }
 
   // add itself to global hash ring
@@ -145,7 +147,7 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
       Key, std::multiset<std::chrono::time_point<std::chrono::system_clock>>>
       key_access_timestamp;
   // keep track of total access
-  unsigned total_access;
+  unsigned total_accesses;
 
   // listens for a new node joining
   zmq::socket_t join_puller(context, ZMQ_PULL);
@@ -245,7 +247,7 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
     if (pollitems[3].revents & ZMQ_POLLIN) {
       auto work_start = std::chrono::system_clock::now();
 
-      user_request_handler(total_access, seed, &request_puller, start_time,
+      user_request_handler(total_accesses, seed, &request_puller, start_time, logger,
                            global_hash_ring_map, local_hash_ring_map,
                            key_size_map, pending_request_map,
                            key_access_timestamp, placement, local_changeset, wt,
@@ -278,7 +280,7 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
       auto work_start = std::chrono::system_clock::now();
 
       rep_factor_response_handler(
-          seed, total_access, logger, &replication_factor_puller, start_time,
+          seed, total_accesses, logger, &replication_factor_puller, start_time,
           global_hash_ring_map, local_hash_ring_map, pending_request_map,
           pending_gossip_map, key_access_timestamp, placement, key_size_map,
           local_changeset, wt, serializer, pushers);
@@ -379,17 +381,17 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
         logger->info("Occupancy is {}.", std::to_string(occupancy));
       }
 
-      communication::Server_Stat stat;
+      ServerThreadStatistics stat;
       stat.set_storage_consumption(consumption / 1000);  // cast to KB
       stat.set_occupancy(occupancy);
       stat.set_epoch(epoch);
-      stat.set_total_access(total_access);
+      stat.set_total_accesses(total_accesses);
 
       std::string serialized_stat;
       stat.SerializeToString(&serialized_stat);
 
-      communication::Request req;
-      req.set_type("PUT");
+      KeyRequest req;
+      req.set_type(get_request_type("PUT"));
       prepare_put_tuple(req, key, serialized_stat, 0);
 
       auto threads = get_responsible_threads_metadata(
@@ -402,7 +404,7 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
       }
 
       // compute key access stats
-      communication::Key_Access access;
+      KeyAccessData access;
       auto current_time = std::chrono::system_clock::now();
 
       for (const auto& key_access_pair : key_access_timestamp) {
@@ -420,9 +422,9 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
         }
 
         // update key_access_frequency
-        communication::Key_Access_Tuple* tp = access.add_tuple();
+        KeyAccessData_KeyCount* tp = access.add_keys();
         tp->set_key(key);
-        tp->set_access(access_times.size());
+        tp->set_access_count(access_times.size());
       }
 
       // report key access stats
@@ -433,7 +435,7 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
       access.SerializeToString(&serialized_access);
 
       req.Clear();
-      req.set_type("PUT");
+      req.set_type(get_request_type("PUT"));
       prepare_put_tuple(req, key, serialized_access, 0);
 
       threads = get_responsible_threads_metadata(key, global_hash_ring_map[1],
@@ -450,7 +452,7 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
 
       // reset stats tracked in memory
       working_time = 0;
-      total_access = 0;
+      total_accesses = 0;
       memset(working_time_map, 0, sizeof(working_time_map));
     }
 

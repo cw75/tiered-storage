@@ -1,0 +1,46 @@
+syntax = "proto2";
+
+message DataValue {
+  required string value = 1;
+  required int64 timestamp = 2;
+}
+
+message ServerThreadStatistics {
+  required uint64 storage_consumption = 1;
+  required double occupancy = 2;
+  required uint32 epoch = 3;
+  required uint32 total_accesses = 4;
+}
+
+message KeyAccessData {
+  message KeyCount {
+    required string key = 1;
+    required uint32 access_count = 2;
+  }
+
+  repeated KeyCount keys = 1;
+}
+
+message TierMembership {
+  message Tier {
+    required uint32 tier_id = 1;
+    repeated string ips = 2;
+  }
+
+  required uint64 start_time = 1;
+  repeated Tier tiers = 2;
+}
+
+message UserFeedback {
+  message Rep {
+    required string key = 1;
+    required double factor = 2;
+  }
+
+  required string uid = 1;
+  optional double latency = 2;
+  optional bool finish = 3;
+  optional double throughput = 4;
+  optional bool warmup = 5;
+  repeated Rep rep = 6;
+}

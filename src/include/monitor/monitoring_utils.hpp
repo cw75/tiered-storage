@@ -81,20 +81,20 @@ struct SummaryStats {
 Address prepare_metadata_request(
     const Key& key, GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring,
-    std::unordered_map<Address, communication::Request>& addr_request_map,
+    std::unordered_map<Address, KeyRequest>& addr_request_map,
     MonitoringThread& mt, unsigned& rid, std::string type);
 
 void prepare_metadata_get_request(
     const Key& key, GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring,
-    std::unordered_map<Address, communication::Request>& addr_request_map,
+    std::unordered_map<Address, KeyRequest>& addr_request_map,
     MonitoringThread& mt, unsigned& rid);
 
 void prepare_metadata_put_request(
     const Key& key, const std::string& value,
     GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring,
-    std::unordered_map<Address, communication::Request>& addr_request_map,
+    std::unordered_map<Address, KeyRequest>& addr_request_map,
     MonitoringThread& mt, unsigned& rid);
 
 void collect_internal_stats(
@@ -129,7 +129,7 @@ KeyInfo create_new_replication_vector(unsigned gm, unsigned ge, unsigned lm,
 
 void prepare_replication_factor_update(
     const Key& key,
-    std::unordered_map<Address, communication::Replication_Factor_Request>&
+    std::unordered_map<Address, ReplicationFactorUpdate>&
         replication_factor_map,
     Address server_address, std::unordered_map<Key, KeyInfo>& placement);
 

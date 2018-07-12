@@ -35,6 +35,7 @@ void self_depart_handler(
 void user_request_handler(
     unsigned& total_access, unsigned& seed, zmq::socket_t* request_puller,
     std::chrono::system_clock::time_point& start_time,
+    std::shared_ptr<spdlog::logger> logger,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     std::unordered_map<std::string, unsigned>& key_size_map,
