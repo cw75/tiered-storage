@@ -8,13 +8,14 @@ void address_handler(
     std::unordered_map<Key, KeyInfo>& placement,
     PendingMap<std::pair<Address, std::string>>& pending_key_request_map,
     unsigned& seed) {
-  logger->info("Received key address request.");
-  std::string serialized_key_req = zmq_util::recv_string(key_address_puller);
-  communication::Key_Request key_req;
-  key_req.ParseFromString(serialized_key_req);
 
-  communication::Key_Response key_res;
-  key_res.set_response_id(key_req.request_id());
+  logger->info("Received key address request.");
+  std::string serialized = zmq_util::recv_string(key_address_puller);
+  KeyAddressRequest addr_request;
+  addr_request.ParseFromString(serialized);
+
+  KeyAddressResponse addr_response;
+  addr_response.set_response_id(addr_request.request_id());
   bool succeed;
 
   int num_servers = 0;
@@ -22,16 +23,13 @@ void address_handler(
     num_servers += global_pair.second.size();
   }
 
+  bool respond = false;
+
   if (num_servers == 0) {
-    key_res.set_err_number(1);
-
-    std::string serialized_key_res;
-    key_res.SerializeToString(&serialized_key_res);
-
-    zmq_util::send_string(serialized_key_res,
-                          &pushers[key_req.respond_address()]);
+    addr_response.set_error(1);
+    respond = true;
   } else {  // if there are servers, attempt to return the correct threads
-    for (const Key& key : key_req.keys()) {
+    for (const Key& key : addr_request.keys()) {
       unsigned tier_id = 1;
       ServerThreadSet threads = {};
 
@@ -44,30 +42,30 @@ void address_handler(
         if (!succeed) {  // this means we don't have the replication factor for
                          // the key
           pending_key_request_map[key].push_back(
-              std::pair<Address, std::string>(key_req.respond_address(),
-                                              key_req.request_id()));
+              std::pair<Address, std::string>(addr_request.response_address(),
+                                              addr_request.request_id()));
           return;
         }
 
         tier_id++;
       }
 
-      communication::Key_Response_Tuple* tp = key_res.add_tuple();
+      KeyAddressResponse_KeyAddress* tp = addr_response.add_addresses();
       tp->set_key(key);
+      respond = true;
+      addr_response.set_error(0);
 
       for (const ServerThread& thread : threads) {
-        tp->add_addresses(thread.get_request_pulling_connect_addr());
+        tp->add_ips(thread.get_request_pulling_connect_addr());
       }
     }
 
-    if (key_res.tuple_size() > 0) {
-      key_res.set_err_number(0);
+  }
 
-      std::string serialized_key_res;
-      key_res.SerializeToString(&serialized_key_res);
+  if (respond) {
+    std::string serialized;
+    addr_response.SerializeToString(&serialized);
 
-      zmq_util::send_string(serialized_key_res,
-                            &pushers[key_req.respond_address()]);
-    }
+    zmq_util::send_string(serialized, &pushers[addr_request.response_address()]);
   }
 }

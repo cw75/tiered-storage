@@ -1,7 +1,6 @@
 #include <fstream>
 #include <unordered_set>
 
-#include "communication.pb.h"
 #include "hash_ring.hpp"
 #include "requests.hpp"
 #include "spdlog/spdlog.h"
@@ -76,40 +75,40 @@ void handle_request(
                             rand_r(&seed) % key_address_cache[key].size()));
   }
 
-  communication::Request req;
-  req.set_respond_address(ut.get_request_pulling_connect_addr());
+  KeyRequest req;
+  req.set_response_address(ut.get_request_pulling_connect_addr());
 
   std::string req_id =
       ip + ":" + std::to_string(thread_id) + "_" + std::to_string(rid);
   req.set_request_id(req_id);
   rid += 1;
 
+  KeyTuple* tp = req.add_tuples();
+  tp->set_key(key);
+  tp->set_address_cache_size(key_address_cache[key].size());
+
   if (value == "") {
     // get request
-    req.set_type("GET");
-    communication::Request_Tuple* tp = req.add_tuple();
-    tp->set_key(key);
-    tp->set_num_address(key_address_cache[key].size());
+    req.set_type(get_request_type("GET"));
   } else {
     // put request
-    req.set_type("PUT");
-    communication::Request_Tuple* tp = req.add_tuple();
-    tp->set_key(key);
+    req.set_type(get_request_type("PUT"));
     tp->set_value(value);
     tp->set_timestamp(0);
-    tp->set_num_address(key_address_cache[key].size());
   }
 
   bool succeed;
-  auto res = send_request<communication::Request, communication::Response>(
+  auto res = send_request<KeyRequest, KeyResponse>(
       req, pushers[worker_address], response_puller, succeed);
 
   if (succeed) {
+    KeyTuple tuple = res.tuples(0);
+
     // initialize the respond string
-    if (res.tuple(0).err_number() == 2) {
+    if (tuple.error() == 2) {
       trial += 1;
       if (trial > 5) {
-        for (const auto& address : res.tuple(0).addresses()) {
+        for (const auto& address : res.tuples(0).addresses()) {
           logger->info("Server's return address for key {} is {}.", key,
                        address);
         }
@@ -126,17 +125,17 @@ void handle_request(
                      key_address_puller, ip, thread_id, rid, trial);
     } else {
       // succeeded
-      if (res.tuple(0).has_invalidate() && res.tuple(0).invalidate()) {
+      if (tuple.has_invalidate() && tuple.invalidate()) {
         // update cache
         key_address_cache.erase(key);
       }
-      if (value == "" && res.tuple(0).err_number() == 0) {
-        std::cout << "value of key " + res.tuple(0).key() + " is " +
-                         res.tuple(0).value() + "\n";
-      } else if (value == "" && res.tuple(0).err_number() == 1) {
-        std::cout << "key " + res.tuple(0).key() + " does not exist\n";
+      if (value == "" && tuple.error() == 0) {
+        std::cout << "value of key " + tuple.key() + " is " +
+                         tuple.value() + "\n";
+      } else if (value == "" && tuple.error() == 1) {
+        std::cout << "key " + tuple.key() + " does not exist\n";
       } else if (value != "") {
-        std::cout << "successfully put key " + res.tuple(0).key() + "\n";
+        std::cout << "successfully put key " + tuple.key() + "\n";
       }
     }
   } else {

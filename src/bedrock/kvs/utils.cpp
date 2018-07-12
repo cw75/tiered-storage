@@ -2,11 +2,13 @@
 
 void send_gossip(AddressKeysetMap& addr_keyset_map, SocketCache& pushers,
                  Serializer* serializer) {
-  std::unordered_map<Address, communication::Request> gossip_map;
+  std::unordered_map<Address, KeyRequest> gossip_map;
 
   for (const auto& key_pair : addr_keyset_map) {
     std::string key = key_pair.first;
-    gossip_map[key].set_type("PUT");
+    RequestType type;
+    RequestType_Parse("GET", &type);
+    gossip_map[key].set_type(type);
 
     for (const auto& address : key_pair.second) {
       auto res = process_get(address, serializer);

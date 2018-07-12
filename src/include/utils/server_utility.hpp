@@ -6,9 +6,6 @@
 
 #include "../kvs/base_kv_store.hpp"
 #include "../kvs/rc_pair_lattice.hpp"
-#include "../zmq/socket_cache.hpp"
-#include "../zmq/zmq_util.hpp"
-#include "communication.pb.h"
 #include "yaml-cpp/yaml.h"
 
 // Define the garbage collect threshold
@@ -73,7 +70,7 @@ class EBSSerializer : public Serializer {
   ReadCommittedPairLattice<std::string> get(const Key& key,
                                             unsigned& err_number) {
     ReadCommittedPairLattice<std::string> res;
-    communication::Payload pl;
+    DataValue value;
 
     // open a new filestream for reading in a binary
     std::string fname = ebs_root_ + "ebs_" + std::to_string(tid_) + "/" + key;
@@ -81,12 +78,12 @@ class EBSSerializer : public Serializer {
 
     if (!input) {
       err_number = 1;
-    } else if (!pl.ParseFromIstream(&input)) {
+    } else if (!value.ParseFromIstream(&input)) {
       std::cerr << "Failed to parse payload." << std::endl;
       err_number = 1;
     } else {
       res = ReadCommittedPairLattice<std::string>(
-          TimestampValuePair<std::string>(pl.timestamp(), pl.value()));
+          TimestampValuePair<std::string>(value.timestamp(), value.value()));
     }
     return res;
   }
@@ -97,8 +94,8 @@ class EBSSerializer : public Serializer {
     TimestampValuePair<std::string> p =
         TimestampValuePair<std::string>(timestamp, value);
 
-    communication::Payload pl_orig;
-    communication::Payload pl;
+    DataValue original_value;
+    DataValue new_value;
 
     std::string fname = ebs_root_ + "ebs_" + std::to_string(tid_) + "/" + key;
     std::fstream input(fname, std::ios::in | std::ios::binary);
@@ -106,16 +103,16 @@ class EBSSerializer : public Serializer {
     if (!input) {  // in this case, this key has never been seen before, so we
                    // attempt to create a new file for it
       replaced = true;
-      pl.set_timestamp(timestamp);
-      pl.set_value(value);
+      new_value.set_timestamp(timestamp);
+      new_value.set_value(value);
 
       // ios::trunc means that we overwrite the existing file
       std::fstream output(fname,
                           std::ios::out | std::ios::trunc | std::ios::binary);
-      if (!pl.SerializeToOstream(&output)) {
+      if (!new_value.SerializeToOstream(&output)) {
         std::cerr << "Failed to write payload." << std::endl;
       }
-    } else if (!pl_orig.ParseFromIstream(
+    } else if (!original_value.ParseFromIstream(
                    &input)) {  // if we have seen the key before, attempt to
                                // parse what was there before
       std::cerr << "Failed to parse payload." << std::endl;
@@ -123,20 +120,20 @@ class EBSSerializer : public Serializer {
       // get the existing value that we have and merge
       ReadCommittedPairLattice<std::string> l =
           ReadCommittedPairLattice<std::string>(TimestampValuePair<std::string>(
-              pl_orig.timestamp(), pl_orig.value()));
+              original_value.timestamp(), original_value.value()));
       replaced = l.merge(p);
 
       if (replaced) {
         // set the payload's data to the merged values of the value and
         // timestamp
-        pl.set_timestamp(l.reveal().timestamp);
-        pl.set_value(l.reveal().value);
+        new_value.set_timestamp(l.reveal().timestamp);
+        new_value.set_value(l.reveal().value);
 
         // write out the new payload.
         std::fstream output(fname,
                             std::ios::out | std::ios::trunc | std::ios::binary);
 
-        if (!pl.SerializeToOstream(&output)) {
+        if (!new_value.SerializeToOstream(&output)) {
           std::cerr << "Failed to write payload" << std::endl;
         }
       }

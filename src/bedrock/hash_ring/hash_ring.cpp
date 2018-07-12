@@ -2,6 +2,7 @@
 
 #include <unistd.h>
 
+#include "common.hpp"
 #include "requests.hpp"
 #include "threads.hpp"
 
@@ -89,13 +90,13 @@ void issue_replication_factor_request(const Address& respond_address,
   Address target_address = next(begin(threads), rand_r(&seed) % threads.size())
                                ->get_request_pulling_connect_addr();
 
-  communication::Request req;
-  req.set_type("GET");
-  req.set_respond_address(respond_address);
+  KeyRequest key_request;
+  key_request.set_type(get_request_type("GET"));
+  key_request.set_response_address(respond_address);
 
   prepare_get_tuple(
-      req, std::string(kMetadataIdentifier) + "_" + key + "_replication");
-  push_request(req, pushers[target_address]);
+      key_request, kMetadataIdentifier + "_" + key + "_replication");
+  push_request(key_request, pushers[target_address]);
 }
 
 // get all threads responsible for a key from the "node_type" tier
@@ -151,20 +152,20 @@ std::vector<Address> get_address_from_routing(UserThread& ut, const Key& key,
                                               unsigned& rid) {
   int count = 0;
 
-  communication::Key_Request key_req;
-  communication::Key_Response key_response;
-  key_req.set_respond_address(ut.get_key_address_connect_addr());
-  key_req.add_keys(key);
+  KeyAddressRequest address_request;
+  KeyAddressResponse address_response;
+  address_request.set_response_address(ut.get_key_address_connect_addr());
+  address_request.add_keys(key);
 
   std::string req_id =
       ip + ":" + std::to_string(thread_id) + "_" + std::to_string(rid);
-  key_req.set_request_id(req_id);
+  address_request.set_request_id(req_id);
   std::vector<Address> result;
 
-  int err_number = -1;
+  int error = -1;
 
-  while (err_number != 0) {
-    if (err_number == 1) {
+  while (error != 0) {
+    if (error == 1) {
       std::cerr << "No servers have joined the cluster yet. Retrying request."
                 << std::endl;
     }
@@ -178,22 +179,21 @@ std::vector<Address> get_address_from_routing(UserThread& ut, const Key& key,
 
     rid += 1;
 
-    // query routing for addresses on the other tier
-    key_response =
-        send_request<communication::Key_Request, communication::Key_Response>(
-            key_req, sending_socket, receiving_socket, succeed);
+    address_response =
+        send_request<KeyAddressRequest, KeyAddressResponse>(
+            address_request, sending_socket, receiving_socket, succeed);
 
     if (!succeed) {
       return result;
     } else {
-      err_number = key_response.err_number();
+      error = address_response.error();
     }
 
     count++;
   }
 
-  for (const auto& address : key_response.tuple(0).addresses()) {
-    result.push_back(address);
+  for (const std::string& ip : address_response.addresses(0).ips()) {
+    result.push_back(ip);
   }
 
   return result;
