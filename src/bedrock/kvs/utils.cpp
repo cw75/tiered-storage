@@ -46,3 +46,25 @@ void process_put(const Key& key, const unsigned long long& timestamp,
     key_size_map[key] = value.size();
   }
 }
+
+bool is_primary_replica(const Key& key, std::unordered_map<Key, KeyInfo>& placement,
+                        std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+                        std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
+                        ServerThread& st) {
+  if (placement[key].global_replication_map_[kSelfTierId] == 0) {
+    return false;
+  } else if (kSelfTierId == 2 && placement[key].global_replication_map_[1] > 0) {
+    return false;
+  } else {
+    auto global_pos = global_hash_ring_map[kSelfTierId].find(key);
+    if (global_pos != global_hash_ring_map[kSelfTierId].end() &&
+        st.get_ip().compare(global_pos->second.get_ip()) == 0) {
+      auto local_pos = local_hash_ring_map[kSelfTierId].find(key);
+      if (local_pos != local_hash_ring_map[kSelfTierId].end() &&
+         st.get_tid() == local_pos->second.get_tid()) {
+        return true;
+      }
+    }
+  }
+  return false;
+}

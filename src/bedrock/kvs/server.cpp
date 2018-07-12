@@ -446,6 +446,38 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
         push_request(req, pushers[target_address]);
       }
 
+      // report key size stats
+      communication::Key_Size primary_key_size;
+      for (const auto& key_size_pair : key_size_map) {
+        if (is_primary_replica(key_size_pair.first, placement, global_hash_ring_map,
+                        local_hash_ring_map, wt)) {
+          communication::Key_Size_Tuple* tp = primary_key_size.add_tuple();
+          tp->set_key(key_size_pair.first);
+          tp->set_size(key_size_pair.second);
+        }
+      }
+
+      key = std::string(kMetadataIdentifier) + "_" + wt.get_ip() + "_" +
+            std::to_string(wt.get_tid()) + "_" + std::to_string(kSelfTierId) +
+            "_size";
+
+      std::string serialized_size;
+      primary_key_size.SerializeToString(&serialized_size);
+
+      req.Clear();
+      req.set_type("PUT");
+      prepare_put_tuple(req, key, serialized_size, 0);
+
+      threads = get_responsible_threads_metadata(key, global_hash_ring_map[1],
+                                                 local_hash_ring_map[1]);
+
+      if (threads.size() != 0) {
+        Address target_address =
+            next(begin(threads), rand_r(&seed) % threads.size())
+                ->get_request_pulling_connect_addr();
+        push_request(req, pushers[target_address]);
+      }
+
       report_start = std::chrono::system_clock::now();
 
       // reset stats tracked in memory

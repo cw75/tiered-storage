@@ -39,11 +39,7 @@ void replication_response_handler(
                                      global_hash_ring_map[1],
                                      local_hash_ring_map[1], pushers, seed);
   } else {
-    for (const unsigned& tier_id : kAllTierIds) {
-      placement[key].global_replication_map_[tier_id] =
-          kTierDataMap[tier_id].default_replication_;
-      placement[key].local_replication_map_[tier_id] = kDefaultLocalReplication;
-    }
+    init_replication(placement, key);
   }
 
   if (response.tuple(0).err_number() != 2) {
