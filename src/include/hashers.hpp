@@ -44,4 +44,4 @@ struct LocalHasher {
   }
 };
 
-#endif // SRC_INCLUDE_HASHERS_HPP_
+#endif  // SRC_INCLUDE_HASHERS_HPP_

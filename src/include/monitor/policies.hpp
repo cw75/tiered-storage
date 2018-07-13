@@ -24,9 +24,8 @@ void movement_policy(
     Address management_address, std::unordered_map<Key, KeyInfo>& placement,
     std::unordered_map<Key, unsigned>& key_access_summary,
     std::unordered_map<Key, unsigned>& key_size, MonitoringThread& mt,
-    SocketCache& pushers,
-    zmq::socket_t& response_puller, std::vector<Address>& routing_address,
-    unsigned& rid);
+    SocketCache& pushers, zmq::socket_t& response_puller,
+    std::vector<Address>& routing_address, unsigned& rid);
 
 void slo_policy(
     std::shared_ptr<spdlog::logger> logger,
@@ -40,6 +39,7 @@ void slo_policy(
     std::unordered_map<Address, unsigned>& departing_node_map,
     SocketCache& pushers, zmq::socket_t& response_puller,
     std::vector<Address>& routing_address, unsigned& rid,
-    std::unordered_map<Key, std::pair<double, unsigned>>& latency_miss_ratio_map);
+    std::unordered_map<Key, std::pair<double, unsigned>>&
+        latency_miss_ratio_map);
 
-#endif // SRC_INCLUDE_MONITOR_POLICIES_HPP_
+#endif  // SRC_INCLUDE_MONITOR_POLICIES_HPP_

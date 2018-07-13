@@ -55,4 +55,4 @@ class ReadCommittedPairLattice : public Lattice<TimestampValuePair<T>> {
   }
 };
 
-#endif // SRC_INCLUDE_KVS_RC_PAIR_LATTICE_HPP_
+#endif  // SRC_INCLUDE_KVS_RC_PAIR_LATTICE_HPP_

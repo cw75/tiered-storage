@@ -20,4 +20,4 @@ using OccupancyStat = std::unordered_map<
 using AccessStat =
     std::unordered_map<Address, std::unordered_map<unsigned, unsigned>>;
 
-#endif // SRC_INCLUDE_TYPES_HPP_
+#endif  // SRC_INCLUDE_TYPES_HPP_

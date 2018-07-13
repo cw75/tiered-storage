@@ -150,4 +150,4 @@ class MapLattice : public Lattice<std::unordered_map<K, V>> {
   }
 };
 
-#endif // SRC_INCLUDE_LATTICES_CORE_LATTICES_HPP_
+#endif  // SRC_INCLUDE_LATTICES_CORE_LATTICES_HPP_

@@ -215,4 +215,4 @@ class UserThread {
   }
 };
 
-#endif // SRC_INCLUDE_THREADS_HPP_
+#endif  // SRC_INCLUDE_THREADS_HPP_

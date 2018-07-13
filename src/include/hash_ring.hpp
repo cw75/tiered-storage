@@ -6,33 +6,34 @@
 
 template <typename H>
 class HashRing : public ConsistentHashMap<ServerThread, H> {
-  public: 
-    HashRing() {}
+ public:
+  HashRing() {}
 
-    ~HashRing() {}
+  ~HashRing() {}
 
-  public: 
-    std::pair<typename ConsistentHashMap<ServerThread, H>::iterator, bool> insert(ServerThread st) {
-      auto result = ConsistentHashMap<ServerThread, H>::insert(st);
+ public:
+  std::pair<typename ConsistentHashMap<ServerThread, H>::iterator, bool> insert(
+      ServerThread st) {
+    auto result = ConsistentHashMap<ServerThread, H>::insert(st);
 
-      if (result.second) {
-        unique_servers.insert(st);
-      }
-
-      return result;
+    if (result.second) {
+      unique_servers.insert(st);
     }
 
-    void erase(ServerThread st) {
-      unique_servers.erase(st);
-      ConsistentHashMap<ServerThread, H>::erase(st);
-    }
+    return result;
+  }
 
-    std::unordered_set<ServerThread, ThreadHash> get_unique_servers() {
-      return unique_servers;
-    }
+  void erase(ServerThread st) {
+    unique_servers.erase(st);
+    ConsistentHashMap<ServerThread, H>::erase(st);
+  }
 
-  private:
-    std::unordered_set<ServerThread, ThreadHash> unique_servers;
+  std::unordered_set<ServerThread, ThreadHash> get_unique_servers() {
+    return unique_servers;
+  }
+
+ private:
+  std::unordered_set<ServerThread, ThreadHash> unique_servers;
 };
 
 typedef HashRing<GlobalHasher> GlobalHashRing;
@@ -109,7 +110,8 @@ inline void warmup_placement_to_defaults(
   }
 }
 
-inline void init_replication(std::unordered_map<Key, KeyInfo>& placement, const Key& key) {
+inline void init_replication(std::unordered_map<Key, KeyInfo>& placement,
+                             const Key& key) {
   for (const unsigned& tier_id : kAllTierIds) {
     placement[key].global_replication_map_[tier_id] =
         kTierDataMap[tier_id].default_replication_;
@@ -117,4 +119,4 @@ inline void init_replication(std::unordered_map<Key, KeyInfo>& placement, const 
   }
 }
 
-#endif // SRC_INCLUDE_HASH_RING_HPP_
+#endif  // SRC_INCLUDE_HASH_RING_HPP_

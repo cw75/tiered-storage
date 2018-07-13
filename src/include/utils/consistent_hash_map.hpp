@@ -64,4 +64,4 @@ class ConsistentHashMap {
   map_type nodes_;
 };
 
-#endif // SRC_INCLUDE_UTILS_CONSISTENT_HASH_MAP_HPP_
+#endif  // SRC_INCLUDE_UTILS_CONSISTENT_HASH_MAP_HPP_

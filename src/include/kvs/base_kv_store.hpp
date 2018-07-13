@@ -25,4 +25,4 @@ class KVStore {
   void remove(const K& k) { db.remove(k); }
 };
 
-#endif // SRC_INCLUDE_KVS_BASE_KV_STORE_HPP_
+#endif  // SRC_INCLUDE_KVS_BASE_KV_STORE_HPP_

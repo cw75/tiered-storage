@@ -94,9 +94,10 @@ void process_put(const Key& key, const unsigned long long& timestamp,
                  const std::string& value, Serializer* serializer,
                  std::unordered_map<std::string, unsigned>& key_size_map);
 
-bool is_primary_replica(const Key& key, std::unordered_map<Key, KeyInfo>& placement,
-                        std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
-                        std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-                        ServerThread& st);
+bool is_primary_replica(
+    const Key& key, std::unordered_map<Key, KeyInfo>& placement,
+    std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+    std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
+    ServerThread& st);
 
-#endif // SRC_INCLUDE_KVS_KVS_HANDLERS_HPP_
+#endif  // SRC_INCLUDE_KVS_KVS_HANDLERS_HPP_
