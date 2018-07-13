@@ -1,3 +1,17 @@
+//  Copyright 2018 U.C. Berkeley RISE Lab
+// 
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+// 
+//      http://www.apache.org/licenses/LICENSE-2.0
+// 
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+
 #ifndef SRC_INCLUDE_UTILS_CONSISTENT_HASH_MAP_HPP_
 #define SRC_INCLUDE_UTILS_CONSISTENT_HASH_MAP_HPP_
 
@@ -15,7 +29,6 @@ class ConsistentHashMap {
   typedef value_type& reference;
   typedef const value_type& const_reference;
   typedef typename map_type::iterator iterator;
-  typedef typename map_type::reverse_iterator reverse_iterator;
   typedef Alloc allocator_type;
 
  public:
@@ -60,13 +73,9 @@ class ConsistentHashMap {
 
   iterator end() { return nodes_.end(); }
 
-  reverse_iterator rbegin() { return nodes_.rbegin(); }
-
-  reverse_iterator rend() { return nodes_.rend(); }
-
  private:
   Hash hasher_;
   map_type nodes_;
 };
 
-#endif // SRC_INCLUDE_UTILS_CONSISTENT_HASH_MAP_HPP_
+#endif  // SRC_INCLUDE_UTILS_CONSISTENT_HASH_MAP_HPP_

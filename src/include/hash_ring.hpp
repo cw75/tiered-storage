@@ -1,11 +1,57 @@
+//  Copyright 2018 U.C. Berkeley RISE Lab
+// 
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+// 
+//      http://www.apache.org/licenses/LICENSE-2.0
+// 
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+
 #ifndef SRC_INCLUDE_HASH_RING_HPP_
 #define SRC_INCLUDE_HASH_RING_HPP_
 
 #include "hashers.hpp"
 #include "utils/consistent_hash_map.hpp"
 
-typedef ConsistentHashMap<ServerThread, GlobalHasher> GlobalHashRing;
-typedef ConsistentHashMap<ServerThread, LocalHasher> LocalHashRing;
+template <typename H>
+class HashRing : public ConsistentHashMap<ServerThread, H> {
+ public:
+  HashRing() {}
+
+  ~HashRing() {}
+
+ public:
+  std::pair<typename ConsistentHashMap<ServerThread, H>::iterator, bool> insert(
+      ServerThread st) {
+    auto result = ConsistentHashMap<ServerThread, H>::insert(st);
+
+    if (result.second) {
+      unique_servers.insert(st);
+    }
+
+    return result;
+  }
+
+  void erase(ServerThread st) {
+    unique_servers.erase(st);
+    ConsistentHashMap<ServerThread, H>::erase(st);
+  }
+
+  std::unordered_set<ServerThread, ThreadHash> get_unique_servers() {
+    return unique_servers;
+  }
+
+ private:
+  std::unordered_set<ServerThread, ThreadHash> unique_servers;
+};
+
+typedef HashRing<GlobalHasher> GlobalHashRing;
+typedef HashRing<LocalHasher> LocalHashRing;
 
 template <typename H>
 bool insert_to_hash_ring(H& hash_ring, Address ip, unsigned tid) {
@@ -78,7 +124,8 @@ inline void warmup_placement_to_defaults(
   }
 }
 
-inline void init_replication(std::unordered_map<Key, KeyInfo>& placement, const Key& key) {
+inline void init_replication(std::unordered_map<Key, KeyInfo>& placement,
+                             const Key& key) {
   for (const unsigned& tier_id : kAllTierIds) {
     placement[key].global_replication_map_[tier_id] =
         kTierDataMap[tier_id].default_replication_;
@@ -86,4 +133,4 @@ inline void init_replication(std::unordered_map<Key, KeyInfo>& placement, const 
   }
 }
 
-#endif // SRC_INCLUDE_HASH_RING_HPP_
+#endif  // SRC_INCLUDE_HASH_RING_HPP_
