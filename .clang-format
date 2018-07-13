@@ -109,7 +109,6 @@ SortUsingDeclarations: true
 SpaceAfterCStyleCast: false
 SpaceAfterTemplateKeyword: true
 SpaceBeforeAssignmentOperators: true
-SpaceBeforeCtorInitializerColon: true
 SpaceInEmptyParentheses: false
 SpacesBeforeTrailingComments: 2
 SpacesInAngles:  false
