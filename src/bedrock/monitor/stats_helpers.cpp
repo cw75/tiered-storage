@@ -31,30 +31,27 @@ void collect_internal_stats(
   for (const auto& global_pair : global_hash_ring_map) {
     unsigned tier_id = global_pair.first;
     auto hash_ring = global_pair.second;
-    std::unordered_set<Address> observed_ip;
 
-    for (const auto hash_pair : hash_ring) {
-      Address server_ip = hash_pair.second.get_ip();
-      if (observed_ip.find(server_ip) == observed_ip.end()) {
-        for (unsigned i = 0; i < kTierDataMap[tier_id].thread_number_; i++) {
-          Key key = std::string(kMetadataIdentifier) + "_" + server_ip + "_" +
-                    std::to_string(i) + "_" + std::to_string(tier_id) + "_stat";
-          prepare_metadata_get_request(key, global_hash_ring_map[1],
-                                       local_hash_ring_map[1], addr_request_map,
-                                       mt, rid);
+    for (const ServerThread& st : hash_ring.get_unique_servers()) {
+      std::string server_ip = st.get_ip();
 
-          key = std::string(kMetadataIdentifier) + "_" + server_ip + "_" +
-                std::to_string(i) + "_" + std::to_string(tier_id) + "_access";
-          prepare_metadata_get_request(key, global_hash_ring_map[1],
-                                       local_hash_ring_map[1], addr_request_map,
-                                       mt, rid);
-          key = std::string(kMetadataIdentifier) + "_" + server_ip + "_" +
-                std::to_string(i) + "_" + std::to_string(tier_id) + "_size";
-          prepare_metadata_get_request(key, global_hash_ring_map[1],
-                                       local_hash_ring_map[1], addr_request_map,
-                                       mt, rid);
-        }
-        observed_ip.insert(server_ip);
+      for (unsigned i = 0; i < kTierDataMap[tier_id].thread_number_; i++) {
+        Key key = std::string(kMetadataIdentifier) + "_" + server_ip + "_" +
+          std::to_string(i) + "_" + std::to_string(tier_id) + "_stat";
+        prepare_metadata_get_request(key, global_hash_ring_map[1],
+            local_hash_ring_map[1], addr_request_map,
+            mt, rid);
+
+        key = std::string(kMetadataIdentifier) + "_" + server_ip + "_" +
+          std::to_string(i) + "_" + std::to_string(tier_id) + "_access";
+        prepare_metadata_get_request(key, global_hash_ring_map[1],
+            local_hash_ring_map[1], addr_request_map,
+            mt, rid);
+        key = std::string(kMetadataIdentifier) + "_" + server_ip + "_" +
+          std::to_string(i) + "_" + std::to_string(tier_id) + "_size";
+        prepare_metadata_get_request(key, global_hash_ring_map[1],
+            local_hash_ring_map[1], addr_request_map,
+            mt, rid);
       }
     }
   }

@@ -52,4 +52,4 @@ class Lattice {
   void assign(const Lattice<T> &e) { element = e.reveal(); }
 };
 
-#endif // SRC_INCLUDE_LATTICES_BASE_LATTICES_HPP_
+#endif  // SRC_INCLUDE_LATTICES_BASE_LATTICES_HPP_

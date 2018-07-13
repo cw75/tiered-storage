@@ -108,16 +108,15 @@ inline void prepare_get_tuple(KeyRequest& req, Key key) {
   tuple->set_key(key);
 }
 
-inline void prepare_put_tuple(KeyRequest& req, Key key,
-                              std::string value, unsigned long long timestamp) {
+inline void prepare_put_tuple(KeyRequest& req, Key key, std::string value,
+                              unsigned long long timestamp) {
   KeyTuple* tp = req.add_tuples();
   tp->set_key(key);
   tp->set_value(value);
   tp->set_timestamp(timestamp);
 }
 
-inline void push_request(const KeyRequest& req,
-                         zmq::socket_t& socket) {
+inline void push_request(const KeyRequest& req, zmq::socket_t& socket) {
   std::string serialized_req;
   req.SerializeToString(&serialized_req);
   zmq_util::send_string(serialized_req, &socket);
@@ -131,4 +130,4 @@ inline RequestType get_request_type(const std::string& type_str) {
   return type;
 }
 
-#endif // SRC_INCLUDE_COMMON_HPP_
+#endif  // SRC_INCLUDE_COMMON_HPP_

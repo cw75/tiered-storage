@@ -27,18 +27,11 @@ void seed_handler(
   for (const auto& global_pair : global_hash_ring_map) {
     unsigned tier_id = global_pair.first;
     auto hash_ring = global_pair.second;
-    std::unordered_set<Address> observed_ip;
 
-    for (const auto& hash_pair : hash_ring) {
-      std::string thread_ip = hash_pair.second.get_ip();
-
-      if (observed_ip.find(thread_ip) == observed_ip.end()) {
+    for (const ServerThread& st : hash_ring.get_unique_servers()) {
         TierMembership_Tier* tier = membership.add_tiers();
         tier->set_tier_id(tier_id);
-        tier->add_ips(thread_ip);
-
-        observed_ip.insert(thread_ip);
-      }
+        tier->add_ips(st.get_ip());
     }
   }
 

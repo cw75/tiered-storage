@@ -54,4 +54,4 @@ void address_handler(
     PendingMap<std::pair<Address, std::string>>& pending_key_request_map,
     unsigned& seed);
 
-#endif // SRC_INCLUDE_ROUTE_ROUTING_HANDLERS_HPP_
+#endif  // SRC_INCLUDE_ROUTE_ROUTING_HANDLERS_HPP_

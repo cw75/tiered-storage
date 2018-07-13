@@ -65,4 +65,4 @@ RES send_request(const REQ& req, zmq::socket_t& sending_socket,
   return response;
 }
 
-#endif // SRC_INCLUDE_REQUESTS_HPP_
+#endif  // SRC_INCLUDE_REQUESTS_HPP_

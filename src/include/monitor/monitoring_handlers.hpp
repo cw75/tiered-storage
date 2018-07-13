@@ -36,10 +36,10 @@ void depart_done_handler(
     bool& removing_ebs_node,
     std::chrono::time_point<std::chrono::system_clock>& grace_start);
 
-void feedback_handler(
-    zmq::socket_t* feedback_puller,
-    std::unordered_map<std::string, double>& user_latency,
-    std::unordered_map<std::string, double>& user_throughput,
-    std::unordered_map<Key, std::pair<double, unsigned>>& latency_miss_ratio_map);
+void feedback_handler(zmq::socket_t* feedback_puller,
+                      std::unordered_map<std::string, double>& user_latency,
+                      std::unordered_map<std::string, double>& user_throughput,
+                      std::unordered_map<Key, std::pair<double, unsigned>>&
+                          latency_miss_ratio_map);
 
-#endif // SRC_INCLUDE_MONITOR_MONITORING_HANDLERS_HPP_
+#endif  // SRC_INCLUDE_MONITOR_MONITORING_HANDLERS_HPP_

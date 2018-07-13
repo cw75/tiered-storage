@@ -164,4 +164,4 @@ void remove_node(std::shared_ptr<spdlog::logger> logger, ServerThread& node,
                  std::unordered_map<Address, unsigned>& departing_node_map,
                  MonitoringThread& mt);
 
-#endif // SRC_INCLUDE_MONITOR_MONITORING_UTILS_HPP_
+#endif  // SRC_INCLUDE_MONITOR_MONITORING_UTILS_HPP_

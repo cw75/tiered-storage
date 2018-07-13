@@ -190,4 +190,4 @@ struct PendingGossip {
   unsigned long long ts_;
 };
 
-#endif // SRC_INCLUDE_UTILS_SERVER_UTILS_HPP_
+#endif  // SRC_INCLUDE_UTILS_SERVER_UTILS_HPP_
