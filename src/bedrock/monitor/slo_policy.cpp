@@ -27,7 +27,8 @@ void slo_policy(
     std::unordered_map<Address, unsigned>& departing_node_map,
     SocketCache& pushers, zmq::socket_t& response_puller,
     std::vector<Address>& routing_address, unsigned& rid,
-    std::unordered_map<Key, std::pair<double, unsigned>>& latency_miss_ratio_map) {
+    std::unordered_map<Key, std::pair<double, unsigned>>&
+        latency_miss_ratio_map) {
   // check latency to trigger elasticity or selective replication
   std::unordered_map<Key, KeyInfo> requests;
   if (ss.avg_latency > kSloWorst && adding_memory_node == 0) {

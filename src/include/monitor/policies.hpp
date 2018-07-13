@@ -1,11 +1,11 @@
 //  Copyright 2018 U.C. Berkeley RISE Lab
-// 
+//
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
 //  You may obtain a copy of the License at
-// 
+//
 //      http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 //  Unless required by applicable law or agreed to in writing, software
 //  distributed under the License is distributed on an "AS IS" BASIS,
 //  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -38,9 +38,8 @@ void movement_policy(
     Address management_address, std::unordered_map<Key, KeyInfo>& placement,
     std::unordered_map<Key, unsigned>& key_access_summary,
     std::unordered_map<Key, unsigned>& key_size, MonitoringThread& mt,
-    SocketCache& pushers,
-    zmq::socket_t& response_puller, std::vector<Address>& routing_address,
-    unsigned& rid);
+    SocketCache& pushers, zmq::socket_t& response_puller,
+    std::vector<Address>& routing_address, unsigned& rid);
 
 void slo_policy(
     std::shared_ptr<spdlog::logger> logger,
@@ -54,6 +53,7 @@ void slo_policy(
     std::unordered_map<Address, unsigned>& departing_node_map,
     SocketCache& pushers, zmq::socket_t& response_puller,
     std::vector<Address>& routing_address, unsigned& rid,
-    std::unordered_map<Key, std::pair<double, unsigned>>& latency_miss_ratio_map);
+    std::unordered_map<Key, std::pair<double, unsigned>>&
+        latency_miss_ratio_map);
 
-#endif // SRC_INCLUDE_MONITOR_POLICIES_HPP_
+#endif  // SRC_INCLUDE_MONITOR_POLICIES_HPP_

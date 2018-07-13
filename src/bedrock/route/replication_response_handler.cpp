@@ -23,7 +23,6 @@ void replication_response_handler(
     std::unordered_map<Key, KeyInfo>& placement,
     PendingMap<std::pair<Address, std::string>>& pending_key_request_map,
     unsigned& seed) {
-
   std::string change_string = zmq_util::recv_string(replication_factor_puller);
   KeyResponse response;
   response.ParseFromString(change_string);
@@ -64,7 +63,8 @@ void replication_response_handler(
                                      local_hash_ring_map[1], pushers, seed);
     return;
   } else {
-    logger->error("Unexpected error type {} in replication factor response.", error);
+    logger->error("Unexpected error type {} in replication factor response.",
+                  error);
     return;
   }
 

@@ -108,8 +108,8 @@ void issue_replication_factor_request(const Address& respond_address,
   key_request.set_type(get_request_type("GET"));
   key_request.set_response_address(respond_address);
 
-  prepare_get_tuple(
-      key_request, kMetadataIdentifier + "_" + key + "_replication");
+  prepare_get_tuple(key_request,
+                    kMetadataIdentifier + "_" + key + "_replication");
   push_request(key_request, pushers[target_address]);
 }
 
@@ -193,9 +193,8 @@ std::vector<Address> get_address_from_routing(UserThread& ut, const Key& key,
 
     rid += 1;
 
-    address_response =
-        send_request<KeyAddressRequest, KeyAddressResponse>(
-            address_request, sending_socket, receiving_socket, succeed);
+    address_response = send_request<KeyAddressRequest, KeyAddressResponse>(
+        address_request, sending_socket, receiving_socket, succeed);
 
     if (!succeed) {
       return result;

@@ -31,7 +31,6 @@ void prepare_replication_factor_update(
     std::unordered_map<Address, ReplicationFactorUpdate>&
         replication_factor_map,
     Address server_address, std::unordered_map<Key, KeyInfo>& placement) {
-
   ReplicationFactor* rf = replication_factor_map[server_address].add_key_reps();
   rf->set_key(key);
 

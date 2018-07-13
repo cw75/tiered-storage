@@ -22,7 +22,6 @@ void address_handler(
     std::unordered_map<Key, KeyInfo>& placement,
     PendingMap<std::pair<Address, std::string>>& pending_key_request_map,
     unsigned& seed) {
-
   logger->info("Received key address request.");
   std::string serialized = zmq_util::recv_string(key_address_puller);
   KeyAddressRequest addr_request;
@@ -73,13 +72,13 @@ void address_handler(
         tp->add_ips(thread.get_request_pulling_connect_addr());
       }
     }
-
   }
 
   if (respond) {
     std::string serialized;
     addr_response.SerializeToString(&serialized);
 
-    zmq_util::send_string(serialized, &pushers[addr_request.response_address()]);
+    zmq_util::send_string(serialized,
+                          &pushers[addr_request.response_address()]);
   }
 }

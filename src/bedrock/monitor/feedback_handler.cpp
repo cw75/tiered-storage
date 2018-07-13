@@ -14,11 +14,11 @@
 
 #include "monitor/monitoring_handlers.hpp"
 
-void feedback_handler(
-    zmq::socket_t* feedback_puller,
-    std::unordered_map<std::string, double>& user_latency,
-    std::unordered_map<std::string, double>& user_throughput,
-    std::unordered_map<Key, std::pair<double, unsigned>>& latency_miss_ratio_map) {
+void feedback_handler(zmq::socket_t* feedback_puller,
+                      std::unordered_map<std::string, double>& user_latency,
+                      std::unordered_map<std::string, double>& user_throughput,
+                      std::unordered_map<Key, std::pair<double, unsigned>>&
+                          latency_miss_ratio_map) {
   std::string serialized_feedback = zmq_util::recv_string(feedback_puller);
   UserFeedback fb;
   fb.ParseFromString(serialized_feedback);
@@ -40,7 +40,9 @@ void feedback_handler(
         latency_miss_ratio_map[key].second = 1;
       } else {
         latency_miss_ratio_map[key].first =
-            (latency_miss_ratio_map[key].first * latency_miss_ratio_map[key].second + observed_key_latency / kSloWorst) /
+            (latency_miss_ratio_map[key].first *
+                 latency_miss_ratio_map[key].second +
+             observed_key_latency / kSloWorst) /
             (latency_miss_ratio_map[key].second + 1);
         latency_miss_ratio_map[key].second += 1;
       }

@@ -24,7 +24,6 @@ void gossip_handler(
     PendingMap<PendingGossip>& pending_gossip_map,
     std::unordered_map<Key, KeyInfo>& placement, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers) {
-
   std::string gossip_string = zmq_util::recv_string(gossip_puller);
   KeyRequest gossip;
   gossip.ParseFromString(gossip_string);
@@ -51,7 +50,8 @@ void gossip_handler(
           for (const ServerThread& thread : threads) {
             if (gossip_map.find(thread.get_gossip_connect_addr()) ==
                 gossip_map.end()) {
-              gossip_map[thread.get_gossip_connect_addr()].set_type(get_request_type("PUT"));
+              gossip_map[thread.get_gossip_connect_addr()].set_type(
+                  get_request_type("PUT"));
             }
 
             prepare_put_tuple(gossip_map[thread.get_gossip_connect_addr()], key,

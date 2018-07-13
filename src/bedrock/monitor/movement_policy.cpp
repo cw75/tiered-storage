@@ -25,15 +25,16 @@ void movement_policy(
     Address management_address, std::unordered_map<Key, KeyInfo>& placement,
     std::unordered_map<Key, unsigned>& key_access_summary,
     std::unordered_map<Key, unsigned>& key_size, MonitoringThread& mt,
-    SocketCache& pushers,
-    zmq::socket_t& response_puller, std::vector<Address>& routing_address,
-    unsigned& rid) {
+    SocketCache& pushers, zmq::socket_t& response_puller,
+    std::vector<Address>& routing_address, unsigned& rid) {
   // promote hot keys to memory tier
   std::unordered_map<Key, KeyInfo> requests;
   unsigned total_rep_to_change = 0;
   unsigned long long required_storage = 0;
-  unsigned free_storage = (kMaxMemoryNodeConsumption * kTierDataMap[1].node_capacity_ *
-                           memory_node_number - ss.total_memory_consumption);
+  unsigned free_storage =
+      (kMaxMemoryNodeConsumption * kTierDataMap[1].node_capacity_ *
+           memory_node_number -
+       ss.total_memory_consumption);
   bool overflow = false;
 
   for (const auto& key_access_pair : key_access_summary) {
@@ -41,7 +42,8 @@ void movement_policy(
     unsigned total_access = key_access_pair.second;
 
     if (!is_metadata(key) && total_access > kKeyPromotionThreshold &&
-        placement[key].global_replication_map_[1] == 0 && key_size.find(key) != key_size.end()) {
+        placement[key].global_replication_map_[1] == 0 &&
+        key_size.find(key) != key_size.end()) {
       required_storage += key_size[key];
       if (required_storage > free_storage) {
         overflow = true;
@@ -82,7 +84,8 @@ void movement_policy(
 
   // demote cold keys to ebs tier
   free_storage = (kMaxEbsNodeConsumption * kTierDataMap[2].node_capacity_ *
-                  ebs_node_number - ss.total_ebs_consumption);
+                      ebs_node_number -
+                  ss.total_ebs_consumption);
   overflow = false;
 
   for (const auto& key_access_pair : key_access_summary) {
@@ -90,7 +93,8 @@ void movement_policy(
     unsigned total_access = key_access_pair.second;
 
     if (!is_metadata(key) && total_access < kKeyDemotionThreshold &&
-        placement[key].global_replication_map_[1] > 0 && key_size.find(key) != key_size.end()) {
+        placement[key].global_replication_map_[1] > 0 &&
+        key_size.find(key) != key_size.end()) {
       required_storage += key_size[key];
       if (required_storage > free_storage) {
         overflow = true;

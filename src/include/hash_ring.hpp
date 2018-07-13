@@ -1,11 +1,11 @@
 //  Copyright 2018 U.C. Berkeley RISE Lab
-// 
+//
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
 //  You may obtain a copy of the License at
-// 
+//
 //      http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 //  Unless required by applicable law or agreed to in writing, software
 //  distributed under the License is distributed on an "AS IS" BASIS,
 //  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -92,7 +92,8 @@ inline void warmup_placement_to_defaults(
   }
 }
 
-inline void init_replication(std::unordered_map<Key, KeyInfo>& placement, const Key& key) {
+inline void init_replication(std::unordered_map<Key, KeyInfo>& placement,
+                             const Key& key) {
   for (const unsigned& tier_id : kAllTierIds) {
     placement[key].global_replication_map_[tier_id] =
         kTierDataMap[tier_id].default_replication_;
@@ -100,4 +101,4 @@ inline void init_replication(std::unordered_map<Key, KeyInfo>& placement, const 
   }
 }
 
-#endif // SRC_INCLUDE_HASH_RING_HPP_
+#endif  // SRC_INCLUDE_HASH_RING_HPP_
