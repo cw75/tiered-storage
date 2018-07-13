@@ -28,7 +28,7 @@ else
 fi
 
 echo "Starting local server..."
-./scripts/start_local.sh $BUILD n
+./scripts/start-local.sh $BUILD n
 
 echo "Running tests..."
 ./build/src/cli/flcli tests/simple/input > tmp.out
@@ -46,5 +46,5 @@ fi
 
 rm tmp.out
 echo "Stopping local server..."
-./scripts/stop_local.sh y
+./scripts/stop-local.sh y
 exit $CODE
