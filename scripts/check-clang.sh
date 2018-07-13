@@ -16,9 +16,8 @@
 
 cd build && make clang-format && cd ..
 
-# see if any files were modified by clang-format
-FILES=`git status | grep modified`
-MODIFIED=`$FILES | wc -l`
+FILES=`git status --porcelain`
+MODIFIED=`git status --porcelain | wc -l`
 
 if [[ $MODIFIED -gt 0 ]]; then
   echo "clang-format check failed. The following files had style issues:\n"
