@@ -38,7 +38,7 @@ void self_depart_handler(
       GlobalHashRing hash_ring = global_pair.second;
 
       for (const ServerThread& st : hash_ring.get_unique_servers()) {
-        zmq_util::send_string(msg, &pushers[st.get_node_depart_connect_addr()]);
+        kZmqMessagingInterface->send_string(msg, &pushers[st.get_node_depart_connect_addr()]);
       }
     }
 
@@ -46,19 +46,19 @@ void self_depart_handler(
 
     // notify all routing nodes
     for (const std::string& address : routing_address) {
-      zmq_util::send_string(
+      kZmqMessagingInterface->send_string(
           msg, &pushers[RoutingThread(address, 0).get_notify_connect_addr()]);
     }
 
     // notify monitoring nodes
     for (const std::string& address : monitoring_address) {
-      zmq_util::send_string(
+      kZmqMessagingInterface->send_string(
           msg, &pushers[MonitoringThread(address).get_notify_connect_addr()]);
     }
 
     // tell all worker threads about the self departure
     for (unsigned tid = 1; tid < kThreadNum; tid++) {
-      zmq_util::send_string(
+      kZmqMessagingInterface->send_string(
           ack_addr,
           &pushers[ServerThread(ip, tid).get_self_depart_connect_addr()]);
     }
@@ -86,6 +86,6 @@ void self_depart_handler(
   }
 
   send_gossip(addr_keyset_map, pushers, serializer);
-  zmq_util::send_string(ip + "_" + std::to_string(kSelfTierId),
+  kZmqMessagingInterface->send_string(ip + "_" + std::to_string(kSelfTierId),
                         &pushers[ack_addr]);
 }

@@ -47,7 +47,7 @@ RES send_request(const REQ& req, zmq::socket_t& sending_socket,
                  zmq::socket_t& receiving_socket, bool& succeed) {
   std::string serialized_req;
   req.SerializeToString(&serialized_req);
-  zmq_util::send_string(serialized_req, &sending_socket);
+  kZmqMessagingInterface->send_string(serialized_req, &sending_socket);
 
   RES response;
   zmq::message_t message;

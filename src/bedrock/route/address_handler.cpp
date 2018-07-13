@@ -78,7 +78,7 @@ void address_handler(
     std::string serialized;
     addr_response.SerializeToString(&serialized);
 
-    zmq_util::send_string(serialized,
+    kZmqMessagingInterface->send_string(serialized,
                           &pushers[addr_request.response_address()]);
   }
 }

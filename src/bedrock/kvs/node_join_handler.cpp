@@ -42,7 +42,7 @@ void node_join_handler(
     // own machine
     if (thread_id == 0) {
       // send my IP to the new server node
-      zmq_util::send_string(std::to_string(kSelfTierId) + ":" + ip,
+      kZmqMessagingInterface->send_string(std::to_string(kSelfTierId) + ":" + ip,
                             &pushers[ServerThread(new_server_ip, 0)
                                          .get_node_join_connect_addr()]);
 
@@ -56,7 +56,7 @@ void node_join_handler(
           std::string server_ip = st.get_ip();
           if (server_ip.compare(ip) != 0 &&
               server_ip.compare(new_server_ip) != 0) {
-            zmq_util::send_string(message,
+            kZmqMessagingInterface->send_string(message,
                                   &pushers[st.get_node_join_connect_addr()]);
           }
         }
@@ -68,7 +68,7 @@ void node_join_handler(
 
       // tell all worker threads about the new node join
       for (unsigned tid = 1; tid < kThreadNum; tid++) {
-        zmq_util::send_string(
+        kZmqMessagingInterface->send_string(
             message,
             &pushers[ServerThread(ip, tid).get_node_join_connect_addr()]);
       }

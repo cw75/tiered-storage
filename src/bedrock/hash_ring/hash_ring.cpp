@@ -107,7 +107,9 @@ void issue_replication_factor_request(const Address& respond_address,
   key_request.set_response_address(respond_address);
 
   prepare_get_tuple(key_request, replication_key);
-  push_request(key_request, pushers[target_address]);
+  std::string serialized;
+  key_request.SerializeToString(&serialized);
+  kZmqMessagingInterface->send_string(serialized, &pushers[target_address]);
 }
 
 // get all threads responsible for a key from the "node_type" tier

@@ -114,7 +114,7 @@ void user_request_handler(
   if (response.tuples_size() > 0 && request.has_response_address()) {
     std::string serialized_response;
     response.SerializeToString(&serialized_response);
-    zmq_util::send_string(serialized_response,
+    kZmqMessagingInterface->send_string(serialized_response,
                           &pushers[request.response_address()]);
   }
 }

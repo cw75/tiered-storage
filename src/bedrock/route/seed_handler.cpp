@@ -37,5 +37,5 @@ void seed_handler(
 
   std::string serialized;
   membership.SerializeToString(&serialized);
-  zmq_util::send_string(serialized, addr_responder);
+  kZmqMessagingInterface->send_string(serialized, addr_responder);
 }

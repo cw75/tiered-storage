@@ -24,6 +24,10 @@ unsigned kBenchmarkThreadNum;
 unsigned kRoutingThreadCount;
 unsigned kDefaultLocalReplication;
 
+ZmqMessaging zm;
+
+ZmqMessagingInterface* kZmqMessagingInterface = &zm;
+
 double get_base(unsigned N, double skew) {
   double base = 0;
   for (unsigned k = 1; k <= N; k++) {
@@ -421,7 +425,7 @@ void run(unsigned thread_id, std::string ip,
             feedback.SerializeToString(&serialized_latency);
 
             for (const MonitoringThread& thread : monitoring_threads) {
-              zmq_util::send_string(
+              kZmqMessagingInterface->send_string(
                   serialized_latency,
                   &pushers[thread.get_latency_report_connect_addr()]);
             }
@@ -455,7 +459,7 @@ void run(unsigned thread_id, std::string ip,
         feedback.SerializeToString(&serialized_latency);
 
         for (const MonitoringThread& thread : monitoring_threads) {
-          zmq_util::send_string(
+          kZmqMessagingInterface->send_string(
               serialized_latency,
               &pushers[thread.get_latency_report_connect_addr()]);
         }

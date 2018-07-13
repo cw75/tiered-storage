@@ -105,7 +105,7 @@ void rep_factor_response_handler(
 
           std::string serialized_response;
           response.SerializeToString(&serialized_response);
-          zmq_util::send_string(serialized_response, &pushers[request.addr_]);
+          kZmqMessagingInterface->send_string(serialized_response, &pushers[request.addr_]);
         } else if (responsible && request.addr_ == "") {
           // only put requests should fall into this category
           if (request.type_ == "P") {
@@ -157,7 +157,7 @@ void rep_factor_response_handler(
 
           std::string serialized_response;
           response.SerializeToString(&serialized_response);
-          zmq_util::send_string(serialized_response, &pushers[request.addr_]);
+          kZmqMessagingInterface->send_string(serialized_response, &pushers[request.addr_]);
         }
       }
     } else {
@@ -195,7 +195,9 @@ void rep_factor_response_handler(
 
         // redirect gossip
         for (const auto& gossip_pair : gossip_map) {
-          push_request(gossip_pair.second, pushers[gossip_pair.first]);
+          std::string serialized;
+          gossip_pair.second.SerializeToString(&serialized);
+          kZmqMessagingInterface->send_string(serialized, &pushers[gossip_pair.first]);
         }
       }
     } else {

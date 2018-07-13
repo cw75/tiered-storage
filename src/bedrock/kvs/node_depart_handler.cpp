@@ -35,7 +35,7 @@ void node_depart_handler(
   if (thread_id == 0) {
     // tell all worker threads about the node departure
     for (unsigned tid = 1; tid < kThreadNum; tid++) {
-      zmq_util::send_string(
+      kZmqMessagingInterface->send_string(
           message,
           &pushers[ServerThread(ip, tid).get_node_depart_connect_addr()]);
     }

@@ -28,6 +28,10 @@ unsigned kMinimumReplicaNumber;
 // read-only per-tier metadata
 std::unordered_map<unsigned, TierData> kTierDataMap;
 
+ZmqMessaging zm;
+
+ZmqMessagingInterface* kZmqMessagingInterface = &zm;
+
 int main(int argc, char *argv[]) {
   auto logger = spdlog::basic_logger_mt("monitoring_logger", "log.txt", true);
   logger->flush_on(spdlog::level::info);

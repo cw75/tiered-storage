@@ -74,6 +74,8 @@ void gossip_handler(
 
   // redirect gossip
   for (const auto& gossip_pair : gossip_map) {
-    push_request(gossip_pair.second, pushers[gossip_pair.first]);
+    std::string serialized;
+    gossip_pair.second.SerializeToString(&serialized);
+    kZmqMessagingInterface->send_string(serialized, &pushers[gossip_pair.first]);
   }
 }

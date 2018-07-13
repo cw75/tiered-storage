@@ -19,6 +19,10 @@ std::unordered_map<unsigned, TierData> kTierDataMap;
 unsigned kDefaultLocalReplication;
 unsigned kRoutingThreadCount;
 
+ZmqMessaging zm;
+
+ZmqMessagingInterface* kZmqMessagingInterface = &zm;
+
 void run(unsigned thread_id, Address ip,
          std::vector<Address> monitoring_addresses) {
   std::string log_file = "log_" + std::to_string(thread_id) + ".txt";
@@ -42,7 +46,7 @@ void run(unsigned thread_id, Address ip,
   if (thread_id == 0) {
     // notify monitoring nodes
     for (const std::string &address : monitoring_addresses) {
-      zmq_util::send_string(
+      kZmqMessagingInterface->send_string(
           "join:0:" + ip,
           &pushers[MonitoringThread(address).get_notify_connect_addr()]);
     }

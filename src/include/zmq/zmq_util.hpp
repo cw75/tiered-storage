@@ -55,4 +55,23 @@ int poll(long timeout, std::vector<zmq::pollitem_t>* items);
 
 }  // namespace zmq_util
 
+class ZmqMessagingInterface {
+public:
+  virtual void send_string(const std::string& s, zmq::socket_t* socket) = 0;
+};
+
+class ZmqMessaging: public ZmqMessagingInterface {
+public:
+  virtual void send_string(const std::string& s, zmq::socket_t* socket) {
+    zmq_util::send_string(s, socket);
+  }
+};
+
+class MockMessaging: public ZmqMessagingInterface {
+public:
+  virtual void send_string(const std::string& s, zmq::socket_t* socket) {}
+};
+
+extern ZmqMessagingInterface* kZmqMessagingInterface;
+
 #endif  // SRC_INCLUDE_ZMQ_ZMQ_UTIL_HPP_

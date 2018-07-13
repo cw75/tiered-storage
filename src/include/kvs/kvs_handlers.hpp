@@ -16,6 +16,7 @@
 #define SRC_INCLUDE_KVS_KVS_HANDLERS_HPP_
 
 #include "hash_ring.hpp"
+#include "requests.hpp"
 #include "spdlog/spdlog.h"
 #include "utils/server_utils.hpp"
 

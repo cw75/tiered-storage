@@ -47,7 +47,7 @@ void membership_handler(
             // if the node is not the newly joined node, send the ip of the
             // newly joined node
             if (st.get_ip().compare(new_server_ip) != 0) {
-              zmq_util::send_string(std::to_string(tier) + ":" + new_server_ip,
+              kZmqMessagingInterface->send_string(std::to_string(tier) + ":" + new_server_ip,
                                     &pushers[st.get_node_join_connect_addr()]);
             }
           }
@@ -55,7 +55,7 @@ void membership_handler(
 
         // tell all worker threads about the message
         for (unsigned tid = 1; tid < kRoutingThreadCount; tid++) {
-          zmq_util::send_string(
+          kZmqMessagingInterface->send_string(
               message,
               &pushers[RoutingThread(ip, tid).get_notify_connect_addr()]);
         }
@@ -75,7 +75,7 @@ void membership_handler(
     if (thread_id == 0) {
       // tell all worker threads about the message
       for (unsigned tid = 1; tid < kRoutingThreadCount; tid++) {
-        zmq_util::send_string(
+        kZmqMessagingInterface->send_string(
             message,
             &pushers[RoutingThread(ip, tid).get_notify_connect_addr()]);
       }

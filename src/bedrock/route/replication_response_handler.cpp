@@ -101,7 +101,7 @@ void replication_response_handler(
 
       std::string serialized;
       key_res.SerializeToString(&serialized);
-      zmq_util::send_string(serialized, &pushers[pending_key_req.first]);
+      kZmqMessagingInterface->send_string(serialized, &pushers[pending_key_req.first]);
     }
 
     pending_key_request_map.erase(key);

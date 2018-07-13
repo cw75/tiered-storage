@@ -37,6 +37,10 @@ unsigned kDefaultLocalReplication;
 
 std::unordered_map<unsigned, TierData> kTierDataMap;
 
+ZmqMessaging zm;
+
+ZmqMessagingInterface* kZmqMessagingInterface = &zm;
+
 void run(unsigned thread_id, Address ip, Address seed_ip,
          std::vector<Address> routing_addresses,
          std::vector<Address> monitoring_addresses) {
@@ -74,7 +78,7 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
   // request server addresses from the seed node
   zmq::socket_t addr_requester(context, ZMQ_REQ);
   addr_requester.connect(RoutingThread(seed_ip, 0).get_seed_connect_addr());
-  zmq_util::send_string("join", &addr_requester);
+  kZmqMessagingInterface->send_string("join", &addr_requester);
 
   // receive and add all the addresses that seed node sent
   std::string serialized_addresses = zmq_util::recv_string(&addr_requester);
@@ -113,7 +117,7 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
 
       for (const ServerThread& st : hash_ring.get_unique_servers()) {
         if (st.get_ip().compare(ip) != 0) {
-          zmq_util::send_string(std::to_string(kSelfTierId) + ":" + ip,
+          kZmqMessagingInterface->send_string(std::to_string(kSelfTierId) + ":" + ip,
                                 &pushers[st.get_node_join_connect_addr()]);
         }
       }
@@ -123,13 +127,13 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
 
     // notify proxies that this node has joined
     for (const std::string& address : routing_addresses) {
-      zmq_util::send_string(
+      kZmqMessagingInterface->send_string(
           msg, &pushers[RoutingThread(address, 0).get_notify_connect_addr()]);
     }
 
     // notify monitoring nodes that this node has joined
     for (const std::string& address : monitoring_addresses) {
-      zmq_util::send_string(
+      kZmqMessagingInterface->send_string(
           msg, &pushers[MonitoringThread(address).get_notify_connect_addr()]);
     }
   }
@@ -409,7 +413,9 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
         Address target_address =
             next(begin(threads), rand_r(&seed) % threads.size())
                 ->get_request_pulling_connect_addr();
-        push_request(req, pushers[target_address]);
+        std::string serialized;
+        req.SerializeToString(&serialized);
+        kZmqMessagingInterface->send_string(serialized, &pushers[target_address]);
       }
 
       // compute key access stats
@@ -453,7 +459,9 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
         Address target_address =
             next(begin(threads), rand_r(&seed) % threads.size())
                 ->get_request_pulling_connect_addr();
-        push_request(req, pushers[target_address]);
+        std::string serialized;
+        req.SerializeToString(&serialized);
+        kZmqMessagingInterface->send_string(serialized, &pushers[target_address]);
       }
 
       // report key size stats
@@ -484,7 +492,9 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
         Address target_address =
             next(begin(threads), rand_r(&seed) % threads.size())
                 ->get_request_pulling_connect_addr();
-        push_request(req, pushers[target_address]);
+        std::string serialized;
+        req.SerializeToString(&serialized);
+        kZmqMessagingInterface->send_string(serialized, &pushers[target_address]);
       }
 
       report_start = std::chrono::system_clock::now();
