@@ -15,7 +15,6 @@ class ConsistentHashMap {
   typedef value_type& reference;
   typedef const value_type& const_reference;
   typedef typename map_type::iterator iterator;
-  typedef typename map_type::reverse_iterator reverse_iterator;
   typedef Alloc allocator_type;
 
  public:
@@ -59,10 +58,6 @@ class ConsistentHashMap {
   iterator begin() { return nodes_.begin(); }
 
   iterator end() { return nodes_.end(); }
-
-  reverse_iterator rbegin() { return nodes_.rbegin(); }
-
-  reverse_iterator rend() { return nodes_.rend(); }
 
  private:
   Hash hasher_;

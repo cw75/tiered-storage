@@ -1,11 +1,44 @@
 #ifndef SRC_INCLUDE_HASH_RING_HPP_
 #define SRC_INCLUDE_HASH_RING_HPP_
 
+#include <map>
+
 #include "hashers.hpp"
 #include "utils/consistent_hash_map.hpp"
 
-typedef ConsistentHashMap<ServerThread, GlobalHasher> GlobalHashRing;
-typedef ConsistentHashMap<ServerThread, LocalHasher> LocalHashRing;
+template <typename H>
+class HashRing : public ConsistentHashMap<ServerThread, H> {
+  public: 
+    HashRing() {}
+
+    ~HashRing() {}
+
+  public: 
+    std::pair<typename ConsistentHashMap<ServerThread, H>::iterator, bool> insert(ServerThread st) {
+      auto result = ConsistentHashMap<ServerThread, H>::insert(st);
+
+      if (result.second) {
+        unique_ips.insert(st.get_ip());
+      }
+
+      return result;
+    }
+
+    void erase(ServerThread st) {
+      unique_ips.erase(st.get_ip());
+      ConsistentHashMap<ServerThread, H>::erase(st);
+    }
+
+    std::unordered_set<std::string> get_unique_ips() {
+      return unique_ips;
+    }
+
+  protected:
+    std::unordered_set<std::string> unique_ips;
+};
+
+typedef HashRing<GlobalHasher> GlobalHashRing;
+typedef HashRing<LocalHasher> LocalHashRing;
 
 template <typename H>
 bool insert_to_hash_ring(H& hash_ring, Address ip, unsigned tid) {

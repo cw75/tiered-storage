@@ -41,7 +41,7 @@ void storage_policy(
 
     if (time_elapsed > kGracePeriod) {
       // pick a random ebs node and send remove node command
-      auto node = next(begin(global_hash_ring_map[2]),
+      auto node = next(global_hash_ring_map[2].begin(),
                        rand() % global_hash_ring_map[2].size())
                       ->second;
       remove_node(logger, node, "ebs", removing_ebs_node, pushers,
