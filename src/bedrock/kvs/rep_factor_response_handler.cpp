@@ -23,7 +23,7 @@ void rep_factor_response_handler(
   KeyResponse response;
   response.ParseFromString(change_string);
 
-  logger->info("Received replication factor response.")
+  logger->info("Received replication factor response.");
 
   // we assume tuple 0 because there should only be one tuple responding to a
   // replication factor request
@@ -161,7 +161,7 @@ void rep_factor_response_handler(
   }
 
   if (pending_gossip_map.find(key) != pending_gossip_map.end()) {
-    logger->info("Recevied gossip.")
+    logger->info("Recevied gossip.");
     ServerThreadSet threads = get_responsible_threads(
         wt.get_replication_factor_connect_addr(), key, is_metadata(key),
         global_hash_ring_map, local_hash_ring_map, placement, pushers,
@@ -190,7 +190,7 @@ void rep_factor_response_handler(
         for (const auto& gossip_pair : gossip_map) {
           push_request(gossip_pair.second, pushers[gossip_pair.first]);
         }
-        logger->info("Forwarded gossip to responsible threads.")
+        logger->info("Forwarded gossip to responsible threads.");
       }
     } else {
       logger->error(

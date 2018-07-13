@@ -21,6 +21,8 @@ void user_request_handler(
   KeyRequest request;
   request.ParseFromString(req_string);
 
+  logger->info("Recevied user requests.");
+
   KeyResponse response;
   std::string response_id = "";
 
@@ -99,5 +101,6 @@ void user_request_handler(
     std::string serialized_response;
     response.SerializeToString(&serialized_response);
     zmq_util::send_string(serialized_response, &pushers[request.response_address()]);
+    logger->info("Sent response of size {} to user.", response.tuples_size());
   }
 }

@@ -15,7 +15,7 @@ void gossip_handler(
   std::string gossip_string = zmq_util::recv_string(gossip_puller);
   KeyRequest gossip;
   gossip.ParseFromString(gossip_string);
-  logger->info("Recevied gossip.")
+  logger->info("Recevied gossip.");
 
   bool succeed;
   std::unordered_map<Address, KeyRequest> gossip_map;
@@ -45,7 +45,7 @@ void gossip_handler(
             prepare_put_tuple(gossip_map[thread.get_gossip_connect_addr()], key,
                               tuple.value(), tuple.timestamp());
           }
-          logger->info("Forwarded metadata gossip.")
+          logger->info("Forwarded metadata gossip.");
         } else {
           issue_replication_factor_request(
               wt.get_replication_factor_connect_addr(), key,
@@ -54,7 +54,7 @@ void gossip_handler(
           pending_gossip_map[key].push_back(
               PendingGossip(tuple.value(), tuple.timestamp()));
 
-          logger->info("Issued replication factor request.")
+          logger->info("Issued replication factor request.");
         }
       }
     } else {
