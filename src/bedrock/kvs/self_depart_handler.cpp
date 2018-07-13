@@ -22,16 +22,10 @@ void self_depart_handler(
 
     for (const auto& global_pair : global_hash_ring_map) {
       GlobalHashRing hash_ring = global_pair.second;
-      std::unordered_set<Address> observed_ip;
 
-      for (const auto& hash_pair : hash_ring) {
-        std::string this_ip = hash_pair.second.get_ip();
-
-        if (observed_ip.find(this_ip) == observed_ip.end()) {
-          zmq_util::send_string(
-              msg, &pushers[hash_pair.second.get_node_depart_connect_addr()]);
-          observed_ip.insert(this_ip);
-        }
+      for (const ServerThread& st : hash_ring.get_unique_servers()) {
+        zmq_util::send_string(
+            msg, &pushers[st.get_node_depart_connect_addr()]);
       }
     }
 

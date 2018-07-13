@@ -1,8 +1,6 @@
 #ifndef SRC_INCLUDE_HASH_RING_HPP_
 #define SRC_INCLUDE_HASH_RING_HPP_
 
-#include <map>
-
 #include "hashers.hpp"
 #include "utils/consistent_hash_map.hpp"
 
@@ -18,23 +16,23 @@ class HashRing : public ConsistentHashMap<ServerThread, H> {
       auto result = ConsistentHashMap<ServerThread, H>::insert(st);
 
       if (result.second) {
-        unique_ips.insert(st.get_ip());
+        unique_servers.insert(st);
       }
 
       return result;
     }
 
     void erase(ServerThread st) {
-      unique_ips.erase(st.get_ip());
+      unique_servers.erase(st);
       ConsistentHashMap<ServerThread, H>::erase(st);
     }
 
-    std::unordered_set<std::string> get_unique_ips() {
-      return unique_ips;
+    std::unordered_set<ServerThread, ThreadHash> get_unique_servers() {
+      return unique_servers;
     }
 
-  protected:
-    std::unordered_set<std::string> unique_ips;
+  private:
+    std::unordered_set<ServerThread, ThreadHash> unique_servers;
 };
 
 typedef HashRing<GlobalHasher> GlobalHashRing;
