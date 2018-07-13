@@ -1,0 +1,15 @@
+language: cpp
+sudo: required
+
+os: 
+  - linux
+dist: trusty
+
+compiler:
+  - clang
+
+before_script:
+  - ./scripts/travis_install.sh
+
+script:
+  - ./scripts/build.sh
