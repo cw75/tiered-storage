@@ -17,8 +17,8 @@ void feedback_handler(
     user_latency[fb.uid()] = fb.latency();
     user_throughput[fb.uid()] = fb.throughput();
 
-    logger->info("User latency is {}", fb.latency());
-    logger->info("User throughput is {}", fb.throughput());
+    logger->info("User latency is {}.", fb.latency());
+    logger->info("User throughput is {}.", fb.throughput());
 
     // collect replication factor adjustment factors
     for (const auto& key_latency_pair : fb.key_latency()) {
