@@ -1,5 +1,5 @@
-#ifndef __HASH_RING_H__
-#define __HASH_RING_H__
+#ifndef SRC_INCLUDE_HASH_RING_HPP_
+#define SRC_INCLUDE_HASH_RING_HPP_
 
 #include "hashers.hpp"
 #include "utils/consistent_hash_map.hpp"
@@ -86,4 +86,4 @@ inline void init_replication(std::unordered_map<Key, KeyInfo>& placement, const 
   }
 }
 
-#endif
+#endif // SRC_INCLUDE_HASH_RING_HPP_

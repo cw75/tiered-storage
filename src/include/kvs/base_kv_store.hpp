@@ -1,5 +1,5 @@
-#ifndef __BASE_KV_STORE_H__
-#define __BASE_KV_STORE_H__
+#ifndef SRC_INCLUDE_KVS_BASE_KV_STORE_HPP_
+#define SRC_INCLUDE_KVS_BASE_KV_STORE_HPP_
 
 #include "../lattices/core_lattices.hpp"
 
@@ -25,4 +25,4 @@ class KVStore {
   void remove(const K& k) { db.remove(k); }
 };
 
-#endif
+#endif // SRC_INCLUDE_KVS_BASE_KV_STORE_HPP_
