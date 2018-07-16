@@ -139,8 +139,8 @@ void handle_request(
   }
 
   bool succeed;
-  auto res = send_request<KeyRequest, KeyResponse>(
-      req, pushers[worker_address], response_puller, succeed);
+  auto res = send_request<KeyRequest, KeyResponse>(req, pushers[worker_address],
+                                                   response_puller, succeed);
 
   if (succeed) {
     KeyTuple tuple = res.tuples(0);
@@ -373,7 +373,8 @@ void run(unsigned thread_id, std::string ip,
             double key_latency =
                 (double)std::chrono::duration_cast<std::chrono::microseconds>(
                     req_end - req_start)
-                    .count() / 2;
+                    .count() /
+                2;
 
             if (observed_latency.find(key) == observed_latency.end()) {
               observed_latency[key].first = key_latency;

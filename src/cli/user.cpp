@@ -112,8 +112,8 @@ void handle_request(
   }
 
   bool succeed;
-  auto res = send_request<KeyRequest, KeyResponse>(
-      req, pushers[worker_address], response_puller, succeed);
+  auto res = send_request<KeyRequest, KeyResponse>(req, pushers[worker_address],
+                                                   response_puller, succeed);
 
   if (succeed) {
     KeyTuple tuple = res.tuples(0);
@@ -144,8 +144,8 @@ void handle_request(
         key_address_cache.erase(key);
       }
       if (value == "" && tuple.error() == 0) {
-        std::cout << "value of key " + tuple.key() + " is " +
-                         tuple.value() + "\n";
+        std::cout << "value of key " + tuple.key() + " is " + tuple.value() +
+                         "\n";
       } else if (value == "" && tuple.error() == 1) {
         std::cout << "key " + tuple.key() + " does not exist\n";
       } else if (value != "") {

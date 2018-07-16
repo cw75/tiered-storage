@@ -32,7 +32,6 @@ void rep_factor_response_handler(
     std::unordered_map<Key, unsigned>& key_size_map,
     std::unordered_set<Key>& local_changeset, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers) {
-
   std::string change_string = zmq_util::recv_string(rep_factor_response_puller);
   KeyResponse response;
   response.ParseFromString(change_string);
@@ -46,7 +45,6 @@ void rep_factor_response_handler(
   Key key = tokens[1];
 
   unsigned error = tuple.error();
-
 
   if (error == 0) {
     ReplicationFactor rep_data;
@@ -74,7 +72,8 @@ void rep_factor_response_handler(
                                      local_hash_ring_map[1], pushers, seed);
     return;
   } else {
-    logger->error("Unexpected error type {} in replication factor response.", error);
+    logger->error("Unexpected error type {} in replication factor response.",
+                  error);
     return;
   }
 
@@ -188,7 +187,8 @@ void rep_factor_response_handler(
 
         // forward the gossip
         for (const ServerThread& thread : threads) {
-          gossip_map[thread.get_gossip_connect_addr()].set_type(get_request_type("PUT"));
+          gossip_map[thread.get_gossip_connect_addr()].set_type(
+              get_request_type("PUT"));
 
           for (const PendingGossip& gossip : pending_gossip_map[key]) {
             prepare_put_tuple(gossip_map[thread.get_gossip_connect_addr()], key,

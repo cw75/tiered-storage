@@ -24,7 +24,6 @@ void rep_factor_change_handler(
     std::unordered_map<Key, unsigned>& key_size_map,
     std::unordered_set<Key>& local_changeset, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers) {
-
   std::string change_string = zmq_util::recv_string(rep_factor_change_puller);
 
   // TODO(vikram): make logging in all handlers consistent

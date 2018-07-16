@@ -256,8 +256,8 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
     if (pollitems[3].revents & ZMQ_POLLIN) {
       auto work_start = std::chrono::system_clock::now();
 
-      user_request_handler(total_accesses, seed, &request_puller, start_time, logger,
-                           global_hash_ring_map, local_hash_ring_map,
+      user_request_handler(total_accesses, seed, &request_puller, start_time,
+                           logger, global_hash_ring_map, local_hash_ring_map,
                            key_size_map, pending_request_map,
                            key_access_timestamp, placement, local_changeset, wt,
                            serializer, pushers);
@@ -460,8 +460,8 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
       // report key size stats
       KeySizeData primary_key_size;
       for (const auto& key_size_pair : key_size_map) {
-        if (is_primary_replica(key_size_pair.first, placement, global_hash_ring_map,
-                        local_hash_ring_map, wt)) {
+        if (is_primary_replica(key_size_pair.first, placement,
+                               global_hash_ring_map, local_hash_ring_map, wt)) {
           KeySizeData_KeySize* ks = primary_key_size.add_key_sizes();
           ks->set_key(key_size_pair.first);
           ks->set_size(key_size_pair.second);
