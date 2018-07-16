@@ -73,8 +73,7 @@ void gossip_handler(
 
 void rep_factor_response_handler(
     unsigned& seed, unsigned& total_access,
-    std::shared_ptr<spdlog::logger> logger,
-    std::string& serialized,
+    std::shared_ptr<spdlog::logger> logger, std::string& serialized,
     std::chrono::system_clock::time_point& start_time,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
@@ -90,8 +89,7 @@ void rep_factor_response_handler(
 
 void rep_factor_change_handler(
     Address ip, unsigned thread_id, unsigned& seed,
-    std::shared_ptr<spdlog::logger> logger,
-    std::string& serialized,
+    std::shared_ptr<spdlog::logger> logger, std::string& serialized,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     std::unordered_map<Key, KeyInfo>& placement,

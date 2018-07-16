@@ -16,15 +16,13 @@
 
 void rep_factor_change_handler(
     Address ip, unsigned thread_id, unsigned& seed,
-    std::shared_ptr<spdlog::logger> logger,
-    std::string& serialized,
+    std::shared_ptr<spdlog::logger> logger, std::string& serialized,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     std::unordered_map<Key, KeyInfo>& placement,
     std::unordered_map<Key, unsigned>& key_size_map,
     std::unordered_set<Key>& local_changeset, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers) {
-
   // TODO(vikram): make logging in all handlers consistent
   logger->info("Received a replication factor change.");
   if (thread_id == 0) {
@@ -52,10 +50,11 @@ void rep_factor_change_handler(
 
     // if this thread was responsible for the key before the change
     if (key_size_map.find(key) != key_size_map.end()) {
-      ServerThreadSet orig_threads = kResponsibleThreadInterface->get_responsible_threads(
-          wt.get_replication_factor_connect_addr(), key, is_metadata(key),
-          global_hash_ring_map, local_hash_ring_map, placement, pushers,
-          kAllTierIds, succeed, seed);
+      ServerThreadSet orig_threads =
+          kResponsibleThreadInterface->get_responsible_threads(
+              wt.get_replication_factor_connect_addr(), key, is_metadata(key),
+              global_hash_ring_map, local_hash_ring_map, placement, pushers,
+              kAllTierIds, succeed, seed);
 
       if (succeed) {
         // update the replication factor
@@ -81,10 +80,11 @@ void rep_factor_change_handler(
               local.replication_factor();
         }
 
-        ServerThreadSet threads = kResponsibleThreadInterface->get_responsible_threads(
-            wt.get_replication_factor_connect_addr(), key, is_metadata(key),
-            global_hash_ring_map, local_hash_ring_map, placement, pushers,
-            kAllTierIds, succeed, seed);
+        ServerThreadSet threads =
+            kResponsibleThreadInterface->get_responsible_threads(
+                wt.get_replication_factor_connect_addr(), key, is_metadata(key),
+                global_hash_ring_map, local_hash_ring_map, placement, pushers,
+                kAllTierIds, succeed, seed);
 
         if (succeed) {
           if (threads.find(wt) == threads.end()) {  // this thread is no longer

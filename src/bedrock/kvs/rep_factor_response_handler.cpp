@@ -18,8 +18,7 @@
 
 void rep_factor_response_handler(
     unsigned& seed, unsigned& total_access,
-    std::shared_ptr<spdlog::logger> logger,
-    std::string& serialized,
+    std::shared_ptr<spdlog::logger> logger, std::string& serialized,
     std::chrono::system_clock::time_point& start_time,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
@@ -76,10 +75,11 @@ void rep_factor_response_handler(
   bool succeed;
 
   if (pending_request_map.find(key) != pending_request_map.end()) {
-    ServerThreadSet threads = kResponsibleThreadInterface->get_responsible_threads(
-        wt.get_replication_factor_connect_addr(), key, is_metadata(key),
-        global_hash_ring_map, local_hash_ring_map, placement, pushers,
-        kSelfTierIdVector, succeed, seed);
+    ServerThreadSet threads =
+        kResponsibleThreadInterface->get_responsible_threads(
+            wt.get_replication_factor_connect_addr(), key, is_metadata(key),
+            global_hash_ring_map, local_hash_ring_map, placement, pushers,
+            kSelfTierIdVector, succeed, seed);
 
     if (succeed) {
       bool responsible = threads.find(wt) != threads.end();
@@ -104,7 +104,8 @@ void rep_factor_response_handler(
 
           std::string serialized_response;
           response.SerializeToString(&serialized_response);
-          kZmqMessagingInterface->send_string(serialized_response, &pushers[request.addr_]);
+          kZmqMessagingInterface->send_string(serialized_response,
+                                              &pushers[request.addr_]);
         } else if (responsible && request.addr_ == "") {
           // only put requests should fall into this category
           if (request.type_ == "P") {
@@ -156,7 +157,8 @@ void rep_factor_response_handler(
 
           std::string serialized_response;
           response.SerializeToString(&serialized_response);
-          kZmqMessagingInterface->send_string(serialized_response, &pushers[request.addr_]);
+          kZmqMessagingInterface->send_string(serialized_response,
+                                              &pushers[request.addr_]);
         }
       }
     } else {
@@ -168,10 +170,11 @@ void rep_factor_response_handler(
   }
 
   if (pending_gossip_map.find(key) != pending_gossip_map.end()) {
-    ServerThreadSet threads = kResponsibleThreadInterface->get_responsible_threads(
-        wt.get_replication_factor_connect_addr(), key, is_metadata(key),
-        global_hash_ring_map, local_hash_ring_map, placement, pushers,
-        kSelfTierIdVector, succeed, seed);
+    ServerThreadSet threads =
+        kResponsibleThreadInterface->get_responsible_threads(
+            wt.get_replication_factor_connect_addr(), key, is_metadata(key),
+            global_hash_ring_map, local_hash_ring_map, placement, pushers,
+            kSelfTierIdVector, succeed, seed);
 
     if (succeed) {
       if (threads.find(wt) != threads.end()) {
@@ -196,7 +199,8 @@ void rep_factor_response_handler(
         for (const auto& gossip_pair : gossip_map) {
           std::string serialized;
           gossip_pair.second.SerializeToString(&serialized);
-          kZmqMessagingInterface->send_string(serialized, &pushers[gossip_pair.first]);
+          kZmqMessagingInterface->send_string(serialized,
+                                              &pushers[gossip_pair.first]);
         }
       }
     } else {

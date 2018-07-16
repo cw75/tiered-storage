@@ -119,8 +119,9 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
 
       for (const ServerThread& st : hash_ring.get_unique_servers()) {
         if (st.get_ip().compare(ip) != 0) {
-          kZmqMessagingInterface->send_string(std::to_string(kSelfTierId) + ":" + ip,
-                                &pushers[st.get_node_join_connect_addr()]);
+          kZmqMessagingInterface->send_string(
+              std::to_string(kSelfTierId) + ":" + ip,
+              &pushers[st.get_node_join_connect_addr()]);
         }
       }
     }
@@ -299,7 +300,8 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
     if (pollitems[5].revents & ZMQ_POLLIN) {
       auto work_start = std::chrono::system_clock::now();
 
-      std::string serialized = zmq_util::recv_string(&replication_factor_puller);
+      std::string serialized =
+          zmq_util::recv_string(&replication_factor_puller);
       rep_factor_response_handler(
           seed, total_accesses, logger, serialized, start_time,
           global_hash_ring_map, local_hash_ring_map, pending_request_map,
@@ -317,11 +319,12 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
     if (pollitems[6].revents & ZMQ_POLLIN) {
       auto work_start = std::chrono::system_clock::now();
 
-      std::string serialized = zmq_util::recv_string(&replication_factor_change_puller);
-      rep_factor_change_handler(
-          ip, thread_id, seed, logger, serialized,
-          global_hash_ring_map, local_hash_ring_map, placement, key_size_map,
-          local_changeset, wt, serializer, pushers);
+      std::string serialized =
+          zmq_util::recv_string(&replication_factor_change_puller);
+      rep_factor_change_handler(ip, thread_id, seed, logger, serialized,
+                                global_hash_ring_map, local_hash_ring_map,
+                                placement, key_size_map, local_changeset, wt,
+                                serializer, pushers);
 
       auto time_elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
                               std::chrono::system_clock::now() - work_start)
@@ -342,10 +345,11 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
 
         bool succeed;
         for (const Key& key : local_changeset) {
-          ServerThreadSet threads = kResponsibleThreadInterface->get_responsible_threads(
-              wt.get_replication_factor_connect_addr(), key, is_metadata(key),
-              global_hash_ring_map, local_hash_ring_map, placement, pushers,
-              kAllTierIds, succeed, seed);
+          ServerThreadSet threads =
+              kResponsibleThreadInterface->get_responsible_threads(
+                  wt.get_replication_factor_connect_addr(), key,
+                  is_metadata(key), global_hash_ring_map, local_hash_ring_map,
+                  placement, pushers, kAllTierIds, succeed, seed);
 
           if (succeed) {
             for (const ServerThread& thread : threads) {
@@ -424,7 +428,8 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
                 ->get_request_pulling_connect_addr();
         std::string serialized;
         req.SerializeToString(&serialized);
-        kZmqMessagingInterface->send_string(serialized, &pushers[target_address]);
+        kZmqMessagingInterface->send_string(serialized,
+                                            &pushers[target_address]);
       }
 
       // compute key access stats
@@ -470,7 +475,8 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
                 ->get_request_pulling_connect_addr();
         std::string serialized;
         req.SerializeToString(&serialized);
-        kZmqMessagingInterface->send_string(serialized, &pushers[target_address]);
+        kZmqMessagingInterface->send_string(serialized,
+                                            &pushers[target_address]);
       }
 
       // report key size stats
@@ -503,7 +509,8 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
                 ->get_request_pulling_connect_addr();
         std::string serialized;
         req.SerializeToString(&serialized);
-        kZmqMessagingInterface->send_string(serialized, &pushers[target_address]);
+        kZmqMessagingInterface->send_string(serialized,
+                                            &pushers[target_address]);
       }
 
       report_start = std::chrono::system_clock::now();

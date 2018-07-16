@@ -46,8 +46,9 @@ void membership_handler(
             // if the node is not the newly joined node, send the ip of the
             // newly joined node
             if (st.get_ip().compare(new_server_ip) != 0) {
-              kZmqMessagingInterface->send_string(std::to_string(tier) + ":" + new_server_ip,
-                                    &pushers[st.get_node_join_connect_addr()]);
+              kZmqMessagingInterface->send_string(
+                  std::to_string(tier) + ":" + new_server_ip,
+                  &pushers[st.get_node_join_connect_addr()]);
             }
           }
         }

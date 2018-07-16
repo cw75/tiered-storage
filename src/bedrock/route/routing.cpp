@@ -20,10 +20,10 @@ unsigned kDefaultLocalReplication;
 unsigned kRoutingThreadCount;
 
 ZmqMessaging zmq_messaging;
-ZmqMessagingInterface* kZmqMessagingInterface = &zmq_messaging;
+ZmqMessagingInterface *kZmqMessagingInterface = &zmq_messaging;
 
 ResponsibleThread responsible_thread;
-ResponsibleThreadInterface* kResponsibleThreadInterface = &responsible_thread;
+ResponsibleThreadInterface *kResponsibleThreadInterface = &responsible_thread;
 
 void run(unsigned thread_id, Address ip,
          std::vector<Address> monitoring_addresses) {
@@ -125,23 +125,25 @@ void run(unsigned thread_id, Address ip,
 
     // received replication factor response
     if (pollitems[2].revents & ZMQ_POLLIN) {
-      std::string serialized = zmq_util::recv_string(&replication_factor_puller);
-      replication_response_handler(
-          logger, serialized, pushers, rt, global_hash_ring_map,
-          local_hash_ring_map, placement, pending_key_request_map, seed);
+      std::string serialized =
+          zmq_util::recv_string(&replication_factor_puller);
+      replication_response_handler(logger, serialized, pushers, rt,
+                                   global_hash_ring_map, local_hash_ring_map,
+                                   placement, pending_key_request_map, seed);
     }
 
     if (pollitems[3].revents & ZMQ_POLLIN) {
-      std::string serialized = zmq_util::recv_string(&replication_factor_change_puller);
-      replication_change_handler(logger, serialized,
-                                 pushers, placement, thread_id, ip);
+      std::string serialized =
+          zmq_util::recv_string(&replication_factor_change_puller);
+      replication_change_handler(logger, serialized, pushers, placement,
+                                 thread_id, ip);
     }
 
     if (pollitems[4].revents & ZMQ_POLLIN) {
       std::string serialized = zmq_util::recv_string(&key_address_puller);
-      address_handler(logger, serialized, pushers, rt,
-                      global_hash_ring_map, local_hash_ring_map, placement,
-                      pending_key_request_map, seed);
+      address_handler(logger, serialized, pushers, rt, global_hash_ring_map,
+                      local_hash_ring_map, placement, pending_key_request_map,
+                      seed);
     }
   }
 }

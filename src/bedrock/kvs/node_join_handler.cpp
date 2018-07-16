@@ -41,9 +41,10 @@ void node_join_handler(
     // own machine
     if (thread_id == 0) {
       // send my IP to the new server node
-      kZmqMessagingInterface->send_string(std::to_string(kSelfTierId) + ":" + ip,
-                            &pushers[ServerThread(new_server_ip, 0)
-                                         .get_node_join_connect_addr()]);
+      kZmqMessagingInterface->send_string(
+          std::to_string(kSelfTierId) + ":" + ip,
+          &pushers[ServerThread(new_server_ip, 0)
+                       .get_node_join_connect_addr()]);
 
       // gossip the new node address between server nodes to ensure consistency
       for (const auto& global_pair : global_hash_ring_map) {
@@ -55,8 +56,8 @@ void node_join_handler(
           std::string server_ip = st.get_ip();
           if (server_ip.compare(ip) != 0 &&
               server_ip.compare(new_server_ip) != 0) {
-            kZmqMessagingInterface->send_string(message,
-                                  &pushers[st.get_node_join_connect_addr()]);
+            kZmqMessagingInterface->send_string(
+                serialized, &pushers[st.get_node_join_connect_addr()]);
           }
         }
 
@@ -78,10 +79,11 @@ void node_join_handler(
 
       for (const auto& key_pair : key_size_map) {
         Key key = key_pair.first;
-        ServerThreadSet threads = kResponsibleThreadInterface->get_responsible_threads(
-            wt.get_replication_factor_connect_addr(), key, is_metadata(key),
-            global_hash_ring_map, local_hash_ring_map, placement, pushers,
-            kSelfTierIdVector, succeed, seed);
+        ServerThreadSet threads =
+            kResponsibleThreadInterface->get_responsible_threads(
+                wt.get_replication_factor_connect_addr(), key, is_metadata(key),
+                global_hash_ring_map, local_hash_ring_map, placement, pushers,
+                kSelfTierIdVector, succeed, seed);
 
         if (succeed) {
           if (threads.find(wt) == threads.end()) {

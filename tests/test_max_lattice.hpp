@@ -17,8 +17,8 @@
 
 #include <iostream>
 
-#include "lattices/core_lattices.hpp"
 #include "gtest/gtest.h"
+#include "lattices/core_lattices.hpp"
 
 template <typename T>
 class MaxLatticeTest : public ::testing::Test {

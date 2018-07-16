@@ -30,9 +30,8 @@ void membership_handler(
     unsigned thread_id, Address ip);
 
 void replication_response_handler(
-    std::shared_ptr<spdlog::logger> logger,
-    std::string& serialized, SocketCache& pushers,
-    RoutingThread& rt,
+    std::shared_ptr<spdlog::logger> logger, std::string& serialized,
+    SocketCache& pushers, RoutingThread& rt,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     std::unordered_map<Key, KeyInfo>& placement,
@@ -40,8 +39,7 @@ void replication_response_handler(
     unsigned& seed);
 
 void replication_change_handler(std::shared_ptr<spdlog::logger> logger,
-                                std::string& serialized,
-                                SocketCache& pushers,
+                                std::string& serialized, SocketCache& pushers,
                                 std::unordered_map<Key, KeyInfo>& placement,
                                 unsigned thread_id, Address ip);
 

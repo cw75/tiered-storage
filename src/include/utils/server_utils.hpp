@@ -43,7 +43,7 @@ class Serializer {
   virtual bool put(const Key& key, const std::string& value,
                    const unsigned& timestamp) = 0;
   virtual void remove(const Key& key) = 0;
-  virtual ~Serializer() {};
+  virtual ~Serializer(){};
 };
 
 class MemorySerializer : public Serializer {

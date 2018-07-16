@@ -3,10 +3,11 @@
 
 #include <iostream>
 
-#include "kvs/kvs_handlers.hpp"
 #include "gtest/gtest.h"
+#include "kvs/kvs_handlers.hpp"
 
-std::shared_ptr<spdlog::logger> logger = spdlog::basic_logger_mt("mock_logger", "mock.txt", true);
+std::shared_ptr<spdlog::logger> logger =
+    spdlog::basic_logger_mt("mock_logger", "mock.txt", true);
 
 class ServerHandlerTest : public ::testing::Test {
  protected:
@@ -40,10 +41,10 @@ TEST_F(ServerHandlerTest, NodeJoin) {
 
   EXPECT_EQ(global_hash_ring_map[1].size(), 3000);
   std::string serialized = "1:1.0.0.1";
-  node_join_handler(
-      thread_id, seed, ip, logger, serialized, global_hash_ring_map,
-      local_hash_ring_map, key_size_map, placement, join_remove_set,
-      pushers, wt, join_addr_keyset_map);
+  node_join_handler(thread_id, seed, ip, logger, serialized,
+                    global_hash_ring_map, local_hash_ring_map, key_size_map,
+                    placement, join_remove_set, pushers, wt,
+                    join_addr_keyset_map);
 
   EXPECT_EQ(global_hash_ring_map[1].size(), 6000);
 }
@@ -53,7 +54,8 @@ TEST_F(ServerHandlerTest, NodeDepart) {
 
   EXPECT_EQ(global_hash_ring_map[1].size(), 6000);
   std::string serialized = "1:1.0.0.1";
-  node_depart_handler(thread_id, ip, global_hash_ring_map, logger, serialized, pushers);
+  node_depart_handler(thread_id, ip, global_hash_ring_map, logger, serialized,
+                      pushers);
 
   EXPECT_EQ(global_hash_ring_map[1].size(), 3000);
 }
@@ -65,11 +67,10 @@ TEST_F(ServerHandlerTest, SelfDepart) {
 
   EXPECT_EQ(global_hash_ring_map[1].size(), 3000);
   std::string serialized = "tcp://1.0.0.1:6560";
-  self_depart_handler(
-    thread_id, seed, ip, logger, serialized,
-    global_hash_ring_map, local_hash_ring_map,
-    key_size_map, placement, routing_address,
-    monitoring_address, wt, pushers, serializer);
+  self_depart_handler(thread_id, seed, ip, logger, serialized,
+                      global_hash_ring_map, local_hash_ring_map, key_size_map,
+                      placement, routing_address, monitoring_address, wt,
+                      pushers, serializer);
 
   EXPECT_EQ(global_hash_ring_map[1].size(), 0);
 }

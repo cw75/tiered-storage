@@ -37,7 +37,8 @@ void self_depart_handler(
       GlobalHashRing hash_ring = global_pair.second;
 
       for (const ServerThread& st : hash_ring.get_unique_servers()) {
-        kZmqMessagingInterface->send_string(msg, &pushers[st.get_node_depart_connect_addr()]);
+        kZmqMessagingInterface->send_string(
+            msg, &pushers[st.get_node_depart_connect_addr()]);
       }
     }
 
@@ -68,10 +69,11 @@ void self_depart_handler(
 
   for (const auto& key_pair : key_size_map) {
     Key key = key_pair.first;
-    ServerThreadSet threads = kResponsibleThreadInterface->get_responsible_threads(
-        wt.get_replication_factor_connect_addr(), key, is_metadata(key),
-        global_hash_ring_map, local_hash_ring_map, placement, pushers,
-        kAllTierIds, succeed, seed);
+    ServerThreadSet threads =
+        kResponsibleThreadInterface->get_responsible_threads(
+            wt.get_replication_factor_connect_addr(), key, is_metadata(key),
+            global_hash_ring_map, local_hash_ring_map, placement, pushers,
+            kAllTierIds, succeed, seed);
 
     if (succeed) {
       // since we already removed this node from the hash ring, no need to
@@ -86,5 +88,5 @@ void self_depart_handler(
 
   send_gossip(addr_keyset_map, pushers, serializer);
   kZmqMessagingInterface->send_string(ip + "_" + std::to_string(kSelfTierId),
-                        &pushers[serialized]);
+                                      &pushers[serialized]);
 }

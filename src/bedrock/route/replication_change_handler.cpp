@@ -15,8 +15,7 @@
 #include "route/routing_handlers.hpp"
 
 void replication_change_handler(std::shared_ptr<spdlog::logger> logger,
-                                std::string& serialized,
-                                SocketCache& pushers,
+                                std::string& serialized, SocketCache& pushers,
                                 std::unordered_map<Key, KeyInfo>& placement,
                                 unsigned thread_id, Address ip) {
   logger->info("Received a replication factor change.");

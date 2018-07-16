@@ -136,32 +136,35 @@ inline void init_replication(std::unordered_map<Key, KeyInfo>& placement,
 }
 
 class ResponsibleThreadInterface {
-public:
-  virtual ServerThreadSet get_responsible_threads(Address respond_address, const Key& key, bool metadata,
-    std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
-    std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<Key, KeyInfo>& placement, SocketCache& pushers,
-    const std::vector<unsigned>& tier_ids, bool& succeed, unsigned& seed) = 0;
+ public:
+  virtual ServerThreadSet get_responsible_threads(
+      Address respond_address, const Key& key, bool metadata,
+      std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+      std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
+      std::unordered_map<Key, KeyInfo>& placement, SocketCache& pushers,
+      const std::vector<unsigned>& tier_ids, bool& succeed, unsigned& seed) = 0;
 };
 
-class ResponsibleThread: public ResponsibleThreadInterface {
-public:
-  virtual ServerThreadSet get_responsible_threads(Address respond_address, const Key& key, bool metadata,
-    std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
-    std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<Key, KeyInfo>& placement, SocketCache& pushers,
-    const std::vector<unsigned>& tier_ids, bool& succeed, unsigned& seed);
+class ResponsibleThread : public ResponsibleThreadInterface {
+ public:
+  virtual ServerThreadSet get_responsible_threads(
+      Address respond_address, const Key& key, bool metadata,
+      std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+      std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
+      std::unordered_map<Key, KeyInfo>& placement, SocketCache& pushers,
+      const std::vector<unsigned>& tier_ids, bool& succeed, unsigned& seed);
 };
 
-class MockResponsibleThread: public ResponsibleThreadInterface {
-public:
-  virtual ServerThreadSet get_responsible_threads(Address respond_address, const Key& key, bool metadata,
-    std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
-    std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<Key, KeyInfo>& placement, SocketCache& pushers,
-    const std::vector<unsigned>& tier_ids, bool& succeed, unsigned& seed);
+class MockResponsibleThread : public ResponsibleThreadInterface {
+ public:
+  virtual ServerThreadSet get_responsible_threads(
+      Address respond_address, const Key& key, bool metadata,
+      std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+      std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
+      std::unordered_map<Key, KeyInfo>& placement, SocketCache& pushers,
+      const std::vector<unsigned>& tier_ids, bool& succeed, unsigned& seed);
 };
 
 extern ResponsibleThreadInterface* kResponsibleThreadInterface;
 
-#endif // SRC_INCLUDE_HASH_RING_HPP_
+#endif  // SRC_INCLUDE_HASH_RING_HPP_

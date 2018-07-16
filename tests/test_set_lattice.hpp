@@ -17,8 +17,8 @@
 
 #include <iostream>
 
-#include "lattices/core_lattices.hpp"
 #include "gtest/gtest.h"
+#include "lattices/core_lattices.hpp"
 
 class SetLatticeTest : public ::testing::Test {
  protected:
