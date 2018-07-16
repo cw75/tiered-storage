@@ -130,4 +130,11 @@ inline RequestType get_request_type(const std::string& type_str) {
   return type;
 }
 
+enum MetadataType {
+  replication,
+  server_stats,
+  key_access,
+  key_size
+}
+
 #endif  // SRC_INCLUDE_COMMON_HPP_
