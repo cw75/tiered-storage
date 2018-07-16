@@ -108,7 +108,7 @@ std::vector<Address> get_address_from_routing(UserThread& ut, const Key& key,
 
 RoutingThread get_random_routing_thread(std::vector<Address>& routing_address,
                                         unsigned& seed,
-                                        unsigned& kRoutingThreadCount);
+                                        const unsigned kRoutingThreadCount);
 
 inline void warmup_placement_to_defaults(
     std::unordered_map<Key, KeyInfo>& placement,
