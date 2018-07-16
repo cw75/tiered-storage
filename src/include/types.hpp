@@ -15,6 +15,7 @@
 #ifndef SRC_INCLUDE_TYPES_HPP_
 #define SRC_INCLUDE_TYPES_HPP_
 
+#include <string>
 #include <unordered_map>
 
 template <typename T>

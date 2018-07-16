@@ -31,9 +31,7 @@ void replication_response_handler(
   // replication factor request
   KeyTuple tuple = response.tuples(0);
 
-  std::vector<std::string> tokens;
-  split(tuple.key(), '_', tokens);
-  Key key = tokens[1];
+  Key key = get_key_from_metadata(tuple.key());
 
   unsigned error = tuple.error();
 

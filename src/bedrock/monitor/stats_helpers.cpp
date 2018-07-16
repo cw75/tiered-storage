@@ -33,25 +33,21 @@ void collect_internal_stats(
     auto hash_ring = global_pair.second;
 
     for (const ServerThread& st : hash_ring.get_unique_servers()) {
-      std::string server_ip = st.get_ip();
-
       for (unsigned i = 0; i < kTierDataMap[tier_id].thread_number_; i++) {
-        Key key = std::string(kMetadataIdentifier) + "_" + server_ip + "_" +
-          std::to_string(i) + "_" + std::to_string(tier_id) + "_stat";
+        Key key = get_metadata_key(st, tier_id, i, MetadataType::server_stats);
         prepare_metadata_get_request(key, global_hash_ring_map[1],
-            local_hash_ring_map[1], addr_request_map,
-            mt, rid);
+                                     local_hash_ring_map[1], addr_request_map,
+                                     mt, rid);
 
-        key = std::string(kMetadataIdentifier) + "_" + server_ip + "_" +
-          std::to_string(i) + "_" + std::to_string(tier_id) + "_access";
+        key = get_metadata_key(st, tier_id, i, MetadataType::key_access);
         prepare_metadata_get_request(key, global_hash_ring_map[1],
-            local_hash_ring_map[1], addr_request_map,
-            mt, rid);
-        key = std::string(kMetadataIdentifier) + "_" + server_ip + "_" +
-          std::to_string(i) + "_" + std::to_string(tier_id) + "_size";
+                                     local_hash_ring_map[1], addr_request_map,
+                                     mt, rid);
+
+        key = get_metadata_key(st, tier_id, i, MetadataType::key_size);
         prepare_metadata_get_request(key, global_hash_ring_map[1],
-            local_hash_ring_map[1], addr_request_map,
-            mt, rid);
+                                     local_hash_ring_map[1], addr_request_map,
+                                     mt, rid);
       }
     }
   }
@@ -65,11 +61,9 @@ void collect_internal_stats(
     if (succeed) {
       for (const KeyTuple& tuple : res.tuples()) {
         if (tuple.error() == 0) {
-          std::vector<std::string> tokens;
+          std::vector<std::string> tokens = split_metadata_key(tuple.key());
 
-          split(tuple.key(), '_', tokens);
           Address ip = tokens[1];
-
           unsigned tid = stoi(tokens[2]);
           unsigned tier_id = stoi(tokens[3]);
           std::string metadata_type = tokens[4];

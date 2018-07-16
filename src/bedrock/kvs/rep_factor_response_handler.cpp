@@ -39,10 +39,7 @@ void rep_factor_response_handler(
   // we assume tuple 0 because there should only be one tuple responding to a
   // replication factor request
   KeyTuple tuple = response.tuples(0);
-
-  std::vector<std::string> tokens;
-  split(tuple.key(), '_', tokens);
-  Key key = tokens[1];
+  Key key = get_key_from_metadata(tuple.key());
 
   unsigned error = tuple.error();
 

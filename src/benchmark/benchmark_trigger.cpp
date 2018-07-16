@@ -15,6 +15,7 @@
 #include <stdlib.h>
 
 #include "common.hpp"
+#include "threads.hpp"
 #include "yaml-cpp/yaml.h"
 
 int main(int argc, char* argv[]) {
@@ -47,9 +48,10 @@ int main(int argc, char* argv[]) {
 
     for (const std::string address : benchmark_address) {
       for (unsigned tid = 0; tid < thread_num; tid++) {
-        zmq_util::send_string(
-            command, &pushers["tcp://" + address + ":" +
-                              std::to_string(tid + kBenchmarkCommandBasePort)]);
+        BenchmarkThread bt = BenchmarkThread(address, tid);
+
+        zmq_util::send_string(command,
+                              &pushers[bt.get_benchmark_command_port_addr()]);
       }
     }
   }

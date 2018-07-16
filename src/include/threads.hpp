@@ -15,10 +15,37 @@
 #ifndef SRC_INCLUDE_THREADS_HPP_
 #define SRC_INCLUDE_THREADS_HPP_
 
-#include "common.hpp"
-#include "metadata.hpp"
+#include "types.hpp"
 
-// server thread
+// define server base ports
+const unsigned kNodeJoinBasePort = 6000;
+const unsigned kNodeDepartBasePort = 6050;
+const unsigned kSelfDepartBasePort = 6100;
+const unsigned kServerReplicationFactorBasePort = 6150;
+const unsigned kServerRequestPullingBasePort = 6200;
+const unsigned kGossipBasePort = 6250;
+const unsigned kServerReplicationFactorChangeBasePort = 6300;
+
+// define routing base ports
+const unsigned kSeedBasePort = 6350;
+const unsigned kRoutingNotifyBasePort = 6400;
+const unsigned kRoutingKeyAddressBasePort = 6450;
+const unsigned kRoutingReplicationFactorBasePort = 6500;
+const unsigned kRoutingReplicationFactorChangeBasePort = 6550;
+
+// used by monitoring nodes
+const unsigned kMonitoringNotifyBasePort = 6600;
+const unsigned kMonitoringRequestPullingBasePort = 6650;
+const unsigned kDepartDoneBasePort = 6700;
+const unsigned kLatencyReportBasePort = 6750;
+
+// used by user nodes
+const unsigned kUserRequestBasePort = 6800;
+const unsigned kUserKeyAddressBasePort = 6850;
+const unsigned kBenchmarkCommandBasePort = 6900;
+
+// TODO(vikram): All the return "tcp://" + ip_ should be made into one command
+// to reduce string addition
 class ServerThread {
   Address ip_;
   unsigned tid_;
@@ -96,7 +123,6 @@ inline bool operator==(const ServerThread& l, const ServerThread& r) {
   }
 }
 
-// routing thread
 class RoutingThread {
   Address ip_;
   unsigned tid_;
@@ -155,7 +181,6 @@ class RoutingThread {
   }
 };
 
-// monitoring thread
 class MonitoringThread {
   Address ip_;
 
@@ -227,6 +252,25 @@ class UserThread {
   Address get_key_address_bind_addr() const {
     return "tcp://*:" + std::to_string(tid_ + kUserKeyAddressBasePort);
   }
+};
+
+class BenchmarkThread {
+ public:
+  BenchmarkThread() {}
+  BenchmarkThread(Address ip, unsigned tid) : ip_(ip), tid_(tid) {}
+
+  Address get_ip() const { return ip_; }
+
+  unsigned get_tid() const { return tid_; }
+
+  Address get_benchmark_command_port_addr() const {
+    return "tcp://" + ip_ + ":" +
+           std::to_string(tid_ + kBenchmarkCommandBasePort);
+  }
+
+ private:
+  Address ip_;
+  unsigned tid_;
 };
 
 #endif  // SRC_INCLUDE_THREADS_HPP_

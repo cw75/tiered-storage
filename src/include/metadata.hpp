@@ -15,6 +15,11 @@
 #ifndef SRC_INCLUDE_METADATA_HPP_
 #define SRC_INCLUDE_METADATA_HPP_
 
+#include "threads.hpp"
+
+const std::string kMetadataDelimiter = "|";
+const char kMetadataDelimiterChar = '|';
+
 // represents the replication state for each key
 struct KeyInfo {
   std::unordered_map<unsigned, unsigned> global_replication_map_;
@@ -39,7 +44,7 @@ struct TierData {
 
 inline bool is_metadata(Key key) {
   std::vector<std::string> v;
-  split(key, '_', v);
+  split(key, '|', v);
 
   if (v[0] == "BEDROCKMETADATA") {
     return true;
@@ -50,5 +55,56 @@ inline bool is_metadata(Key key) {
 
 // NOTE: This needs to be here because it needs the definition of TierData
 extern std::unordered_map<unsigned, TierData> kTierDataMap;
+
+enum MetadataType { replication, server_stats, key_access, key_size };
+
+inline Key get_metadata_key(const ServerThread& st, unsigned tier_id,
+                            unsigned thread_num, MetadataType type) {
+  std::string suffix;
+
+  switch (type) {
+    case MetadataType::server_stats: suffix = "stats"; break;
+    case MetadataType::key_access: suffix = "access"; break;
+    case MetadataType::key_size: suffix = "size"; break;
+    default:
+      return "";  // this should never happen; see note below about
+                  // MetadataType::replication
+  }
+
+  return kMetadataIdentifier + kMetadataDelimiter + st.get_ip() +
+         kMetadataDelimiter + std::to_string(thread_num) + kMetadataDelimiter +
+         "tier" + std::to_string(tier_id) + kMetadataDelimiter + suffix;
+}
+
+// This version of the function should only be called with
+// MetadataType::replication, so if it's called with something else, we return
+// an empty string.
+// NOTE: There should probably be a less silent error check.
+inline Key get_metadata_key(std::string data_key, MetadataType type) {
+  if (type == MetadataType::replication) {
+    return kMetadataIdentifier + kMetadataDelimiter + data_key +
+           kMetadataDelimiter + "replication";
+  }
+
+  return "";
+}
+
+inline Key get_key_from_metadata(Key metadata_key) {
+  std::vector<std::string> tokens;
+  split(metadata_key, '|', tokens);
+
+  if (tokens[tokens.size() - 1] == "replication") {
+    return tokens[1];
+  }
+
+  return "";
+}
+
+inline std::vector<std::string> split_metadata_key(Key key) {
+  std::vector<std::string> tokens;
+  split(key, kMetadataDelimiterChar, tokens);
+
+  return tokens;
+}
 
 #endif  // SRC_INCLUDE_METADATA_HPP_

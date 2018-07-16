@@ -15,7 +15,9 @@
 #ifndef SRC_INCLUDE_HASH_RING_HPP_
 #define SRC_INCLUDE_HASH_RING_HPP_
 
+#include "common.hpp"
 #include "hashers.hpp"
+#include "metadata.hpp"
 #include "utils/consistent_hash_map.hpp"
 
 template <typename H>

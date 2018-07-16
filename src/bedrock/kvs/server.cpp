@@ -114,7 +114,7 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
       for (const ServerThread& st : hash_ring.get_unique_servers()) {
         if (st.get_ip().compare(ip) != 0) {
           zmq_util::send_string(std::to_string(kSelfTierId) + ":" + ip,
-              &pushers[st.get_node_join_connect_addr()]);
+                                &pushers[st.get_node_join_connect_addr()]);
         }
       }
     }
@@ -364,9 +364,9 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
 
     if (duration >= kServerReportThreshold) {
       epoch += 1;
-      Key key = std::string(kMetadataIdentifier) + "_" + wt.get_ip() + "_" +
-                std::to_string(wt.get_tid()) + "_" +
-                std::to_string(kSelfTierId) + "_stat";
+
+      Key key = get_metadata_key(wt, kSelfTierId, wt.get_tid(),
+                                 MetadataType::server_stats);
 
       // compute total storage consumption
       unsigned long long consumption = 0;
@@ -437,9 +437,8 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
       }
 
       // report key access stats
-      key = std::string(kMetadataIdentifier) + "_" + wt.get_ip() + "_" +
-            std::to_string(wt.get_tid()) + "_" + std::to_string(kSelfTierId) +
-            "_access";
+      key = get_metadata_key(wt, kSelfTierId, wt.get_tid(),
+                             MetadataType::key_access);
       std::string serialized_access;
       access.SerializeToString(&serialized_access);
 
@@ -468,9 +467,8 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
         }
       }
 
-      key = std::string(kMetadataIdentifier) + "_" + wt.get_ip() + "_" +
-            std::to_string(wt.get_tid()) + "_" + std::to_string(kSelfTierId) +
-            "_size";
+      key = get_metadata_key(wt, kSelfTierId, wt.get_tid(),
+                             MetadataType::key_size);
 
       std::string serialized_size;
       primary_key_size.SerializeToString(&serialized_size);
