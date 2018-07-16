@@ -1,3 +1,17 @@
+//  Copyright 2018 U.C. Berkeley RISE Lab
+//
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+
 #include "route/routing_handlers.hpp"
 
 void address_handler(
@@ -8,7 +22,6 @@ void address_handler(
     std::unordered_map<Key, KeyInfo>& placement,
     PendingMap<std::pair<Address, std::string>>& pending_key_request_map,
     unsigned& seed) {
-
   logger->info("Received key address request.");
   std::string serialized = zmq_util::recv_string(key_address_puller);
   KeyAddressRequest addr_request;
@@ -59,13 +72,13 @@ void address_handler(
         tp->add_ips(thread.get_request_pulling_connect_addr());
       }
     }
-
   }
 
   if (respond) {
     std::string serialized;
     addr_response.SerializeToString(&serialized);
 
-    zmq_util::send_string(serialized, &pushers[addr_request.response_address()]);
+    zmq_util::send_string(serialized,
+                          &pushers[addr_request.response_address()]);
   }
 }

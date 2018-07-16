@@ -1,3 +1,17 @@
+//  Copyright 2018 U.C. Berkeley RISE Lab
+//
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+
 #include <chrono>
 
 #include "kvs/kvs_handlers.hpp"
@@ -10,7 +24,6 @@ void gossip_handler(
     PendingMap<PendingGossip>& pending_gossip_map,
     std::unordered_map<Key, KeyInfo>& placement, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers) {
-
   std::string gossip_string = zmq_util::recv_string(gossip_puller);
   KeyRequest gossip;
   gossip.ParseFromString(gossip_string);
@@ -37,7 +50,8 @@ void gossip_handler(
           for (const ServerThread& thread : threads) {
             if (gossip_map.find(thread.get_gossip_connect_addr()) ==
                 gossip_map.end()) {
-              gossip_map[thread.get_gossip_connect_addr()].set_type(get_request_type("PUT"));
+              gossip_map[thread.get_gossip_connect_addr()].set_type(
+                  get_request_type("PUT"));
             }
 
             prepare_put_tuple(gossip_map[thread.get_gossip_connect_addr()], key,

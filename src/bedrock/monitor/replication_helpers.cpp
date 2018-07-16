@@ -1,3 +1,17 @@
+//  Copyright 2018 U.C. Berkeley RISE Lab
+//
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+
 #include "monitor/monitoring_utils.hpp"
 #include "requests.hpp"
 
@@ -17,7 +31,6 @@ void prepare_replication_factor_update(
     std::unordered_map<Address, ReplicationFactorUpdate>&
         replication_factor_map,
     Address server_address, std::unordered_map<Key, KeyInfo>& placement) {
-
   ReplicationFactor* rf = replication_factor_map[server_address].add_key_reps();
   rf->set_key(key);
 
@@ -82,7 +95,7 @@ void change_replication_factor(
       local->set_replication_factor(rep_pair.second);
     }
 
-    Key rep_key = std::string(kMetadataIdentifier) + "_" + key + "_replication";
+    Key rep_key = get_metadata_key(key, MetadataType::replication);
 
     std::string serialized_rep_data;
     rep_data.SerializeToString(&serialized_rep_data);
@@ -103,10 +116,7 @@ void change_replication_factor(
       logger->error("Replication factor put timed out!");
 
       for (const auto& tuple : request_pair.second.tuples()) {
-        std::vector<std::string> tokens;
-        split(tuple.key(), '_', tokens);
-
-        failed_keys.insert(tokens[1]);
+        failed_keys.insert(get_key_from_metadata(tuple.key()));
       }
     } else {
       for (const auto& tuple : res.tuples()) {
@@ -116,10 +126,7 @@ void change_replication_factor(
               "address.",
               tuple.key());
 
-          std::vector<std::string> tokens;
-
-          split(tuple.key(), '_', tokens);
-          failed_keys.insert(tokens[1]);
+          failed_keys.insert(get_key_from_metadata(tuple.key()));
         }
       }
     }

@@ -1,3 +1,17 @@
+#  Copyright 2018 U.C. Berkeley RISE Lab
+# 
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+# 
+#      http://www.apache.org/licenses/LICENSE-2.0
+# 
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
 CMAKE_MINIMUM_REQUIRED(VERSION 3.6)
 PROJECT(Bedrock)
 
@@ -9,6 +23,8 @@ SET(CMAKE_CXX_COMPILER /usr/bin/clang++)
 
 SET(CMAKE_CXX_STANDARD 11)
 SET(CMAKE_CXX_STANDARD_REQUIRED on)
+
+SET(VENDOR_DIR vendor)
 
 SET(CMAKE_CXX_FLAGS_COMMON
     "-std=c++11 \
@@ -23,11 +39,11 @@ SET(CMAKE_CXX_FLAGS_RELEASE
     ${CMAKE_CXX_FLAGS_COMMON} \
     -O3")
 
-ADD_SUBDIRECTORY(vendor/spdlog)
-ADD_SUBDIRECTORY(vendor/yamlcpp)
-ADD_SUBDIRECTORY(vendor/googletest)
-ADD_SUBDIRECTORY(vendor/zeromq)
-ADD_SUBDIRECTORY(vendor/zeromqcpp)
+ADD_SUBDIRECTORY(${VENDOR_DIR}/spdlog)
+ADD_SUBDIRECTORY(${VENDOR_DIR}/yamlcpp)
+ADD_SUBDIRECTORY(${VENDOR_DIR}/googletest)
+ADD_SUBDIRECTORY(${VENDOR_DIR}/zeromq)
+ADD_SUBDIRECTORY(${VENDOR_DIR}/zeromqcpp)
 
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR})
 INCLUDE_DIRECTORIES(.)
@@ -36,6 +52,8 @@ INCLUDE_DIRECTORIES(${ZEROMQCPP_INCLUDE_DIRS})
 INCLUDE_DIRECTORIES(${ZEROMQ_INCLUDE_DIRS})
 INCLUDE_DIRECTORIES(${YAMLCPP_INCLUDE_DIRS})
 INCLUDE_DIRECTORIES(${SPDLOG_INCLUDE_DIRS})
+
+INCLUDE(cmake/clang-format.cmake)
 
 LINK_DIRECTORIES(${ZEROMQ_LINK_DIRS})
 LINK_DIRECTORIES(${YAMLCPP_LINK_DIRS})

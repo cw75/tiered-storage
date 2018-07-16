@@ -1,3 +1,17 @@
+//  Copyright 2018 U.C. Berkeley RISE Lab
+//
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+
 #include <fstream>
 #include <unordered_set>
 
@@ -98,8 +112,8 @@ void handle_request(
   }
 
   bool succeed;
-  auto res = send_request<KeyRequest, KeyResponse>(
-      req, pushers[worker_address], response_puller, succeed);
+  auto res = send_request<KeyRequest, KeyResponse>(req, pushers[worker_address],
+                                                   response_puller, succeed);
 
   if (succeed) {
     KeyTuple tuple = res.tuples(0);
@@ -130,8 +144,8 @@ void handle_request(
         key_address_cache.erase(key);
       }
       if (value == "" && tuple.error() == 0) {
-        std::cout << "value of key " + tuple.key() + " is " +
-                         tuple.value() + "\n";
+        std::cout << "value of key " + tuple.key() + " is " + tuple.value() +
+                         "\n";
       } else if (value == "" && tuple.error() == 1) {
         std::cout << "key " + tuple.key() + " does not exist\n";
       } else if (value != "") {

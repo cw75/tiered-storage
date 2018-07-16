@@ -1,10 +1,22 @@
+//  Copyright 2018 U.C. Berkeley RISE Lab
+//
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+
 #include "hash_ring.hpp"
 
 #include <unistd.h>
 
-#include "common.hpp"
 #include "requests.hpp"
-#include "threads.hpp"
 
 // assuming the replication factor will never be greater than the number of
 // nodes in a tier return a set of ServerThreads that are responsible for a key
@@ -83,9 +95,9 @@ void issue_replication_factor_request(const Address& respond_address,
                                       GlobalHashRing& global_memory_hash_ring,
                                       LocalHashRing& local_memory_hash_ring,
                                       SocketCache& pushers, unsigned& seed) {
-  Key key_rep = std::string(kMetadataIdentifier) + "_" + key + "_replication";
+  Key replication_key = get_metadata_key(key, MetadataType::replication);
   auto threads = get_responsible_threads_metadata(
-      key_rep, global_memory_hash_ring, local_memory_hash_ring);
+      replication_key, global_memory_hash_ring, local_memory_hash_ring);
 
   Address target_address = next(begin(threads), rand_r(&seed) % threads.size())
                                ->get_request_pulling_connect_addr();
@@ -94,8 +106,7 @@ void issue_replication_factor_request(const Address& respond_address,
   key_request.set_type(get_request_type("GET"));
   key_request.set_response_address(respond_address);
 
-  prepare_get_tuple(
-      key_request, kMetadataIdentifier + "_" + key + "_replication");
+  prepare_get_tuple(key_request, replication_key);
   push_request(key_request, pushers[target_address]);
 }
 
@@ -179,9 +190,8 @@ std::vector<Address> get_address_from_routing(UserThread& ut, const Key& key,
 
     rid += 1;
 
-    address_response =
-        send_request<KeyAddressRequest, KeyAddressResponse>(
-            address_request, sending_socket, receiving_socket, succeed);
+    address_response = send_request<KeyAddressRequest, KeyAddressResponse>(
+        address_request, sending_socket, receiving_socket, succeed);
 
     if (!succeed) {
       return result;

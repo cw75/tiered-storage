@@ -1,3 +1,17 @@
+//  Copyright 2018 U.C. Berkeley RISE Lab
+//
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+
 #include <chrono>
 
 #include "kvs/kvs_handlers.hpp"
@@ -96,16 +110,11 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
     for (const auto& global_pair : global_hash_ring_map) {
       unsigned tier_id = global_pair.first;
       GlobalHashRing hash_ring = global_pair.second;
-      std::unordered_set<Address> observed_ip;
 
-      for (const auto& hash_pair : hash_ring) {
-        std::string server_ip = hash_pair.second.get_ip();
-        if (server_ip.compare(ip) != 0 &&
-            observed_ip.find(server_ip) == observed_ip.end()) {
-          zmq_util::send_string(
-              std::to_string(kSelfTierId) + ":" + ip,
-              &pushers[hash_pair.second.get_node_join_connect_addr()]);
-          observed_ip.insert(server_ip);
+      for (const ServerThread& st : hash_ring.get_unique_servers()) {
+        if (st.get_ip().compare(ip) != 0) {
+          zmq_util::send_string(std::to_string(kSelfTierId) + ":" + ip,
+                                &pushers[st.get_node_join_connect_addr()]);
         }
       }
     }
@@ -247,8 +256,8 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
     if (pollitems[3].revents & ZMQ_POLLIN) {
       auto work_start = std::chrono::system_clock::now();
 
-      user_request_handler(total_accesses, seed, &request_puller, start_time, logger,
-                           global_hash_ring_map, local_hash_ring_map,
+      user_request_handler(total_accesses, seed, &request_puller, start_time,
+                           logger, global_hash_ring_map, local_hash_ring_map,
                            key_size_map, pending_request_map,
                            key_access_timestamp, placement, local_changeset, wt,
                            serializer, pushers);
@@ -355,9 +364,9 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
 
     if (duration >= kServerReportThreshold) {
       epoch += 1;
-      Key key = std::string(kMetadataIdentifier) + "_" + wt.get_ip() + "_" +
-                std::to_string(wt.get_tid()) + "_" +
-                std::to_string(kSelfTierId) + "_stat";
+
+      Key key = get_metadata_key(wt, kSelfTierId, wt.get_tid(),
+                                 MetadataType::server_stats);
 
       // compute total storage consumption
       unsigned long long consumption = 0;
@@ -428,9 +437,8 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
       }
 
       // report key access stats
-      key = std::string(kMetadataIdentifier) + "_" + wt.get_ip() + "_" +
-            std::to_string(wt.get_tid()) + "_" + std::to_string(kSelfTierId) +
-            "_access";
+      key = get_metadata_key(wt, kSelfTierId, wt.get_tid(),
+                             MetadataType::key_access);
       std::string serialized_access;
       access.SerializeToString(&serialized_access);
 
@@ -451,17 +459,16 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
       // report key size stats
       KeySizeData primary_key_size;
       for (const auto& key_size_pair : key_size_map) {
-        if (is_primary_replica(key_size_pair.first, placement, global_hash_ring_map,
-                        local_hash_ring_map, wt)) {
+        if (is_primary_replica(key_size_pair.first, placement,
+                               global_hash_ring_map, local_hash_ring_map, wt)) {
           KeySizeData_KeySize* ks = primary_key_size.add_key_sizes();
           ks->set_key(key_size_pair.first);
           ks->set_size(key_size_pair.second);
         }
       }
 
-      key = std::string(kMetadataIdentifier) + "_" + wt.get_ip() + "_" +
-            std::to_string(wt.get_tid()) + "_" + std::to_string(kSelfTierId) +
-            "_size";
+      key = get_metadata_key(wt, kSelfTierId, wt.get_tid(),
+                             MetadataType::key_size);
 
       std::string serialized_size;
       primary_key_size.SerializeToString(&serialized_size);

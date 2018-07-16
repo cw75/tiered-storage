@@ -1,3 +1,17 @@
+//  Copyright 2018 U.C. Berkeley RISE Lab
+//
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+
 #include "monitor/monitoring_handlers.hpp"
 #include "monitor/monitoring_utils.hpp"
 #include "monitor/policies.hpp"
@@ -191,12 +205,11 @@ int main(int argc, char *argv[]) {
       latency_miss_ratio_map.clear();
 
       // collect internal statistics
-      collect_internal_stats(global_hash_ring_map, local_hash_ring_map, pushers,
-                             mt, response_puller, logger, rid,
-                             key_access_frequency, key_size, memory_tier_storage,
-                             ebs_tier_storage, memory_tier_occupancy,
-                             ebs_tier_occupancy, memory_tier_access,
-                             ebs_tier_access);
+      collect_internal_stats(
+          global_hash_ring_map, local_hash_ring_map, pushers, mt,
+          response_puller, logger, rid, key_access_frequency, key_size,
+          memory_tier_storage, ebs_tier_storage, memory_tier_occupancy,
+          ebs_tier_occupancy, memory_tier_access, ebs_tier_access);
 
       // compute summary statistics
       compute_summary_stats(key_access_frequency, memory_tier_storage,
@@ -209,7 +222,7 @@ int main(int argc, char *argv[]) {
       collect_external_stats(user_latency, user_throughput, ss, logger);
 
       // initialize replication factor for new keys
-      for (const auto& key_access_pair : key_access_summary) {
+      for (const auto &key_access_pair : key_access_summary) {
         Key key = key_access_pair.first;
         if (!is_metadata(key) && placement.find(key) == placement.end()) {
           init_replication(placement, key);
@@ -231,9 +244,8 @@ int main(int argc, char *argv[]) {
       slo_policy(logger, global_hash_ring_map, local_hash_ring_map, grace_start,
                  ss, memory_node_number, adding_memory_node,
                  removing_memory_node, management_address, placement,
-                 key_access_summary, mt, departing_node_map,
-                 pushers, response_puller, routing_address, rid,
-                 latency_miss_ratio_map);
+                 key_access_summary, mt, departing_node_map, pushers,
+                 response_puller, routing_address, rid, latency_miss_ratio_map);
 
       report_start = std::chrono::system_clock::now();
     }

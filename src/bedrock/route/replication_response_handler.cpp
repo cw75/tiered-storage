@@ -1,3 +1,17 @@
+//  Copyright 2018 U.C. Berkeley RISE Lab
+//
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+
 #include "route/routing_handlers.hpp"
 
 void replication_response_handler(
@@ -9,7 +23,6 @@ void replication_response_handler(
     std::unordered_map<Key, KeyInfo>& placement,
     PendingMap<std::pair<Address, std::string>>& pending_key_request_map,
     unsigned& seed) {
-
   std::string change_string = zmq_util::recv_string(replication_factor_puller);
   KeyResponse response;
   response.ParseFromString(change_string);
@@ -18,9 +31,7 @@ void replication_response_handler(
   // replication factor request
   KeyTuple tuple = response.tuples(0);
 
-  std::vector<std::string> tokens;
-  split(tuple.key(), '_', tokens);
-  Key key = tokens[1];
+  Key key = get_key_from_metadata(tuple.key());
 
   unsigned error = tuple.error();
 
@@ -50,7 +61,8 @@ void replication_response_handler(
                                      local_hash_ring_map[1], pushers, seed);
     return;
   } else {
-    logger->error("Unexpected error type {} in replication factor response.", error);
+    logger->error("Unexpected error type {} in replication factor response.",
+                  error);
     return;
   }
 

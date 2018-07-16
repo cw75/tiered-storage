@@ -1,3 +1,17 @@
+//  Copyright 2018 U.C. Berkeley RISE Lab
+//
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+
 #include <chrono>
 
 #include "kvs/kvs_handlers.hpp"
@@ -18,7 +32,6 @@ void rep_factor_response_handler(
     std::unordered_map<Key, unsigned>& key_size_map,
     std::unordered_set<Key>& local_changeset, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers) {
-
   std::string change_string = zmq_util::recv_string(rep_factor_response_puller);
   KeyResponse response;
   response.ParseFromString(change_string);
@@ -26,13 +39,9 @@ void rep_factor_response_handler(
   // we assume tuple 0 because there should only be one tuple responding to a
   // replication factor request
   KeyTuple tuple = response.tuples(0);
-
-  std::vector<std::string> tokens;
-  split(tuple.key(), '_', tokens);
-  Key key = tokens[1];
+  Key key = get_key_from_metadata(tuple.key());
 
   unsigned error = tuple.error();
-
 
   if (error == 0) {
     ReplicationFactor rep_data;
@@ -60,7 +69,8 @@ void rep_factor_response_handler(
                                      local_hash_ring_map[1], pushers, seed);
     return;
   } else {
-    logger->error("Unexpected error type {} in replication factor response.", error);
+    logger->error("Unexpected error type {} in replication factor response.",
+                  error);
     return;
   }
 
@@ -174,7 +184,8 @@ void rep_factor_response_handler(
 
         // forward the gossip
         for (const ServerThread& thread : threads) {
-          gossip_map[thread.get_gossip_connect_addr()].set_type(get_request_type("PUT"));
+          gossip_map[thread.get_gossip_connect_addr()].set_type(
+              get_request_type("PUT"));
 
           for (const PendingGossip& gossip : pending_gossip_map[key]) {
             prepare_put_tuple(gossip_map[thread.get_gossip_connect_addr()], key,

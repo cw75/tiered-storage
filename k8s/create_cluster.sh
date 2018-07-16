@@ -1,3 +1,17 @@
+#  Copyright 2018 U.C. Berkeley RISE Lab
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
 #!/bin/bash
 
 if [ -z "$1" ] && [ -z "$2"] && [ -z "$3"] && [ -z "$4" ]; then
@@ -8,7 +22,7 @@ if [ -z "$1" ] && [ -z "$2"] && [ -z "$3"] && [ -z "$4" ]; then
 fi
 if [ -z "$5" ]; then
   SSH_KEY=/home/ubuntu/.ssh/id_rsa
-else 
+else
   SSH_KEY=$5
 fi
 
@@ -52,7 +66,7 @@ while [ "$MGMT_IP" = "" ]; do
   MGMT_IP=`kubectl get pods -l role=kops -o jsonpath='{.items[*].status.podIP}' | tr -d '[:space:]'`
 done
 
-# copy kubecfg into the kops pod, so it can execute kops commands 
+# copy kubecfg into the kops pod, so it can execute kops commands
 kubectl cp /home/ubuntu/.kube/config kops-pod:/root/.kube/config > /dev/null 2>&1
 
 sed "s|MGMT_IP_DUMMY|$MGMT_IP|g" yaml/pods/monitoring-pod.yml > tmp.yml

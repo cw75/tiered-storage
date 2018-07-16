@@ -1,10 +1,24 @@
+//  Copyright 2018 U.C. Berkeley RISE Lab
+//
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+
 #include "monitor/monitoring_handlers.hpp"
 
-void feedback_handler(
-    zmq::socket_t* feedback_puller,
-    std::unordered_map<std::string, double>& user_latency,
-    std::unordered_map<std::string, double>& user_throughput,
-    std::unordered_map<Key, std::pair<double, unsigned>>& latency_miss_ratio_map) {
+void feedback_handler(zmq::socket_t* feedback_puller,
+                      std::unordered_map<std::string, double>& user_latency,
+                      std::unordered_map<std::string, double>& user_throughput,
+                      std::unordered_map<Key, std::pair<double, unsigned>>&
+                          latency_miss_ratio_map) {
   std::string serialized_feedback = zmq_util::recv_string(feedback_puller);
   UserFeedback fb;
   fb.ParseFromString(serialized_feedback);
@@ -26,7 +40,9 @@ void feedback_handler(
         latency_miss_ratio_map[key].second = 1;
       } else {
         latency_miss_ratio_map[key].first =
-            (latency_miss_ratio_map[key].first * latency_miss_ratio_map[key].second + observed_key_latency / kSloWorst) /
+            (latency_miss_ratio_map[key].first *
+                 latency_miss_ratio_map[key].second +
+             observed_key_latency / kSloWorst) /
             (latency_miss_ratio_map[key].second + 1);
         latency_miss_ratio_map[key].second += 1;
       }

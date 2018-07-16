@@ -1,3 +1,17 @@
+//  Copyright 2018 U.C. Berkeley RISE Lab
+//
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+
 #include "monitor/monitoring_utils.hpp"
 #include "requests.hpp"
 
@@ -13,34 +27,27 @@ void collect_internal_stats(
     OccupancyStat& memory_tier_occupancy, OccupancyStat& ebs_tier_occupancy,
     AccessStat& memory_tier_access, AccessStat& ebs_tier_access) {
   std::unordered_map<Address, KeyRequest> addr_request_map;
-  
+
   for (const auto& global_pair : global_hash_ring_map) {
     unsigned tier_id = global_pair.first;
     auto hash_ring = global_pair.second;
-    std::unordered_set<Address> observed_ip;
 
-    for (const auto hash_pair : hash_ring) {
-      Address server_ip = hash_pair.second.get_ip();
-      if (observed_ip.find(server_ip) == observed_ip.end()) {
-        for (unsigned i = 0; i < kTierDataMap[tier_id].thread_number_; i++) {
-          Key key = std::string(kMetadataIdentifier) + "_" + server_ip + "_" +
-                    std::to_string(i) + "_" + std::to_string(tier_id) + "_stat";
-          prepare_metadata_get_request(key, global_hash_ring_map[1],
-                                       local_hash_ring_map[1], addr_request_map,
-                                       mt, rid);
+    for (const ServerThread& st : hash_ring.get_unique_servers()) {
+      for (unsigned i = 0; i < kTierDataMap[tier_id].thread_number_; i++) {
+        Key key = get_metadata_key(st, tier_id, i, MetadataType::server_stats);
+        prepare_metadata_get_request(key, global_hash_ring_map[1],
+                                     local_hash_ring_map[1], addr_request_map,
+                                     mt, rid);
 
-          key = std::string(kMetadataIdentifier) + "_" + server_ip + "_" +
-                std::to_string(i) + "_" + std::to_string(tier_id) + "_access";
-          prepare_metadata_get_request(key, global_hash_ring_map[1],
-                                       local_hash_ring_map[1], addr_request_map,
-                                       mt, rid);
-          key = std::string(kMetadataIdentifier) + "_" + server_ip + "_" +
-                std::to_string(i) + "_" + std::to_string(tier_id) + "_size";
-          prepare_metadata_get_request(key, global_hash_ring_map[1],
-                                       local_hash_ring_map[1], addr_request_map,
-                                       mt, rid);
-        }
-        observed_ip.insert(server_ip);
+        key = get_metadata_key(st, tier_id, i, MetadataType::key_access);
+        prepare_metadata_get_request(key, global_hash_ring_map[1],
+                                     local_hash_ring_map[1], addr_request_map,
+                                     mt, rid);
+
+        key = get_metadata_key(st, tier_id, i, MetadataType::key_size);
+        prepare_metadata_get_request(key, global_hash_ring_map[1],
+                                     local_hash_ring_map[1], addr_request_map,
+                                     mt, rid);
       }
     }
   }
@@ -54,11 +61,9 @@ void collect_internal_stats(
     if (succeed) {
       for (const KeyTuple& tuple : res.tuples()) {
         if (tuple.error() == 0) {
-          std::vector<std::string> tokens;
+          std::vector<std::string> tokens = split_metadata_key(tuple.key());
 
-          split(tuple.key(), '_', tokens);
           Address ip = tokens[1];
-
           unsigned tid = stoi(tokens[2]);
           unsigned tier_id = stoi(tokens[3]);
           std::string metadata_type = tokens[4];

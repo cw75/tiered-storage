@@ -1,5 +1,24 @@
+//  Copyright 2018 U.C. Berkeley RISE Lab
+//
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+
 #ifndef SRC_INCLUDE_METADATA_HPP_
 #define SRC_INCLUDE_METADATA_HPP_
+
+#include "threads.hpp"
+
+const std::string kMetadataDelimiter = "|";
+const char kMetadataDelimiterChar = '|';
 
 // represents the replication state for each key
 struct KeyInfo {
@@ -25,7 +44,7 @@ struct TierData {
 
 inline bool is_metadata(Key key) {
   std::vector<std::string> v;
-  split(key, '_', v);
+  split(key, '|', v);
 
   if (v[0] == "BEDROCKMETADATA") {
     return true;
@@ -37,4 +56,55 @@ inline bool is_metadata(Key key) {
 // NOTE: This needs to be here because it needs the definition of TierData
 extern std::unordered_map<unsigned, TierData> kTierDataMap;
 
-#endif // SRC_INCLUDE_METADATA_HPP_
+enum MetadataType { replication, server_stats, key_access, key_size };
+
+inline Key get_metadata_key(const ServerThread& st, unsigned tier_id,
+                            unsigned thread_num, MetadataType type) {
+  std::string suffix;
+
+  switch (type) {
+    case MetadataType::server_stats: suffix = "stats"; break;
+    case MetadataType::key_access: suffix = "access"; break;
+    case MetadataType::key_size: suffix = "size"; break;
+    default:
+      return "";  // this should never happen; see note below about
+                  // MetadataType::replication
+  }
+
+  return kMetadataIdentifier + kMetadataDelimiter + st.get_ip() +
+         kMetadataDelimiter + std::to_string(thread_num) + kMetadataDelimiter +
+         "tier" + std::to_string(tier_id) + kMetadataDelimiter + suffix;
+}
+
+// This version of the function should only be called with
+// MetadataType::replication, so if it's called with something else, we return
+// an empty string.
+// NOTE: There should probably be a less silent error check.
+inline Key get_metadata_key(std::string data_key, MetadataType type) {
+  if (type == MetadataType::replication) {
+    return kMetadataIdentifier + kMetadataDelimiter + data_key +
+           kMetadataDelimiter + "replication";
+  }
+
+  return "";
+}
+
+inline Key get_key_from_metadata(Key metadata_key) {
+  std::vector<std::string> tokens;
+  split(metadata_key, '|', tokens);
+
+  if (tokens[tokens.size() - 1] == "replication") {
+    return tokens[1];
+  }
+
+  return "";
+}
+
+inline std::vector<std::string> split_metadata_key(Key key) {
+  std::vector<std::string> tokens;
+  split(key, kMetadataDelimiterChar, tokens);
+
+  return tokens;
+}
+
+#endif  // SRC_INCLUDE_METADATA_HPP_
