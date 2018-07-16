@@ -15,14 +15,13 @@
 #include "route/routing_handlers.hpp"
 
 void membership_handler(
-    std::shared_ptr<spdlog::logger> logger, zmq::socket_t* notify_puller,
+    std::shared_ptr<spdlog::logger> logger, std::string& serialized,
     SocketCache& pushers,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     unsigned thread_id, Address ip) {
-  std::string message = zmq_util::recv_string(notify_puller);
   std::vector<std::string> v;
 
-  split(message, ':', v);
+  split(serialized, ':', v);
   std::string type = v[0];
   unsigned tier = stoi(v[1]);
   Address new_server_ip = v[2];
@@ -56,7 +55,7 @@ void membership_handler(
         // tell all worker threads about the message
         for (unsigned tid = 1; tid < kRoutingThreadCount; tid++) {
           kZmqMessagingInterface->send_string(
-              message,
+              serialized,
               &pushers[RoutingThread(ip, tid).get_notify_connect_addr()]);
         }
       }
@@ -76,7 +75,7 @@ void membership_handler(
       // tell all worker threads about the message
       for (unsigned tid = 1; tid < kRoutingThreadCount; tid++) {
         kZmqMessagingInterface->send_string(
-            message,
+            serialized,
             &pushers[RoutingThread(ip, tid).get_notify_connect_addr()]);
       }
     }

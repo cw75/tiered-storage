@@ -16,16 +16,15 @@
 
 void replication_response_handler(
     std::shared_ptr<spdlog::logger> logger,
-    zmq::socket_t* replication_factor_puller, SocketCache& pushers,
+    std::string& serialized, SocketCache& pushers,
     RoutingThread& rt,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     std::unordered_map<Key, KeyInfo>& placement,
     PendingMap<std::pair<Address, std::string>>& pending_key_request_map,
     unsigned& seed) {
-  std::string change_string = zmq_util::recv_string(replication_factor_puller);
   KeyResponse response;
-  response.ParseFromString(change_string);
+  response.ParseFromString(serialized);
 
   // we assume tuple 0 because there should only be one tuple responding to a
   // replication factor request

@@ -15,7 +15,7 @@
 #include "monitor/monitoring_handlers.hpp"
 
 void membership_handler(
-    std::shared_ptr<spdlog::logger> logger, zmq::socket_t* notify_puller,
+    std::shared_ptr<spdlog::logger> logger, std::string& serialized,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     unsigned& adding_memory_node, unsigned& adding_ebs_node,
     std::chrono::time_point<std::chrono::system_clock>& grace_start,
@@ -24,10 +24,9 @@ void membership_handler(
     OccupancyStat& ebs_tier_occupancy,
     std::unordered_map<Key, std::unordered_map<Address, unsigned>>&
         key_access_frequency) {
-  std::string message = zmq_util::recv_string(notify_puller);
   std::vector<std::string> v;
 
-  split(message, ':', v);
+  split(serialized, ':', v);
   std::string type = v[0];
   unsigned tier = stoi(v[1]);
   Address new_server_ip = v[2];

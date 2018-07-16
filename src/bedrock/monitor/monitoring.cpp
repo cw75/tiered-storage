@@ -163,7 +163,8 @@ int main(int argc, char *argv[]) {
 
     // handle a join or depart event
     if (pollitems[0].revents & ZMQ_POLLIN) {
-      membership_handler(logger, &notify_puller, global_hash_ring_map,
+      std::string serialized = zmq_util::recv_string(&notify_puller);
+      membership_handler(logger, serialized, global_hash_ring_map,
                          adding_memory_node, adding_ebs_node, grace_start,
                          routing_address, memory_tier_storage, ebs_tier_storage,
                          memory_tier_occupancy, ebs_tier_occupancy,
@@ -172,13 +173,15 @@ int main(int argc, char *argv[]) {
 
     // handle a depart done notification
     if (pollitems[1].revents & ZMQ_POLLIN) {
-      depart_done_handler(logger, &depart_done_puller, departing_node_map,
+      std::string serialized = zmq_util::recv_string(&depart_done_puller);
+      depart_done_handler(logger, serialized, departing_node_map,
                           management_address, removing_memory_node,
                           removing_ebs_node, grace_start);
     }
 
     if (pollitems[2].revents & ZMQ_POLLIN) {
-      feedback_handler(&feedback_puller, user_latency, user_throughput,
+      std::string serialized = zmq_util::recv_string(&feedback_puller);
+      feedback_handler(serialized, user_latency, user_throughput,
                        latency_miss_ratio_map);
     }
 

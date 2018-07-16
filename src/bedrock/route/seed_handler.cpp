@@ -14,12 +14,11 @@
 
 #include "route/routing_handlers.hpp"
 
-void seed_handler(
-    std::shared_ptr<spdlog::logger> logger, zmq::socket_t* addr_responder,
+std::string seed_handler(
+    std::shared_ptr<spdlog::logger> logger,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     unsigned long long duration) {
   logger->info("Received an address request.");
-  zmq_util::recv_string(addr_responder);
 
   TierMembership membership;
   membership.set_start_time(duration);
@@ -37,5 +36,5 @@ void seed_handler(
 
   std::string serialized;
   membership.SerializeToString(&serialized);
-  kZmqMessagingInterface->send_string(serialized, addr_responder);
+  return serialized;
 }

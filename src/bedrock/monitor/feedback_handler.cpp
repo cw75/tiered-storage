@@ -14,14 +14,13 @@
 
 #include "monitor/monitoring_handlers.hpp"
 
-void feedback_handler(zmq::socket_t* feedback_puller,
-                      std::unordered_map<std::string, double>& user_latency,
-                      std::unordered_map<std::string, double>& user_throughput,
-                      std::unordered_map<Key, std::pair<double, unsigned>>&
-                          latency_miss_ratio_map) {
-  std::string serialized_feedback = zmq_util::recv_string(feedback_puller);
+void feedback_handler(
+    std::string& serialized,
+    std::unordered_map<std::string, double>& user_latency,
+    std::unordered_map<std::string, double>& user_throughput,
+    std::unordered_map<Key, std::pair<double, unsigned>>& latency_miss_ratio_map) {
   UserFeedback fb;
-  fb.ParseFromString(serialized_feedback);
+  fb.ParseFromString(serialized);
 
   if (fb.has_finish() && fb.finish()) {
     user_latency.erase(fb.uid());

@@ -111,29 +111,35 @@ void run(unsigned thread_id, Address ip,
 
     // only relavant for the seed node
     if (pollitems[0].revents & ZMQ_POLLIN) {
-      seed_handler(logger, &addr_responder, global_hash_ring_map, duration);
+      zmq_util::recv_string(&addr_responder);
+      auto serialized = seed_handler(logger, global_hash_ring_map, duration);
+      kZmqMessagingInterface->send_string(serialized, &addr_responder);
     }
 
     // handle a join or depart event coming from the server side
     if (pollitems[1].revents & ZMQ_POLLIN) {
-      membership_handler(logger, &notify_puller, pushers, global_hash_ring_map,
+      std::string serialized = zmq_util::recv_string(&notify_puller);
+      membership_handler(logger, serialized, pushers, global_hash_ring_map,
                          thread_id, ip);
     }
 
     // received replication factor response
     if (pollitems[2].revents & ZMQ_POLLIN) {
+      std::string serialized = zmq_util::recv_string(&replication_factor_puller);
       replication_response_handler(
-          logger, &replication_factor_puller, pushers, rt, global_hash_ring_map,
+          logger, serialized, pushers, rt, global_hash_ring_map,
           local_hash_ring_map, placement, pending_key_request_map, seed);
     }
 
     if (pollitems[3].revents & ZMQ_POLLIN) {
-      replication_change_handler(logger, &replication_factor_change_puller,
+      std::string serialized = zmq_util::recv_string(&replication_factor_change_puller);
+      replication_change_handler(logger, serialized,
                                  pushers, placement, thread_id, ip);
     }
 
     if (pollitems[4].revents & ZMQ_POLLIN) {
-      address_handler(logger, &key_address_puller, pushers, rt,
+      std::string serialized = zmq_util::recv_string(&key_address_puller);
+      address_handler(logger, serialized, pushers, rt,
                       global_hash_ring_map, local_hash_ring_map, placement,
                       pending_key_request_map, seed);
     }

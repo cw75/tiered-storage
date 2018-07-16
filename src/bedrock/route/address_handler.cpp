@@ -15,7 +15,7 @@
 #include "route/routing_handlers.hpp"
 
 void address_handler(
-    std::shared_ptr<spdlog::logger> logger, zmq::socket_t* key_address_puller,
+    std::shared_ptr<spdlog::logger> logger, std::string& serialized,
     SocketCache& pushers, RoutingThread& rt,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
@@ -23,7 +23,6 @@ void address_handler(
     PendingMap<std::pair<Address, std::string>>& pending_key_request_map,
     unsigned& seed) {
   logger->info("Received key address request.");
-  std::string serialized = zmq_util::recv_string(key_address_puller);
   KeyAddressRequest addr_request;
   addr_request.ParseFromString(serialized);
 
