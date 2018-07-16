@@ -17,16 +17,15 @@
 #include "kvs/kvs_handlers.hpp"
 
 void gossip_handler(
-    unsigned& seed, zmq::socket_t* gossip_puller,
+    unsigned& seed, std::string& serialized,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     std::unordered_map<Key, unsigned>& key_size_map,
     PendingMap<PendingGossip>& pending_gossip_map,
     std::unordered_map<Key, KeyInfo>& placement, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers) {
-  std::string gossip_string = zmq_util::recv_string(gossip_puller);
   KeyRequest gossip;
-  gossip.ParseFromString(gossip_string);
+  gossip.ParseFromString(serialized);
 
   bool succeed;
   std::unordered_map<Address, KeyRequest> gossip_map;
@@ -34,7 +33,7 @@ void gossip_handler(
   for (const KeyTuple& tuple : gossip.tuples()) {
     // first check if the thread is responsible for the key
     Key key = tuple.key();
-    ServerThreadSet threads = get_responsible_threads(
+    ServerThreadSet threads = kResponsibleThreadInterface->get_responsible_threads(
         wt.get_replication_factor_connect_addr(), key, is_metadata(key),
         global_hash_ring_map, local_hash_ring_map, placement, pushers,
         kSelfTierIdVector, succeed, seed);

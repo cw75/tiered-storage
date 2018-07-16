@@ -112,50 +112,6 @@ void issue_replication_factor_request(const Address& respond_address,
   kZmqMessagingInterface->send_string(serialized, &pushers[target_address]);
 }
 
-// get all threads responsible for a key from the "node_type" tier
-// metadata flag = 0 means the key is  metadata; otherwise, it is  regular data
-ServerThreadSet get_responsible_threads(
-    Address respond_address, const Key& key, bool metadata,
-    std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
-    std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<Key, KeyInfo>& placement, SocketCache& pushers,
-    const std::vector<unsigned>& tier_ids, bool& succeed, unsigned& seed) {
-  if (metadata) {
-    succeed = true;
-    return get_responsible_threads_metadata(key, global_hash_ring_map[1],
-                                            local_hash_ring_map[1]);
-  } else {
-    ServerThreadSet result;
-
-    if (placement.find(key) == placement.end()) {
-      issue_replication_factor_request(respond_address, key,
-                                       global_hash_ring_map[1],
-                                       local_hash_ring_map[1], pushers, seed);
-      succeed = false;
-    } else {
-      for (const unsigned& tier_id : tier_ids) {
-        ServerThreadSet threads = responsible_global(
-            key, kMetadataReplicationFactor, global_hash_ring_map[tier_id]);
-
-        for (const ServerThread& thread : threads) {
-          Address ip = thread.get_ip();
-          std::unordered_set<unsigned> tids = responsible_local(
-              key, placement[key].local_replication_map_[tier_id],
-              local_hash_ring_map[tier_id]);
-
-          for (const unsigned& tid : tids) {
-            result.insert(ServerThread(ip, tid));
-          }
-        }
-      }
-
-      succeed = true;
-    }
-
-    return result;
-  }
-}
-
 // query the routing for a key and return all address
 std::vector<Address> get_address_from_routing(UserThread& ut, const Key& key,
                                               zmq::socket_t& sending_socket,
@@ -217,4 +173,57 @@ RoutingThread get_random_routing_thread(std::vector<Address>& routing_address,
   Address routing_ip = routing_address[rand_r(&seed) % routing_address.size()];
   unsigned tid = rand_r(&seed) % kRoutingThreadCount;
   return RoutingThread(routing_ip, tid);
+}
+
+ServerThreadSet ResponsibleThread::get_responsible_threads(
+    Address respond_address, const Key& key, bool metadata,
+    std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+    std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
+    std::unordered_map<Key, KeyInfo>& placement, SocketCache& pushers,
+    const std::vector<unsigned>& tier_ids, bool& succeed, unsigned& seed) {
+  if (metadata) {
+    succeed = true;
+    return get_responsible_threads_metadata(key, global_hash_ring_map[1],
+                                            local_hash_ring_map[1]);
+  } else {
+    ServerThreadSet result;
+
+    if (placement.find(key) == placement.end()) {
+      issue_replication_factor_request(respond_address, key,
+                                       global_hash_ring_map[1],
+                                       local_hash_ring_map[1], pushers, seed);
+      succeed = false;
+    } else {
+      for (const unsigned& tier_id : tier_ids) {
+        ServerThreadSet threads = responsible_global(
+            key, kMetadataReplicationFactor, global_hash_ring_map[tier_id]);
+
+        for (const ServerThread& thread : threads) {
+          Address ip = thread.get_ip();
+          std::unordered_set<unsigned> tids = responsible_local(
+              key, placement[key].local_replication_map_[tier_id],
+              local_hash_ring_map[tier_id]);
+
+          for (const unsigned& tid : tids) {
+            result.insert(ServerThread(ip, tid));
+          }
+        }
+      }
+
+      succeed = true;
+    }
+
+    return result;
+  }
+}
+
+ServerThreadSet MockResponsibleThread::get_responsible_threads(
+    Address respond_address, const Key& key, bool metadata,
+    std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+    std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
+    std::unordered_map<Key, KeyInfo>& placement, SocketCache& pushers,
+    const std::vector<unsigned>& tier_ids, bool& succeed, unsigned& seed) {
+  ServerThreadSet threads;
+  threads.insert(ServerThread("127.0.0.1", 0));
+  return threads;
 }

@@ -73,7 +73,7 @@ void replication_response_handler(
     ServerThreadSet threads = {};
 
     while (threads.size() == 0 && tier_id < kMaxTier) {
-      threads = get_responsible_threads(
+      threads = kResponsibleThreadInterface->get_responsible_threads(
           rt.get_replication_factor_connect_addr(), key, false,
           global_hash_ring_map, local_hash_ring_map, placement, pushers,
           {tier_id}, succeed, seed);

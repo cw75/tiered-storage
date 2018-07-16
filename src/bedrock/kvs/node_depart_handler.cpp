@@ -17,11 +17,10 @@
 void node_depart_handler(
     unsigned thread_id, Address ip,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
-    std::shared_ptr<spdlog::logger> logger, zmq::socket_t* depart_puller,
+    std::shared_ptr<spdlog::logger> logger, std::string& serialized,
     SocketCache& pushers) {
-  std::string message = zmq_util::recv_string(depart_puller);
   std::vector<std::string> v;
-  split(message, ':', v);
+  split(serialized, ':', v);
 
   unsigned tier = stoi(v[0]);
   Address departing_server_ip = v[1];
@@ -36,7 +35,7 @@ void node_depart_handler(
     // tell all worker threads about the node departure
     for (unsigned tid = 1; tid < kThreadNum; tid++) {
       kZmqMessagingInterface->send_string(
-          message,
+          serialized,
           &pushers[ServerThread(ip, tid).get_node_depart_connect_addr()]);
     }
 

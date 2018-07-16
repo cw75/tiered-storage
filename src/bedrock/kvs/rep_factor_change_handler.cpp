@@ -17,14 +17,13 @@
 void rep_factor_change_handler(
     Address ip, unsigned thread_id, unsigned& seed,
     std::shared_ptr<spdlog::logger> logger,
-    zmq::socket_t* rep_factor_change_puller,
+    std::string& serialized,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     std::unordered_map<Key, KeyInfo>& placement,
     std::unordered_map<Key, unsigned>& key_size_map,
     std::unordered_set<Key>& local_changeset, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers) {
-  std::string change_string = zmq_util::recv_string(rep_factor_change_puller);
 
   // TODO(vikram): make logging in all handlers consistent
   logger->info("Received a replication factor change.");
@@ -32,14 +31,14 @@ void rep_factor_change_handler(
     // tell all worker threads about the replication factor change
     for (unsigned tid = 1; tid < kThreadNum; tid++) {
       kZmqMessagingInterface->send_string(
-          change_string,
+          serialized,
           &pushers[ServerThread(ip, tid)
                        .get_replication_factor_change_connect_addr()]);
     }
   }
 
   ReplicationFactorUpdate rep_change;
-  rep_change.ParseFromString(change_string);
+  rep_change.ParseFromString(serialized);
 
   AddressKeysetMap addr_keyset_map;
   std::unordered_set<Key> remove_set;
@@ -53,7 +52,7 @@ void rep_factor_change_handler(
 
     // if this thread was responsible for the key before the change
     if (key_size_map.find(key) != key_size_map.end()) {
-      ServerThreadSet orig_threads = get_responsible_threads(
+      ServerThreadSet orig_threads = kResponsibleThreadInterface->get_responsible_threads(
           wt.get_replication_factor_connect_addr(), key, is_metadata(key),
           global_hash_ring_map, local_hash_ring_map, placement, pushers,
           kAllTierIds, succeed, seed);
@@ -82,7 +81,7 @@ void rep_factor_change_handler(
               local.replication_factor();
         }
 
-        ServerThreadSet threads = get_responsible_threads(
+        ServerThreadSet threads = kResponsibleThreadInterface->get_responsible_threads(
             wt.get_replication_factor_connect_addr(), key, is_metadata(key),
             global_hash_ring_map, local_hash_ring_map, placement, pushers,
             kAllTierIds, succeed, seed);

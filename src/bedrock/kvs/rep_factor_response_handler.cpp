@@ -19,7 +19,7 @@
 void rep_factor_response_handler(
     unsigned& seed, unsigned& total_access,
     std::shared_ptr<spdlog::logger> logger,
-    zmq::socket_t* rep_factor_response_puller,
+    std::string& serialized,
     std::chrono::system_clock::time_point& start_time,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
@@ -32,9 +32,8 @@ void rep_factor_response_handler(
     std::unordered_map<Key, unsigned>& key_size_map,
     std::unordered_set<Key>& local_changeset, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers) {
-  std::string change_string = zmq_util::recv_string(rep_factor_response_puller);
   KeyResponse response;
-  response.ParseFromString(change_string);
+  response.ParseFromString(serialized);
 
   // we assume tuple 0 because there should only be one tuple responding to a
   // replication factor request
@@ -77,7 +76,7 @@ void rep_factor_response_handler(
   bool succeed;
 
   if (pending_request_map.find(key) != pending_request_map.end()) {
-    ServerThreadSet threads = get_responsible_threads(
+    ServerThreadSet threads = kResponsibleThreadInterface->get_responsible_threads(
         wt.get_replication_factor_connect_addr(), key, is_metadata(key),
         global_hash_ring_map, local_hash_ring_map, placement, pushers,
         kSelfTierIdVector, succeed, seed);
@@ -169,7 +168,7 @@ void rep_factor_response_handler(
   }
 
   if (pending_gossip_map.find(key) != pending_gossip_map.end()) {
-    ServerThreadSet threads = get_responsible_threads(
+    ServerThreadSet threads = kResponsibleThreadInterface->get_responsible_threads(
         wt.get_replication_factor_connect_addr(), key, is_metadata(key),
         global_hash_ring_map, local_hash_ring_map, placement, pushers,
         kSelfTierIdVector, succeed, seed);

@@ -16,16 +16,15 @@
 
 void node_join_handler(
     unsigned thread_id, unsigned& seed, Address ip,
-    std::shared_ptr<spdlog::logger> logger, zmq::socket_t* join_puller,
+    std::shared_ptr<spdlog::logger> logger, std::string& serialized,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     std::unordered_map<Key, unsigned>& key_size_map,
     std::unordered_map<Key, KeyInfo>& placement,
     std::unordered_set<Key>& join_remove_set, SocketCache& pushers,
     ServerThread& wt, AddressKeysetMap& join_addr_keyset_map) {
-  std::string message = zmq_util::recv_string(join_puller);
   std::vector<std::string> v;
-  split(message, ':', v);
+  split(serialized, ':', v);
   unsigned tier = stoi(v[0]);
   Address new_server_ip = v[1];
 
@@ -69,7 +68,7 @@ void node_join_handler(
       // tell all worker threads about the new node join
       for (unsigned tid = 1; tid < kThreadNum; tid++) {
         kZmqMessagingInterface->send_string(
-            message,
+            serialized,
             &pushers[ServerThread(ip, tid).get_node_join_connect_addr()]);
       }
     }
@@ -79,7 +78,7 @@ void node_join_handler(
 
       for (const auto& key_pair : key_size_map) {
         Key key = key_pair.first;
-        ServerThreadSet threads = get_responsible_threads(
+        ServerThreadSet threads = kResponsibleThreadInterface->get_responsible_threads(
             wt.get_replication_factor_connect_addr(), key, is_metadata(key),
             global_hash_ring_map, local_hash_ring_map, placement, pushers,
             kSelfTierIdVector, succeed, seed);

@@ -17,10 +17,10 @@
 
 #include <iostream>
 
-#include "core_lattices.h"
+#include "lattices/core_lattices.hpp"
 #include "gtest/gtest.h"
 
-typedef unordered_map<char, MaxLattice<int>> charMaxIntMap;
+typedef std::unordered_map<char, MaxLattice<int>> charMaxIntMap;
 
 class MapLatticeTest : public ::testing::Test {
  protected:
@@ -67,7 +67,7 @@ TEST_F(MapLatticeTest, MergeByLattice) {
 TEST_F(MapLatticeTest, KeySet) {
   mapl->merge(map1);
   SetLattice<char> res = mapl->key_set();
-  EXPECT_EQ(unordered_set<char>({'a', 'b'}), res.reveal());
+  EXPECT_EQ(std::unordered_set<char>({'a', 'b'}), res.reveal());
 }
 
 TEST_F(MapLatticeTest, At) {
@@ -76,10 +76,10 @@ TEST_F(MapLatticeTest, At) {
   EXPECT_EQ(10, res.reveal());
 }
 
-TEST_F(MapLatticeTest, Contain) {
+TEST_F(MapLatticeTest, Contains) {
   mapl->merge(map1);
-  BoolLattice res = mapl->contain('a');
+  BoolLattice res = mapl->contains('a');
   EXPECT_EQ(true, res.reveal());
-  res = mapl->contain('d');
+  res = mapl->contains('d');
   EXPECT_EQ(false, res.reveal());
 }

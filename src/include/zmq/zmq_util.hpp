@@ -67,7 +67,7 @@ public:
   }
 };
 
-class MockMessaging: public ZmqMessagingInterface {
+class MockZmqMessaging: public ZmqMessagingInterface {
 public:
   virtual void send_string(const std::string& s, zmq::socket_t* socket) {}
 };

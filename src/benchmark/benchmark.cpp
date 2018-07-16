@@ -24,9 +24,8 @@ unsigned kBenchmarkThreadNum;
 unsigned kRoutingThreadCount;
 unsigned kDefaultLocalReplication;
 
-ZmqMessaging zm;
-
-ZmqMessagingInterface* kZmqMessagingInterface = &zm;
+ZmqMessaging zmq_messaging;
+ZmqMessagingInterface* kZmqMessagingInterface = &zmq_messaging;
 
 double get_base(unsigned N, double skew) {
   double base = 0;

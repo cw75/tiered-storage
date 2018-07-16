@@ -37,9 +37,11 @@ unsigned kDefaultLocalReplication;
 
 std::unordered_map<unsigned, TierData> kTierDataMap;
 
-ZmqMessaging zm;
+ZmqMessaging zmq_messaging;
+ZmqMessagingInterface* kZmqMessagingInterface = &zmq_messaging;
 
-ZmqMessagingInterface* kZmqMessagingInterface = &zm;
+ResponsibleThread responsible_thread;
+ResponsibleThreadInterface* kResponsibleThreadInterface = &responsible_thread;
 
 void run(unsigned thread_id, Address ip, Address seed_ip,
          std::vector<Address> routing_addresses,
@@ -217,7 +219,8 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
     if (pollitems[0].revents & ZMQ_POLLIN) {
       auto work_start = std::chrono::system_clock::now();
 
-      node_join_handler(thread_id, seed, ip, logger, &join_puller,
+      std::string serialized = zmq_util::recv_string(&join_puller);
+      node_join_handler(thread_id, seed, ip, logger, serialized,
                         global_hash_ring_map, local_hash_ring_map, key_size_map,
                         placement, join_remove_set, pushers, wt,
                         join_addr_keyset_map);
@@ -232,8 +235,9 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
     if (pollitems[1].revents & ZMQ_POLLIN) {
       auto work_start = std::chrono::system_clock::now();
 
+      std::string serialized = zmq_util::recv_string(&depart_puller);
       node_depart_handler(thread_id, ip, global_hash_ring_map, logger,
-                          &depart_puller, pushers);
+                          serialized, pushers);
 
       auto time_elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
                               std::chrono::system_clock::now() - work_start)
@@ -245,7 +249,8 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
     if (pollitems[2].revents & ZMQ_POLLIN) {
       auto work_start = std::chrono::system_clock::now();
 
-      self_depart_handler(thread_id, seed, ip, logger, &self_depart_puller,
+      std::string serialized = zmq_util::recv_string(&self_depart_puller);
+      self_depart_handler(thread_id, seed, ip, logger, serialized,
                           global_hash_ring_map, local_hash_ring_map,
                           key_size_map, placement, routing_addresses,
                           monitoring_addresses, wt, pushers, serializer);
@@ -260,8 +265,9 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
     if (pollitems[3].revents & ZMQ_POLLIN) {
       auto work_start = std::chrono::system_clock::now();
 
-      user_request_handler(total_accesses, seed, &request_puller, start_time,
-                           logger, global_hash_ring_map, local_hash_ring_map,
+      std::string serialized = zmq_util::recv_string(&request_puller);
+      user_request_handler(total_accesses, seed, serialized, start_time, logger,
+                           global_hash_ring_map, local_hash_ring_map,
                            key_size_map, pending_request_map,
                            key_access_timestamp, placement, local_changeset, wt,
                            serializer, pushers);
@@ -277,7 +283,8 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
     if (pollitems[4].revents & ZMQ_POLLIN) {
       auto work_start = std::chrono::system_clock::now();
 
-      gossip_handler(seed, &gossip_puller, global_hash_ring_map,
+      std::string serialized = zmq_util::recv_string(&gossip_puller);
+      gossip_handler(seed, serialized, global_hash_ring_map,
                      local_hash_ring_map, key_size_map, pending_gossip_map,
                      placement, wt, serializer, pushers);
 
@@ -292,8 +299,9 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
     if (pollitems[5].revents & ZMQ_POLLIN) {
       auto work_start = std::chrono::system_clock::now();
 
+      std::string serialized = zmq_util::recv_string(&replication_factor_puller);
       rep_factor_response_handler(
-          seed, total_accesses, logger, &replication_factor_puller, start_time,
+          seed, total_accesses, logger, serialized, start_time,
           global_hash_ring_map, local_hash_ring_map, pending_request_map,
           pending_gossip_map, key_access_timestamp, placement, key_size_map,
           local_changeset, wt, serializer, pushers);
@@ -309,8 +317,9 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
     if (pollitems[6].revents & ZMQ_POLLIN) {
       auto work_start = std::chrono::system_clock::now();
 
+      std::string serialized = zmq_util::recv_string(&replication_factor_change_puller);
       rep_factor_change_handler(
-          ip, thread_id, seed, logger, &replication_factor_change_puller,
+          ip, thread_id, seed, logger, serialized,
           global_hash_ring_map, local_hash_ring_map, placement, key_size_map,
           local_changeset, wt, serializer, pushers);
 
@@ -333,7 +342,7 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
 
         bool succeed;
         for (const Key& key : local_changeset) {
-          ServerThreadSet threads = get_responsible_threads(
+          ServerThreadSet threads = kResponsibleThreadInterface->get_responsible_threads(
               wt.get_replication_factor_connect_addr(), key, is_metadata(key),
               global_hash_ring_map, local_hash_ring_map, placement, pushers,
               kAllTierIds, succeed, seed);

@@ -86,12 +86,12 @@ ServerThreadSet get_responsible_threads_metadata(
     const Key& key, GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring);
 
-ServerThreadSet get_responsible_threads(
+/*ServerThreadSet get_responsible_threads(
     Address respond_address, const Key& key, bool metadata,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     std::unordered_map<Key, KeyInfo>& placement, SocketCache& pushers,
-    const std::vector<unsigned>& tier_ids, bool& succeed, unsigned& seed);
+    const std::vector<unsigned>& tier_ids, bool& succeed, unsigned& seed);*/
 
 void issue_replication_factor_request(const Address& respond_address,
                                       const Key& key,
@@ -135,4 +135,33 @@ inline void init_replication(std::unordered_map<Key, KeyInfo>& placement,
   }
 }
 
-#endif  // SRC_INCLUDE_HASH_RING_HPP_
+class ResponsibleThreadInterface {
+public:
+  virtual ServerThreadSet get_responsible_threads(Address respond_address, const Key& key, bool metadata,
+    std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+    std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
+    std::unordered_map<Key, KeyInfo>& placement, SocketCache& pushers,
+    const std::vector<unsigned>& tier_ids, bool& succeed, unsigned& seed) = 0;
+};
+
+class ResponsibleThread: public ResponsibleThreadInterface {
+public:
+  virtual ServerThreadSet get_responsible_threads(Address respond_address, const Key& key, bool metadata,
+    std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+    std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
+    std::unordered_map<Key, KeyInfo>& placement, SocketCache& pushers,
+    const std::vector<unsigned>& tier_ids, bool& succeed, unsigned& seed);
+};
+
+class MockResponsibleThread: public ResponsibleThreadInterface {
+public:
+  virtual ServerThreadSet get_responsible_threads(Address respond_address, const Key& key, bool metadata,
+    std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+    std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
+    std::unordered_map<Key, KeyInfo>& placement, SocketCache& pushers,
+    const std::vector<unsigned>& tier_ids, bool& succeed, unsigned& seed);
+};
+
+extern ResponsibleThreadInterface* kResponsibleThreadInterface;
+
+#endif // SRC_INCLUDE_HASH_RING_HPP_

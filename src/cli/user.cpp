@@ -24,9 +24,8 @@
 unsigned kRoutingThreadCount;
 unsigned kDefaultLocalReplication;
 
-ZmqMessaging zm;
-
-ZmqMessagingInterface* kZmqMessagingInterface = &zm;
+ZmqMessaging zmq_messaging;
+ZmqMessagingInterface* kZmqMessagingInterface = &zmq_messaging;
 
 void handle_request(
     std::string request_line, SocketCache& pushers,

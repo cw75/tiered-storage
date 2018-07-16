@@ -17,7 +17,7 @@
 
 #include <iostream>
 
-#include "core_lattices.h"
+#include "lattices/core_lattices.hpp"
 #include "gtest/gtest.h"
 
 template <typename T>
@@ -53,19 +53,6 @@ TYPED_TEST(MaxLatticeTest, MergeByLattice) {
   EXPECT_EQ(10, this->ml->reveal());
   this->ml->merge(MaxLattice<TypeParam>(5));
   EXPECT_EQ(10, this->ml->reveal());
-}
-
-TYPED_TEST(MaxLatticeTest, Gt) {
-  BoolLattice bl = this->ml->gt(0);
-  EXPECT_EQ(false, bl.reveal());
-  this->ml->merge(1);
-  bl = this->ml->gt(0);
-  EXPECT_EQ(true, bl.reveal());
-}
-
-TYPED_TEST(MaxLatticeTest, GtEq) {
-  BoolLattice bl = this->ml->gt_eq(0);
-  EXPECT_EQ(true, bl.reveal());
 }
 
 TYPED_TEST(MaxLatticeTest, Add) {

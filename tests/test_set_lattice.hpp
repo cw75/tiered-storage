@@ -17,15 +17,15 @@
 
 #include <iostream>
 
-#include "core_lattices.h"
+#include "lattices/core_lattices.hpp"
 #include "gtest/gtest.h"
 
 class SetLatticeTest : public ::testing::Test {
  protected:
   SetLattice<char>* sl;
-  unordered_set<char> set1 = {'a', 'b', 'c'};
-  unordered_set<char> set2 = {'c', 'd', 'e'};
-  unordered_set<char> set3 = {'a', 'd', 'e', 'b', 'c'};
+  std::unordered_set<char> set1 = {'a', 'b', 'c'};
+  std::unordered_set<char> set2 = {'c', 'd', 'e'};
+  std::unordered_set<char> set3 = {'a', 'd', 'e', 'b', 'c'};
   SetLatticeTest() { sl = new SetLattice<char>; }
   virtual ~SetLatticeTest() { delete sl; }
 };
@@ -62,33 +62,5 @@ TEST_F(SetLatticeTest, MergeByLattice) {
 TEST_F(SetLatticeTest, Intersection) {
   sl->merge(set1);
   SetLattice<char> res = sl->intersect(set2);
-  EXPECT_EQ(unordered_set<char>({'c'}), res.reveal());
-}
-
-TEST_F(SetLatticeTest, Contain) {
-  sl->merge(set1);
-  BoolLattice res = sl->contain('a');
-  EXPECT_EQ(true, res.reveal());
-  res = sl->contain('d');
-  EXPECT_EQ(false, res.reveal());
-}
-
-TEST_F(SetLatticeTest, Flow) {
-  sl->merge(set1);
-  int res = sl->size().gt(1).when_true(flow_test_set);
-  EXPECT_EQ(5, res);
-}
-
-// move this to test_BaseLattice
-TEST_F(SetLatticeTest, Dominated) {
-  sl->merge(set1);
-  unordered_set<char> s4 = {'c', 'a', 'b', 'd'};
-  SetLattice<char> other = SetLattice<char>(s4);
-  bool res = dominated<SetLattice<char>>(*sl, other);
-  EXPECT_EQ(true, res);
-  s4 = {'c', 'a', 'e'};
-  other = SetLattice<char>(s4);
-  res = dominated<SetLattice<char>>(*sl, other);
-  EXPECT_EQ(false, res);
-  EXPECT_EQ(set1, sl->reveal());
+  EXPECT_EQ(std::unordered_set<char>({'c'}), res.reveal());
 }

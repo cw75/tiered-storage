@@ -19,9 +19,11 @@ std::unordered_map<unsigned, TierData> kTierDataMap;
 unsigned kDefaultLocalReplication;
 unsigned kRoutingThreadCount;
 
-ZmqMessaging zm;
+ZmqMessaging zmq_messaging;
+ZmqMessagingInterface* kZmqMessagingInterface = &zmq_messaging;
 
-ZmqMessagingInterface* kZmqMessagingInterface = &zm;
+ResponsibleThread responsible_thread;
+ResponsibleThreadInterface* kResponsibleThreadInterface = &responsible_thread;
 
 void run(unsigned thread_id, Address ip,
          std::vector<Address> monitoring_addresses) {

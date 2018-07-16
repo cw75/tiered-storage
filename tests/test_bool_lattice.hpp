@@ -17,7 +17,7 @@
 
 #include <iostream>
 
-#include "core_lattices.h"
+#include "lattices/core_lattices.hpp"
 #include "gtest/gtest.h"
 
 class BoolLatticeTest : public ::testing::Test {
@@ -51,12 +51,4 @@ TEST_F(BoolLatticeTest, MergeByLattice) {
   EXPECT_EQ(true, bl->reveal());
   bl->merge(BoolLattice(false));
   EXPECT_EQ(true, bl->reveal());
-}
-
-TEST_F(BoolLatticeTest, WhenTrue) {
-  int res = bl->when_true(foo);
-  EXPECT_EQ(res, 0);
-  bl->merge(true);
-  res = bl->when_true(foo);
-  EXPECT_EQ(res, 5);
 }
