@@ -40,8 +40,8 @@ sudo apt-get install -y libc++-dev libc++abi-dev awscli jq
 sudo ln -s $(which clang) /usr/bin/clang
 sudo ln -s $(which clang++) /usr/bin/clang++
 
-# if the protobuf directory doesn't exist
-if [ ! -d "$PROTOBUF_DIR" ]; then
+# if the protobuf directory doesn't exist or is empty
+if [ ! -d "$PROTOBUF_DIR" ] || [ -z "$(ls -A $PROTOBUF_DIR)" ] ; then
   download_protobuf
 fi
 
