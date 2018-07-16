@@ -159,7 +159,7 @@ std::vector<Address> get_address_from_routing(UserThread& ut, const Key& key,
                                               zmq::socket_t& sending_socket,
                                               zmq::socket_t& receiving_socket,
                                               bool& succeed, Address& ip,
-                                              unsigned& thread_id,
+                                              const unsigned thread_id,
                                               unsigned& rid) {
   int count = 0;
 
@@ -211,7 +211,7 @@ std::vector<Address> get_address_from_routing(UserThread& ut, const Key& key,
 
 RoutingThread get_random_routing_thread(std::vector<Address>& routing_address,
                                         unsigned& seed,
-                                        unsigned& kRoutingThreadCount) {
+                                        const unsigned kRoutingThreadCount) {
   Address routing_ip = routing_address[rand_r(&seed) % routing_address.size()];
   unsigned tid = rand_r(&seed) % kRoutingThreadCount;
   return RoutingThread(routing_ip, tid);

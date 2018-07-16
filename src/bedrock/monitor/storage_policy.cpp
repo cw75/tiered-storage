@@ -19,7 +19,7 @@ void storage_policy(
     std::shared_ptr<spdlog::logger> logger,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::chrono::time_point<std::chrono::system_clock>& grace_start,
-    SummaryStats& ss, unsigned& memory_node_number, unsigned& ebs_node_number,
+    SummaryStats& ss, const unsigned memory_node_number, const unsigned ebs_node_number,
     unsigned& adding_memory_node, unsigned& adding_ebs_node,
     bool& removing_ebs_node, Address management_address, MonitoringThread& mt,
     std::unordered_map<Address, unsigned>& departing_node_map,

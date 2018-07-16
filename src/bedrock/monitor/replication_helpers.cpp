@@ -15,8 +15,8 @@
 #include "monitor/monitoring_utils.hpp"
 #include "requests.hpp"
 
-KeyInfo create_new_replication_vector(unsigned gm, unsigned ge, unsigned lm,
-                                      unsigned le) {
+KeyInfo create_new_replication_vector(const unsigned gm, const unsigned ge, const unsigned lm,
+                                      const unsigned le) {
   KeyInfo vector;
   vector.global_replication_map_[1] = gm;
   vector.global_replication_map_[2] = ge;

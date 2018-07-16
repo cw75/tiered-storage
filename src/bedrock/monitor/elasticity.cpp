@@ -15,7 +15,7 @@
 #include "monitor/monitoring_utils.hpp"
 
 void add_node(std::shared_ptr<spdlog::logger> logger, std::string tier,
-              unsigned number, unsigned& adding,
+              const unsigned number, unsigned& adding,
               const Address& management_address) {
   logger->info("Adding {} {} node.", std::to_string(number), tier);
   std::string shell_command = "curl -X POST http://" + management_address +

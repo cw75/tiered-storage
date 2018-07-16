@@ -43,7 +43,7 @@ void replication_change_handler(std::shared_ptr<spdlog::logger> logger,
                                 zmq::socket_t* replication_factor_change_puller,
                                 SocketCache& pushers,
                                 std::unordered_map<Key, KeyInfo>& placement,
-                                unsigned thread_id, Address ip);
+                                const unsigned thread_id, Address ip);
 
 void address_handler(
     std::shared_ptr<spdlog::logger> logger, zmq::socket_t* key_address_puller,

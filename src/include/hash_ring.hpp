@@ -103,7 +103,7 @@ std::vector<Address> get_address_from_routing(UserThread& ut, const Key& key,
                                               zmq::socket_t& sending_socket,
                                               zmq::socket_t& receiving_socket,
                                               bool& succeed, Address& ip,
-                                              unsigned& thread_id,
+                                              const unsigned thread_id,
                                               unsigned& rid);
 
 RoutingThread get_random_routing_thread(std::vector<Address>& routing_address,

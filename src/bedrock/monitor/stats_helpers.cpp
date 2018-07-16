@@ -124,7 +124,7 @@ void compute_summary_stats(
     OccupancyStat& memory_tier_occupancy, OccupancyStat& ebs_tier_occupancy,
     AccessStat& memory_tier_access, AccessStat& ebs_tier_access,
     std::unordered_map<Key, unsigned>& key_access_summary, SummaryStats& ss,
-    std::shared_ptr<spdlog::logger> logger, unsigned& server_monitoring_epoch) {
+    std::shared_ptr<spdlog::logger> logger, const unsigned server_monitoring_epoch) {
   // compute key access summary
   unsigned cnt = 0;
   double mean = 0;

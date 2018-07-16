@@ -75,7 +75,7 @@ void handle_request(
     std::unordered_map<Key, std::unordered_set<Address>>& key_address_cache,
     unsigned& seed, std::shared_ptr<spdlog::logger> logger, UserThread& ut,
     zmq::socket_t& response_puller, zmq::socket_t& key_address_puller,
-    Address& ip, unsigned& thread_id, unsigned& rid, unsigned& trial) {
+    Address& ip, const unsigned thread_id, unsigned& rid, unsigned& trial) {
   if (trial > 5) {
     logger->info("Trial #{} for request for key {}.", trial, key);
     logger->info("Waiting 5 seconds.");

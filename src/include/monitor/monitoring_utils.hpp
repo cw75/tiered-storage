@@ -130,15 +130,15 @@ void compute_summary_stats(
     OccupancyStat& memory_tier_occupancy, OccupancyStat& ebs_tier_occupancy,
     AccessStat& memory_tier_access, AccessStat& ebs_tier_access,
     std::unordered_map<Key, unsigned>& key_access_summary, SummaryStats& ss,
-    std::shared_ptr<spdlog::logger> logger, unsigned& server_monitoring_epoch);
+    std::shared_ptr<spdlog::logger> logger, const unsigned server_monitoring_epoch);
 
 void collect_external_stats(
     std::unordered_map<std::string, double>& user_latency,
     std::unordered_map<std::string, double>& user_throughput, SummaryStats& ss,
     std::shared_ptr<spdlog::logger> logger);
 
-KeyInfo create_new_replication_vector(unsigned gm, unsigned ge, unsigned lm,
-                                      unsigned le);
+KeyInfo create_new_replication_vector(const unsigned gm, const unsigned ge, const unsigned lm,
+                                      const unsigned le);
 
 void prepare_replication_factor_update(
     const Key& key,
