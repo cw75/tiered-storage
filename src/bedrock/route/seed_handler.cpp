@@ -29,9 +29,9 @@ void seed_handler(
     auto hash_ring = global_pair.second;
 
     for (const ServerThread& st : hash_ring.get_unique_servers()) {
-        TierMembership_Tier* tier = membership.add_tiers();
-        tier->set_tier_id(tier_id);
-        tier->add_ips(st.get_ip());
+      TierMembership_Tier* tier = membership.add_tiers();
+      tier->set_tier_id(tier_id);
+      tier->add_ips(st.get_ip());
     }
   }
 

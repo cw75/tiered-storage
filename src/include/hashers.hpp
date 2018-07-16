@@ -15,6 +15,7 @@
 #ifndef SRC_INCLUDE_HASHERS_HPP_
 #define SRC_INCLUDE_HASHERS_HPP_
 
+#include <unordered_set>
 #include "threads.hpp"
 
 struct ThreadHash {

@@ -95,7 +95,7 @@ void change_replication_factor(
       local->set_replication_factor(rep_pair.second);
     }
 
-    Key rep_key = std::string(kMetadataIdentifier) + "_" + key + "_replication";
+    Key rep_key = get_metadata_key(key, MetadataType::replication);
 
     std::string serialized_rep_data;
     rep_data.SerializeToString(&serialized_rep_data);
@@ -116,10 +116,7 @@ void change_replication_factor(
       logger->error("Replication factor put timed out!");
 
       for (const auto& tuple : request_pair.second.tuples()) {
-        std::vector<std::string> tokens;
-        split(tuple.key(), '_', tokens);
-
-        failed_keys.insert(tokens[1]);
+        failed_keys.insert(get_key_from_metadata(tuple.key()));
       }
     } else {
       for (const auto& tuple : res.tuples()) {
@@ -129,10 +126,7 @@ void change_replication_factor(
               "address.",
               tuple.key());
 
-          std::vector<std::string> tokens;
-
-          split(tuple.key(), '_', tokens);
-          failed_keys.insert(tokens[1]);
+          failed_keys.insert(get_key_from_metadata(tuple.key()));
         }
       }
     }
