@@ -78,6 +78,7 @@ void user_request_handler(
       } else {  // if we know the responsible threads, we process the request
         KeyTuple* tp = response.add_tuples();
         tp->set_key(key);
+
         if (request_type == "GET") {
           auto res = process_get(key, serializer);
           tp->set_value(res.first.reveal().value);

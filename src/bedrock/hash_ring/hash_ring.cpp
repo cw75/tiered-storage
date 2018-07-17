@@ -16,9 +16,7 @@
 
 #include <unistd.h>
 
-#include "common.hpp"
 #include "requests.hpp"
-#include "threads.hpp"
 
 // assuming the replication factor will never be greater than the number of
 // nodes in a tier return a set of ServerThreads that are responsible for a key
@@ -97,9 +95,9 @@ void issue_replication_factor_request(const Address& respond_address,
                                       GlobalHashRing& global_memory_hash_ring,
                                       LocalHashRing& local_memory_hash_ring,
                                       SocketCache& pushers, unsigned& seed) {
-  Key key_rep = std::string(kMetadataIdentifier) + "_" + key + "_replication";
+  Key replication_key = get_metadata_key(key, MetadataType::replication);
   auto threads = get_responsible_threads_metadata(
-      key_rep, global_memory_hash_ring, local_memory_hash_ring);
+      replication_key, global_memory_hash_ring, local_memory_hash_ring);
 
   Address target_address = next(begin(threads), rand_r(&seed) % threads.size())
                                ->get_request_pulling_connect_addr();
@@ -108,8 +106,7 @@ void issue_replication_factor_request(const Address& respond_address,
   key_request.set_type(get_request_type("GET"));
   key_request.set_response_address(respond_address);
 
-  prepare_get_tuple(key_request,
-                    kMetadataIdentifier + "_" + key + "_replication");
+  prepare_get_tuple(key_request, replication_key);
   push_request(key_request, pushers[target_address]);
 }
 
