@@ -5,7 +5,8 @@ TARGET_LINK_LIBRARIES (run_lattice_test ${GTEST_LIBS_DIR}/libgtest.so)
 ADD_DEPENDENCIES(run_lattice_test googletest)
 
 ADD_EXECUTABLE(run_server_handler_test
-			   run_server_handler_test.cpp 
+			   run_server_handler_test.cpp
+			   mocked.cpp
 			   ../src/bedrock/kvs/node_join_handler.cpp
 			   ../src/bedrock/kvs/node_depart_handler.cpp
 			   ../src/bedrock/kvs/self_depart_handler.cpp

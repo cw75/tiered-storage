@@ -21,7 +21,7 @@ bool recursive_receive(zmq::socket_t& receiving_socket, zmq::message_t& message,
   bool rc = receiving_socket.recv(&message);
 
   if (rc) {
-    auto serialized_resp = zmq_util::message_to_string(message);
+    auto serialized_resp = kZmqUtilInterface->message_to_string(message);
     response.ParseFromString(serialized_resp);
 
     if (req.request_id() == response.response_id()) {
@@ -47,7 +47,7 @@ RES send_request(const REQ& req, zmq::socket_t& sending_socket,
                  zmq::socket_t& receiving_socket, bool& succeed) {
   std::string serialized_req;
   req.SerializeToString(&serialized_req);
-  kZmqMessagingInterface->send_string(serialized_req, &sending_socket);
+  kZmqUtilInterface->send_string(serialized_req, &sending_socket);
 
   RES response;
   zmq::message_t message;

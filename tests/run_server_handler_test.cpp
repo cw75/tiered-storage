@@ -1,3 +1,17 @@
+//  Copyright 2018 U.C. Berkeley RISE Lab
+//
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -5,12 +19,11 @@
 
 #include "test_server_handlers.hpp"
 
-MockZmqMessaging mock_zmq_messaging;
-ZmqMessagingInterface* kZmqMessagingInterface = &mock_zmq_messaging;
+MockZmqUtil mock_zmq_util;
+ZmqUtilInterface* kZmqUtilInterface = &mock_zmq_util;
 
-MockResponsibleThread mock_responsible_thread;
-ResponsibleThreadInterface* kResponsibleThreadInterface =
-    &mock_responsible_thread;
+MockHashRingUtil mock_hash_ring_util;
+HashRingUtilInterface* kHashRingUtilInterface = &mock_hash_ring_util;
 
 unsigned kDefaultLocalReplication = 1;
 unsigned kSelfTierId = 1;

@@ -1,3 +1,17 @@
+//  Copyright 2018 U.C. Berkeley RISE Lab
+//
+//  Licensed under the Apache License, Version 2.0 (the "License");
+//  you may not use this file except in compliance with the License.
+//  You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+//  Unless required by applicable law or agreed to in writing, software
+//  distributed under the License is distributed on an "AS IS" BASIS,
+//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//  See the License for the specific language governing permissions and
+//  limitations under the License.
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -5,6 +19,7 @@
 
 #include "gtest/gtest.h"
 #include "kvs/kvs_handlers.hpp"
+#include "mocked.hpp"
 
 std::shared_ptr<spdlog::logger> logger =
     spdlog::basic_logger_mt("mock_logger", "mock.txt", true);
@@ -26,7 +41,7 @@ class ServerHandlerTest : public ::testing::Test {
     kvs = new MemoryKVS();
     serializer = new MemorySerializer(kvs);
     wt = ServerThread(ip, thread_id);
-    insert_to_hash_ring<GlobalHashRing>(global_hash_ring_map[1], ip, thread_id);
+    global_hash_ring_map[1].insert_to_hash_ring(ip, thread_id);
   }
   virtual ~ServerHandlerTest() {
     delete kvs;
@@ -50,7 +65,7 @@ TEST_F(ServerHandlerTest, NodeJoin) {
 }
 
 TEST_F(ServerHandlerTest, NodeDepart) {
-  insert_to_hash_ring<GlobalHashRing>(global_hash_ring_map[1], "1.0.0.1", 0);
+  global_hash_ring_map[1].insert_to_hash_ring("1.0.0.1", 0);
 
   EXPECT_EQ(global_hash_ring_map[1].size(), 6000);
   std::string serialized = "1:1.0.0.1";

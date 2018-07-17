@@ -24,8 +24,11 @@ unsigned kBenchmarkThreadNum;
 unsigned kRoutingThreadCount;
 unsigned kDefaultLocalReplication;
 
-ZmqMessaging zmq_messaging;
-ZmqMessagingInterface* kZmqMessagingInterface = &zmq_messaging;
+ZmqUtil zmq_util;
+ZmqUtilInterface* kZmqUtilInterface = &zmq_util;
+
+HashRingUtil hash_ring_util;
+HashRingUtilInterface* kHashRingUtilInterface = &hash_ring_util;
 
 double get_base(unsigned N, double skew) {
   double base = 0;
@@ -92,13 +95,16 @@ void handle_request(
   if (key_address_cache.find(key) == key_address_cache.end()) {
     // query the routing and update the cache
     Address target_routing_address =
-        get_random_routing_thread(routing_addresses, seed, kRoutingThreadCount)
+        kHashRingUtilInterface
+            ->get_random_routing_thread(routing_addresses, seed,
+                                        kRoutingThreadCount)
             .get_key_address_connect_addr();
 
     bool succeed;
-    std::vector<std::string> addresses = get_address_from_routing(
-        ut, key, pushers[target_routing_address], key_address_puller, succeed,
-        ip, thread_id, rid);
+    std::vector<std::string> addresses =
+        kHashRingUtilInterface->get_address_from_routing(
+            ut, key, pushers[target_routing_address], key_address_puller,
+            succeed, ip, thread_id, rid);
 
     if (succeed) {
       for (const std::string& address : addresses) {
@@ -253,13 +259,13 @@ void run(unsigned thread_id, std::string ip,
   unsigned rid = 0;
 
   while (true) {
-    zmq_util::poll(-1, &pollitems);
+    kZmqUtilInterface->poll(-1, &pollitems);
 
     if (pollitems[0].revents & ZMQ_POLLIN) {
       logger->info("Received benchmark command!");
       std::vector<std::string> v;
 
-      split(zmq_util::recv_string(&command_puller), ':', v);
+      split(kZmqUtilInterface->recv_string(&command_puller), ':', v);
       std::string mode = v[0];
 
       if (mode == "CACHE") {
@@ -278,13 +284,15 @@ void run(unsigned thread_id, std::string ip,
           }
 
           Address target_routing_address =
-              get_random_routing_thread(routing_addresses, seed,
-                                        kRoutingThreadCount)
+              kHashRingUtilInterface
+                  ->get_random_routing_thread(routing_addresses, seed,
+                                              kRoutingThreadCount)
                   .get_key_address_connect_addr();
           bool succeed;
-          std::vector<std::string> addresses = get_address_from_routing(
-              ut, key, pushers[target_routing_address], key_address_puller,
-              succeed, ip, thread_id, rid);
+          std::vector<std::string> addresses =
+              kHashRingUtilInterface->get_address_from_routing(
+                  ut, key, pushers[target_routing_address], key_address_puller,
+                  succeed, ip, thread_id, rid);
 
           if (succeed) {
             for (const std::string address : addresses) {
@@ -424,7 +432,7 @@ void run(unsigned thread_id, std::string ip,
             feedback.SerializeToString(&serialized_latency);
 
             for (const MonitoringThread& thread : monitoring_threads) {
-              kZmqMessagingInterface->send_string(
+              kZmqUtilInterface->send_string(
                   serialized_latency,
                   &pushers[thread.get_latency_report_connect_addr()]);
             }
@@ -458,7 +466,7 @@ void run(unsigned thread_id, std::string ip,
         feedback.SerializeToString(&serialized_latency);
 
         for (const MonitoringThread& thread : monitoring_threads) {
-          kZmqMessagingInterface->send_string(
+          kZmqUtilInterface->send_string(
               serialized_latency,
               &pushers[thread.get_latency_report_connect_addr()]);
         }

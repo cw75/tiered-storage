@@ -28,8 +28,11 @@ unsigned kMinimumReplicaNumber;
 // read-only per-tier metadata
 std::unordered_map<unsigned, TierData> kTierDataMap;
 
-ZmqMessaging zmq_messaging;
-ZmqMessagingInterface *kZmqMessagingInterface = &zmq_messaging;
+ZmqUtil zmq_util;
+ZmqUtilInterface *kZmqUtilInterface = &zmq_util;
+
+HashRingUtil hash_ring_util;
+HashRingUtilInterface *kHashRingUtilInterface = &hash_ring_util;
 
 int main(int argc, char *argv[]) {
   auto logger = spdlog::basic_logger_mt("monitoring_logger", "log.txt", true);
@@ -68,8 +71,7 @@ int main(int argc, char *argv[]) {
   // form local hash rings
   for (const auto &tier_pair : kTierDataMap) {
     for (unsigned tid = 0; tid < tier_pair.second.thread_number_; tid++) {
-      insert_to_hash_ring<LocalHashRing>(local_hash_ring_map[tier_pair.first],
-                                         ip, tid);
+      local_hash_ring_map[tier_pair.first].insert_to_hash_ring(ip, tid);
     }
   }
 
@@ -159,11 +161,11 @@ int main(int argc, char *argv[]) {
 
   while (true) {
     // listen for ZMQ events
-    zmq_util::poll(0, &pollitems);
+    kZmqUtilInterface->poll(0, &pollitems);
 
     // handle a join or depart event
     if (pollitems[0].revents & ZMQ_POLLIN) {
-      std::string serialized = zmq_util::recv_string(&notify_puller);
+      std::string serialized = kZmqUtilInterface->recv_string(&notify_puller);
       membership_handler(logger, serialized, global_hash_ring_map,
                          adding_memory_node, adding_ebs_node, grace_start,
                          routing_address, memory_tier_storage, ebs_tier_storage,
@@ -173,14 +175,15 @@ int main(int argc, char *argv[]) {
 
     // handle a depart done notification
     if (pollitems[1].revents & ZMQ_POLLIN) {
-      std::string serialized = zmq_util::recv_string(&depart_done_puller);
+      std::string serialized =
+          kZmqUtilInterface->recv_string(&depart_done_puller);
       depart_done_handler(logger, serialized, departing_node_map,
                           management_address, removing_memory_node,
                           removing_ebs_node, grace_start);
     }
 
     if (pollitems[2].revents & ZMQ_POLLIN) {
-      std::string serialized = zmq_util::recv_string(&feedback_puller);
+      std::string serialized = kZmqUtilInterface->recv_string(&feedback_puller);
       feedback_handler(serialized, user_latency, user_throughput,
                        latency_miss_ratio_map);
     }

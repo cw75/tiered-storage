@@ -12,60 +12,38 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-#include "hash_ring.hpp"
+#include "mocked.hpp"
 
-#include <unistd.h>
-
-#include "requests.hpp"
+std::string MockZmqUtil::message_to_string(const zmq::message_t& message) {
+  return std::string(static_cast<const char*>(message.data()), message.size());
+}
+zmq::message_t MockZmqUtil::string_to_message(const std::string& s) {
+  zmq::message_t msg(s.size());
+  memcpy(msg.data(), s.c_str(), s.size());
+  return msg;
+}
+void MockZmqUtil::send_string(const std::string& s, zmq::socket_t* socket) {}
+std::string MockZmqUtil::recv_string(zmq::socket_t* socket) { return ""; }
+int MockZmqUtil::poll(long timeout, std::vector<zmq::pollitem_t>* items) {
+  return 0;
+}
 
 // get all threads responsible for a key from the "node_type" tier
 // metadata flag = 0 means the key is  metadata; otherwise, it is  regular data
-ServerThreadSet HashRingUtil::get_responsible_threads(
+ServerThreadSet MockHashRingUtil::get_responsible_threads(
     Address respond_address, const Key& key, bool metadata,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
     std::unordered_map<Key, KeyInfo>& placement, SocketCache& pushers,
     const std::vector<unsigned>& tier_ids, bool& succeed, unsigned& seed) {
-  if (metadata) {
-    succeed = true;
-    return kHashRingUtilInterface->get_responsible_threads_metadata(
-        key, global_hash_ring_map[1], local_hash_ring_map[1]);
-  } else {
-    ServerThreadSet result;
-
-    if (placement.find(key) == placement.end()) {
-      kHashRingUtilInterface->issue_replication_factor_request(
-          respond_address, key, global_hash_ring_map[1], local_hash_ring_map[1],
-          pushers, seed);
-      succeed = false;
-    } else {
-      for (const unsigned& tier_id : tier_ids) {
-        ServerThreadSet threads = kHashRingUtilInterface->responsible_global(
-            key, kMetadataReplicationFactor, global_hash_ring_map[tier_id]);
-
-        for (const ServerThread& thread : threads) {
-          Address ip = thread.get_ip();
-          std::unordered_set<unsigned> tids =
-              kHashRingUtilInterface->responsible_local(
-                  key, placement[key].local_replication_map_[tier_id],
-                  local_hash_ring_map[tier_id]);
-
-          for (const unsigned& tid : tids) {
-            result.insert(ServerThread(ip, tid));
-          }
-        }
-      }
-
-      succeed = true;
-    }
-
-    return result;
-  }
+  ServerThreadSet threads;
+  threads.insert(ServerThread("127.0.0.1", 0));
+  return threads;
 }
 
 // assuming the replication factor will never be greater than the number of
 // nodes in a tier return a set of ServerThreads that are responsible for a key
-ServerThreadSet HashRingUtil::responsible_global(
+ServerThreadSet MockHashRingUtil::responsible_global(
     const Key& key, unsigned global_rep, GlobalHashRing& global_hash_ring) {
   ServerThreadSet threads;
   auto pos = global_hash_ring.find(key);
@@ -91,7 +69,7 @@ ServerThreadSet HashRingUtil::responsible_global(
 
 // assuming the replication factor will never be greater than the number of
 // worker threads return a set of tids that are responsible for a key
-std::unordered_set<unsigned> HashRingUtil::responsible_local(
+std::unordered_set<unsigned> MockHashRingUtil::responsible_local(
     const Key& key, unsigned local_rep, LocalHashRing& local_hash_ring) {
   std::unordered_set<unsigned> tids;
   auto pos = local_hash_ring.find(key);
@@ -115,7 +93,7 @@ std::unordered_set<unsigned> HashRingUtil::responsible_local(
   return tids;
 }
 
-ServerThreadSet HashRingUtil::get_responsible_threads_metadata(
+ServerThreadSet MockHashRingUtil::get_responsible_threads_metadata(
     const Key& key, GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring) {
   ServerThreadSet threads = kHashRingUtilInterface->responsible_global(
@@ -135,7 +113,7 @@ ServerThreadSet HashRingUtil::get_responsible_threads_metadata(
   return threads;
 }
 
-void HashRingUtil::issue_replication_factor_request(
+void MockHashRingUtil::issue_replication_factor_request(
     const Address& respond_address, const Key& key,
     GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring, SocketCache& pushers,
@@ -158,7 +136,7 @@ void HashRingUtil::issue_replication_factor_request(
 }
 
 // query the routing for a key and return all address
-std::vector<Address> HashRingUtil::get_address_from_routing(
+std::vector<Address> MockHashRingUtil::get_address_from_routing(
     UserThread& ut, const Key& key, zmq::socket_t& sending_socket,
     zmq::socket_t& receiving_socket, bool& succeed, Address& ip,
     unsigned& thread_id, unsigned& rid) {
@@ -174,43 +152,10 @@ std::vector<Address> HashRingUtil::get_address_from_routing(
   address_request.set_request_id(req_id);
   std::vector<Address> result;
 
-  int error = -1;
-
-  while (error != 0) {
-    if (error == 1) {
-      std::cerr << "No servers have joined the cluster yet. Retrying request."
-                << std::endl;
-    }
-
-    if (count > 0 && count % 5 == 0) {
-      std::cerr
-          << "Pausing for 5 seconds before continuing to query routing layer..."
-          << std::endl;
-      usleep(5000000);
-    }
-
-    rid += 1;
-
-    address_response = send_request<KeyAddressRequest, KeyAddressResponse>(
-        address_request, sending_socket, receiving_socket, succeed);
-
-    if (!succeed) {
-      return result;
-    } else {
-      error = address_response.error();
-    }
-
-    count++;
-  }
-
-  for (const std::string& ip : address_response.addresses(0).ips()) {
-    result.push_back(ip);
-  }
-
   return result;
 }
 
-RoutingThread HashRingUtil::get_random_routing_thread(
+RoutingThread MockHashRingUtil::get_random_routing_thread(
     std::vector<Address>& routing_address, unsigned& seed,
     unsigned& kRoutingThreadCount) {
   Address routing_ip = routing_address[rand_r(&seed) % routing_address.size()];

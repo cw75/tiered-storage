@@ -35,8 +35,7 @@ void membership_handler(
     logger->info("Received join from server {} in tier {}.", new_server_ip,
                  std::to_string(tier));
     if (tier == 1) {
-      insert_to_hash_ring<GlobalHashRing>(global_hash_ring_map[tier],
-                                          new_server_ip, 0);
+      global_hash_ring_map[tier].insert_to_hash_ring(new_server_ip, 0);
 
       if (adding_memory_node > 0) {
         adding_memory_node -= 1;
@@ -45,8 +44,7 @@ void membership_handler(
       // reset grace period timer
       grace_start = std::chrono::system_clock::now();
     } else if (tier == 2) {
-      insert_to_hash_ring<GlobalHashRing>(global_hash_ring_map[tier],
-                                          new_server_ip, 0);
+      global_hash_ring_map[tier].insert_to_hash_ring(new_server_ip, 0);
 
       if (adding_ebs_node > 0) {
         adding_ebs_node -= 1;
@@ -70,8 +68,7 @@ void membership_handler(
 
     // update hash ring
     if (tier == 1) {
-      remove_from_hash_ring<GlobalHashRing>(global_hash_ring_map[tier],
-                                            new_server_ip, 0);
+      global_hash_ring_map[tier].remove_from_hash_ring(new_server_ip, 0);
       memory_tier_storage.erase(new_server_ip);
       memory_tier_occupancy.erase(new_server_ip);
 
@@ -82,8 +79,7 @@ void membership_handler(
         }
       }
     } else if (tier == 2) {
-      remove_from_hash_ring<GlobalHashRing>(global_hash_ring_map[tier],
-                                            new_server_ip, 0);
+      global_hash_ring_map[tier].remove_from_hash_ring(new_server_ip, 0);
       ebs_tier_storage.erase(new_server_ip);
       ebs_tier_occupancy.erase(new_server_ip);
 

@@ -50,7 +50,7 @@ int main(int argc, char* argv[]) {
       for (unsigned tid = 0; tid < thread_num; tid++) {
         BenchmarkThread bt = BenchmarkThread(address, tid);
 
-        kZmqMessagingInterface->send_string(
+        kZmqUtilInterface->send_string(
             command, &pushers[bt.get_benchmark_command_port_addr()]);
       }
     }

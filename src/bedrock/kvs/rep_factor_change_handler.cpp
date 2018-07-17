@@ -28,7 +28,7 @@ void rep_factor_change_handler(
   if (thread_id == 0) {
     // tell all worker threads about the replication factor change
     for (unsigned tid = 1; tid < kThreadNum; tid++) {
-      kZmqMessagingInterface->send_string(
+      kZmqUtilInterface->send_string(
           serialized,
           &pushers[ServerThread(ip, tid)
                        .get_replication_factor_change_connect_addr()]);
@@ -51,7 +51,7 @@ void rep_factor_change_handler(
     // if this thread was responsible for the key before the change
     if (key_size_map.find(key) != key_size_map.end()) {
       ServerThreadSet orig_threads =
-          kResponsibleThreadInterface->get_responsible_threads(
+          kHashRingUtilInterface->get_responsible_threads(
               wt.get_replication_factor_connect_addr(), key, is_metadata(key),
               global_hash_ring_map, local_hash_ring_map, placement, pushers,
               kAllTierIds, succeed, seed);
@@ -81,7 +81,7 @@ void rep_factor_change_handler(
         }
 
         ServerThreadSet threads =
-            kResponsibleThreadInterface->get_responsible_threads(
+            kHashRingUtilInterface->get_responsible_threads(
                 wt.get_replication_factor_connect_addr(), key, is_metadata(key),
                 global_hash_ring_map, local_hash_ring_map, placement, pushers,
                 kAllTierIds, succeed, seed);

@@ -107,4 +107,29 @@ inline std::vector<std::string> split_metadata_key(Key key) {
   return tokens;
 }
 
+inline void warmup_placement_to_defaults(
+    std::unordered_map<Key, KeyInfo>& placement,
+    unsigned& kDefaultGlobalMemoryReplication,
+    unsigned& kDefaultGlobalEbsReplication,
+    unsigned& kDefaultLocalReplication) {
+  for (unsigned i = 1; i <= 1000000; i++) {
+    // key is 8 bytes
+    Key key =
+        std::string(8 - std::to_string(i).length(), '0') + std::to_string(i);
+    placement[key].global_replication_map_[1] = kDefaultGlobalMemoryReplication;
+    placement[key].global_replication_map_[2] = kDefaultGlobalEbsReplication;
+    placement[key].local_replication_map_[1] = kDefaultLocalReplication;
+    placement[key].local_replication_map_[2] = kDefaultLocalReplication;
+  }
+}
+
+inline void init_replication(std::unordered_map<Key, KeyInfo>& placement,
+                             const Key& key) {
+  for (const unsigned& tier_id : kAllTierIds) {
+    placement[key].global_replication_map_[tier_id] =
+        kTierDataMap[tier_id].default_replication_;
+    placement[key].local_replication_map_[tier_id] = kDefaultLocalReplication;
+  }
+}
+
 #endif  // SRC_INCLUDE_METADATA_HPP_

@@ -23,7 +23,7 @@ void replication_change_handler(std::shared_ptr<spdlog::logger> logger,
   if (thread_id == 0) {
     // tell all worker threads about the replication factor change
     for (unsigned tid = 1; tid < kRoutingThreadCount; tid++) {
-      kZmqMessagingInterface->send_string(
+      kZmqUtilInterface->send_string(
           serialized,
           &pushers[RoutingThread(ip, tid)
                        .get_replication_factor_change_connect_addr()]);

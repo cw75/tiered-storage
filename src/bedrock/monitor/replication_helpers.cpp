@@ -140,8 +140,8 @@ void change_replication_factor(
         unsigned rep =
             std::max(placement[key].global_replication_map_[tier],
                      orig_placement_info[key].global_replication_map_[tier]);
-        ServerThreadSet threads =
-            responsible_global(key, rep, global_hash_ring_map[tier]);
+        ServerThreadSet threads = kHashRingUtilInterface->responsible_global(
+            key, rep, global_hash_ring_map[tier]);
 
         for (const ServerThread& thread : threads) {
           prepare_replication_factor_update(
@@ -165,8 +165,8 @@ void change_replication_factor(
   for (const auto& rep_factor_pair : replication_factor_map) {
     std::string serialized_msg;
     rep_factor_pair.second.SerializeToString(&serialized_msg);
-    kZmqMessagingInterface->send_string(serialized_msg,
-                                        &pushers[rep_factor_pair.first]);
+    kZmqUtilInterface->send_string(serialized_msg,
+                                   &pushers[rep_factor_pair.first]);
   }
 
   // restore rep factor for failed keys

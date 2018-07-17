@@ -33,11 +33,10 @@ void gossip_handler(
   for (const KeyTuple& tuple : gossip.tuples()) {
     // first check if the thread is responsible for the key
     Key key = tuple.key();
-    ServerThreadSet threads =
-        kResponsibleThreadInterface->get_responsible_threads(
-            wt.get_replication_factor_connect_addr(), key, is_metadata(key),
-            global_hash_ring_map, local_hash_ring_map, placement, pushers,
-            kSelfTierIdVector, succeed, seed);
+    ServerThreadSet threads = kHashRingUtilInterface->get_responsible_threads(
+        wt.get_replication_factor_connect_addr(), key, is_metadata(key),
+        global_hash_ring_map, local_hash_ring_map, placement, pushers,
+        kSelfTierIdVector, succeed, seed);
 
     if (succeed) {
       if (threads.find(wt) !=
@@ -58,7 +57,7 @@ void gossip_handler(
                               tuple.value(), tuple.timestamp());
           }
         } else {
-          issue_replication_factor_request(
+          kHashRingUtilInterface->issue_replication_factor_request(
               wt.get_replication_factor_connect_addr(), key,
               global_hash_ring_map[1], local_hash_ring_map[1], pushers, seed);
 
@@ -76,7 +75,6 @@ void gossip_handler(
   for (const auto& gossip_pair : gossip_map) {
     std::string serialized;
     gossip_pair.second.SerializeToString(&serialized);
-    kZmqMessagingInterface->send_string(serialized,
-                                        &pushers[gossip_pair.first]);
+    kZmqUtilInterface->send_string(serialized, &pushers[gossip_pair.first]);
   }
 }

@@ -38,8 +38,7 @@ void send_gossip(AddressKeysetMap& addr_keyset_map, SocketCache& pushers,
   for (const auto& gossip_pair : gossip_map) {
     std::string serialized;
     gossip_pair.second.SerializeToString(&serialized);
-    kZmqMessagingInterface->send_string(serialized,
-                                        &pushers[gossip_pair.first]);
+    kZmqUtilInterface->send_string(serialized, &pushers[gossip_pair.first]);
   }
 }
 

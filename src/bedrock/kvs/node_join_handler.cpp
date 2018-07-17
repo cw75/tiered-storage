@@ -29,8 +29,8 @@ void node_join_handler(
   Address new_server_ip = v[1];
 
   // update global hash ring
-  bool inserted = insert_to_hash_ring<GlobalHashRing>(
-      global_hash_ring_map[tier], new_server_ip, 0);
+  bool inserted =
+      global_hash_ring_map[tier].insert_to_hash_ring(new_server_ip, 0);
 
   if (inserted) {
     logger->info("Received a node join for tier {}. New node is {}", tier,
@@ -41,7 +41,7 @@ void node_join_handler(
     // own machine
     if (thread_id == 0) {
       // send my IP to the new server node
-      kZmqMessagingInterface->send_string(
+      kZmqUtilInterface->send_string(
           std::to_string(kSelfTierId) + ":" + ip,
           &pushers[ServerThread(new_server_ip, 0)
                        .get_node_join_connect_addr()]);
@@ -56,7 +56,7 @@ void node_join_handler(
           std::string server_ip = st.get_ip();
           if (server_ip.compare(ip) != 0 &&
               server_ip.compare(new_server_ip) != 0) {
-            kZmqMessagingInterface->send_string(
+            kZmqUtilInterface->send_string(
                 serialized, &pushers[st.get_node_join_connect_addr()]);
           }
         }
@@ -68,7 +68,7 @@ void node_join_handler(
 
       // tell all worker threads about the new node join
       for (unsigned tid = 1; tid < kThreadNum; tid++) {
-        kZmqMessagingInterface->send_string(
+        kZmqUtilInterface->send_string(
             serialized,
             &pushers[ServerThread(ip, tid).get_node_join_connect_addr()]);
       }
@@ -80,7 +80,7 @@ void node_join_handler(
       for (const auto& key_pair : key_size_map) {
         Key key = key_pair.first;
         ServerThreadSet threads =
-            kResponsibleThreadInterface->get_responsible_threads(
+            kHashRingUtilInterface->get_responsible_threads(
                 wt.get_replication_factor_connect_addr(), key, is_metadata(key),
                 global_hash_ring_map, local_hash_ring_map, placement, pushers,
                 kSelfTierIdVector, succeed, seed);
