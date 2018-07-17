@@ -38,8 +38,7 @@ void self_depart_handler(
       GlobalHashRing hash_ring = global_pair.second;
 
       for (const ServerThread& st : hash_ring.get_unique_servers()) {
-        zmq_util::send_string(
-            msg, &pushers[st.get_node_depart_connect_addr()]);
+        zmq_util::send_string(msg, &pushers[st.get_node_depart_connect_addr()]);
       }
     }
 

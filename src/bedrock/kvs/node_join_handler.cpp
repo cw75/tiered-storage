@@ -54,10 +54,10 @@ void node_join_handler(
           // if the node is not myself and not the newly joined node, send the
           // ip of the newly joined node in case of a race condition
           std::string server_ip = st.get_ip();
-          if (server_ip.compare(ip) != 0 && server_ip.compare(new_server_ip) != 0) {
-            zmq_util::send_string(
-                message,
-                &pushers[st.get_node_join_connect_addr()]);
+          if (server_ip.compare(ip) != 0 &&
+              server_ip.compare(new_server_ip) != 0) {
+            zmq_util::send_string(message,
+                                  &pushers[st.get_node_join_connect_addr()]);
           }
         }
 

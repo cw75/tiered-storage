@@ -37,21 +37,21 @@ void collect_internal_stats(
 
       for (unsigned i = 0; i < kTierDataMap[tier_id].thread_number_; i++) {
         Key key = std::string(kMetadataIdentifier) + "_" + server_ip + "_" +
-          std::to_string(i) + "_" + std::to_string(tier_id) + "_stat";
+                  std::to_string(i) + "_" + std::to_string(tier_id) + "_stat";
         prepare_metadata_get_request(key, global_hash_ring_map[1],
-            local_hash_ring_map[1], addr_request_map,
-            mt, rid);
+                                     local_hash_ring_map[1], addr_request_map,
+                                     mt, rid);
 
         key = std::string(kMetadataIdentifier) + "_" + server_ip + "_" +
-          std::to_string(i) + "_" + std::to_string(tier_id) + "_access";
+              std::to_string(i) + "_" + std::to_string(tier_id) + "_access";
         prepare_metadata_get_request(key, global_hash_ring_map[1],
-            local_hash_ring_map[1], addr_request_map,
-            mt, rid);
+                                     local_hash_ring_map[1], addr_request_map,
+                                     mt, rid);
         key = std::string(kMetadataIdentifier) + "_" + server_ip + "_" +
-          std::to_string(i) + "_" + std::to_string(tier_id) + "_size";
+              std::to_string(i) + "_" + std::to_string(tier_id) + "_size";
         prepare_metadata_get_request(key, global_hash_ring_map[1],
-            local_hash_ring_map[1], addr_request_map,
-            mt, rid);
+                                     local_hash_ring_map[1], addr_request_map,
+                                     mt, rid);
       }
     }
   }

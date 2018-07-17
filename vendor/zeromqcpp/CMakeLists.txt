@@ -5,11 +5,11 @@
 # Remember to have libtool, pkg-config, build-essential, autoconf, and automake
 # installed.
 
-CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.6)
 
-include(ExternalProject)
+INCLUDE(ExternalProject)
 
-ExternalProject_Add(zeromqcpp
+EXTERNALPROJECT_ADD(zeromqcpp
     GIT_REPOSITORY "https://github.com/zeromq/cppzmq.git"
     GIT_TAG "master"
     BUILD_IN_SOURCE 1
@@ -19,5 +19,5 @@ ExternalProject_Add(zeromqcpp
     INSTALL_COMMAND ""
 )
 
-set(ZEROMQCPP_INCLUDE_DIRS
+SET(ZEROMQCPP_INCLUDE_DIRS
     ${CMAKE_CURRENT_BINARY_DIR}/zeromqcpp-prefix/src/zeromqcpp PARENT_SCOPE)

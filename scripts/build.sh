@@ -51,13 +51,13 @@ while getopts ":j:t:" opt; do
   esac
 done
 
-if [[ -z "$MAKE_THREADS" ]]; then MAKE_THREADS=1; fi
+if [[ -z "$MAKE_THREADS" ]]; then MAKE_THREADS=2; fi
 if [[ -z "$TYPE" ]]; then TYPE=Release; fi
 
 rm -rf build
 mkdir build
 cd build
 
-cmake -std=c++ll -DCMAKE_BUILD_TYPE=$TYPE ..
+cmake -std=c++11 -DCMAKE_BUILD_TYPE=$TYPE ..
 make -j${MAKE_THREADS}
 make clang-format

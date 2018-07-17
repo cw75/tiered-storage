@@ -3,7 +3,7 @@
 #   - http://bit.ly/2cx70Pk
 #   - https://github.com/snikulov/google-test-examples
 
-CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.6)
 
 include(ExternalProject)
 

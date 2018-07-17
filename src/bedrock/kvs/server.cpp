@@ -114,7 +114,7 @@ void run(unsigned thread_id, Address ip, Address seed_ip,
       for (const ServerThread& st : hash_ring.get_unique_servers()) {
         if (st.get_ip().compare(ip) != 0) {
           zmq_util::send_string(std::to_string(kSelfTierId) + ":" + ip,
-              &pushers[st.get_node_join_connect_addr()]);
+                                &pushers[st.get_node_join_connect_addr()]);
         }
       }
     }
