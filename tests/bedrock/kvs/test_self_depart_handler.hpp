@@ -12,6 +12,8 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
+#include "kvs/kvs_handlers.hpp"
+
 TEST_F(ServerHandlerTest, SelfDepart) {
   unsigned seed = 0;
   std::vector<Address> routing_address;

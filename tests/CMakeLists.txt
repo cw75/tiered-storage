@@ -14,5 +14,23 @@
 
 CMAKE_MINIMUM_REQUIRED(VERSION 3.6)
 
+FILE(GLOB_RECURSE ALL_SOURCES RELATIVE ${CMAKE_SOURCE_DIR}/src "../src/*.cpp")
+FILE(GLOB MOCK_SOURCES "${CMAKE_SOURCE_DIR}/tests/mock/*.cpp")
+FILE(GLOB_RECURSE HANDLER_SOURCES RELATIVE "${CMAKE_SOURCE_DIR}/tests" "../src/*handler.cpp")
+FILE(GLOB_RECURSE UTIL_SOURCES RELATIVE "${CMAKE_SOURCE_DIR}/tests"
+  "../src/*utils.cpp" "../src/util.cpp")
+
+INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/src/include)
+
+ADD_EXECUTABLE(test_all
+  test_all.cpp
+  ${MOCK_SOURCES}
+  ${HANDLER_SOURCES}
+  ${UTIL_SOURCES}
+)
+
+TARGET_LINK_LIBRARIES(test_all gtest gmock pthread flring zmq)
+ADD_DEPENDENCIES(test_all gtest)
+
 ADD_SUBDIRECTORY(include)
 ADD_SUBDIRECTORY(bedrock)

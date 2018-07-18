@@ -12,6 +12,8 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
+#include "kvs/kvs_handlers.hpp"
+
 TEST_F(ServerHandlerTest, SimpleNodeDepart) {
   kThreadNum = 2;
   global_hash_ring_map[1].insert("127.0.0.2", 0);

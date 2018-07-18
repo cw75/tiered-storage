@@ -13,6 +13,7 @@
 //  limitations under the License.
 
 #include <stdlib.h>
+#include <unordered_map>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -24,10 +25,15 @@
 #include "types.hpp"
 #include "utils/server_utils.hpp"
 
-#include "server_handler_base.hpp"
-#include "test_node_depart_handler.hpp"
-#include "test_node_join_handler.hpp"
-#include "test_self_depart_handler.hpp"
+#include "bedrock/kvs/server_handler_base.hpp"
+#include "bedrock/kvs/test_node_depart_handler.hpp"
+#include "bedrock/kvs/test_node_join_handler.hpp"
+#include "bedrock/kvs/test_self_depart_handler.hpp"
+
+#include "include/lattices/test_bool_lattice.hpp"
+#include "include/lattices/test_map_lattice.hpp"
+#include "include/lattices/test_max_lattice.hpp"
+#include "include/lattices/test_set_lattice.hpp"
 
 unsigned kDefaultLocalReplication = 1;
 unsigned kSelfTierId = 1;
@@ -35,9 +41,9 @@ unsigned kThreadNum = 1;
 std::vector<unsigned> kSelfTierIdVector = {kSelfTierId};
 std::unordered_map<unsigned, TierData> kTierDataMap = {};
 
-unsigned kEbsThreadNum = 1;
-unsigned kMemoryThreadNum = 1;
-unsigned kRoutingThreadNum = 1;
+unsigned kEbsThreadCount = 1;
+unsigned kMemoryThreadCount = 1;
+unsigned kRoutingThreadCount = 1;
 
 int main(int argc, char* argv[]) {
   logger->set_level(spdlog::level::info);

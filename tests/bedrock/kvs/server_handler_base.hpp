@@ -12,17 +12,13 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
+#include "mock/mock_utils.hpp"
 
 MockZmqUtil mock_zmq_util;
 ZmqUtilInterface* kZmqUtil = &mock_zmq_util;
 
 MockHashRingUtil mock_hash_ring_util;
 HashRingUtilInterface* kHashRingUtil = &mock_hash_ring_util;
-
-unsigned kDefaultLocalReplication = 1;
-unsigned kSelfTierId = 1;
-unsigned kThreadNum = 1;
-std::vector<unsigned> kSelfTierIdVector = {kSelfTierId};
 
 std::shared_ptr<spdlog::logger> logger =
     spdlog::basic_logger_mt("mock_logger", "mock_log.txt", true);
@@ -71,4 +67,3 @@ class ServerHandlerTest : public ::testing::Test {
     return mock_zmq_util.sent_messages;
   }
 };
-
