@@ -12,12 +12,14 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-#include "mocked.hpp"
+#include "mock_utils.hpp"
 
 void MockZmqUtil::send_string(const std::string& s, zmq::socket_t* socket) {
   sent_messages.push_back(s);
 }
+
 std::string MockZmqUtil::recv_string(zmq::socket_t* socket) { return ""; }
+
 int MockZmqUtil::poll(long timeout, std::vector<zmq::pollitem_t>* items) {
   return 0;
 }

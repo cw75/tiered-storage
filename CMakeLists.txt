@@ -41,13 +41,11 @@ SET(CMAKE_CXX_FLAGS_RELEASE
 
 ADD_SUBDIRECTORY(${VENDOR_DIR}/spdlog)
 ADD_SUBDIRECTORY(${VENDOR_DIR}/yamlcpp)
-ADD_SUBDIRECTORY(${VENDOR_DIR}/googletest)
 ADD_SUBDIRECTORY(${VENDOR_DIR}/zeromq)
 ADD_SUBDIRECTORY(${VENDOR_DIR}/zeromqcpp)
 
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR})
 INCLUDE_DIRECTORIES(.)
-INCLUDE_DIRECTORIES(${GTEST_INCLUDE_DIRS})
 INCLUDE_DIRECTORIES(${ZEROMQCPP_INCLUDE_DIRS})
 INCLUDE_DIRECTORIES(${ZEROMQ_INCLUDE_DIRS})
 INCLUDE_DIRECTORIES(${YAMLCPP_INCLUDE_DIRS})
@@ -68,6 +66,19 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR})
 ADD_LIBRARY(flproto ${PROTO_HEADER} ${PROTO_SRC})
 
 INCLUDE(cmake/clang-format.cmake)
+
+INCLUDE(cmake/DownloadProject.cmake)
+DOWNLOAD_PROJECT(PROJ                googletest
+                 GIT_REPOSITORY      https://github.com/google/googletest.git
+                 GIT_TAG             release-1.8.0
+                 UPDATE_DISCONNECTED 1
+)
+
+# Prevent GoogleTest from overriding our compiler/linker options
+# when building with Visual Studio
+SET(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+
+ADD_SUBDIRECTORY(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR})
 
 LINK_DIRECTORIES(${ZEROMQ_LINK_DIRS})
 LINK_DIRECTORIES(${YAMLCPP_LINK_DIRS})

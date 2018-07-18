@@ -15,11 +15,12 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.6)
 
 ADD_EXECUTABLE(run_server_handler_test
-			   run_server_handler_test.cpp
-			   ${CMAKE_SOURCE_DIR}/tests/mocked.cpp
+			   run_server_handler_tests.cpp
+			   ${CMAKE_SOURCE_DIR}/tests/mock_utils.cpp
 			   ${CMAKE_SOURCE_DIR}/src/bedrock/kvs/node_join_handler.cpp
 			   ${CMAKE_SOURCE_DIR}/src/bedrock/kvs/node_depart_handler.cpp
 			   ${CMAKE_SOURCE_DIR}/src/bedrock/kvs/self_depart_handler.cpp
 			   ${CMAKE_SOURCE_DIR}/src/bedrock/kvs/utils.cpp)
-TARGET_LINK_LIBRARIES (run_server_handler_test ${GTEST_LIBS_DIR}/libgtest.so pthread flring zmq)
-ADD_DEPENDENCIES(run_server_handler_test googletest)
+
+TARGET_LINK_LIBRARIES (run_server_handler_test gtest gmock pthread flring zmq)
+ADD_DEPENDENCIES(run_server_handler_test gtest)

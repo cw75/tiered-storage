@@ -12,26 +12,20 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-#include <stdio.h>
 #include <stdlib.h>
+#include <vector>
 
-#include <iostream>
+#include "gtest/gtest.h"
 
-#include "test_server_handlers.hpp"
-
-MockZmqUtil mock_zmq_util;
-ZmqUtilInterface* kZmqUtil = &mock_zmq_util;
-
-MockHashRingUtil mock_hash_ring_util;
-HashRingUtilInterface* kHashRingUtil = &mock_hash_ring_util;
-
-unsigned kDefaultLocalReplication = 1;
-unsigned kSelfTierId = 1;
-unsigned kThreadNum = 4;
-std::vector<unsigned> kSelfTierIdVector = {kSelfTierId};
+#include "kvs/kvs_handlers.hpp"
+#include "mock_utils.hpp"
+#include "server_handler_base.hpp"
+#include "test_node_depart_handler.hpp"
+#include "test_node_join_handler.hpp"
+#include "test_self_depart_handler.hpp"
 
 int main(int argc, char* argv[]) {
-  logger->set_level(spdlog::level::off);
+  logger->set_level(spdlog::level::info);
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

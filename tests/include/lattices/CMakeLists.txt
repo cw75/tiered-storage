@@ -15,5 +15,5 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.6)
 
 ADD_EXECUTABLE(run_lattice_test run_lattice_test.cpp)
-TARGET_LINK_LIBRARIES (run_lattice_test ${GTEST_LIBS_DIR}/libgtest.so)
-ADD_DEPENDENCIES(run_lattice_test googletest)
+TARGET_LINK_LIBRARIES (run_lattice_test gtest gmock)
+ADD_DEPENDENCIES(run_lattice_test gtest)

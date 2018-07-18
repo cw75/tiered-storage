@@ -16,7 +16,7 @@ EXTERNALPROJECT_ADD(zeromq
     PREFIX ${CMAKE_CURRENT_BINARY_DIR}
     BUILD_IN_SOURCE 1
     UPDATE_COMMAND ""
-    CONFIGURE_COMMAND ./configure --without-docs --prefix=/usr/
+    CONFIGURE_COMMAND ./configure --without-docs
     BUILD_COMMAND make
     INSTALL_COMMAND sudo make install
 )

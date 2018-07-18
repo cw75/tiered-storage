@@ -29,6 +29,7 @@ void self_depart_handler(
 
   // thread 0 notifies other nodes in the cluster (of all types) that it is
   // leaving the cluster
+  std::cout << global_hash_ring_map[kSelfTierId].size() << std::endl;
   if (thread_id == 0) {
     std::string msg = std::to_string(kSelfTierId) + ":" + ip;
 
