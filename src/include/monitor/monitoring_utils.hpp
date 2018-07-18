@@ -16,6 +16,7 @@
 #define SRC_INCLUDE_MONITOR_MONITORING_UTILS_HPP_
 
 #include "hash_ring.hpp"
+#include "requests.hpp"
 #include "spdlog/spdlog.h"
 
 // define monitoring threshold (in second)

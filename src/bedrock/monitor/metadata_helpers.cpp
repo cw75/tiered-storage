@@ -19,8 +19,8 @@ Address prepare_metadata_request(
     LocalHashRing& local_memory_hash_ring,
     std::unordered_map<Address, KeyRequest>& addr_request_map,
     MonitoringThread& mt, unsigned& rid, std::string type) {
-  auto threads = get_responsible_threads_metadata(key, global_memory_hash_ring,
-                                                  local_memory_hash_ring);
+  auto threads = kHashRingUtil->get_responsible_threads_metadata(
+      key, global_memory_hash_ring, local_memory_hash_ring);
   if (threads.size() != 0) {
     Address target_address = next(begin(threads), rand() % threads.size())
                                  ->get_request_pulling_connect_addr();

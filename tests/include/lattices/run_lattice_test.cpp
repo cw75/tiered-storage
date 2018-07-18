@@ -17,13 +17,10 @@
 
 #include <iostream>
 
-#include "test_AtomicMaxLattice.h"
-#include "test_BoolLattice.h"
-#include "test_MapLattice.h"
-#include "test_MaxLattice.h"
-#include "test_MinLattice.h"
-#include "test_SetLattice.h"
-#include "test_TombstoneLattice.h"
+#include "test_bool_lattice.hpp"
+#include "test_map_lattice.hpp"
+#include "test_max_lattice.hpp"
+#include "test_set_lattice.hpp"
 
 int main(int argc, char *argv[]) {
   testing::InitGoogleTest(&argc, argv);

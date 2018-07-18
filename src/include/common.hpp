@@ -89,12 +89,6 @@ inline void prepare_put_tuple(KeyRequest& req, Key key, std::string value,
   tp->set_timestamp(timestamp);
 }
 
-inline void push_request(const KeyRequest& req, zmq::socket_t& socket) {
-  std::string serialized_req;
-  req.SerializeToString(&serialized_req);
-  zmq_util::send_string(serialized_req, &socket);
-}
-
 // TODO(vikram): what's the right way to check if this succeeded or not?
 inline RequestType get_request_type(const std::string& type_str) {
   RequestType type;

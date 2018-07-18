@@ -15,14 +15,13 @@
 #include "monitor/monitoring_handlers.hpp"
 
 void depart_done_handler(
-    std::shared_ptr<spdlog::logger> logger, zmq::socket_t* depart_done_puller,
+    std::shared_ptr<spdlog::logger> logger, std::string& serialized,
     std::unordered_map<Address, unsigned>& departing_node_map,
     Address management_address, bool& removing_memory_node,
     bool& removing_ebs_node,
     std::chrono::time_point<std::chrono::system_clock>& grace_start) {
-  std::string msg = zmq_util::recv_string(depart_done_puller);
   std::vector<std::string> tokens;
-  split(msg, '_', tokens);
+  split(serialized, '_', tokens);
 
   Address departed_ip = tokens[0];
   unsigned tier_id = stoi(tokens[1]);

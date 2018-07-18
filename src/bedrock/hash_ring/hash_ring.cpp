@@ -18,6 +18,50 @@
 
 #include "requests.hpp"
 
+// get all threads responsible for a key from the "node_type" tier
+// metadata flag = 0 means the key is  metadata; otherwise, it is  regular data
+ServerThreadSet HashRingUtil::get_responsible_threads(
+    Address response_address, const Key& key, bool metadata,
+    std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
+    std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
+    std::unordered_map<Key, KeyInfo>& placement, SocketCache& pushers,
+    const std::vector<unsigned>& tier_ids, bool& succeed, unsigned& seed) {
+  if (metadata) {
+    succeed = true;
+    return kHashRingUtil->get_responsible_threads_metadata(
+        key, global_hash_ring_map[1], local_hash_ring_map[1]);
+  } else {
+    ServerThreadSet result;
+
+    if (placement.find(key) == placement.end()) {
+      kHashRingUtil->issue_replication_factor_request(
+          response_address, key, global_hash_ring_map[1],
+          local_hash_ring_map[1], pushers, seed);
+      succeed = false;
+    } else {
+      for (const unsigned& tier_id : tier_ids) {
+        ServerThreadSet threads = responsible_global(
+            key, kMetadataReplicationFactor, global_hash_ring_map[tier_id]);
+
+        for (const ServerThread& thread : threads) {
+          Address ip = thread.get_ip();
+          std::unordered_set<unsigned> tids = responsible_local(
+              key, placement[key].local_replication_map_[tier_id],
+              local_hash_ring_map[tier_id]);
+
+          for (const unsigned& tid : tids) {
+            result.insert(ServerThread(ip, tid));
+          }
+        }
+      }
+
+      succeed = true;
+    }
+
+    return result;
+  }
+}
+
 // assuming the replication factor will never be greater than the number of
 // nodes in a tier return a set of ServerThreads that are responsible for a key
 ServerThreadSet responsible_global(const Key& key, unsigned global_rep,
@@ -71,7 +115,7 @@ std::unordered_set<unsigned> responsible_local(const Key& key,
   return tids;
 }
 
-ServerThreadSet get_responsible_threads_metadata(
+ServerThreadSet HashRingUtilInterface::get_responsible_threads_metadata(
     const Key& key, GlobalHashRing& global_memory_hash_ring,
     LocalHashRing& local_memory_hash_ring) {
   ServerThreadSet threads = responsible_global(key, kMetadataReplicationFactor,
@@ -90,13 +134,13 @@ ServerThreadSet get_responsible_threads_metadata(
   return threads;
 }
 
-void issue_replication_factor_request(const Address& respond_address,
-                                      const Key& key,
-                                      GlobalHashRing& global_memory_hash_ring,
-                                      LocalHashRing& local_memory_hash_ring,
-                                      SocketCache& pushers, unsigned& seed) {
+void HashRingUtilInterface::issue_replication_factor_request(
+    const Address& response_address, const Key& key,
+    GlobalHashRing& global_memory_hash_ring,
+    LocalHashRing& local_memory_hash_ring, SocketCache& pushers,
+    unsigned& seed) {
   Key replication_key = get_metadata_key(key, MetadataType::replication);
-  auto threads = get_responsible_threads_metadata(
+  auto threads = kHashRingUtil->get_responsible_threads_metadata(
       replication_key, global_memory_hash_ring, local_memory_hash_ring);
 
   Address target_address = next(begin(threads), rand_r(&seed) % threads.size())
@@ -104,63 +148,19 @@ void issue_replication_factor_request(const Address& respond_address,
 
   KeyRequest key_request;
   key_request.set_type(get_request_type("GET"));
-  key_request.set_response_address(respond_address);
+  key_request.set_response_address(response_address);
 
   prepare_get_tuple(key_request, replication_key);
-  push_request(key_request, pushers[target_address]);
-}
-
-// get all threads responsible for a key from the "node_type" tier
-// metadata flag = 0 means the key is  metadata; otherwise, it is  regular data
-ServerThreadSet get_responsible_threads(
-    Address respond_address, const Key& key, bool metadata,
-    std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
-    std::unordered_map<unsigned, LocalHashRing>& local_hash_ring_map,
-    std::unordered_map<Key, KeyInfo>& placement, SocketCache& pushers,
-    const std::vector<unsigned>& tier_ids, bool& succeed, unsigned& seed) {
-  if (metadata) {
-    succeed = true;
-    return get_responsible_threads_metadata(key, global_hash_ring_map[1],
-                                            local_hash_ring_map[1]);
-  } else {
-    ServerThreadSet result;
-
-    if (placement.find(key) == placement.end()) {
-      issue_replication_factor_request(respond_address, key,
-                                       global_hash_ring_map[1],
-                                       local_hash_ring_map[1], pushers, seed);
-      succeed = false;
-    } else {
-      for (const unsigned& tier_id : tier_ids) {
-        ServerThreadSet threads = responsible_global(
-            key, kMetadataReplicationFactor, global_hash_ring_map[tier_id]);
-
-        for (const ServerThread& thread : threads) {
-          Address ip = thread.get_ip();
-          std::unordered_set<unsigned> tids = responsible_local(
-              key, placement[key].local_replication_map_[tier_id],
-              local_hash_ring_map[tier_id]);
-
-          for (const unsigned& tid : tids) {
-            result.insert(ServerThread(ip, tid));
-          }
-        }
-      }
-
-      succeed = true;
-    }
-
-    return result;
-  }
+  std::string serialized;
+  key_request.SerializeToString(&serialized);
+  kZmqUtil->send_string(serialized, &pushers[target_address]);
 }
 
 // query the routing for a key and return all address
-std::vector<Address> get_address_from_routing(UserThread& ut, const Key& key,
-                                              zmq::socket_t& sending_socket,
-                                              zmq::socket_t& receiving_socket,
-                                              bool& succeed, Address& ip,
-                                              unsigned& thread_id,
-                                              unsigned& rid) {
+std::vector<Address> HashRingUtilInterface::get_address_from_routing(
+    UserThread& ut, const Key& key, zmq::socket_t& sending_socket,
+    zmq::socket_t& receiving_socket, bool& succeed, Address& ip,
+    unsigned& thread_id, unsigned& rid) {
   int count = 0;
 
   KeyAddressRequest address_request;
@@ -209,9 +209,9 @@ std::vector<Address> get_address_from_routing(UserThread& ut, const Key& key,
   return result;
 }
 
-RoutingThread get_random_routing_thread(std::vector<Address>& routing_address,
-                                        unsigned& seed,
-                                        unsigned& kRoutingThreadCount) {
+RoutingThread HashRingUtilInterface::get_random_routing_thread(
+    std::vector<Address>& routing_address, unsigned& seed,
+    unsigned& kRoutingThreadCount) {
   Address routing_ip = routing_address[rand_r(&seed) % routing_address.size()];
   unsigned tid = rand_r(&seed) % kRoutingThreadCount;
   return RoutingThread(routing_ip, tid);

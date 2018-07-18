@@ -165,7 +165,7 @@ void change_replication_factor(
   for (const auto& rep_factor_pair : replication_factor_map) {
     std::string serialized_msg;
     rep_factor_pair.second.SerializeToString(&serialized_msg);
-    zmq_util::send_string(serialized_msg, &pushers[rep_factor_pair.first]);
+    kZmqUtil->send_string(serialized_msg, &pushers[rep_factor_pair.first]);
   }
 
   // restore rep factor for failed keys

@@ -19,6 +19,12 @@ std::unordered_map<unsigned, TierData> kTierDataMap;
 unsigned kDefaultLocalReplication;
 unsigned kRoutingThreadCount;
 
+ZmqUtil zmq_util;
+ZmqUtilInterface *kZmqUtil = &zmq_util;
+
+HashRingUtil hash_ring_util;
+HashRingUtilInterface *kHashRingUtil = &hash_ring_util;
+
 void run(unsigned thread_id, Address ip,
          std::vector<Address> monitoring_addresses) {
   std::string log_file = "log_" + std::to_string(thread_id) + ".txt";
@@ -42,7 +48,7 @@ void run(unsigned thread_id, Address ip,
   if (thread_id == 0) {
     // notify monitoring nodes
     for (const std::string &address : monitoring_addresses) {
-      zmq_util::send_string(
+      kZmqUtil->send_string(
           "join:0:" + ip,
           &pushers[MonitoringThread(address).get_notify_connect_addr()]);
     }
@@ -58,8 +64,7 @@ void run(unsigned thread_id, Address ip,
   // form local hash rings
   for (const auto &tier_pair : kTierDataMap) {
     for (unsigned tid = 0; tid < tier_pair.second.thread_number_; tid++) {
-      insert_to_hash_ring<LocalHashRing>(local_hash_ring_map[tier_pair.first],
-                                         ip, tid);
+      local_hash_ring_map[tier_pair.first].insert(ip, tid);
     }
   }
 
@@ -101,35 +106,43 @@ void run(unsigned thread_id, Address ip,
   unsigned long long duration = value.count();
 
   while (true) {
-    zmq_util::poll(-1, &pollitems);
+    kZmqUtil->poll(-1, &pollitems);
 
     // only relavant for the seed node
     if (pollitems[0].revents & ZMQ_POLLIN) {
-      seed_handler(logger, &addr_responder, global_hash_ring_map, duration);
+      kZmqUtil->recv_string(&addr_responder);
+      auto serialized = seed_handler(logger, global_hash_ring_map, duration);
+      kZmqUtil->send_string(serialized, &addr_responder);
     }
 
     // handle a join or depart event coming from the server side
     if (pollitems[1].revents & ZMQ_POLLIN) {
-      membership_handler(logger, &notify_puller, pushers, global_hash_ring_map,
+      std::string serialized = kZmqUtil->recv_string(&notify_puller);
+      membership_handler(logger, serialized, pushers, global_hash_ring_map,
                          thread_id, ip);
     }
 
     // received replication factor response
     if (pollitems[2].revents & ZMQ_POLLIN) {
-      replication_response_handler(
-          logger, &replication_factor_puller, pushers, rt, global_hash_ring_map,
-          local_hash_ring_map, placement, pending_key_request_map, seed);
+      std::string serialized =
+          kZmqUtil->recv_string(&replication_factor_puller);
+      replication_response_handler(logger, serialized, pushers, rt,
+                                   global_hash_ring_map, local_hash_ring_map,
+                                   placement, pending_key_request_map, seed);
     }
 
     if (pollitems[3].revents & ZMQ_POLLIN) {
-      replication_change_handler(logger, &replication_factor_change_puller,
-                                 pushers, placement, thread_id, ip);
+      std::string serialized =
+          kZmqUtil->recv_string(&replication_factor_change_puller);
+      replication_change_handler(logger, serialized, pushers, placement,
+                                 thread_id, ip);
     }
 
     if (pollitems[4].revents & ZMQ_POLLIN) {
-      address_handler(logger, &key_address_puller, pushers, rt,
-                      global_hash_ring_map, local_hash_ring_map, placement,
-                      pending_key_request_map, seed);
+      std::string serialized = kZmqUtil->recv_string(&key_address_puller);
+      address_handler(logger, serialized, pushers, rt, global_hash_ring_map,
+                      local_hash_ring_map, placement, pending_key_request_map,
+                      seed);
     }
   }
 }

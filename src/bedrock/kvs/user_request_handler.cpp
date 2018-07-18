@@ -17,7 +17,7 @@
 #include "kvs/kvs_handlers.hpp"
 
 void user_request_handler(
-    unsigned& total_accesses, unsigned& seed, zmq::socket_t* request_puller,
+    unsigned& total_accesses, unsigned& seed, std::string& serialized,
     std::chrono::system_clock::time_point& start_time,
     std::shared_ptr<spdlog::logger> logger,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
@@ -30,9 +30,8 @@ void user_request_handler(
     std::unordered_map<Key, KeyInfo>& placement,
     std::unordered_set<Key>& local_changeset, ServerThread& wt,
     Serializer* serializer, SocketCache& pushers) {
-  std::string req_string = zmq_util::recv_string(request_puller);
   KeyRequest request;
-  request.ParseFromString(req_string);
+  request.ParseFromString(serialized);
 
   KeyResponse response;
   std::string response_id = "";
@@ -52,7 +51,7 @@ void user_request_handler(
     Key key = tuple.key();
     std::string value = tuple.has_value() ? tuple.value() : "";
 
-    ServerThreadSet threads = get_responsible_threads(
+    ServerThreadSet threads = kHashRingUtil->get_responsible_threads(
         wt.get_replication_factor_connect_addr(), key, is_metadata(key),
         global_hash_ring_map, local_hash_ring_map, placement, pushers,
         kSelfTierIdVector, succeed, seed);
@@ -68,7 +67,7 @@ void user_request_handler(
         } else {
           // if we don't know what threads are responsible, we issue a rep
           // factor request and make the request pending
-          issue_replication_factor_request(
+          kHashRingUtil->issue_replication_factor_request(
               wt.get_replication_factor_connect_addr(), key,
               global_hash_ring_map[1], local_hash_ring_map[1], pushers, seed);
 
@@ -114,7 +113,7 @@ void user_request_handler(
   if (response.tuples_size() > 0 && request.has_response_address()) {
     std::string serialized_response;
     response.SerializeToString(&serialized_response);
-    zmq_util::send_string(serialized_response,
+    kZmqUtil->send_string(serialized_response,
                           &pushers[request.response_address()]);
   }
 }

@@ -15,14 +15,13 @@
 #include "route/routing_handlers.hpp"
 
 void membership_handler(
-    std::shared_ptr<spdlog::logger> logger, zmq::socket_t* notify_puller,
+    std::shared_ptr<spdlog::logger> logger, std::string& serialized,
     SocketCache& pushers,
     std::unordered_map<unsigned, GlobalHashRing>& global_hash_ring_map,
     unsigned thread_id, Address ip) {
-  std::string message = zmq_util::recv_string(notify_puller);
   std::vector<std::string> v;
 
-  split(message, ':', v);
+  split(serialized, ':', v);
   std::string type = v[0];
   unsigned tier = stoi(v[1]);
   Address new_server_ip = v[2];
@@ -32,8 +31,7 @@ void membership_handler(
                  std::to_string(tier));
 
     // update hash ring
-    bool inserted = insert_to_hash_ring<GlobalHashRing>(
-        global_hash_ring_map[tier], new_server_ip, 0);
+    bool inserted = global_hash_ring_map[tier].insert(new_server_ip, 0);
 
     if (inserted) {
       if (thread_id == 0) {
@@ -47,7 +45,7 @@ void membership_handler(
             // if the node is not the newly joined node, send the ip of the
             // newly joined node
             if (st.get_ip().compare(new_server_ip) != 0) {
-              zmq_util::send_string(std::to_string(tier) + ":" + new_server_ip,
+              kZmqUtil->send_string(std::to_string(tier) + ":" + new_server_ip,
                                     &pushers[st.get_node_join_connect_addr()]);
             }
           }
@@ -55,8 +53,8 @@ void membership_handler(
 
         // tell all worker threads about the message
         for (unsigned tid = 1; tid < kRoutingThreadCount; tid++) {
-          zmq_util::send_string(
-              message,
+          kZmqUtil->send_string(
+              serialized,
               &pushers[RoutingThread(ip, tid).get_notify_connect_addr()]);
         }
       }
@@ -69,14 +67,13 @@ void membership_handler(
     }
   } else if (type == "depart") {
     logger->info("Received depart from server {}.", new_server_ip);
-    remove_from_hash_ring<GlobalHashRing>(global_hash_ring_map[tier],
-                                          new_server_ip, 0);
+    global_hash_ring_map[tier].remove(new_server_ip, 0);
 
     if (thread_id == 0) {
       // tell all worker threads about the message
       for (unsigned tid = 1; tid < kRoutingThreadCount; tid++) {
-        zmq_util::send_string(
-            message,
+        kZmqUtil->send_string(
+            serialized,
             &pushers[RoutingThread(ip, tid).get_notify_connect_addr()]);
       }
     }

@@ -33,6 +33,6 @@ void remove_node(std::shared_ptr<spdlog::logger> logger, ServerThread& node,
   departing_node_map[node.get_ip()] = kTierDataMap[1].thread_number_;
   auto ack_addr = mt.get_depart_done_connect_addr();
   logger->info("Removing {} node {}.", tier, node.get_ip());
-  zmq_util::send_string(ack_addr, &pushers[connection_addr]);
+  kZmqUtil->send_string(ack_addr, &pushers[connection_addr]);
   removing_flag = true;
 }

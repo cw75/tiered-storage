@@ -24,6 +24,12 @@
 unsigned kRoutingThreadCount;
 unsigned kDefaultLocalReplication;
 
+ZmqUtil zmq_util;
+ZmqUtilInterface* kZmqUtil = &zmq_util;
+
+HashRingUtil hash_ring_util;
+HashRingUtilInterface* kHashRingUtil = &hash_ring_util;
+
 void handle_request(
     std::string request_line, SocketCache& pushers,
     std::vector<Address>& routing_addresses,
@@ -62,10 +68,12 @@ void handle_request(
   if (key_address_cache.find(key) == key_address_cache.end()) {
     // query the routing and update the cache
     Address target_routing_address =
-        get_random_routing_thread(routing_addresses, seed, kRoutingThreadCount)
+        kHashRingUtil
+            ->get_random_routing_thread(routing_addresses, seed,
+                                        kRoutingThreadCount)
             .get_key_address_connect_addr();
     bool succeed;
-    std::vector<Address> addresses = get_address_from_routing(
+    std::vector<Address> addresses = kHashRingUtil->get_address_from_routing(
         ut, key, pushers[target_routing_address], key_address_puller, succeed,
         ip, thread_id, rid);
 
