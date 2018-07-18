@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPTS=("scripts/check-clang.sh" "scripts/build.sh" "tests/simple/test-simple.sh", "build/tests/test_all")
+SCRIPTS=("scripts/build.sh" "scripts/check-clang.sh" "tests/simple/test-simple.sh" "build/tests/test_all")
 
 for SCRIPT in ${SCRIPTS[@]}; do
   ./"$SCRIPT"

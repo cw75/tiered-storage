@@ -58,6 +58,6 @@ rm -rf build
 mkdir build
 cd build
 
-cmake -std=c++11 -DCMAKE_BUILD_TYPE=$TYPE -DCMAKE_CXX_COMPILER=`which clang++` ..
+cmake -std=c++11 -DCMAKE_BUILD_TYPE=$TYPE -DCMAKE_CXX_COMPILER=/usr/bin/clang++ ..
 make -j${MAKE_THREADS}
 make clang-format
