@@ -54,7 +54,7 @@ void replication_response_handler(
     // error 2 means that the node that received the rep factor request was not
     // responsible for that metadata
     auto respond_address = rt.get_replication_factor_connect_addr();
-    kHashRingUtilInterface->issue_replication_factor_request(
+    kHashRingUtil->issue_replication_factor_request(
         respond_address, key, global_hash_ring_map[1], local_hash_ring_map[1],
         pushers, seed);
     return;
@@ -71,7 +71,7 @@ void replication_response_handler(
     ServerThreadSet threads = {};
 
     while (threads.size() == 0 && tier_id < kMaxTier) {
-      threads = kHashRingUtilInterface->get_responsible_threads(
+      threads = kHashRingUtil->get_responsible_threads(
           rt.get_replication_factor_connect_addr(), key, false,
           global_hash_ring_map, local_hash_ring_map, placement, pushers,
           {tier_id}, succeed, seed);
@@ -99,8 +99,7 @@ void replication_response_handler(
 
       std::string serialized;
       key_res.SerializeToString(&serialized);
-      kZmqUtilInterface->send_string(serialized,
-                                     &pushers[pending_key_req.first]);
+      kZmqUtil->send_string(serialized, &pushers[pending_key_req.first]);
     }
 
     pending_key_request_map.erase(key);

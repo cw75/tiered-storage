@@ -31,8 +31,7 @@ void membership_handler(
                  std::to_string(tier));
 
     // update hash ring
-    bool inserted =
-        global_hash_ring_map[tier].insert_to_hash_ring(new_server_ip, 0);
+    bool inserted = global_hash_ring_map[tier].insert(new_server_ip, 0);
 
     if (inserted) {
       if (thread_id == 0) {
@@ -46,16 +45,15 @@ void membership_handler(
             // if the node is not the newly joined node, send the ip of the
             // newly joined node
             if (st.get_ip().compare(new_server_ip) != 0) {
-              kZmqUtilInterface->send_string(
-                  std::to_string(tier) + ":" + new_server_ip,
-                  &pushers[st.get_node_join_connect_addr()]);
+              kZmqUtil->send_string(std::to_string(tier) + ":" + new_server_ip,
+                                    &pushers[st.get_node_join_connect_addr()]);
             }
           }
         }
 
         // tell all worker threads about the message
         for (unsigned tid = 1; tid < kRoutingThreadCount; tid++) {
-          kZmqUtilInterface->send_string(
+          kZmqUtil->send_string(
               serialized,
               &pushers[RoutingThread(ip, tid).get_notify_connect_addr()]);
         }
@@ -69,12 +67,12 @@ void membership_handler(
     }
   } else if (type == "depart") {
     logger->info("Received depart from server {}.", new_server_ip);
-    global_hash_ring_map[tier].remove_from_hash_ring(new_server_ip, 0);
+    global_hash_ring_map[tier].remove(new_server_ip, 0);
 
     if (thread_id == 0) {
       // tell all worker threads about the message
       for (unsigned tid = 1; tid < kRoutingThreadCount; tid++) {
-        kZmqUtilInterface->send_string(
+        kZmqUtil->send_string(
             serialized,
             &pushers[RoutingThread(ip, tid).get_notify_connect_addr()]);
       }

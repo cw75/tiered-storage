@@ -28,12 +28,12 @@ void node_depart_handler(
                departing_server_ip, tier);
 
   // update hash ring
-  global_hash_ring_map[tier].remove_from_hash_ring(departing_server_ip, 0);
+  global_hash_ring_map[tier].remove(departing_server_ip, 0);
 
   if (thread_id == 0) {
     // tell all worker threads about the node departure
     for (unsigned tid = 1; tid < kThreadNum; tid++) {
-      kZmqUtilInterface->send_string(
+      kZmqUtil->send_string(
           serialized,
           &pushers[ServerThread(ip, tid).get_node_depart_connect_addr()]);
     }

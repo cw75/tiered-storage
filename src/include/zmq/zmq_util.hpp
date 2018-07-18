@@ -25,28 +25,26 @@
 
 class ZmqUtilInterface {
  public:
-  virtual std::string message_to_string(const zmq::message_t& message) = 0;
-  virtual zmq::message_t string_to_message(const std::string& s) = 0;
+  // Converts the data within a `zmq::message_t` into a string.
+  std::string message_to_string(const zmq::message_t& message);
+  // Converts a string into a `zmq::message_t`.
+  zmq::message_t string_to_message(const std::string& s);
+  // `send` a string over the socket.
   virtual void send_string(const std::string& s, zmq::socket_t* socket) = 0;
+  // `recv` a string over the socket.
   virtual std::string recv_string(zmq::socket_t* socket) = 0;
+  // `poll` is a wrapper around `zmq::poll` that takes a vector instead of a
+  // pointer and a size.
   virtual int poll(long timeout, std::vector<zmq::pollitem_t>* items) = 0;
 };
 
 class ZmqUtil : public ZmqUtilInterface {
  public:
-  // Converts the data within a `zmq::message_t` into a string.
-  virtual std::string message_to_string(const zmq::message_t& message);
-  // Converts a string into a `zmq::message_t`.
-  virtual zmq::message_t string_to_message(const std::string& s);
-  // `send` a string over the socket.
   virtual void send_string(const std::string& s, zmq::socket_t* socket);
-  // `recv` a string over the socket.
   virtual std::string recv_string(zmq::socket_t* socket);
-  // `poll` is a wrapper around `zmq::poll` that takes a vector instead of a
-  // pointer and a size.
   virtual int poll(long timeout, std::vector<zmq::pollitem_t>* items);
 };
 
-extern ZmqUtilInterface* kZmqUtilInterface;
+extern ZmqUtilInterface* kZmqUtil;
 
 #endif  // SRC_INCLUDE_ZMQ_ZMQ_UTIL_HPP_

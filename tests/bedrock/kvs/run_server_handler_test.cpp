@@ -20,10 +20,10 @@
 #include "test_server_handlers.hpp"
 
 MockZmqUtil mock_zmq_util;
-ZmqUtilInterface* kZmqUtilInterface = &mock_zmq_util;
+ZmqUtilInterface* kZmqUtil = &mock_zmq_util;
 
 MockHashRingUtil mock_hash_ring_util;
-HashRingUtilInterface* kHashRingUtilInterface = &mock_hash_ring_util;
+HashRingUtilInterface* kHashRingUtil = &mock_hash_ring_util;
 
 unsigned kDefaultLocalReplication = 1;
 unsigned kSelfTierId = 1;

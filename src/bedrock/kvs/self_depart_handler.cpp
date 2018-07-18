@@ -25,7 +25,7 @@ void self_depart_handler(
     std::vector<Address>& monitoring_address, ServerThread& wt,
     SocketCache& pushers, Serializer* serializer) {
   logger->info("Node is departing.");
-  global_hash_ring_map[kSelfTierId].remove_from_hash_ring(ip, 0);
+  global_hash_ring_map[kSelfTierId].remove(ip, 0);
 
   // thread 0 notifies other nodes in the cluster (of all types) that it is
   // leaving the cluster
@@ -36,8 +36,7 @@ void self_depart_handler(
       GlobalHashRing hash_ring = global_pair.second;
 
       for (const ServerThread& st : hash_ring.get_unique_servers()) {
-        kZmqUtilInterface->send_string(
-            msg, &pushers[st.get_node_depart_connect_addr()]);
+        kZmqUtil->send_string(msg, &pushers[st.get_node_depart_connect_addr()]);
       }
     }
 
@@ -45,19 +44,19 @@ void self_depart_handler(
 
     // notify all routing nodes
     for (const std::string& address : routing_address) {
-      kZmqUtilInterface->send_string(
+      kZmqUtil->send_string(
           msg, &pushers[RoutingThread(address, 0).get_notify_connect_addr()]);
     }
 
     // notify monitoring nodes
     for (const std::string& address : monitoring_address) {
-      kZmqUtilInterface->send_string(
+      kZmqUtil->send_string(
           msg, &pushers[MonitoringThread(address).get_notify_connect_addr()]);
     }
 
     // tell all worker threads about the self departure
     for (unsigned tid = 1; tid < kThreadNum; tid++) {
-      kZmqUtilInterface->send_string(
+      kZmqUtil->send_string(
           serialized,
           &pushers[ServerThread(ip, tid).get_self_depart_connect_addr()]);
     }
@@ -68,7 +67,7 @@ void self_depart_handler(
 
   for (const auto& key_pair : key_size_map) {
     Key key = key_pair.first;
-    ServerThreadSet threads = kHashRingUtilInterface->get_responsible_threads(
+    ServerThreadSet threads = kHashRingUtil->get_responsible_threads(
         wt.get_replication_factor_connect_addr(), key, is_metadata(key),
         global_hash_ring_map, local_hash_ring_map, placement, pushers,
         kAllTierIds, succeed, seed);
@@ -85,6 +84,6 @@ void self_depart_handler(
   }
 
   send_gossip(addr_keyset_map, pushers, serializer);
-  kZmqUtilInterface->send_string(ip + "_" + std::to_string(kSelfTierId),
-                                 &pushers[serialized]);
+  kZmqUtil->send_string(ip + "_" + std::to_string(kSelfTierId),
+                        &pushers[serialized]);
 }

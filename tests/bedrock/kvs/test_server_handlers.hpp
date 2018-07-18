@@ -41,7 +41,7 @@ class ServerHandlerTest : public ::testing::Test {
     kvs = new MemoryKVS();
     serializer = new MemorySerializer(kvs);
     wt = ServerThread(ip, thread_id);
-    global_hash_ring_map[1].insert_to_hash_ring(ip, thread_id);
+    global_hash_ring_map[1].insert(ip, thread_id);
   }
   virtual ~ServerHandlerTest() {
     delete kvs;
@@ -65,7 +65,7 @@ TEST_F(ServerHandlerTest, NodeJoin) {
 }
 
 TEST_F(ServerHandlerTest, NodeDepart) {
-  global_hash_ring_map[1].insert_to_hash_ring("1.0.0.1", 0);
+  global_hash_ring_map[1].insert("1.0.0.1", 0);
 
   EXPECT_EQ(global_hash_ring_map[1].size(), 6000);
   std::string serialized = "1:1.0.0.1";

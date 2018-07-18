@@ -46,7 +46,7 @@ void address_handler(
       ServerThreadSet threads = {};
 
       while (threads.size() == 0 && tier_id < kMaxTier) {
-        threads = kHashRingUtilInterface->get_responsible_threads(
+        threads = kHashRingUtil->get_responsible_threads(
             rt.get_replication_factor_connect_addr(), key, false,
             global_hash_ring_map, local_hash_ring_map, placement, pushers,
             {tier_id}, succeed, seed);
@@ -77,7 +77,7 @@ void address_handler(
     std::string serialized;
     addr_response.SerializeToString(&serialized);
 
-    kZmqUtilInterface->send_string(serialized,
-                                   &pushers[addr_request.response_address()]);
+    kZmqUtil->send_string(serialized,
+                          &pushers[addr_request.response_address()]);
   }
 }
