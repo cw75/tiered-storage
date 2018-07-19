@@ -90,6 +90,7 @@ void user_request_handler(
           auto ts = generate_timestamp(time_diff, wt.get_tid());
 
           process_put(key, ts, tuple.value(), serializer, key_size_map);
+          local_changeset.insert(key);
           tp->set_error(0);
         } else {
           logger->error("Unknown request type {} in user request handler.",

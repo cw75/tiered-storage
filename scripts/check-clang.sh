@@ -20,8 +20,8 @@ FILES=`git status --porcelain`
 MODIFIED=`git status --porcelain | wc -l`
 
 if [[ $MODIFIED -gt 0 ]]; then
-  echo "clang-format check failed. The following files had style issues:\n"
-  echo $FILES
+  echo -e "clang-format check failed. The following files had style issues:\n"
+  echo -e $FILES
 
   exit 1
 else
