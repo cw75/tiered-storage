@@ -14,10 +14,21 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-
 #include <iostream>
+#include <vector>
 
-#include "test_router_handlers.hpp"
+#include "gtest/gtest.h"
+#include "spdlog/spdlog.h"
+
+#include "misc.pb.h"
+#include "replication.pb.h"
+#include "requests.pb.h"
+#include "types.hpp"
+#include "utils/server_utils.hpp"
+
+#include "routing_handler_base.hpp"
+#include "test_seed_handler.hpp"
+#include "test_membership_handler.hpp"
 
 MockZmqUtil mock_zmq_util;
 ZmqUtilInterface* kZmqUtil = &mock_zmq_util;
