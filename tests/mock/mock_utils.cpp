@@ -33,6 +33,8 @@ ServerThreadSet MockHashRingUtil::get_responsible_threads(
     std::unordered_map<Key, KeyInfo>& placement, SocketCache& pushers,
     const std::vector<unsigned>& tier_ids, bool& succeed, unsigned& seed) {
   ServerThreadSet threads;
+  succeed = true;
+
   threads.insert(ServerThread("127.0.0.1", 0));
   return threads;
 }

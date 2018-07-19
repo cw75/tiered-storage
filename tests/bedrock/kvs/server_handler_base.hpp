@@ -23,6 +23,8 @@ HashRingUtilInterface* kHashRingUtil = &mock_hash_ring_util;
 std::shared_ptr<spdlog::logger> logger =
     spdlog::basic_logger_mt("mock_logger", "mock_log.txt", true);
 
+std::string kRequestId = "0";
+
 class ServerHandlerTest : public ::testing::Test {
  protected:
   Address ip = "127.0.0.1";
@@ -32,6 +34,13 @@ class ServerHandlerTest : public ::testing::Test {
   std::unordered_map<Key, KeyInfo> placement;
   std::unordered_map<Key, unsigned> key_size_map;
   ServerThread wt;
+  PendingMap<PendingRequest> pending_request_map;
+  PendingMap<PendingGossip> pending_gossip_map;
+  std::unordered_map<
+      Key, std::multiset<std::chrono::time_point<std::chrono::system_clock>>>
+      key_access_timestamp;
+  std::unordered_set<Key> local_changeset;
+
   zmq::context_t context;
   SocketCache pushers = SocketCache(&context, ZMQ_PUSH);
   Serializer* serializer;
@@ -65,5 +74,41 @@ class ServerHandlerTest : public ::testing::Test {
 
   std::vector<std::string> get_zmq_messages() {
     return mock_zmq_util.sent_messages;
+  }
+
+  // NOTE: Pass in an empty string to avoid putting something into the
+  // serializer
+  std::string get_key_request(Key key, std::string ip) {
+    KeyRequest request;
+    request.set_type(get_request_type("GET"));
+    request.set_response_address(
+        UserThread(ip, 0).get_request_pulling_connect_addr());
+    request.set_request_id(kRequestId);
+
+    KeyTuple* tp = request.add_tuples();
+    tp->set_key(key);
+
+    std::string request_str;
+    request.SerializeToString(&request_str);
+
+    return request_str;
+  }
+
+  std::string put_key_request(Key key, std::string value, std::string ip) {
+    KeyRequest request;
+    request.set_type(get_request_type("PUT"));
+    request.set_response_address(
+        UserThread(ip, 0).get_request_pulling_connect_addr());
+    request.set_request_id(kRequestId);
+
+    KeyTuple* tp = request.add_tuples();
+    tp->set_key(key);
+    tp->set_value(value);
+    tp->set_timestamp(0);
+
+    std::string request_str;
+    request.SerializeToString(&request_str);
+
+    return request_str;
   }
 };

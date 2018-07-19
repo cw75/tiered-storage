@@ -26,9 +26,13 @@
 #include "utils/server_utils.hpp"
 
 #include "bedrock/kvs/server_handler_base.hpp"
+#include "bedrock/kvs/test_gossip_handler.hpp"
 #include "bedrock/kvs/test_node_depart_handler.hpp"
 #include "bedrock/kvs/test_node_join_handler.hpp"
+#include "bedrock/kvs/test_rep_factor_change_handler.hpp"
+#include "bedrock/kvs/test_rep_factor_response_handler.hpp"
 #include "bedrock/kvs/test_self_depart_handler.hpp"
+#include "bedrock/kvs/test_user_request_handler.hpp"
 
 #include "include/lattices/test_bool_lattice.hpp"
 #include "include/lattices/test_map_lattice.hpp"
