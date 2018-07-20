@@ -19,11 +19,11 @@ SET(KVS_SRC_DIR ${CMAKE_SOURCE_DIR}/src/bedrock/kvs)
 FILE(GLOB HANDLER_SOURCES "${KVS_SRC_DIR}/*handler.cpp")
 FILE(GLOB MOCK_SOURCES "${CMAKE_SOURCE_DIR}/tests/mock/*.cpp")
 
-ADD_EXECUTABLE(run_server_handler_test
-         run_server_handler_tests.cpp
+ADD_EXECUTABLE(run_routing_handler_test
+         run_routing_handler_tests.cpp
          ${MOCK_SOURCES}
          ${HANDLER_SOURCES}
          ${KVS_SRC_DIR}/utils.cpp)
 
-TARGET_LINK_LIBRARIES(run_server_handler_test gtest gmock pthread flring zmq)
-ADD_DEPENDENCIES(run_server_handler_test gtest)
+TARGET_LINK_LIBRARIES(run_routing_handler_test gtest gmock pthread flring zmq)
+ADD_DEPENDENCIES(run_routing_handler_test gtest)

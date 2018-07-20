@@ -27,8 +27,11 @@
 #include "utils/server_utils.hpp"
 
 #include "routing_handler_base.hpp"
-#include "test_seed_handler.hpp"
+#include "test_address_handler.hpp"
 #include "test_membership_handler.hpp"
+#include "test_replication_change_handler.hpp"
+#include "test_replication_response_handler.hpp"
+#include "test_seed_handler.hpp"
 
 MockZmqUtil mock_zmq_util;
 ZmqUtilInterface* kZmqUtil = &mock_zmq_util;

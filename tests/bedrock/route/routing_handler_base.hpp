@@ -30,24 +30,10 @@ class RoutingHandlerTest : public ::testing::Test {
   std::unordered_map<unsigned, GlobalHashRing> global_hash_ring_map;
   std::unordered_map<unsigned, LocalHashRing> local_hash_ring_map;
   std::unordered_map<Key, KeyInfo> placement;
-  std::unordered_map<Key, unsigned> key_size_map;
-  ServerThread wt;
   zmq::context_t context;
   SocketCache pushers = SocketCache(&context, ZMQ_PUSH);
-  Serializer* serializer;
-  MemoryKVS* kvs;
 
-  RoutingHandlerTest() {
-    kvs = new MemoryKVS();
-    serializer = new MemorySerializer(kvs);
-    wt = ServerThread(ip, thread_id);
-    global_hash_ring_map[1].insert(ip, thread_id);
-  }
-
-  virtual ~RoutingHandlerTest() {
-    delete kvs;
-    delete serializer;
-  }
+  RoutingHandlerTest() { global_hash_ring_map[1].insert(ip, thread_id); }
 
  public:
   void SetUp() {

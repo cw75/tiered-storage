@@ -34,6 +34,13 @@
 #include "bedrock/kvs/test_self_depart_handler.hpp"
 #include "bedrock/kvs/test_user_request_handler.hpp"
 
+#include "bedrock/route/routing_handler_base.hpp"
+#include "bedrock/route/test_address_handler.hpp"
+#include "bedrock/route/test_membership_handler.hpp"
+#include "bedrock/route/test_replication_change_handler.hpp"
+#include "bedrock/route/test_replication_response_handler.hpp"
+#include "bedrock/route/test_seed_handler.hpp"
+
 #include "include/lattices/test_bool_lattice.hpp"
 #include "include/lattices/test_map_lattice.hpp"
 #include "include/lattices/test_max_lattice.hpp"
