@@ -33,11 +33,6 @@
 #include "test_replication_response_handler.hpp"
 #include "test_seed_handler.hpp"
 
-MockZmqUtil mock_zmq_util;
-ZmqUtilInterface* kZmqUtil = &mock_zmq_util;
-
-MockHashRingUtil mock_hash_ring_util;
-HashRingUtilInterface* kHashRingUtil = &mock_hash_ring_util;
 
 unsigned kDefaultLocalReplication = 1;
 unsigned kSelfTierId = 1;
