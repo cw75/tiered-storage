@@ -18,8 +18,9 @@ TEST_F(RoutingHandlerTest, Membership) {
   EXPECT_EQ(global_hash_ring_map[1].size(), 3000);
   EXPECT_EQ(global_hash_ring_map[1].get_unique_servers().size(), 1);
 
-  std::string serialized = "join:1:127.0.0.2"; 
-  membership_handler(logger, serialized, pushers, global_hash_ring_map, thread_id, ip);
+  std::string serialized = "join:1:127.0.0.2";
+  membership_handler(logger, serialized, pushers, global_hash_ring_map,
+                     thread_id, ip);
 
   std::vector<std::string> messages = get_zmq_messages();
   logger->info("Test got: " + messages[0]);

@@ -46,7 +46,6 @@
 #include "include/lattices/test_max_lattice.hpp"
 #include "include/lattices/test_set_lattice.hpp"
 
-
 unsigned kDefaultLocalReplication = 1;
 unsigned kSelfTierId = 1;
 unsigned kThreadNum = 1;

@@ -14,7 +14,6 @@
 
 #include "mock/mock_utils.hpp"
 
-
 class RoutingHandlerTest : public ::testing::Test {
  protected:
   Address ip = "127.0.0.1";

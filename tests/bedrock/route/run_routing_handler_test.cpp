@@ -33,7 +33,6 @@
 #include "test_replication_response_handler.hpp"
 #include "test_seed_handler.hpp"
 
-
 unsigned kDefaultLocalReplication = 1;
 unsigned kSelfTierId = 1;
 unsigned kThreadNum = 4;
