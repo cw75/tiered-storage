@@ -34,9 +34,7 @@
 #include "test_seed_handler.hpp"
 
 unsigned kDefaultLocalReplication = 1;
-unsigned kSelfTierId = 1;
-unsigned kThreadNum = 4;
-std::vector<unsigned> kSelfTierIdVector = {kSelfTierId};
+unsigned kThreadNum = 1;
 
 int main(int argc, char* argv[]) {
   logger->set_level(spdlog::level::off);

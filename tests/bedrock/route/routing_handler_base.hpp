@@ -21,18 +21,21 @@ class RoutingHandlerTest : public ::testing::Test {
   std::unordered_map<unsigned, GlobalHashRing> global_hash_ring_map;
   std::unordered_map<unsigned, LocalHashRing> local_hash_ring_map;
   std::unordered_map<Key, KeyInfo> placement;
+  PendingMap<std::pair<Address, std::string>> pending_key_request_map;
   zmq::context_t context;
   SocketCache pushers = SocketCache(&context, ZMQ_PUSH);
+  RoutingThread rt;
 
-  RoutingHandlerTest() { global_hash_ring_map[1].insert(ip, thread_id); }
+  RoutingHandlerTest() {
+    rt = RoutingThread(ip, thread_id);
+    global_hash_ring_map[1].insert(ip, thread_id);
+  }
 
  public:
   void SetUp() {
     // reset all global variables
     kDefaultLocalReplication = 1;
-    kSelfTierId = 1;
     kThreadNum = 1;
-    kSelfTierIdVector = {kSelfTierId};
   }
 
   void TearDown() {

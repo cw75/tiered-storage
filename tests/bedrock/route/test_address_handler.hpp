@@ -14,4 +14,39 @@
 
 #include "route/routing_handlers.hpp"
 
-// TODO: write actual tests
+TEST_F(RoutingHandlerTest, Address) {
+  EXPECT_EQ(global_hash_ring_map[1].size(), 3000);
+
+  unsigned seed = 0;
+
+  KeyAddressRequest req;
+  req.set_request_id("1");
+  req.set_response_address("tcp://127.0.0.1:5000");
+  req.add_keys("key");
+
+  std::string serialized;
+  req.SerializeToString(&serialized);
+
+  address_handler(logger, serialized, pushers, rt, global_hash_ring_map,
+                  local_hash_ring_map, placement, pending_key_request_map,
+                  seed);
+
+  std::vector<std::string> messages = get_zmq_messages();
+
+  EXPECT_EQ(messages.size(), 1);
+  std::string serialized_resp = messages[0];
+
+  KeyAddressResponse resp;
+  resp.ParseFromString(serialized_resp);
+
+  EXPECT_EQ(resp.response_id(), "1");
+  EXPECT_EQ(resp.error(), 0);
+
+  for (const KeyAddressResponse_KeyAddress& addr : resp.addresses()) {
+    std::string key = addr.key();
+    EXPECT_EQ(key, "key");
+    for (const std::string& ip : addr.ips()) {
+      EXPECT_EQ(ip, "tcp://127.0.0.1:6200");
+    }
+  }
+}

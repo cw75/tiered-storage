@@ -23,7 +23,6 @@ TEST_F(RoutingHandlerTest, Membership) {
                      thread_id, ip);
 
   std::vector<std::string> messages = get_zmq_messages();
-  logger->info("Test got: " + messages[0]);
 
   EXPECT_EQ(messages.size(), 1);
   EXPECT_EQ(messages[0], "1:127.0.0.2");

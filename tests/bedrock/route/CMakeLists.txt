@@ -14,9 +14,9 @@
 
 CMAKE_MINIMUM_REQUIRED(VERSION 3.6)
 
-SET(KVS_SRC_DIR ${CMAKE_SOURCE_DIR}/src/bedrock/route)
+SET(ROUTE_SRC_DIR ${CMAKE_SOURCE_DIR}/src/bedrock/route)
 
-FILE(GLOB HANDLER_SOURCES "${KVS_SRC_DIR}/*handler.cpp")
+FILE(GLOB HANDLER_SOURCES "${ROUTE_SRC_DIR}/*handler.cpp")
 FILE(GLOB MOCK_SOURCES "${CMAKE_SOURCE_DIR}/tests/mock/*.cpp")
 
 ADD_EXECUTABLE(run_routing_handler_test
