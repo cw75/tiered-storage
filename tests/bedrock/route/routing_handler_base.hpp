@@ -35,6 +35,8 @@ class RoutingHandlerTest : public ::testing::Test {
   void SetUp() {
     // reset all global variables
     kDefaultLocalReplication = 1;
+    kDefaultGlobalMemoryReplication = 1;
+    kDefaultGlobalEbsReplication = 1;
     kThreadNum = 1;
   }
 
@@ -45,5 +47,15 @@ class RoutingHandlerTest : public ::testing::Test {
 
   std::vector<std::string> get_zmq_messages() {
     return mock_zmq_util.sent_messages;
+  }
+
+  void warmup_placement_to_defaults(std::vector<std::string> keys) {
+    for (std::string key : keys) {
+      placement[key].global_replication_map_[1] =
+          kDefaultGlobalMemoryReplication;
+      placement[key].global_replication_map_[2] = kDefaultGlobalEbsReplication;
+      placement[key].local_replication_map_[1] = kDefaultLocalReplication;
+      placement[key].local_replication_map_[2] = kDefaultLocalReplication;
+    }
   }
 };

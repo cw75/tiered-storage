@@ -47,6 +47,8 @@
 #include "include/lattices/test_set_lattice.hpp"
 
 unsigned kDefaultLocalReplication = 1;
+unsigned kDefaultGlobalMemoryReplication = 1;
+unsigned kDefaultGlobalEbsReplication = 1;
 unsigned kSelfTierId = 1;
 unsigned kThreadNum = 1;
 std::vector<unsigned> kSelfTierIdVector = {kSelfTierId};
