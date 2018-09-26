@@ -76,7 +76,7 @@ using namespace std;
 unsigned MEM_NODE_CAPACITY = 60000000;
 unsigned EBS_NODE_CAPACITY = 256000000;
 // value size in KB
-#define VALUE_SIZE 256
+#define VALUE_SIZE 2
 
 // Define port offset
 // used by servers
@@ -620,9 +620,9 @@ proxy_thread_t get_random_proxy_thread(vector<string>& proxy_address, unsigned& 
 }
 
 void warmup(unordered_map<string, key_info>& placement) {
-  for (unsigned i = 1; i <= 1000000; i++) {
+  for (unsigned i = 1; i <= 100000000; i++) {
     // key is 8 bytes
-    string key = string(8 - to_string(i).length(), '0') + to_string(i);
+    string key = string(10 - to_string(i).length(), '0') + to_string(i);
     placement[key].global_replication_map_[1] = DEFAULT_GLOBAL_MEMORY_REPLICATION;
     placement[key].global_replication_map_[2] = DEFAULT_GLOBAL_EBS_REPLICATION;
     placement[key].local_replication_map_[1] = DEFAULT_LOCAL_REPLICATION;

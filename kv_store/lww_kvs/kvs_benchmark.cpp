@@ -264,7 +264,7 @@ void run(unsigned thread_id) {
         auto warmup_start = std::chrono::system_clock::now();
         for (unsigned i = 1; i <= num_keys; i++) {
           // key is 8 bytes
-          string key = string(8 - to_string(i).length(), '0') + to_string(i);
+          string key = string(10 - to_string(i).length(), '0') + to_string(i);
           if (i % 50000 == 0) {
             logger->info("warming up cache for key {}", key);
           }
@@ -322,7 +322,7 @@ void run(unsigned thread_id) {
           } else {
             k = rand_r(&seed) % (num_keys) + 1;
           }
-          key = string(8 - to_string(k).length(), '0') + to_string(k);
+          key = string(10 - to_string(k).length(), '0') + to_string(k);
           unsigned trial = 1;
           if (type == "G") {
             handle_request(key, "", pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
@@ -472,7 +472,7 @@ void run(unsigned thread_id) {
         auto warmup_start = std::chrono::system_clock::now();
         for (unsigned i = start; i < end; i++) {
           unsigned trial = 1;
-          key = string(8 - to_string(i).length(), '0') + to_string(i);
+          key = string(10 - to_string(i).length(), '0') + to_string(i);
           handle_request(key, string(length, 'a'), pushers, proxy_address, key_address_cache, seed, logger, ut, response_puller, key_address_puller, ip, thread_id, rid, trial);
           // reset rid
           if (rid > 10000000) {
