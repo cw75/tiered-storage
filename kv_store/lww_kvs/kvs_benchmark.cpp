@@ -29,19 +29,17 @@ double get_zipf_prob(unsigned rank, double skew, double base) {
   return pow(rank, -1*skew) / base;
 }
 
-int sample(int n, unsigned& seed, double base, unordered_map<unsigned, double>& sum_probs)
-{
+int sample(int n, unsigned& seed, double base, unordered_map<unsigned, double>& sum_probs, int offset) {
   double z;                     // Uniform random number (0 < z < 1)
   int zipf_value;               // Computed exponential value to be returned
-  int    i;                     // Loop counter
+  int i;                        // Loop counter
   int low, high, mid;           // Binary-search bounds
 
   // Pull a uniform random number (0 < z < 1)
   do
   {
     z = rand_r(&seed) / static_cast<double>(RAND_MAX);
-  }
-  while ((z == 0) || (z == 1));
+  } while ((z == 0) || (z == 1));
 
   // Map z to the value
   low = 1, high = n;
@@ -60,8 +58,11 @@ int sample(int n, unsigned& seed, double base, unordered_map<unsigned, double>& 
   // Assert that zipf_value is between 1 and N
   assert((zipf_value >=1) && (zipf_value <= n));
 
+  zipf_value = ((zipf_value + offset) % n) + 1;
+
   return(zipf_value);
 }
+
 
 void handle_request(
     string key,
@@ -287,6 +288,7 @@ void run(unsigned thread_id) {
         unsigned report_period = stoi(v[4]);
         unsigned time = stoi(v[5]);
         double contention = stod(v[6]);
+        unsigned offset = stoi(v[7]);
 
         unordered_map<unsigned, double> sum_probs;
         double base;
@@ -316,7 +318,7 @@ void run(unsigned thread_id) {
           string key;
           unsigned k;
           if (zipf > 0) {
-            k = sample(num_keys, seed, base, sum_probs);
+            k = sample(num_keys, seed, base, sum_probs, offset);
           } else {
             k = rand_r(&seed) % (num_keys) + 1;
           }
