@@ -46,11 +46,6 @@ void run(unsigned thread_id) {
   SocketCache pushers(&context, ZMQ_PUSH);
 
   unordered_map<string, key_info> placement;
-  // warm up for benchmark
-  
-  logger->info("begin warmup");
-  warmup(placement, logger);
-  logger->info("finish warmup");
 
   if (thread_id == 0) {
     string ip_line;
@@ -109,6 +104,11 @@ void run(unsigned thread_id) {
     { static_cast<void *>(replication_factor_change_puller), 0, ZMQ_POLLIN, 0 },
     { static_cast<void *>(key_address_puller), 0, ZMQ_POLLIN, 0 }
   };
+
+  // warm up for benchmark
+  logger->info("begin warmup");
+  warmup(placement, logger);
+  logger->info("finish warmup");
 
   auto start_time = chrono::system_clock::now();
   auto start_time_ms = chrono::time_point_cast<std::chrono::milliseconds>(start_time);

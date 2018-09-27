@@ -288,11 +288,6 @@ void run(unsigned thread_id) {
 
   unordered_map<string, key_info> placement;
 
-  // warm up for benchmark
-  logger->info("begin warmup");
-  warmup(placement, logger);
-  logger->info("finish warmup");
-
   vector<string> proxy_address;
 
   vector<string> monitoring_address;
@@ -426,6 +421,11 @@ void run(unsigned thread_id) {
     { static_cast<void *>(replication_factor_puller), 0, ZMQ_POLLIN, 0 },
     { static_cast<void *>(replication_factor_change_puller), 0, ZMQ_POLLIN, 0 }
   };
+
+  // warm up for benchmark
+  logger->info("begin warmup");
+  warmup(placement, logger);
+  logger->info("finish warmup");
 
   auto gossip_start = chrono::system_clock::now();
   auto gossip_end = chrono::system_clock::now();

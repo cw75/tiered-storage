@@ -216,10 +216,6 @@ int main(int argc, char* argv[]) {
 
   // keep track of the keys' replication info
   unordered_map<string, key_info> placement;
-  // warm up for benchmark
-  logger->info("begin warmup");
-  warmup(placement, logger);
-  logger->info("finish warmup");
 
   // keep track of the keys' access by worker address
   unordered_map<string, unordered_map<address_t, unsigned>> key_access_frequency;
@@ -291,6 +287,11 @@ int main(int argc, char* argv[]) {
     { static_cast<void *>(latency_puller), 0, ZMQ_POLLIN, 0 },
     { static_cast<void *>(slo_puller), 0, ZMQ_POLLIN, 0 }
   };
+
+  // warm up for benchmark
+  logger->info("begin warmup");
+  warmup(placement, logger);
+  logger->info("finish warmup");
 
   auto report_start = chrono::system_clock::now();
   auto report_end = chrono::system_clock::now();
