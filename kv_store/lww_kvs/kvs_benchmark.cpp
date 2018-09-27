@@ -297,11 +297,13 @@ void run(unsigned thread_id) {
 
         if (zipf > 0) {
           logger->info("zipf coefficient is {}", zipf);
+          logger->info("start creating prob table");
           base = get_base(num_keys, zipf);
           sum_probs[0] = 0;
           for (unsigned i = 1; i <= num_keys; i++) {
             sum_probs[i] = sum_probs[i-1] + base / pow((double) i, zipf);
           }
+          logger->info("finish creating prob table");
         } else {
           logger->info("uniform distribution");
         }

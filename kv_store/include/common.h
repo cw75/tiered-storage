@@ -619,8 +619,11 @@ proxy_thread_t get_random_proxy_thread(vector<string>& proxy_address, unsigned& 
   return proxy_thread_t(proxy_ip, tid);
 }
 
-void warmup(unordered_map<string, key_info>& placement) {
+void warmup(unordered_map<string, key_info>& placement, shared_ptr<spdlog::logger> logger) {
   for (unsigned i = 1; i <= 100000000; i++) {
+    if (i % 1000000 == 0) {
+      logger->info("i is {}", i);
+    }
     // key is 8 bytes
     string key = string(10 - to_string(i).length(), '0') + to_string(i);
     placement[key].global_replication_map_[1] = DEFAULT_GLOBAL_MEMORY_REPLICATION;

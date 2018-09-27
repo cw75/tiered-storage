@@ -289,7 +289,9 @@ void run(unsigned thread_id) {
   unordered_map<string, key_info> placement;
 
   // warm up for benchmark
-  warmup(placement);
+  logger->info("begin warmup");
+  warmup(placement, logger);
+  logger->info("finish warmup");
 
   vector<string> proxy_address;
 
