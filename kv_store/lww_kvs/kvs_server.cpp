@@ -423,9 +423,9 @@ void run(unsigned thread_id) {
   };
 
   // warm up for benchmark
-  logger->info("begin warmup");
+  /*logger->info("begin warmup");
   warmup(placement, logger);
-  logger->info("finish warmup");
+  logger->info("finish warmup");*/
 
   auto gossip_start = chrono::system_clock::now();
   auto gossip_end = chrono::system_clock::now();

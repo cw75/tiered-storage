@@ -289,9 +289,9 @@ int main(int argc, char* argv[]) {
   };
 
   // warm up for benchmark
-  logger->info("begin warmup");
+  /*logger->info("begin warmup");
   warmup(placement, logger);
-  logger->info("finish warmup");
+  logger->info("finish warmup");*/
 
   auto report_start = chrono::system_clock::now();
   auto report_end = chrono::system_clock::now();
@@ -736,6 +736,12 @@ int main(int argc, char* argv[]) {
         for (auto it = key_access_summary.begin(); it != key_access_summary.end(); it++) {
           string key = it->first;
           unsigned total_access = it->second;
+          if (placement.find(key) == placement.end()) {
+            placement[key].global_replication_map_[1] = DEFAULT_GLOBAL_MEMORY_REPLICATION;
+            placement[key].global_replication_map_[2] = DEFAULT_GLOBAL_EBS_REPLICATION;
+            placement[key].local_replication_map_[1] = DEFAULT_LOCAL_REPLICATION;
+            placement[key].local_replication_map_[2] = DEFAULT_LOCAL_REPLICATION;
+          }
           if (!is_metadata(key) && total_access > PROMOTE_THRESHOLD && placement[key].global_replication_map_[1] == 0) {
             total_rep_to_change += 1;
             if (total_rep_to_change > slot) {

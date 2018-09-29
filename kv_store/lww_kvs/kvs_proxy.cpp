@@ -106,9 +106,9 @@ void run(unsigned thread_id) {
   };
 
   // warm up for benchmark
-  logger->info("begin warmup");
+  /*logger->info("begin warmup");
   warmup(placement, logger);
-  logger->info("finish warmup");
+  logger->info("finish warmup");*/
 
   auto start_time = chrono::system_clock::now();
   auto start_time_ms = chrono::time_point_cast<std::chrono::milliseconds>(start_time);

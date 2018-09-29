@@ -566,8 +566,11 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads(
   } else {
     unordered_set<server_thread_t, thread_hash> result;
     if (placement.find(key) == placement.end()) {
-      issue_replication_factor_request(respond_address, key, global_hash_ring_map[1], local_hash_ring_map[1], pushers, seed);
-      succeed = false;
+      placement[key].global_replication_map_[1] = DEFAULT_GLOBAL_MEMORY_REPLICATION;
+      placement[key].global_replication_map_[2] = DEFAULT_GLOBAL_EBS_REPLICATION;
+      placement[key].local_replication_map_[1] = DEFAULT_LOCAL_REPLICATION;
+      placement[key].local_replication_map_[2] = DEFAULT_LOCAL_REPLICATION;
+      succeed = true;
     } else {
       for (auto id_iter = tier_ids.begin(); id_iter != tier_ids.end(); id_iter++) {
         unsigned tier_id = *id_iter;
