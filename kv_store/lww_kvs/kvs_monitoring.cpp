@@ -726,7 +726,7 @@ int main(int argc, char* argv[]) {
       unsigned ebs_node_number = global_hash_ring_map[2].size() / VIRTUAL_THREAD_NUM;
 
       // Policy Start Here:
-      /*if (true) {
+      if (true) {
         unordered_map<string, key_info> requests;
         unsigned total_rep_to_change = 0;
 
@@ -777,7 +777,7 @@ int main(int argc, char* argv[]) {
         total_rep_to_change = 0;
       } else {
         logger->info("policy not started");
-      }*/
+      }
 
       user_latency.clear();
       user_throughput.clear();

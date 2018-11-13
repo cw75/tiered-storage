@@ -31,8 +31,8 @@ using namespace std;
 #define METADATA_REPLICATION_FACTOR 2
 
 // Define the default replication factor for the data
-#define DEFAULT_GLOBAL_MEMORY_REPLICATION 3
-#define DEFAULT_GLOBAL_EBS_REPLICATION 0
+#define DEFAULT_GLOBAL_MEMORY_REPLICATION 0
+#define DEFAULT_GLOBAL_EBS_REPLICATION 3
 #define MINIMUM_REPLICA_NUMBER 3
 // Define the default local replication factor
 #define DEFAULT_LOCAL_REPLICATION 1
@@ -76,7 +76,7 @@ using namespace std;
 unsigned MEM_NODE_CAPACITY = 60000000;
 unsigned EBS_NODE_CAPACITY = 256000000;
 // value size in KB
-#define VALUE_SIZE 2
+#define VALUE_SIZE 256
 
 // Define port offset
 // used by servers
