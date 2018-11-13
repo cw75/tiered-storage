@@ -289,9 +289,9 @@ int main(int argc, char* argv[]) {
   };
 
   // warm up for benchmark
-  /*logger->info("begin warmup");
+  logger->info("begin warmup");
   warmup(placement, logger);
-  logger->info("finish warmup");*/
+  logger->info("finish warmup");
 
   auto report_start = chrono::system_clock::now();
   auto report_end = chrono::system_clock::now();

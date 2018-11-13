@@ -570,21 +570,19 @@ unordered_set<server_thread_t, thread_hash> get_responsible_threads(
       placement[key].global_replication_map_[2] = DEFAULT_GLOBAL_EBS_REPLICATION;
       placement[key].local_replication_map_[1] = DEFAULT_LOCAL_REPLICATION;
       placement[key].local_replication_map_[2] = DEFAULT_LOCAL_REPLICATION;
-      succeed = true;
-    } else {
-      for (auto id_iter = tier_ids.begin(); id_iter != tier_ids.end(); id_iter++) {
-        unsigned tier_id = *id_iter;
-        auto mts = responsible_global(key, placement[key].global_replication_map_[tier_id], global_hash_ring_map[tier_id]);
-        for (auto it = mts.begin(); it != mts.end(); it++) {
-          string ip = it->get_ip();
-          auto tids = responsible_local(key, placement[key].local_replication_map_[tier_id], local_hash_ring_map[tier_id]);
-          for (auto iter = tids.begin(); iter != tids.end(); iter++) {
-            result.insert(server_thread_t(ip, *iter));
-          }
+    }
+    for (auto id_iter = tier_ids.begin(); id_iter != tier_ids.end(); id_iter++) {
+      unsigned tier_id = *id_iter;
+      auto mts = responsible_global(key, placement[key].global_replication_map_[tier_id], global_hash_ring_map[tier_id]);
+      for (auto it = mts.begin(); it != mts.end(); it++) {
+        string ip = it->get_ip();
+        auto tids = responsible_local(key, placement[key].local_replication_map_[tier_id], local_hash_ring_map[tier_id]);
+        for (auto iter = tids.begin(); iter != tids.end(); iter++) {
+          result.insert(server_thread_t(ip, *iter));
         }
       }
-      succeed = true;
     }
+    succeed = true;
     return result;
   }
 }
@@ -623,7 +621,7 @@ proxy_thread_t get_random_proxy_thread(vector<string>& proxy_address, unsigned& 
 }
 
 void warmup(unordered_map<string, key_info>& placement, shared_ptr<spdlog::logger> logger) {
-  for (unsigned i = 1; i <= 100000000; i++) {
+  for (unsigned i = 1; i <= 1000000; i++) {
     if (i % 1000000 == 0) {
       logger->info("i is {}", i);
     }
